@@ -13,15 +13,17 @@ interface MealPlannerProps {
   onDrop: (day: string, mealType: MealType, recipe: Recipe) => void;
   onClearMeal: (day: string, mealType: MealType) => void;
   onRecipeClick: (recipe: Recipe) => void;
+  onRemoveRecipeFromMeal: (day: string, mealType: MealType, recipeId: string) => void;
 }
 
 interface MealSlotProps {
   day: string;
   mealType: MealType;
-  mealRecipe: Recipe | null;
+  mealRecipes: Recipe[];
   onDrop: (day: string, mealType: MealType, recipe: Recipe) => void;
   onClearMeal: (day: string, mealType: MealType) => void;
   onRecipeClick: (recipe: Recipe) => void;
+  onRemoveRecipeFromMeal: (day: string, mealType: MealType, recipeId: string) => void;
 }
 
 const DailyTotalsRow = ({ totals }: { totals: Macros }) => (
@@ -53,7 +55,7 @@ const DailyTotalsRow = ({ totals }: { totals: Macros }) => (
 );
 
 
-function MealSlot({ day, mealType, mealRecipe, onDrop, onClearMeal, onRecipeClick }: MealSlotProps) {
+function MealSlot({ day, mealType, mealRecipes, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal }: MealSlotProps) {
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
   };
@@ -74,22 +76,36 @@ function MealSlot({ day, mealType, mealRecipe, onDrop, onClearMeal, onRecipeClic
 
   return (
     <div onDragOver={handleDragOver} onDrop={handleDrop} className="relative">
-      <h4 className="text-sm font-medium text-muted-foreground mb-2 pl-1">{mealTitle}</h4>
-      <div className="h-24 rounded-lg border-2 border-dashed bg-muted/50 flex items-center justify-center p-0 relative group overflow-hidden">
-        {mealRecipe ? (
-          <>
-            <div className="w-full h-full cursor-pointer" onClick={() => onRecipeClick(mealRecipe)}>
-              <RecipeCard recipe={mealRecipe} isCompact />
+      <div className="flex justify-between items-center mb-2 pl-1">
+        <h4 className="text-sm font-medium text-muted-foreground">{mealTitle}</h4>
+        {mealRecipes.length > 0 && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={(e) => { e.stopPropagation(); onClearMeal(day, mealType); }}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+      <div className="min-h-24 rounded-lg border-2 border-dashed bg-muted/50 flex flex-col items-center justify-center p-2 gap-2 relative group overflow-hidden">
+        {mealRecipes.length > 0 ? (
+          mealRecipes.map(recipe => (
+            <div key={recipe.id} className="w-full relative group/item">
+              <div onClick={() => onRecipeClick(recipe)}>
+                <RecipeCard recipe={recipe} isCompact />
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-1/2 -translate-y-1/2 right-0 h-6 w-6 opacity-0 group-hover/item:opacity-100 transition-opacity z-10 bg-card/70 hover:bg-card"
+                onClick={(e) => { e.stopPropagation(); onRemoveRecipeFromMeal(day, mealType, recipe.id); }}
+              >
+                <X className="h-3 w-3" />
+              </Button>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-card/70 hover:bg-card"
-              onClick={(e) => { e.stopPropagation(); onClearMeal(day, mealType); }}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </>
+          ))
         ) : (
           <p className="text-xs text-center text-muted-foreground px-2">Arrastra una receta aquí</p>
         )}
@@ -98,7 +114,7 @@ function MealSlot({ day, mealType, mealRecipe, onDrop, onClearMeal, onRecipeClic
   );
 }
 
-export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onRecipeClick }: MealPlannerProps) {
+export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal }: MealPlannerProps) {
   return (
     <Card className="h-full">
       <CardHeader>
@@ -116,10 +132,10 @@ export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onReci
               <div key={day} className="flex flex-col gap-4 p-4 rounded-xl bg-secondary/50 w-[170px] flex-shrink-0">
                 <h3 className="font-semibold text-center text-lg text-card-foreground">{day}</h3>
                 <div className="space-y-4">
-                  <MealSlot day={day} mealType="breakfast" mealRecipe={meals.breakfast.recipe} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} />
-                  <MealSlot day={day} mealType="lunch" mealRecipe={meals.lunch.recipe} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} />
-                  <MealSlot day={day} mealType="snack" mealRecipe={meals.snack.recipe} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} />
-                  <MealSlot day={day} mealType="dinner" mealRecipe={meals.dinner.recipe} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} />
+                  <MealSlot day={day} mealType="breakfast" mealRecipes={meals.breakfast.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
+                  <MealSlot day={day} mealType="lunch" mealRecipes={meals.lunch.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
+                  <MealSlot day={day} mealType="snack" mealRecipes={meals.snack.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
+                  <MealSlot day={day} mealType="dinner" mealRecipes={meals.dinner.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
                 </div>
                 {dayTotals && <DailyTotalsRow totals={dayTotals} />}
               </div>

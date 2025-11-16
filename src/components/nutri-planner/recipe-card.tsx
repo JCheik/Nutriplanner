@@ -65,6 +65,17 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
       </Card>
     );
   }
+
+  if (isCompact) {
+    return (
+        <div 
+          className="bg-card p-2 rounded-md w-full cursor-pointer hover:bg-card/80"
+          onClick={onClick}
+        >
+            <p className="text-xs font-semibold text-card-foreground truncate">{recipe.name}</p>
+        </div>
+    );
+  }
   
   return (
     <Card

@@ -47,11 +47,11 @@ export const INITIAL_RECIPES: Recipe[] = [
 ];
 
 export const INITIAL_WEEK_PLAN: WeekPlan = [
-  { day: 'Lunes', meals: { breakfast: { id: 'm1', recipe: null }, lunch: { id: 'm2', recipe: INITIAL_RECIPES[0] }, snack: { id: 'm22', recipe: null }, dinner: { id: 'm3', recipe: null } } },
-  { day: 'Martes', meals: { breakfast: { id: 'm4', recipe: null }, lunch: { id: 'm5', recipe: null }, snack: { id: 'm23', recipe: null }, dinner: { id: 'm6', recipe: INITIAL_RECIPES[2] } } },
-  { day: 'Miércoles', meals: { breakfast: { id: 'm7', recipe: null }, lunch: { id: 'm8', recipe: null }, snack: { id: 'm24', recipe: null }, dinner: { id: 'm9', recipe: null } } },
-  { day: 'Jueves', meals: { breakfast: { id: 'm10', recipe: null }, lunch: { id: 'm11', recipe: INITIAL_RECIPES[0] }, snack: { id: 'm25', recipe: null }, dinner: { id: 'm12', recipe: INITIAL_RECIPES[1] } } },
-  { day: 'Viernes', meals: { breakfast: { id: 'm13', recipe: null }, lunch: { id: 'm14', recipe: null }, snack: { id: 'm26', recipe: null }, dinner: { id: 'm15', recipe: null } } },
-  { day: 'Sábado', meals: { breakfast: { id: 'm16', recipe: null }, lunch: { id: 'm17', recipe: null }, snack: { id: 'm27', recipe: null }, dinner: { id: 'm18', recipe: null } } },
-  { day: 'Domingo', meals: { breakfast: { id: 'm19', recipe: null }, lunch: { id: 'm20', recipe: null }, snack: { id: 'm28', recipe: null }, dinner: { id: 'm21', recipe: null } } },
+  { day: 'Lunes', meals: { breakfast: { id: 'm1', recipes: [] }, lunch: { id: 'm2', recipes: [INITIAL_RECIPES[0]] }, snack: { id: 'm22', recipes: [] }, dinner: { id: 'm3', recipes: [] } } },
+  { day: 'Martes', meals: { breakfast: { id: 'm4', recipes: [] }, lunch: { id: 'm5', recipes: [] }, snack: { id: 'm23', recipes: [] }, dinner: { id: 'm6', recipes: [INITIAL_RECIPES[2]] } } },
+  { day: 'Miércoles', meals: { breakfast: { id: 'm7', recipes: [] }, lunch: { id: 'm8', recipes: [] }, snack: { id: 'm24', recipes: [] }, dinner: { id: 'm9', recipes: [] } } },
+  { day: 'Jueves', meals: { breakfast: { id: 'm10', recipes: [] }, lunch: { id: 'm11', recipes: [INITIAL_RECIPES[0]] }, snack: { id: 'm25', recipes: [] }, dinner: { id: 'm12', recipes: [INITIAL_RECIPES[1]] } } },
+  { day: 'Viernes', meals: { breakfast: { id: 'm13', recipes: [] }, lunch: { id: 'm14', recipes: [] }, snack: { id: 'm26', recipes: [] }, dinner: { id: 'm15', recipes: [] } } },
+  { day: 'Sábado', meals: { breakfast: { id: 'm16', recipes: [] }, lunch: { id: 'm17', recipes: [] }, snack: { id: 'm27', recipes: [] }, dinner: { id: 'm18', recipes: [] } } },
+  { day: 'Domingo', meals: { breakfast: { id: 'm19', recipes: [] }, lunch: { id: 'm20', recipes: [] }, snack: { id: 'm28', recipes: [] }, dinner: { id: 'm21', recipes: [] } } },
 ];

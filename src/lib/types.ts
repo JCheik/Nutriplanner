@@ -25,7 +25,7 @@ export type MealType = 'breakfast' | 'lunch' | 'snack' | 'dinner';
 
 export interface Meal {
   id: string;
-  recipe: Recipe | null;
+  recipes: Recipe[];
 }
 
 export interface DayPlan {
