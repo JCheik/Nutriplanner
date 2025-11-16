@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import type { DialogState, Recipe, Ingredient } from '@/lib/types';
 import { ingredientsDB, type BaseIngredient } from '@/lib/ingredients';
 import {
@@ -62,16 +62,16 @@ function RecipeView({ recipe, onEdit, onDelete }: { recipe: Recipe, onEdit: (rec
             <Image src={recipe.imageUrl || `https://picsum.photos/seed/${recipe.id}/400/300`} alt={recipe.name} layout="fill" objectFit="cover" data-ai-hint="food meal"/>
           </div>
           <div className="grid grid-cols-4 gap-2 text-center">
-            <MacroDisplay label="Calories" value={recipe.calories} unit="kcal" icon={Flame} />
-            <MacroDisplay label="Protein" value={recipe.protein} unit="g" icon={EggFried} />
+            <MacroDisplay label="Calorías" value={recipe.calories} unit="kcal" icon={Flame} />
+            <MacroDisplay label="Proteína" value={recipe.protein} unit="g" icon={EggFried} />
             <MacroDisplay label="Carbs" value={recipe.carbs} unit="g" icon={Wheat} />
-            <MacroDisplay label="Fat" value={recipe.fat} unit="g" icon={Droplets} />
+            <MacroDisplay label="Grasa" value={recipe.fat} unit="g" icon={Droplets} />
           </div>
         </div>
         <ScrollArea className="h-96">
           <div className="space-y-4">
             <div>
-              <h3 className="font-semibold mb-2">Ingredients</h3>
+              <h3 className="font-semibold mb-2">Ingredientes</h3>
               <ul className="list-disc list-inside space-y-1 text-sm">
                 {recipe.ingredients.map(ing => (
                   <li key={ing.id}>{ing.quantity}{ing.unit} {ing.name}</li>
@@ -79,7 +79,7 @@ function RecipeView({ recipe, onEdit, onDelete }: { recipe: Recipe, onEdit: (rec
               </ul>
             </div>
             <div>
-              <h3 className="font-semibold mb-2">Instructions</h3>
+              <h3 className="font-semibold mb-2">Instrucciones</h3>
               <p className="text-sm whitespace-pre-wrap">{recipe.instructions}</p>
             </div>
           </div>
@@ -88,22 +88,22 @@ function RecipeView({ recipe, onEdit, onDelete }: { recipe: Recipe, onEdit: (rec
       <DialogFooter className="mt-6">
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="destructive" className="mr-auto"><Trash2 className="mr-2 h-4 w-4" /> Delete</Button>
+            <Button variant="destructive" className="mr-auto"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
               <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the recipe.
+                Esta acción no se puede deshacer. Esto eliminará permanentemente la receta.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => onDelete(recipe.id)}>Delete</AlertDialogAction>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={() => onDelete(recipe.id)}>Borrar</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-        <Button variant="outline" onClick={() => onEdit(recipe)}><Edit className="mr-2 h-4 w-4" /> Edit</Button>
+        <Button variant="outline" onClick={() => onEdit(recipe)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
       </DialogFooter>
     </>
   );
@@ -176,38 +176,38 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{initialRecipe ? 'Edit Recipe' : 'Create New Recipe'}</DialogTitle>
+        <DialogTitle>{initialRecipe ? 'Editar Receta' : 'Crear Nueva Receta'}</DialogTitle>
       </DialogHeader>
       <div className="grid md:grid-cols-2 gap-6 py-4">
         <div className="space-y-4">
           <div>
-            <Label htmlFor="name">Recipe Name</Label>
+            <Label htmlFor="name">Nombre de la Receta</Label>
             <Input id="name" value={name} onChange={e => setName(e.target.value)} />
           </div>
           <div>
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">Descripción</Label>
             <Textarea id="description" value={description} onChange={e => setDescription(e.target.value)} />
           </div>
           <div>
-            <Label htmlFor="instructions">Instructions</Label>
+            <Label htmlFor="instructions">Instrucciones</Label>
             <Textarea id="instructions" value={instructions} onChange={e => setInstructions(e.target.value)} className="h-40" />
           </div>
         </div>
         <div className="space-y-4">
-          <Label>Ingredients</Label>
+          <Label>Ingredientes</Label>
           <div className="p-2 border rounded-lg space-y-2">
             <div className="flex gap-2 items-end">
               <div className="flex-grow">
-                <Label className="text-xs">Ingredient</Label>
+                <Label className="text-xs">Ingrediente</Label>
                 <Popover open={open} onOpenChange={setOpen}>
                   <PopoverTrigger asChild>
-                    <Input value={newIngredientName} onChange={(e) => setNewIngredientName(e.target.value)} placeholder="Search ingredient..." />
+                    <Input value={newIngredientName} onChange={(e) => setNewIngredientName(e.target.value)} placeholder="Buscar ingrediente..." />
                   </PopoverTrigger>
                   <PopoverContent className="w-[200px] p-0">
                     <Command>
-                      <CommandInput placeholder="Search ingredient..." />
+                      <CommandInput placeholder="Buscar ingrediente..." />
                       <CommandList>
-                        <CommandEmpty>No results found.</CommandEmpty>
+                        <CommandEmpty>No se encontraron resultados.</CommandEmpty>
                         <CommandGroup>
                           {ingredientsDB.map((ing) => (
                             <CommandItem key={ing.name} onSelect={() => handleSelectIngredient(ing)}>
@@ -221,7 +221,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
                 </Popover>
               </div>
               <div className="w-24">
-                <Label className="text-xs">Quantity (g/ml)</Label>
+                <Label className="text-xs">Cantidad (g/ml)</Label>
                 <Input type="number" value={newIngredientQty} onChange={e => setNewIngredientQty(parseFloat(e.target.value))} />
               </div>
               <Button size="icon" onClick={addIngredient}><PlusCircle className="h-4 w-4" /></Button>
@@ -239,16 +239,16 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
             </ScrollArea>
           </div>
           <div className="grid grid-cols-4 gap-2 text-center">
-            <MacroDisplay label="Calories" value={totals.calories} unit="kcal" icon={Flame} />
-            <MacroDisplay label="Protein" value={totals.protein} unit="g" icon={EggFried} />
+            <MacroDisplay label="Calorías" value={totals.calories} unit="kcal" icon={Flame} />
+            <MacroDisplay label="Proteína" value={totals.protein} unit="g" icon={EggFried} />
             <MacroDisplay label="Carbs" value={totals.carbs} unit="g" icon={Wheat} />
-            <MacroDisplay label="Fat" value={totals.fat} unit="g" icon={Droplets} />
+            <MacroDisplay label="Grasa" value={totals.fat} unit="g" icon={Droplets} />
           </div>
         </div>
       </div>
       <DialogFooter>
-        <Button variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button onClick={handleSave}>Save Recipe</Button>
+        <Button variant="outline" onClick={onCancel}>Cancelar</Button>
+        <Button onClick={handleSave}>Guardar Receta</Button>
       </DialogFooter>
     </>
   );

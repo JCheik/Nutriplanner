@@ -29,7 +29,7 @@ export interface Meal {
 }
 
 export interface DayPlan {
-  day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
+  day: 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' | 'Sábado' | 'Domingo';
   meals: Record<MealType, Meal>;
 }
 

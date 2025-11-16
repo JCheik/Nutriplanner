@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label';
 import { Sparkles, Loader2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { Recipe } from '@/lib/types';
-import { ScrollArea } from '../ui/scroll-area';
 
 interface AiSuggesterProps {
   onSuggest: (ingredients: string[], dietaryPreferences: string) => Promise<Recipe[] | undefined>;
@@ -19,7 +18,6 @@ export function AiSuggester({ onSuggest }: AiSuggesterProps) {
   const [currentIngredient, setCurrentIngredient] = useState('');
   const [dietaryPreferences, setDietaryPreferences] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [suggestedRecipes, setSuggestedRecipes] = useState<Recipe[]>([]);
 
   const handleAddIngredient = () => {
     if (currentIngredient && !ingredients.includes(currentIngredient)) {
@@ -36,12 +34,7 @@ export function AiSuggester({ onSuggest }: AiSuggesterProps) {
     e.preventDefault();
     if (ingredients.length === 0) return;
     setIsLoading(true);
-    setSuggestedRecipes([]);
-    const recipes = await onSuggest(ingredients, dietaryPreferences);
-    if(recipes) {
-      // For demonstration, we're not doing anything with the returned recipes here
-      // as they are already added to the library in the parent component.
-    }
+    await onSuggest(ingredients, dietaryPreferences);
     setIsLoading(false);
   };
 
@@ -50,23 +43,23 @@ export function AiSuggester({ onSuggest }: AiSuggesterProps) {
       <CardHeader>
         <div className="flex items-center gap-3">
           <Sparkles className="h-6 w-6 text-primary" />
-          <CardTitle>AI Recipe Suggester</CardTitle>
+          <CardTitle>Sugeridor de Recetas con IA</CardTitle>
         </div>
-        <CardDescription>Out of ideas? Let AI create recipes from what you have.</CardDescription>
+        <CardDescription>¿Sin ideas? Deja que la IA cree recetas con lo que tienes.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="ingredients">Available Ingredients</Label>
+            <Label htmlFor="ingredients">Ingredientes Disponibles</Label>
             <div className="flex gap-2 mt-2">
               <Input
                 id="ingredients"
-                placeholder="e.g., chicken breast, tomatoes"
+                placeholder="ej., pechuga de pollo, tomates"
                 value={currentIngredient}
                 onChange={(e) => setCurrentIngredient(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddIngredient(); } }}
               />
-              <Button type="button" onClick={handleAddIngredient}>Add</Button>
+              <Button type="button" onClick={handleAddIngredient}>Añadir</Button>
             </div>
             <div className="flex flex-wrap gap-2 mt-3">
               {ingredients.map((ing) => (
@@ -80,10 +73,10 @@ export function AiSuggester({ onSuggest }: AiSuggesterProps) {
             </div>
           </div>
           <div>
-            <Label htmlFor="dietary">Dietary Preferences (optional)</Label>
+            <Label htmlFor="dietary">Preferencias Dietéticas (opcional)</Label>
             <Input
               id="dietary"
-              placeholder="e.g., vegetarian, gluten-free"
+              placeholder="ej., vegetariano, sin gluten"
               value={dietaryPreferences}
               onChange={(e) => setDietaryPreferences(e.target.value)}
               className="mt-2"
@@ -91,7 +84,7 @@ export function AiSuggester({ onSuggest }: AiSuggesterProps) {
           </div>
           <Button type="submit" disabled={isLoading || ingredients.length === 0} className="w-full">
             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-            Suggest Recipes
+            Sugerir Recetas
           </Button>
         </form>
       </CardContent>

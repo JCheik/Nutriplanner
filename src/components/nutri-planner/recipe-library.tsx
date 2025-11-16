@@ -20,13 +20,13 @@ export function RecipeLibrary({ recipes, onRecipeAction }: RecipeLibraryProps) {
           <div>
             <div className="flex items-center gap-3">
               <BookHeart className="h-6 w-6 text-primary" />
-              <CardTitle>Recipe Library</CardTitle>
+              <CardTitle>Biblioteca de Recetas</CardTitle>
             </div>
-            <CardDescription>Your collection of saved recipes.</CardDescription>
+            <CardDescription>Tu colección de recetas guardadas.</CardDescription>
           </div>
           <Button onClick={() => onRecipeAction('create')}>
             <PlusCircle className="mr-2 h-4 w-4" />
-            New Recipe
+            Nueva Receta
           </Button>
         </div>
       </CardHeader>
@@ -44,8 +44,8 @@ export function RecipeLibrary({ recipes, onRecipeAction }: RecipeLibraryProps) {
               ))
             ) : (
               <div className="col-span-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg h-64">
-                  <p className="text-muted-foreground">Your library is empty.</p>
-                  <p className="text-sm text-muted-foreground">Create a recipe or use the AI suggester to get started!</p>
+                  <p className="text-muted-foreground">Tu biblioteca está vacía.</p>
+                  <p className="text-sm text-muted-foreground">¡Crea una receta o usa el sugeridor de IA para empezar!</p>
               </div>
             )}
           </div>

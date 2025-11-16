@@ -126,7 +126,7 @@ export default function Home() {
           return {
             id: self.crypto.randomUUID(),
             name: r.name,
-            description: `AI suggested recipe based on your ingredients.`,
+            description: `Receta sugerida por IA basada en tus ingredientes.`,
             instructions: r.instructions,
             ingredients: recipeIngredients,
             calories: totalMacros.calories,
@@ -137,26 +137,24 @@ export default function Home() {
           };
         });
         
-        // Present the suggestions to the user, perhaps in a dialog or a list
-        // For simplicity, we'll just add the first one to the library
         setRecipes(prev => [...newRecipes, ...prev]);
         toast({
-          title: "Recipes Suggested!",
-          description: `${result.recipes.length} new recipes have been added to your library.`,
+          title: "¡Recetas sugeridas!",
+          description: `Se han añadido ${result.recipes.length} nuevas recetas a tu biblioteca.`,
         });
         return newRecipes;
       } else {
         toast({
-          title: "No recipes found",
-          description: "The AI couldn't find any recipes with your ingredients. Try adding more!",
+          title: "No se encontraron recetas",
+          description: "La IA no pudo encontrar ninguna receta con tus ingredientes. ¡Intenta añadir más!",
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error('AI suggestion failed:', error);
+      console.error('La sugerencia de IA falló:', error);
       toast({
-        title: "AI Error",
-        description: "Something went wrong while getting suggestions. Please try again.",
+        title: "Error de IA",
+        description: "Algo salió mal al obtener sugerencias. Por favor, inténtalo de nuevo.",
         variant: "destructive",
       });
     }

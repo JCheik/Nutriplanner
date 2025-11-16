@@ -36,7 +36,12 @@ function MealSlot({ day, mealType, mealRecipe, onDrop, onClearMeal, onRecipeClic
     onDrop(day, mealType, recipe);
   };
   
-  const mealTitle = mealType.charAt(0).toUpperCase() + mealType.slice(1);
+  const mealTitles: Record<MealType, string> = {
+    breakfast: 'Desayuno',
+    lunch: 'Almuerzo',
+    dinner: 'Cena',
+  };
+  const mealTitle = mealTitles[mealType];
 
   return (
     <div onDragOver={handleDragOver} onDrop={handleDrop} className="relative">
@@ -57,7 +62,7 @@ function MealSlot({ day, mealType, mealRecipe, onDrop, onClearMeal, onRecipeClic
             </Button>
           </>
         ) : (
-          <p className="text-xs text-muted-foreground">Drop a recipe here</p>
+          <p className="text-xs text-muted-foreground">Arrastra una receta aquí</p>
         )}
       </div>
     </div>
@@ -70,9 +75,9 @@ export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onReci
       <CardHeader>
         <div className="flex items-center gap-3">
           <CalendarDays className="h-6 w-6 text-primary" />
-          <CardTitle>Weekly Meal Plan</CardTitle>
+          <CardTitle>Plan de Comidas Semanal</CardTitle>
         </div>
-        <CardDescription>Drag and drop recipes from your library to plan your week.</CardDescription>
+        <CardDescription>Arrastra y suelta recetas de tu biblioteca para planificar tu semana.</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4">
