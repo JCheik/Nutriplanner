@@ -9,6 +9,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { ingredientsDB } from '@/lib/ingredients';
 
 const SuggestRecipesFromIngredientsInputSchema = z.object({
   ingredients: z
@@ -22,12 +23,18 @@ const SuggestRecipesFromIngredientsInputSchema = z.object({
 export type SuggestRecipesFromIngredientsInput =
   z.infer<typeof SuggestRecipesFromIngredientsInputSchema>;
 
+const SuggestedIngredientSchema = z.object({
+  name: z.string().describe('The exact name of the ingredient from the provided database list.'),
+  quantity: z.number().describe('The quantity of the ingredient.'),
+  unit: z.string().describe('The unit for the quantity (e.g., g, ml, units).'),
+});
+
 const SuggestRecipesFromIngredientsOutputSchema = z.object({
   recipes: z
     .array(
       z.object({
         name: z.string().describe('The name of the recipe.'),
-        ingredients: z.array(z.string()).describe('The ingredients required for the recipe, including quantities and units (e.g., "100g Chicken Breast").'),
+        ingredients: z.array(SuggestedIngredientSchema).describe('The ingredients required for the recipe. MUST use ingredients from the database.'),
         instructions: z.string().describe('The instructions for preparing the recipe.'),
       })
     )
@@ -42,6 +49,8 @@ export async function suggestRecipesFromIngredients(
   return suggestRecipesFromIngredientsFlow(input);
 }
 
+const dbIngredientNames = ingredientsDB.map(i => i.name).join(', ');
+
 const prompt = ai.definePrompt({
   name: 'suggestRecipesFromIngredientsPrompt',
   input: {schema: SuggestRecipesFromIngredientsInputSchema},
@@ -49,10 +58,15 @@ const prompt = ai.definePrompt({
   prompt: `Eres una IA para sugerir recetas. Dada una lista de ingredientes y preferencias dietéticas opcionales,
 sugerirás exactamente 5 recetas diferentes que el usuario puede hacer. Toda la respuesta debe estar en español.
 
-Ingredientes: {{{ingredients}}}
+MUY IMPORTANTE: Debes usar **única y exclusivamente** los siguientes ingredientes de la base de datos para crear las recetas:
+${dbIngredientNames}
+
+No inventes ingredientes ni uses variaciones (ej., si la base de datos dice "Aguacate", usa "Aguacate", no "Aguacate maduro").
+
+Ingredientes que tiene el usuario: {{{ingredients}}}
 Preferencias Dietéticas: {{{dietaryPreferences}}}
 
-Sugiere 5 recetas que utilicen la mayor cantidad posible de los ingredientes.
+Sugiere 5 recetas que utilicen la mayor cantidad posible de los ingredientes que tiene el usuario.
 Devuelve las recetas en el siguiente formato JSON:
 {{$instructions}}
 `, config: {

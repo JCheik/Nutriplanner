@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo } from 'react';
 import type { Recipe, WeekPlan, MealType, DialogState } from '@/lib/types';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { ingredientsDB, type BaseIngredient } from '@/lib/ingredients';
 import { PageHeader } from '@/components/layout/page-header';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
 import { AiSuggester } from '@/components/nutri-planner/ai-suggester';
@@ -14,6 +15,8 @@ import { suggestRecipesFromIngredients } from '@/ai/flows/suggest-recipes-from-i
 import { useToast } from '@/hooks/use-toast';
 
 const DEFAULT_RECIPE_IMAGE = PlaceHolderImages.find(img => img.id === '1')?.imageUrl || 'https://picsum.photos/seed/1/400/300';
+const dbIngredientsMap = new Map<string, BaseIngredient>(ingredientsDB.map(i => [i.name.toLowerCase(), i]));
+
 
 export default function Home() {
   const { toast } = useToast();
@@ -122,32 +125,67 @@ export default function Home() {
     try {
       const result = await suggestRecipesFromIngredients({ ingredients, dietaryPreferences });
       if (result.recipes && result.recipes.length > 0) {
-        const newRecipes = result.recipes.map(r => {
-          // Nota: La IA no proporciona macros, por lo que se inicializan en 0.
-          // El usuario tendría que editarlos manualmente.
+        const newRecipes: Recipe[] = [];
+        let unknownIngredients = new Set<string>();
+
+        result.recipes.forEach(r => {
+          let totalCalories = 0, totalProtein = 0, totalCarbs = 0, totalFat = 0;
+
           const recipeIngredients = r.ingredients.map(ing => {
-            const [quantity, unit, ...nameParts] = ing.split(' ');
-            const name = nameParts.join(' ');
+            const baseIng = dbIngredientsMap.get(ing.name.toLowerCase());
+            if (!baseIng) {
+              unknownIngredients.add(ing.name);
+              return {
+                id: self.crypto.randomUUID(), name: ing.name, quantity: ing.quantity, unit: ing.unit,
+                calories: 0, protein: 0, carbs: 0, fat: 0,
+              };
+            }
+
+            const scale = ing.quantity / 100;
+            const ingMacros = {
+              calories: baseIng.calories * scale,
+              protein: baseIng.protein * scale,
+              carbs: baseIng.carbs * scale,
+              fat: baseIng.fat * scale,
+            };
+
+            totalCalories += ingMacros.calories;
+            totalProtein += ingMacros.protein;
+            totalCarbs += ingMacros.carbs;
+            totalFat += ingMacros.fat;
+
             return {
               id: self.crypto.randomUUID(),
-              name: name,
-              quantity: parseFloat(quantity) || 0,
-              unit: unit || 'g',
-              calories: 0, protein: 0, carbs: 0, fat: 0,
+              name: baseIng.name,
+              quantity: ing.quantity,
+              unit: ing.unit,
+              ...ingMacros,
             };
           });
 
-          return {
+          newRecipes.push({
             id: self.crypto.randomUUID(),
             name: r.name,
             description: `Receta sugerida por IA basada en tus ingredientes.`,
             instructions: r.instructions,
             ingredients: recipeIngredients,
-            calories: 0, protein: 0, carbs: 0, fat: 0, // Las macros totales se calcularían en el editor
+            calories: totalCalories,
+            protein: totalProtein,
+            carbs: totalCarbs,
+            fat: totalFat,
             imageUrl: DEFAULT_RECIPE_IMAGE,
             isAiSuggestion: true,
-          };
+          });
         });
+
+        if (unknownIngredients.size > 0) {
+          toast({
+            title: "Ingredientes desconocidos",
+            description: `La IA sugirió ingredientes que no están en la base de datos: ${Array.from(unknownIngredients).join(', ')}. Sus macros no se calcularán.`,
+            variant: "destructive",
+            duration: 5000,
+          });
+        }
         
         setSuggestedRecipes(newRecipes);
         setIsSuggestionsDialogOpen(true);
