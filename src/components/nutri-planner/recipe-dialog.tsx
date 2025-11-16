@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { DialogState, Recipe, Ingredient } from '@/lib/types';
 import { ingredientsDB, type BaseIngredient } from '@/lib/ingredients';
 import {
@@ -87,7 +87,7 @@ function RecipeView({ recipe, onEdit, onDelete }: { recipe: Recipe, onEdit: (rec
       <DialogFooter className="mt-6">
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="destructive" className="mr-auto"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
+             { !recipe.isAiSuggestion && <Button variant="destructive" className="mr-auto"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button> }
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -109,13 +109,20 @@ function RecipeView({ recipe, onEdit, onDelete }: { recipe: Recipe, onEdit: (rec
 }
 
 function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Recipe, onSave: (recipe: Recipe) => void, onCancel: () => void }) {
-  const [name, setName] = useState(initialRecipe?.name || '');
-  const [description, setDescription] = useState(initialRecipe?.description || '');
-  const [instructions, setInstructions] = useState(initialRecipe?.instructions || '');
-  const [ingredients, setIngredients] = useState<Ingredient[]>(initialRecipe?.ingredients || []);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [instructions, setInstructions] = useState('');
+  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [open, setOpen] = useState(false);
   const [newIngredientName, setNewIngredientName] = useState('');
   const [newIngredientQty, setNewIngredientQty] = useState(100);
+
+  useEffect(() => {
+    setName(initialRecipe?.name || '');
+    setDescription(initialRecipe?.description || '');
+    setInstructions(initialRecipe?.instructions || '');
+    setIngredients(initialRecipe?.ingredients || []);
+  }, [initialRecipe]);
 
   const totals = useMemo(() => {
     return ingredients.reduce((acc, ing) => {
@@ -136,6 +143,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
       instructions,
       ingredients,
       ...totals,
+      isAiSuggestion: initialRecipe?.isAiSuggestion
     };
     onSave(recipe);
   };
@@ -147,18 +155,23 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
   
   const addIngredient = () => {
     const baseIng = ingredientsDB.find(i => i.name.toLowerCase() === newIngredientName.toLowerCase());
-    if (!baseIng) return;
+    
+    // For ingredients not in DB, we need manual input. For now, we'll just add with 0 macros
+    const macros = {calories: 0, protein: 0, carbs: 0, fat: 0};
+    if (baseIng) {
+        const scale = newIngredientQty / 100;
+        macros.calories = baseIng.calories * scale;
+        macros.protein = baseIng.protein * scale;
+        macros.carbs = baseIng.carbs * scale;
+        macros.fat = baseIng.fat * scale;
+    }
 
-    const scale = newIngredientQty / 100;
     const newIng: Ingredient = {
       id: self.crypto.randomUUID(),
-      name: baseIng.name,
+      name: baseIng?.name || newIngredientName,
       quantity: newIngredientQty,
-      unit: baseIng.unit,
-      calories: baseIng.calories * scale,
-      protein: baseIng.protein * scale,
-      carbs: baseIng.carbs * scale,
-      fat: baseIng.fat * scale,
+      unit: baseIng?.unit || 'g',
+      ...macros
     };
 
     setIngredients(prev => [...prev, newIng]);
@@ -199,15 +212,17 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
                 <Label className="text-xs">Ingrediente</Label>
                 <Popover open={open} onOpenChange={setOpen}>
                   <PopoverTrigger asChild>
-                    <Input value={newIngredientName} onChange={(e) => setNewIngredientName(e.target.value)} placeholder="Buscar ingrediente..." />
+                    <Input value={newIngredientName} onChange={(e) => setNewIngredientName(e.target.value)} onFocus={() => setOpen(true)} placeholder="Buscar o añadir ingrediente..." />
                   </PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                    <Command>
-                      <CommandInput placeholder="Buscar ingrediente..." />
+                    <Command shouldFilter={false}>
+                      <CommandInput value={newIngredientName} onValueChange={setNewIngredientName} placeholder="Buscar ingrediente..." />
                       <CommandList>
                         <CommandEmpty>No se encontraron resultados.</CommandEmpty>
                         <CommandGroup>
-                          {ingredientsDB.map((ing) => (
+                          {ingredientsDB
+                            .filter(ing => ing.name.toLowerCase().includes(newIngredientName.toLowerCase()))
+                            .map((ing) => (
                             <CommandItem key={ing.name} onSelect={() => handleSelectIngredient(ing)}>
                               {ing.name}
                             </CommandItem>
@@ -222,7 +237,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
                 <Label className="text-xs">Cantidad (g/ml)</Label>
                 <Input type="number" value={newIngredientQty} onChange={e => setNewIngredientQty(parseFloat(e.target.value) || 0)} />
               </div>
-              <Button size="icon" onClick={addIngredient}><PlusCircle className="h-4 w-4" /></Button>
+              <Button size="icon" onClick={addIngredient} disabled={!newIngredientName}><PlusCircle className="h-4 w-4" /></Button>
             </div>
             <ScrollArea className="h-48">
               <div className="space-y-2 pr-4">

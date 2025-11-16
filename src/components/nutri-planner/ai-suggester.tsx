@@ -7,10 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Sparkles, Loader2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import type { Recipe } from '@/lib/types';
 
 interface AiSuggesterProps {
-  onSuggest: (ingredients: string[], dietaryPreferences: string) => Promise<Recipe[] | void>;
+  onSuggest: (ingredients: string[], dietaryPreferences: string) => Promise<void>;
 }
 
 export function AiSuggester({ onSuggest }: AiSuggesterProps) {
@@ -39,7 +38,7 @@ export function AiSuggester({ onSuggest }: AiSuggesterProps) {
   };
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="flex flex-col h-[500px]">
       <CardHeader>
         <div className="flex items-center gap-3">
           <Sparkles className="h-6 w-6 text-primary" />
@@ -47,8 +46,8 @@ export function AiSuggester({ onSuggest }: AiSuggesterProps) {
         </div>
         <CardDescription>¿Sin ideas? Deja que la IA cree recetas con lo que tienes.</CardDescription>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <CardContent className="flex flex-col flex-1">
+        <form onSubmit={handleSubmit} className="space-y-4 flex flex-col flex-1">
           <div>
             <Label htmlFor="ingredients">Ingredientes Disponibles</Label>
             <div className="flex gap-2 mt-2">
@@ -61,7 +60,7 @@ export function AiSuggester({ onSuggest }: AiSuggesterProps) {
               />
               <Button type="button" onClick={handleAddIngredient}>Añadir</Button>
             </div>
-            <div className="flex flex-wrap gap-2 mt-3">
+            <div className="flex flex-wrap gap-2 mt-3 min-h-[3.5rem]">
               {ingredients.map((ing) => (
                 <Badge key={ing} variant="secondary" className="pl-3 pr-1">
                   {ing}
@@ -82,6 +81,7 @@ export function AiSuggester({ onSuggest }: AiSuggesterProps) {
               className="mt-2"
             />
           </div>
+          <div className="flex-1"></div>
           <Button type="submit" disabled={isLoading || ingredients.length === 0} className="w-full">
             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
             Sugerir Recetas

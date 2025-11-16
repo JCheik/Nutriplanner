@@ -8,6 +8,9 @@ import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
 import { MealPlanner } from '@/components/nutri-planner/meal-planner';
 import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { AiSuggester } from '@/components/nutri-planner/ai-suggester';
+import { suggestRecipesFromIngredients } from '@/ai/flows/suggest-recipes-from-ingredients';
+import { AiSuggestionsDialog } from '@/components/nutri-planner/ai-suggestions-dialog';
 
 export default function Home() {
   const { toast } = useToast();
@@ -16,6 +19,8 @@ export default function Home() {
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
   const [filterQuery, setFilterQuery] = useState('');
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
+  const [suggestedRecipes, setSuggestedRecipes] = useState<Recipe[]>([]);
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
 
 
   const handleDrop = useCallback((day: string, mealType: MealType, droppedRecipe: Recipe) => {
@@ -89,12 +94,16 @@ export default function Home() {
       }
       return [{ ...recipe, isAiSuggestion: false }, ...prevRecipes];
     });
+    // also update suggested recipes if we are editing one
+    setSuggestedRecipes(prev => prev.map(r => r.id === recipe.id ? recipe : r));
     toast({
       title: '¡Receta guardada!',
       description: `${recipe.name} se ha guardado en tu biblioteca.`,
     });
-    handleDialogClose();
-  }, [handleDialogClose, toast]);
+    if (dialogState.mode !== 'edit' || !suggestedRecipes.find(r=> r.id === recipe.id)) {
+      handleDialogClose();
+    }
+  }, [handleDialogClose, toast, dialogState.mode, suggestedRecipes]);
 
   const handleDeleteRecipe = useCallback((recipeId: string) => {
     setRecipes(prev => prev.filter(r => r.id !== recipeId));
@@ -111,6 +120,79 @@ export default function Home() {
     );
     handleDialogClose();
   }, [handleDialogClose]);
+
+  const handleAiSuggest = async (ingredients: string[], dietaryPreferences: string) => {
+    try {
+      const result = await suggestRecipesFromIngredients({ ingredients, dietaryPreferences });
+      if (result.recipes && result.recipes.length > 0) {
+        const newRecipes: Recipe[] = result.recipes.map(r => {
+          
+          const recipeIngredients = r.ingredients.map(ing => {
+            const [quantity, unit, ...nameParts] = ing.split(' ');
+            const name = nameParts.join(' ');
+            return {
+              id: self.crypto.randomUUID(),
+              name: name,
+              quantity: parseFloat(quantity) || 0,
+              unit: unit || 'g',
+              calories: 0,
+              protein: 0,
+              carbs: 0,
+              fat: 0,
+            };
+          });
+
+          const totalMacros = recipeIngredients.reduce((acc, ing) => {
+              acc.calories += ing.calories;
+              acc.protein += ing.protein;
+              acc.carbs += ing.carbs;
+              acc.fat += ing.fat;
+              return acc;
+          }, {calories: 0, protein: 0, carbs: 0, fat: 0});
+
+          return {
+            id: self.crypto.randomUUID(),
+            name: r.name,
+            description: `Receta sugerida por IA basada en tus ingredientes.`,
+            instructions: r.instructions,
+            ingredients: recipeIngredients,
+            calories: totalMacros.calories,
+            protein: totalMacros.protein,
+            carbs: totalMacros.carbs,
+            fat: totalMacros.fat,
+            isAiSuggestion: true,
+          };
+        });
+        
+        setSuggestedRecipes(newRecipes);
+        setIsSuggestionsOpen(true);
+      } else {
+        toast({
+          title: "No se encontraron recetas",
+          description: "La IA no pudo encontrar ninguna receta con tus ingredientes. ¡Intenta añadir más!",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('La sugerencia de IA falló:', error);
+      toast({
+        title: "Error de IA",
+        description: "Algo salió mal al obtener sugerencias. Por favor, inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddSelectedToLibrary = (selectedRecipes: Recipe[]) => {
+    const recipesWithAiFlagOff = selectedRecipes.map(r => ({...r, isAiSuggestion: false}));
+    setRecipes(prev => [...recipesWithAiFlagOff, ...prev]);
+    toast({
+        title: "Recetas añadidas",
+        description: `${selectedRecipes.length} nueva(s) receta(s) añadida(s) a tu biblioteca.`
+    })
+    setIsSuggestionsOpen(false);
+    setSuggestedRecipes([]);
+  }
 
   const dailyTotals = useMemo(() => {
     return weekPlan.map(dayPlan => {
@@ -168,7 +250,7 @@ export default function Home() {
               onRemoveRecipeFromMeal={handleRemoveRecipeFromMeal}
             />
           </div>
-          <div className="w-full">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <RecipeLibrary 
               recipes={filteredAndSortedRecipes} 
               onRecipeAction={handleRecipeAction}
@@ -177,6 +259,7 @@ export default function Home() {
               sortCriteria={sortCriteria}
               onSortChange={setSortCriteria}
             />
+            <AiSuggester onSuggest={handleAiSuggest} />
           </div>
         </div>
       </main>
@@ -185,6 +268,13 @@ export default function Home() {
         onClose={handleDialogClose}
         onSave={handleSaveRecipe}
         onDelete={handleDeleteRecipe}
+        onEdit={(recipe) => handleRecipeAction('edit', recipe)}
+      />
+      <AiSuggestionsDialog 
+        isOpen={isSuggestionsOpen}
+        onClose={() => setIsSuggestionsOpen(false)}
+        suggestedRecipes={suggestedRecipes}
+        onAddSelected={handleAddSelectedToLibrary}
         onEdit={(recipe) => handleRecipeAction('edit', recipe)}
       />
     </div>
