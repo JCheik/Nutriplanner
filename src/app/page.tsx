@@ -171,12 +171,8 @@ export default function Home() {
     <div className="flex flex-col min-h-screen bg-background text-foreground font-body">
       <PageHeader />
       <main className="flex-1 p-4 sm:p-6 lg:p-8">
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 max-w-screen-2xl mx-auto">
-          <div className="xl:col-span-2 flex flex-col gap-6">
-            <RecipeLibrary recipes={recipes} onRecipeAction={handleRecipeAction} />
-            <RecipeBuilder onSave={handleSaveRecipe} />
-          </div>
-          <div className="xl:col-span-3">
+        <div className="max-w-screen-2xl mx-auto flex flex-col gap-6">
+          <div>
             <MealPlanner
               weekPlan={weekPlan}
               dailyTotals={dailyTotals}
@@ -185,9 +181,13 @@ export default function Home() {
               onRecipeClick={(recipe) => handleRecipeAction('view', recipe)}
             />
           </div>
-        </div>
-        <div className="max-w-screen-2xl mx-auto mt-6">
-          <AiSuggester onSuggest={handleAiSuggest} />
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <RecipeLibrary recipes={recipes} onRecipeAction={handleRecipeAction} />
+            <RecipeBuilder onSave={handleSaveRecipe} />
+          </div>
+          <div>
+            <AiSuggester onSuggest={handleAiSuggest} />
+          </div>
         </div>
       </main>
       <RecipeDialog
