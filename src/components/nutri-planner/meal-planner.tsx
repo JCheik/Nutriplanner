@@ -78,14 +78,14 @@ function MealSlot({ day, mealType, mealRecipe, onDrop, onClearMeal, onRecipeClic
       <div className="min-h-28 rounded-lg border-2 border-dashed bg-muted/50 flex items-center justify-center p-2 relative group">
         {mealRecipe ? (
           <>
-            <div className="w-full h-full" onClick={() => onRecipeClick(mealRecipe)}>
+            <div className="w-full h-full cursor-pointer" onClick={() => onRecipeClick(mealRecipe)}>
               <RecipeCard recipe={mealRecipe} isCompact />
             </div>
             <Button
               variant="ghost"
               size="icon"
               className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-card/70 hover:bg-card"
-              onClick={() => onClearMeal(day, mealType)}
+              onClick={(e) => { e.stopPropagation(); onClearMeal(day, mealType); }}
             >
               <X className="h-4 w-4" />
             </Button>
@@ -109,7 +109,7 @@ export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onReci
         <CardDescription>Arrastra y suelta recetas de tu biblioteca para planificar tu semana.</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
           {weekPlan.map(({ day, meals }) => {
             const dayTotals = dailyTotals.find(d => d.day === day)?.totals;
             return (

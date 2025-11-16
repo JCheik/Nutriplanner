@@ -42,7 +42,7 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
               alt={recipe.name}
               fill
               sizes="100px"
-              className="object-cover rounded-l-md"
+              className="object-cover"
               data-ai-hint="food meal"
             />
           </div>
@@ -86,8 +86,8 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
         </div>
-        <div className="absolute bottom-0 left-0 right-0 p-3 text-primary-foreground">
-          <h3 className={cn("font-bold", isCompact ? "text-xs" : "text-base", "line-clamp-2 leading-tight")}>
+        <div className="absolute bottom-0 left-0 right-0 p-2 text-primary-foreground">
+          <h3 className={cn("font-bold", isCompact ? "text-xs" : "text-base", "line-clamp-1 leading-tight")}>
             {recipe.name}
           </h3>
           {!isCompact && (
