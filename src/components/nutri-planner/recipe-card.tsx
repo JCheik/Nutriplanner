@@ -4,7 +4,7 @@ import type { DragEvent } from 'react';
 import type { Recipe } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { GripVertical } from 'lucide-react';
+import { GripVertical, Flame, EggFried, Wheat, Droplets } from 'lucide-react';
 import { NutritionTotalsTooltip } from './nutrition-totals-tooltip';
 
 interface RecipeCardProps {
@@ -23,6 +23,14 @@ const RecipePlaceholder = ({ recipeName }: { recipeName: string }) => (
   </div>
 );
 
+const MacroItem = ({ icon: Icon, value, unit, colorClass }: { icon: React.ElementType, value: number, unit: string, colorClass: string }) => (
+    <div className="flex items-center gap-1">
+        <Icon className={cn("h-3 w-3", colorClass)} />
+        <span className="text-xs font-medium">{Math.round(value)}{unit}</span>
+    </div>
+);
+
+
 export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isListView = false, onClick }: RecipeCardProps) {
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
     if (!isDraggable) return;
@@ -37,21 +45,21 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
         onClick={onClick}
         className="group relative w-full overflow-hidden transition-shadow hover:shadow-md cursor-pointer"
       >
-        <div className="flex items-center gap-4">
+        <div className="flex items-center">
           {isDraggable && (
-             <div className="flex items-center justify-center pl-2 cursor-grab active:cursor-grabbing text-muted-foreground">
+             <div className="flex items-center justify-center self-stretch px-2 cursor-grab active:cursor-grabbing text-muted-foreground bg-secondary/30">
               <GripVertical className="h-5 w-5" />
             </div>
           )}
-          <div className="relative w-24 h-16 shrink-0">
-            <RecipePlaceholder recipeName={recipe.name} />
-          </div>
-          <div className="flex-1 pr-4 py-2">
+          <div className="flex-1 p-3">
             <h3 className="font-bold text-sm line-clamp-1">{recipe.name}</h3>
-            <p className="text-xs text-muted-foreground line-clamp-1">{recipe.description}</p>
-          </div>
-          <div className="pr-4">
-            <NutritionTotalsTooltip totals={recipe} />
+            <p className="text-xs text-muted-foreground line-clamp-1 mb-2">{recipe.description}</p>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 items-center text-muted-foreground">
+                <MacroItem icon={Flame} value={recipe.calories} unit="kcal" colorClass="text-orange-500" />
+                <MacroItem icon={EggFried} value={recipe.protein} unit="g" colorClass="text-amber-600" />
+                <MacroItem icon={Wheat} value={recipe.carbs} unit="g" colorClass="text-yellow-500" />
+                <MacroItem icon={Droplets} value={recipe.fat} unit="g" colorClass="text-sky-500" />
+            </div>
           </div>
         </div>
       </Card>
