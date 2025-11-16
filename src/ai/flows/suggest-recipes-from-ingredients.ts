@@ -70,6 +70,7 @@ Sugiere 5 recetas que utilicen la mayor cantidad posible de los ingredientes que
 Devuelve las recetas en el siguiente formato JSON:
 {{$instructions}}
 `, config: {
+    model: 'googleai/gemini-1.5-flash-latest',
     safetySettings: [
       {
         category: 'HARM_CATEGORY_HATE_SPEECH',
