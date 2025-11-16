@@ -16,7 +16,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import Image from 'next/image';
 import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, PlusCircle } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
@@ -58,8 +57,8 @@ function RecipeView({ recipe, onEdit, onDelete }: { recipe: Recipe, onEdit: (rec
       </DialogHeader>
       <div className="grid md:grid-cols-2 gap-6">
         <div>
-          <div className="relative aspect-video rounded-lg overflow-hidden mb-4">
-            <Image src={recipe.imageUrl || `https://picsum.photos/seed/${recipe.id}/400/300`} alt={recipe.name} fill objectFit="cover" data-ai-hint="food meal"/>
+          <div className="relative aspect-video rounded-lg overflow-hidden mb-4 bg-secondary flex items-center justify-center">
+            <h3 className="text-2xl font-bold text-secondary-foreground p-4 text-center">{recipe.name}</h3>
           </div>
           <div className="grid grid-cols-4 gap-2 text-center">
             <MacroDisplay label="Calorías" value={recipe.calories} unit="kcal" icon={Flame} />
@@ -137,7 +136,6 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
       instructions,
       ingredients,
       ...totals,
-      imageUrl: initialRecipe?.imageUrl, // Keep existing image if editing
     };
     onSave(recipe);
   };

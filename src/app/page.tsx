@@ -3,7 +3,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { Recipe, WeekPlan, MealType, DialogState } from '@/lib/types';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { ingredientsDB, type BaseIngredient } from '@/lib/ingredients';
 import { PageHeader } from '@/components/layout/page-header';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
@@ -14,7 +13,6 @@ import { AiSuggestionsDialog } from '@/components/nutri-planner/ai-suggestions-d
 import { suggestRecipesFromIngredients } from '@/ai/flows/suggest-recipes-from-ingredients';
 import { useToast } from '@/hooks/use-toast';
 
-const DEFAULT_RECIPE_IMAGE = PlaceHolderImages.find(img => img.id === '1')?.imageUrl || 'https://picsum.photos/seed/1/400/300';
 const dbIngredientsMap = new Map<string, BaseIngredient>(ingredientsDB.map(i => [i.name.toLowerCase(), i]));
 
 
@@ -77,11 +75,7 @@ export default function Home() {
       if (exists) {
         return prevRecipes.map(r => (r.id === recipe.id ? recipe : r));
       }
-      const newRecipe = {
-        ...recipe,
-        imageUrl: recipe.imageUrl || DEFAULT_RECIPE_IMAGE,
-      };
-      return [...prevRecipes, newRecipe];
+      return [...prevRecipes, recipe];
     });
     toast({
       title: '¡Receta guardada!',
@@ -173,7 +167,6 @@ export default function Home() {
             protein: totalProtein,
             carbs: totalCarbs,
             fat: totalFat,
-            imageUrl: DEFAULT_RECIPE_IMAGE,
             isAiSuggestion: true,
           });
         });
@@ -210,10 +203,7 @@ export default function Home() {
   const handleAddSelectedToLibrary = (selectedRecipes: Recipe[]) => {
     const recipesToAdd = selectedRecipes.map(r => {
       const { isAiSuggestion, ...recipeData } = r;
-      return {
-        ...recipeData,
-        imageUrl: recipeData.imageUrl || DEFAULT_RECIPE_IMAGE
-      };
+      return recipeData;
     });
 
     setRecipes(prev => [...recipesToAdd, ...prev]);

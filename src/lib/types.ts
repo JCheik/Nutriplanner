@@ -18,7 +18,6 @@ export interface Recipe extends Macros {
   description: string;
   instructions: string;
   ingredients: Ingredient[];
-  imageUrl?: string;
   isAiSuggestion?: boolean;
 }
 

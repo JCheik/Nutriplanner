@@ -6,8 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import Image from 'next/image';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Edit } from 'lucide-react';
 
 interface AiSuggestionsDialogProps {
@@ -62,15 +61,8 @@ export function AiSuggestionsDialog({ isOpen, onClose, suggestedRecipes, onAddSe
                         className="bg-white/80 border-slate-500 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground w-5 h-5"
                     />
                 </div>
-                <div className="relative w-32 h-32 shrink-0">
-                  <Image
-                    src={recipe.imageUrl || `https://picsum.photos/seed/${recipe.id}/300/300`}
-                    alt={recipe.name}
-                    fill
-                    sizes="128px"
-                    className="object-cover"
-                    data-ai-hint="food meal"
-                  />
+                <div className="relative w-32 h-32 shrink-0 bg-secondary flex items-center justify-center">
+                  <span className="font-semibold text-center text-secondary-foreground p-2">{recipe.name}</span>
                 </div>
                 <div className="py-4 pr-4 flex-1">
                   <CardHeader className="p-0 mb-2">

@@ -1,5 +1,4 @@
 import type { Recipe, WeekPlan } from './types';
-import { PlaceHolderImages } from './placeholder-images';
 
 export const INITIAL_RECIPES: Recipe[] = [
   {
@@ -11,10 +10,9 @@ export const INITIAL_RECIPES: Recipe[] = [
     protein: 10,
     carbs: 15,
     fat: 28,
-    imageUrl: PlaceHolderImages.find(img => img.id === '1')?.imageUrl,
     ingredients: [
       { id: 'i1', name: 'Pepino', quantity: 1, unit: 'mediano', calories: 45, protein: 2, carbs: 11, fat: 0 },
-      { id: 'i2', name: 'Tomates', quantity: 2, unit: 'grandes', calories: 60, protein: 2, carbs: 14, fat: 1 },
+      { id: 'i2', name: 'Tomate', quantity: 2, unit: 'grandes', calories: 60, protein: 2, carbs: 14, fat: 1 },
       { id: 'i3', name: 'Queso Feta', quantity: 100, unit: 'g', calories: 264, protein: 14, carbs: 4, fat: 21 },
     ],
   },
@@ -27,7 +25,6 @@ export const INITIAL_RECIPES: Recipe[] = [
     protein: 25,
     carbs: 70,
     fat: 25,
-    imageUrl: PlaceHolderImages.find(img => img.id === '2')?.imageUrl,
     ingredients: [
       { id: 'i4', name: 'Espaguetis', quantity: 100, unit: 'g', calories: 350, protein: 12, carbs: 70, fat: 1 },
       { id: 'i5', name: 'Panceta', quantity: 50, unit: 'g', calories: 250, protein: 10, carbs: 0, fat: 23 },
@@ -43,7 +40,6 @@ export const INITIAL_RECIPES: Recipe[] = [
     protein: 60,
     carbs: 0,
     fat: 9,
-    imageUrl: PlaceHolderImages.find(img => img.id === '3')?.imageUrl,
     ingredients: [
       { id: 'i7', name: 'Pechuga de Pollo', quantity: 200, unit: 'g', calories: 330, protein: 60, carbs: 0, fat: 9 },
     ],
