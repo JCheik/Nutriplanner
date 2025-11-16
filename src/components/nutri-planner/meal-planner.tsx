@@ -93,10 +93,9 @@ function MealSlot({ day, mealType, mealRecipes, onDrop, onClearMeal, onRecipeCli
       </div>
       <div className="flex-1 min-h-24 rounded-lg border-2 border-dashed bg-muted/50 p-1 flex flex-col items-center justify-center gap-1 relative group overflow-hidden">
         {mealRecipes.length > 0 ? (
-           <ScrollArea className="w-full h-full">
-            <div className="flex flex-col gap-1 p-1">
-                {mealRecipes.map((recipe) => (
-                    <div key={recipe.id} className="w-full relative group/item">
+           <div className="w-full h-full flex flex-col gap-1">
+                {mealRecipes.map((recipe, index) => (
+                    <div key={recipe.id} className="w-full relative group/item flex-1">
                     <div 
                         className="h-full w-full"
                         onClick={() => onRecipeClick(recipe)}
@@ -104,6 +103,7 @@ function MealSlot({ day, mealType, mealRecipes, onDrop, onClearMeal, onRecipeCli
                         <RecipeCard 
                           recipe={recipe} 
                           isCompact 
+                          colorVariant={index === 0 ? 'primary' : 'secondary'}
                         />
                     </div>
                     <Button
@@ -117,8 +117,6 @@ function MealSlot({ day, mealType, mealRecipes, onDrop, onClearMeal, onRecipeCli
                     </div>
                 ))}
             </div>
-            <ScrollBar />
-          </ScrollArea>
         ) : (
           <p className="text-xs text-center text-muted-foreground px-2">Arrastra una receta aquí</p>
         )}
