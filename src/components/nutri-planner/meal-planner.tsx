@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { RecipeCard } from './recipe-card';
 import { Button } from '@/components/ui/button';
 import { CalendarDays, X, Flame, EggFried, Wheat, Droplets } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface MealPlannerProps {
   weekPlan: WeekPlan;
@@ -89,11 +90,18 @@ function MealSlot({ day, mealType, mealRecipes, onDrop, onClearMeal, onRecipeCli
           </Button>
         )}
       </div>
-      <div className="min-h-24 rounded-lg border-2 border-dashed bg-muted/50 flex flex-col items-center justify-center p-2 gap-2 relative group overflow-hidden">
+      <div className="min-h-24 rounded-lg border-2 border-dashed bg-muted/50 flex flex-col items-center justify-center p-0.5 gap-0.5 relative group overflow-hidden">
         {mealRecipes.length > 0 ? (
-          mealRecipes.map(recipe => (
+          mealRecipes.map((recipe, index) => (
             <div key={recipe.id} className="w-full relative group/item">
-              <div onClick={() => onRecipeClick(recipe)}>
+              <div 
+                className={cn(
+                  "rounded-md",
+                  index === 0 ? 'bg-primary/10' : 'bg-[hsl(var(--chart-1))]/10',
+                  index > 0 && 'border-t-2 border-dashed border-border'
+                )}
+                onClick={() => onRecipeClick(recipe)}
+              >
                 <RecipeCard recipe={recipe} isCompact />
               </div>
               <Button
