@@ -5,11 +5,8 @@ import type { Recipe, WeekPlan, MealType, DialogState } from '@/lib/types';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
 import { PageHeader } from '@/components/layout/page-header';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
-import { AiSuggester } from '@/components/nutri-planner/ai-suggester';
 import { MealPlanner } from '@/components/nutri-planner/meal-planner';
 import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
-import { AiSuggestionsDialog } from '@/components/nutri-planner/ai-suggestions-dialog';
-import { suggestRecipesFromIngredients } from '@/ai/flows/suggest-recipes-from-ingredients';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Home() {
@@ -17,9 +14,6 @@ export default function Home() {
   const [recipes, setRecipes] = useState<Recipe[]>(INITIAL_RECIPES);
   const [weekPlan, setWeekPlan] = useState<WeekPlan>(INITIAL_WEEK_PLAN);
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
-  const [suggestedRecipes, setSuggestedRecipes] = useState<Recipe[]>([]);
-  const [isSuggestionsDialogOpen, setIsSuggestionsDialogOpen] = useState(false);
-
 
   const handleDrop = useCallback((day: string, mealType: MealType, droppedRecipe: Recipe) => {
     setWeekPlan(prevPlan =>
@@ -111,74 +105,6 @@ export default function Home() {
     });
   }, [weekPlan]);
 
-  const handleAiSuggest = async (ingredients: string[], dietaryPreferences: string) => {
-    try {
-      const result = await suggestRecipesFromIngredients({ ingredients, dietaryPreferences });
-      if (result.recipes && result.recipes.length > 0) {
-        const newRecipes = result.recipes.map(r => {
-          const recipeIngredients = r.ingredients.map(ing => {
-            const [quantity, unit, ...nameParts] = ing.split(' ');
-            const name = nameParts.join(' ');
-            return {
-              id: self.crypto.randomUUID(),
-              name: name,
-              quantity: parseFloat(quantity) || 0,
-              unit: unit || 'g',
-              calories: 0, // Cannot be calculated
-              protein: 0,
-              carbs: 0,
-              fat: 0,
-            };
-          });
-
-          return {
-            id: self.crypto.randomUUID(),
-            name: r.name,
-            description: `Receta sugerida por IA basada en tus ingredientes.`,
-            instructions: r.instructions,
-            ingredients: recipeIngredients,
-            calories: 0,
-            protein: 0,
-            carbs: 0,
-            fat: 0,
-            isAiSuggestion: true,
-          };
-        });
-        
-        setSuggestedRecipes(newRecipes);
-        setIsSuggestionsDialogOpen(true);
-      } else {
-        toast({
-          title: "No se encontraron recetas",
-          description: "La IA no pudo encontrar ninguna receta con tus ingredientes. ¡Intenta añadir más!",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('La sugerencia de IA falló:', error);
-      toast({
-        title: "Error de IA",
-        description: "Algo salió mal al obtener sugerencias. Por favor, inténtalo de nuevo.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleAddSelectedToLibrary = (selectedRecipes: Recipe[]) => {
-    const recipesToAdd = selectedRecipes.map(r => {
-      const { isAiSuggestion, ...recipeData } = r;
-      return recipeData;
-    });
-
-    setRecipes(prev => [...recipesToAdd, ...prev]);
-    toast({
-      title: "¡Recetas añadidas!",
-      description: `Se han añadido ${selectedRecipes.length} nuevas recetas a tu biblioteca.`,
-    });
-    setIsSuggestionsDialogOpen(false);
-    setSuggestedRecipes([]);
-  };
-
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground font-body">
       <PageHeader />
@@ -193,9 +119,8 @@ export default function Home() {
               onRecipeClick={(recipe) => handleRecipeAction('view', recipe)}
             />
           </div>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             <RecipeLibrary recipes={recipes} onRecipeAction={handleRecipeAction} />
-            <AiSuggester onSuggest={handleAiSuggest} />
           </div>
         </div>
       </main>
@@ -204,13 +129,6 @@ export default function Home() {
         onClose={handleDialogClose}
         onSave={handleSaveRecipe}
         onDelete={handleDeleteRecipe}
-        onEdit={(recipe) => handleRecipeAction('edit', recipe)}
-      />
-      <AiSuggestionsDialog
-        isOpen={isSuggestionsDialogOpen}
-        onClose={() => setIsSuggestionsDialogOpen(false)}
-        suggestedRecipes={suggestedRecipes}
-        onAddSelected={handleAddSelectedToLibrary}
         onEdit={(recipe) => handleRecipeAction('edit', recipe)}
       />
     </div>
