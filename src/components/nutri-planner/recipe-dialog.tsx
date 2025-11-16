@@ -59,7 +59,7 @@ function RecipeView({ recipe, onEdit, onDelete }: { recipe: Recipe, onEdit: (rec
       <div className="grid md:grid-cols-2 gap-6">
         <div>
           <div className="relative aspect-video rounded-lg overflow-hidden mb-4">
-            <Image src={recipe.imageUrl || `https://picsum.photos/seed/${recipe.id}/400/300`} alt={recipe.name} layout="fill" objectFit="cover" data-ai-hint="food meal"/>
+            <Image src={recipe.imageUrl || `https://picsum.photos/seed/${recipe.id}/400/300`} alt={recipe.name} fill objectFit="cover" data-ai-hint="food meal"/>
           </div>
           <div className="grid grid-cols-4 gap-2 text-center">
             <MacroDisplay label="Calorías" value={recipe.calories} unit="kcal" icon={Flame} />
@@ -137,7 +137,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
       instructions,
       ingredients,
       ...totals,
-      imageUrl: initialRecipe?.imageUrl,
+      imageUrl: initialRecipe?.imageUrl || `https://picsum.photos/seed/${self.crypto.randomUUID()}/400/300`,
     };
     onSave(recipe);
   };
@@ -148,7 +148,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
   };
   
   const addIngredient = () => {
-    const baseIng = ingredientsDB.find(i => i.name === newIngredientName);
+    const baseIng = ingredientsDB.find(i => i.name.toLowerCase() === newIngredientName.toLowerCase());
     if (!baseIng) return;
 
     const scale = newIngredientQty / 100;
@@ -203,7 +203,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
                   <PopoverTrigger asChild>
                     <Input value={newIngredientName} onChange={(e) => setNewIngredientName(e.target.value)} placeholder="Buscar ingrediente..." />
                   </PopoverTrigger>
-                  <PopoverContent className="w-[200px] p-0">
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                     <Command>
                       <CommandInput placeholder="Buscar ingrediente..." />
                       <CommandList>
@@ -222,7 +222,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
               </div>
               <div className="w-24">
                 <Label className="text-xs">Cantidad (g/ml)</Label>
-                <Input type="number" value={newIngredientQty} onChange={e => setNewIngredientQty(parseFloat(e.target.value))} />
+                <Input type="number" value={newIngredientQty} onChange={e => setNewIngredientQty(parseFloat(e.target.value) || 0)} />
               </div>
               <Button size="icon" onClick={addIngredient}><PlusCircle className="h-4 w-4" /></Button>
             </div>

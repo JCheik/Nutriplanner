@@ -10,6 +10,7 @@ import { MealPlanner } from '@/components/nutri-planner/meal-planner';
 import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
 import { suggestRecipesFromIngredients } from '@/ai/flows/suggest-recipes-from-ingredients';
 import { useToast } from '@/hooks/use-toast';
+import { RecipeBuilder } from '@/components/nutri-planner/recipe-builder';
 
 export default function Home() {
   const { toast } = useToast();
@@ -69,8 +70,12 @@ export default function Home() {
       }
       return [...prevRecipes, recipe];
     });
+    toast({
+      title: '¡Receta guardada!',
+      description: `${recipe.name} se ha guardado en tu biblioteca.`,
+    });
     handleDialogClose();
-  }, [handleDialogClose]);
+  }, [handleDialogClose, toast]);
 
   const handleDeleteRecipe = useCallback((recipeId: string) => {
     setRecipes(prev => prev.filter(r => r.id !== recipeId));
@@ -169,7 +174,7 @@ export default function Home() {
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 max-w-screen-2xl mx-auto">
           <div className="xl:col-span-2 flex flex-col gap-6">
             <RecipeLibrary recipes={recipes} onRecipeAction={handleRecipeAction} />
-            <AiSuggester onSuggest={handleAiSuggest} />
+            <RecipeBuilder onSave={handleSaveRecipe} />
           </div>
           <div className="xl:col-span-3">
             <MealPlanner
@@ -180,6 +185,9 @@ export default function Home() {
               onRecipeClick={(recipe) => handleRecipeAction('view', recipe)}
             />
           </div>
+        </div>
+        <div className="max-w-screen-2xl mx-auto mt-6">
+          <AiSuggester onSuggest={handleAiSuggest} />
         </div>
       </main>
       <RecipeDialog

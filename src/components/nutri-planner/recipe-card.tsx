@@ -12,15 +12,52 @@ interface RecipeCardProps {
   recipe: Recipe;
   isDraggable?: boolean;
   isCompact?: boolean;
+  isListView?: boolean;
   onClick?: () => void;
 }
 
-export function RecipeCard({ recipe, isDraggable = false, isCompact = false, onClick }: RecipeCardProps) {
+export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isListView = false, onClick }: RecipeCardProps) {
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
     if (!isDraggable) return;
     e.dataTransfer.setData('application/json', JSON.stringify(recipe));
   };
 
+  if (isListView) {
+    return (
+      <Card
+        draggable={isDraggable}
+        onDragStart={handleDragStart}
+        onClick={onClick}
+        className="group relative w-full overflow-hidden transition-shadow hover:shadow-md cursor-pointer"
+      >
+        <div className="flex items-center gap-4">
+          {isDraggable && (
+             <div className="flex items-center justify-center pl-2 cursor-grab active:cursor-grabbing text-muted-foreground">
+              <GripVertical className="h-5 w-5" />
+            </div>
+          )}
+          <div className="relative w-24 h-16 shrink-0">
+            <Image
+              src={recipe.imageUrl || `https://picsum.photos/seed/${recipe.id}/400/300`}
+              alt={recipe.name}
+              fill
+              sizes="100px"
+              className="object-cover rounded-l-md"
+              data-ai-hint="food meal"
+            />
+          </div>
+          <div className="flex-1 pr-4 py-2">
+            <h3 className="font-bold text-sm line-clamp-1">{recipe.name}</h3>
+            <p className="text-xs text-muted-foreground line-clamp-1">{recipe.description}</p>
+          </div>
+          <div className="pr-4">
+            <NutritionTotalsTooltip totals={recipe} />
+          </div>
+        </div>
+      </Card>
+    );
+  }
+  
   return (
     <Card
       draggable={isDraggable}

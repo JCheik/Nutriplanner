@@ -32,13 +32,14 @@ export function RecipeLibrary({ recipes, onRecipeAction }: RecipeLibraryProps) {
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden">
         <ScrollArea className="h-full">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2 gap-4 pr-4">
+          <div className="flex flex-col gap-3 pr-4">
             {recipes.length > 0 ? (
               recipes.map(recipe => (
                 <RecipeCard 
                   key={recipe.id} 
                   recipe={recipe} 
                   isDraggable 
+                  isListView
                   onClick={() => onRecipeAction('view', recipe)}
                 />
               ))
