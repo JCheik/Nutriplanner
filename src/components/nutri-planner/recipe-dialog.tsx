@@ -137,7 +137,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
       instructions,
       ingredients,
       ...totals,
-      imageUrl: initialRecipe?.imageUrl || `https://picsum.photos/seed/${self.crypto.randomUUID()}/400/300`,
+      imageUrl: initialRecipe?.imageUrl, // Keep existing image if editing
     };
     onSave(recipe);
   };
