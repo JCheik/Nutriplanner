@@ -20,7 +20,7 @@ import Image from 'next/image';
 import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, PlusCircle } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import { Badge } from '../ui/badge';
+import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
   AlertDialogAction,
