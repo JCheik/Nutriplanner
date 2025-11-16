@@ -8,6 +8,7 @@ import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
 import { AiSuggester } from '@/components/nutri-planner/ai-suggester';
 import { MealPlanner } from '@/components/nutri-planner/meal-planner';
 import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
+import { AiSuggestionsDialog } from '@/components/nutri-planner/ai-suggestions-dialog';
 import { suggestRecipesFromIngredients } from '@/ai/flows/suggest-recipes-from-ingredients';
 import { useToast } from '@/hooks/use-toast';
 
@@ -16,6 +17,9 @@ export default function Home() {
   const [recipes, setRecipes] = useState<Recipe[]>(INITIAL_RECIPES);
   const [weekPlan, setWeekPlan] = useState<WeekPlan>(INITIAL_WEEK_PLAN);
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
+  const [suggestedRecipes, setSuggestedRecipes] = useState<Recipe[]>([]);
+  const [isSuggestionsDialogOpen, setIsSuggestionsDialogOpen] = useState(false);
+
 
   const handleDrop = useCallback((day: string, mealType: MealType, droppedRecipe: Recipe) => {
     setWeekPlan(prevPlan =>
@@ -116,7 +120,8 @@ export default function Home() {
       const result = await suggestRecipesFromIngredients({ ingredients, dietaryPreferences });
       if (result.recipes && result.recipes.length > 0) {
         const newRecipes = result.recipes.map(r => {
-          const totalMacros = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+          // Nota: La IA no proporciona macros, por lo que se inicializan en 0.
+          // El usuario tendría que editarlos manualmente.
           const recipeIngredients = r.ingredients.map(ing => {
             const [quantity, unit, ...nameParts] = ing.split(' ');
             const name = nameParts.join(' ');
@@ -125,10 +130,7 @@ export default function Home() {
               name: name,
               quantity: parseFloat(quantity) || 0,
               unit: unit || 'g',
-              calories: 0,
-              protein: 0,
-              carbs: 0,
-              fat: 0,
+              calories: 0, protein: 0, carbs: 0, fat: 0,
             };
           });
 
@@ -138,20 +140,15 @@ export default function Home() {
             description: `Receta sugerida por IA basada en tus ingredientes.`,
             instructions: r.instructions,
             ingredients: recipeIngredients,
-            calories: totalMacros.calories,
-            protein: totalMacros.protein,
-            carbs: totalMacros.carbs,
-            fat: totalMacros.fat,
-            imageUrl: `https://picsum.photos/seed/${Math.floor(Math.random() * 1000)}/400/300`
+            calories: 0, protein: 0, carbs: 0, fat: 0, // Las macros totales se calcularían en el editor
+            imageUrl: `https://picsum.photos/seed/${Math.random().toString(36).substring(7)}/400/300`,
+            isAiSuggestion: true,
           };
         });
         
-        setRecipes(prev => [...newRecipes, ...prev]);
-        toast({
-          title: "¡Recetas sugeridas!",
-          description: `Se han añadido ${result.recipes.length} nuevas recetas a tu biblioteca.`,
-        });
-        return newRecipes;
+        setSuggestedRecipes(newRecipes);
+        setIsSuggestionsDialogOpen(true);
+
       } else {
         toast({
           title: "No se encontraron recetas",
@@ -167,7 +164,24 @@ export default function Home() {
         variant: "destructive",
       });
     }
-    return [];
+  };
+
+  const handleAddSelectedToLibrary = (selectedRecipes: Recipe[]) => {
+    const recipesToAdd = selectedRecipes.map(r => {
+      const { isAiSuggestion, ...recipeData } = r;
+      return {
+        ...recipeData,
+        imageUrl: recipeData.imageUrl || `https://picsum.photos/seed/${self.crypto.randomUUID()}/400/300`
+      };
+    });
+
+    setRecipes(prev => [...recipesToAdd, ...prev]);
+    toast({
+      title: "¡Recetas añadidas!",
+      description: `Se han añadido ${selectedRecipes.length} nuevas recetas a tu biblioteca.`,
+    });
+    setIsSuggestionsDialogOpen(false);
+    setSuggestedRecipes([]);
   };
 
   return (
@@ -175,7 +189,7 @@ export default function Home() {
       <PageHeader />
       <main className="flex-1 p-4 sm:p-6 lg:p-8">
         <div className="max-w-screen-2xl mx-auto flex flex-col gap-6">
-          <div>
+          <div className="w-full">
             <MealPlanner
               weekPlan={weekPlan}
               dailyTotals={dailyTotals}
@@ -195,6 +209,13 @@ export default function Home() {
         onClose={handleDialogClose}
         onSave={handleSaveRecipe}
         onDelete={handleDeleteRecipe}
+        onEdit={(recipe) => handleRecipeAction('edit', recipe)}
+      />
+      <AiSuggestionsDialog
+        isOpen={isSuggestionsDialogOpen}
+        onClose={() => setIsSuggestionsDialogOpen(false)}
+        suggestedRecipes={suggestedRecipes}
+        onAddSelected={handleAddSelectedToLibrary}
         onEdit={(recipe) => handleRecipeAction('edit', recipe)}
       />
     </div>

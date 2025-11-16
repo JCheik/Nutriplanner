@@ -19,6 +19,7 @@ export interface Recipe extends Macros {
   instructions: string;
   ingredients: Ingredient[];
   imageUrl?: string;
+  isAiSuggestion?: boolean;
 }
 
 export type MealType = 'breakfast' | 'lunch' | 'snack' | 'dinner';

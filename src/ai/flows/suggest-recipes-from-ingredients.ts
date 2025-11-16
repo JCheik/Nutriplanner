@@ -27,11 +27,11 @@ const SuggestRecipesFromIngredientsOutputSchema = z.object({
     .array(
       z.object({
         name: z.string().describe('The name of the recipe.'),
-        ingredients: z.array(z.string()).describe('The ingredients required for the recipe.'),
+        ingredients: z.array(z.string()).describe('The ingredients required for the recipe, including quantities and units (e.g., "100g Chicken Breast").'),
         instructions: z.string().describe('The instructions for preparing the recipe.'),
       })
     )
-    .describe('A list of suggested recipes based on the available ingredients.'),
+    .describe('An array of 5 suggested recipes based on the available ingredients.'),
 });
 export type SuggestRecipesFromIngredientsOutput =
   z.infer<typeof SuggestRecipesFromIngredientsOutputSchema>;
@@ -46,13 +46,13 @@ const prompt = ai.definePrompt({
   name: 'suggestRecipesFromIngredientsPrompt',
   input: {schema: SuggestRecipesFromIngredientsInputSchema},
   output: {schema: SuggestRecipesFromIngredientsOutputSchema},
-  prompt: `You are a recipe suggestion AI. Given a list of ingredients and dietary preferences,
-you will suggest recipes that the user can make.
+  prompt: `You are a recipe suggestion AI. Given a list of ingredients and optional dietary preferences,
+you will suggest exactly 5 different recipes that the user can make.
 
 Ingredients: {{{ingredients}}}
 Dietary Preferences: {{{dietaryPreferences}}}
 
-Suggest recipes that utilize as many of the ingredients as possible.
+Suggest 5 recipes that utilize as many of the ingredients as possible.
 Return the recipes in the following JSON format:
 {{$instructions}}
 `, config: {
