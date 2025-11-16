@@ -46,14 +46,14 @@ const prompt = ai.definePrompt({
   name: 'suggestRecipesFromIngredientsPrompt',
   input: {schema: SuggestRecipesFromIngredientsInputSchema},
   output: {schema: SuggestRecipesFromIngredientsOutputSchema},
-  prompt: `You are a recipe suggestion AI. Given a list of ingredients and optional dietary preferences,
-you will suggest exactly 5 different recipes that the user can make.
+  prompt: `Eres una IA para sugerir recetas. Dada una lista de ingredientes y preferencias dietéticas opcionales,
+sugerirás exactamente 5 recetas diferentes que el usuario puede hacer. Toda la respuesta debe estar en español.
 
-Ingredients: {{{ingredients}}}
-Dietary Preferences: {{{dietaryPreferences}}}
+Ingredientes: {{{ingredients}}}
+Preferencias Dietéticas: {{{dietaryPreferences}}}
 
-Suggest 5 recipes that utilize as many of the ingredients as possible.
-Return the recipes in the following JSON format:
+Sugiere 5 recetas que utilicen la mayor cantidad posible de los ingredientes.
+Devuelve las recetas en el siguiente formato JSON:
 {{$instructions}}
 `, config: {
     safetySettings: [
