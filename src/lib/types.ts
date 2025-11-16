@@ -44,3 +44,10 @@ export type DialogState =
   | { open: false }
   | { open: true; mode: 'create' }
   | { open: true; mode: 'view' | 'edit'; recipe: Recipe };
+
+export type SortCriteria = 
+  | 'name-asc' | 'name-desc'
+  | 'calories-asc' | 'calories-desc'
+  | 'protein-asc' | 'protein-desc'
+  | 'carbs-asc' | 'carbs-desc'
+  | 'fat-asc' | 'fat-desc';

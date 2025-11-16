@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
-import type { Recipe, WeekPlan, MealType, DialogState } from '@/lib/types';
+import type { Recipe, WeekPlan, MealType, DialogState, SortCriteria } from '@/lib/types';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
 import { PageHeader } from '@/components/layout/page-header';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
@@ -19,6 +19,9 @@ export default function Home() {
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
   const [suggestedRecipes, setSuggestedRecipes] = useState<Recipe[]>([]);
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+  const [filterQuery, setFilterQuery] = useState('');
+  const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
+
 
   const handleDrop = useCallback((day: string, mealType: MealType, droppedRecipe: Recipe) => {
     setWeekPlan(prevPlan =>
@@ -178,6 +181,32 @@ export default function Home() {
     setIsSuggestionsOpen(false);
     handleRecipeAction('edit', recipe);
   };
+  
+  const filteredAndSortedRecipes = useMemo(() => {
+    const filtered = recipes.filter(recipe => {
+      const query = filterQuery.toLowerCase();
+      if (!query) return true;
+      const nameMatch = recipe.name.toLowerCase().includes(query);
+      const ingredientMatch = recipe.ingredients.some(ing => ing.name.toLowerCase().includes(query));
+      return nameMatch || ingredientMatch;
+    });
+
+    const [key, order] = sortCriteria.split('-') as [keyof Recipe, 'asc' | 'desc'];
+
+    return filtered.sort((a, b) => {
+      let valA = a[key];
+      let valB = b[key];
+      
+      if (typeof valA === 'string' && typeof valB === 'string') {
+        valA = valA.toLowerCase();
+        valB = valB.toLowerCase();
+      }
+
+      if (valA < valB) return order === 'asc' ? -1 : 1;
+      if (valA > valB) return order === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [recipes, filterQuery, sortCriteria]);
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground font-body">
@@ -194,7 +223,14 @@ export default function Home() {
             />
           </div>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <RecipeLibrary recipes={recipes} onRecipeAction={handleRecipeAction} />
+            <RecipeLibrary 
+              recipes={filteredAndSortedRecipes} 
+              onRecipeAction={handleRecipeAction}
+              filterQuery={filterQuery}
+              onFilterChange={setFilterQuery}
+              sortCriteria={sortCriteria}
+              onSortChange={setSortCriteria}
+            />
             <AiSuggester onSuggest={handleAiSuggest} />
           </div>
         </div>
