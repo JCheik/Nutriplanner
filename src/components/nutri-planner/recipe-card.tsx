@@ -69,10 +69,10 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
   if (isCompact) {
     return (
         <div 
-          className="p-2 w-full cursor-pointer"
+          className="p-2 w-full h-full cursor-pointer flex items-center justify-center"
           onClick={onClick}
         >
-            <p className="text-xs font-semibold text-card-foreground truncate">{recipe.name}</p>
+            <p className="text-xs font-semibold text-card-foreground text-center truncate">{recipe.name}</p>
         </div>
     );
   }

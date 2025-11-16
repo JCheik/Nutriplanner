@@ -90,13 +90,13 @@ function MealSlot({ day, mealType, mealRecipes, onDrop, onClearMeal, onRecipeCli
           </Button>
         )}
       </div>
-      <div className="min-h-24 rounded-lg border-2 border-dashed bg-muted/50 flex flex-col items-center justify-center p-0.5 gap-0.5 relative group overflow-hidden">
+      <div className="min-h-24 rounded-lg border-2 border-dashed bg-muted/50 flex flex-col items-center justify-center p-0 gap-0 relative group overflow-hidden">
         {mealRecipes.length > 0 ? (
           mealRecipes.map((recipe, index) => (
-            <div key={recipe.id} className="w-full relative group/item">
+            <div key={recipe.id} className="w-full relative group/item flex-1">
               <div 
                 className={cn(
-                  "rounded-md",
+                  "rounded-md h-full flex flex-col",
                   index === 0 ? 'bg-primary/10' : 'bg-[hsl(var(--chart-1))]/10',
                   index > 0 && 'border-t-2 border-dashed border-border'
                 )}
