@@ -75,7 +75,7 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
             <GripVertical className="h-5 w-5 text-muted-foreground" />
           </div>
         )}
-        <div className={cn("relative w-full", isCompact ? "h-full" : "aspect-[16/10]")}>
+        <div className="relative w-full h-full">
           <Image
             src={recipe.imageUrl || `https://picsum.photos/seed/${recipe.id}/400/300`}
             alt={recipe.name}

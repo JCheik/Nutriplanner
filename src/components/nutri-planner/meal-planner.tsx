@@ -75,7 +75,7 @@ function MealSlot({ day, mealType, mealRecipe, onDrop, onClearMeal, onRecipeClic
   return (
     <div onDragOver={handleDragOver} onDrop={handleDrop} className="relative">
       <h4 className="text-sm font-medium text-muted-foreground mb-2 pl-1">{mealTitle}</h4>
-      <div className="min-h-28 rounded-lg border-2 border-dashed bg-muted/50 flex items-center justify-center p-2 relative group">
+      <div className="h-24 rounded-lg border-2 border-dashed bg-muted/50 flex items-center justify-center p-0 relative group overflow-hidden">
         {mealRecipe ? (
           <>
             <div className="w-full h-full cursor-pointer" onClick={() => onRecipeClick(mealRecipe)}>
@@ -113,7 +113,7 @@ export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onReci
           {weekPlan.map(({ day, meals }) => {
             const dayTotals = dailyTotals.find(d => d.day === day)?.totals;
             return (
-              <div key={day} className="flex flex-col gap-4 p-4 rounded-xl bg-secondary/50 w-[200px] flex-shrink-0">
+              <div key={day} className="flex flex-col gap-4 p-4 rounded-xl bg-secondary/50 w-[170px] flex-shrink-0">
                 <h3 className="font-semibold text-center text-lg text-card-foreground">{day}</h3>
                 <div className="space-y-4">
                   <MealSlot day={day} mealType="breakfast" mealRecipe={meals.breakfast.recipe} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} />
