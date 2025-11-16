@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { Recipe, WeekPlan, MealType, DialogState } from '@/lib/types';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { PageHeader } from '@/components/layout/page-header';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
 import { AiSuggester } from '@/components/nutri-planner/ai-suggester';
@@ -11,6 +12,8 @@ import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
 import { AiSuggestionsDialog } from '@/components/nutri-planner/ai-suggestions-dialog';
 import { suggestRecipesFromIngredients } from '@/ai/flows/suggest-recipes-from-ingredients';
 import { useToast } from '@/hooks/use-toast';
+
+const DEFAULT_RECIPE_IMAGE = PlaceHolderImages.find(img => img.id === '1')?.imageUrl || 'https://picsum.photos/seed/1/400/300';
 
 export default function Home() {
   const { toast } = useToast();
@@ -73,7 +76,7 @@ export default function Home() {
       }
       const newRecipe = {
         ...recipe,
-        imageUrl: recipe.imageUrl || `https://picsum.photos/seed/${self.crypto.randomUUID()}/400/300`,
+        imageUrl: recipe.imageUrl || DEFAULT_RECIPE_IMAGE,
       };
       return [...prevRecipes, newRecipe];
     });
@@ -141,7 +144,7 @@ export default function Home() {
             instructions: r.instructions,
             ingredients: recipeIngredients,
             calories: 0, protein: 0, carbs: 0, fat: 0, // Las macros totales se calcularían en el editor
-            imageUrl: `https://picsum.photos/seed/${Math.random().toString(36).substring(7)}/400/300`,
+            imageUrl: DEFAULT_RECIPE_IMAGE,
             isAiSuggestion: true,
           };
         });
@@ -171,7 +174,7 @@ export default function Home() {
       const { isAiSuggestion, ...recipeData } = r;
       return {
         ...recipeData,
-        imageUrl: recipeData.imageUrl || `https://picsum.photos/seed/${self.crypto.randomUUID()}/400/300`
+        imageUrl: recipeData.imageUrl || DEFAULT_RECIPE_IMAGE
       };
     });
 
