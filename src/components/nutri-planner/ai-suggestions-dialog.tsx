@@ -61,8 +61,8 @@ export function AiSuggestionsDialog({ isOpen, onClose, suggestedRecipes, onAddSe
                         className="bg-white/80 border-slate-500 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground w-5 h-5"
                     />
                 </div>
-                <div className="relative w-32 h-32 shrink-0 bg-secondary flex items-center justify-center">
-                  <span className="font-semibold text-center text-secondary-foreground p-2">{recipe.name}</span>
+                <div className="relative w-32 h-32 shrink-0 bg-accent flex items-center justify-center">
+                  <span className="font-semibold text-center text-accent-foreground p-2">{recipe.name}</span>
                 </div>
                 <div className="py-4 pr-4 flex-1">
                   <CardHeader className="p-0 mb-2">

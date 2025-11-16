@@ -16,8 +16,8 @@ interface RecipeCardProps {
 }
 
 const RecipePlaceholder = ({ recipeName }: { recipeName: string }) => (
-  <div className="w-full h-full bg-secondary flex items-center justify-center p-2">
-    <span className="text-secondary-foreground text-center font-semibold text-sm leading-tight line-clamp-2">
+  <div className="w-full h-full bg-accent flex items-center justify-center p-2">
+    <span className="text-accent-foreground text-center font-semibold text-sm leading-tight line-clamp-2">
       {recipeName}
     </span>
   </div>

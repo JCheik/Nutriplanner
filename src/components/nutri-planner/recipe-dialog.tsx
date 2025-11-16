@@ -57,8 +57,8 @@ function RecipeView({ recipe, onEdit, onDelete }: { recipe: Recipe, onEdit: (rec
       </DialogHeader>
       <div className="grid md:grid-cols-2 gap-6">
         <div>
-          <div className="relative aspect-video rounded-lg overflow-hidden mb-4 bg-secondary flex items-center justify-center">
-            <h3 className="text-2xl font-bold text-secondary-foreground p-4 text-center">{recipe.name}</h3>
+          <div className="relative aspect-video rounded-lg overflow-hidden mb-4 bg-accent flex items-center justify-center">
+            <h3 className="text-2xl font-bold text-accent-foreground p-4 text-center">{recipe.name}</h3>
           </div>
           <div className="grid grid-cols-4 gap-2 text-center">
             <MacroDisplay label="Calorías" value={recipe.calories} unit="kcal" icon={Flame} />
