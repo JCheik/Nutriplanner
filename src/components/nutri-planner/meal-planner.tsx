@@ -96,13 +96,16 @@ function MealSlot({ day, mealType, mealRecipes, onDrop, onClearMeal, onRecipeCli
             <div key={recipe.id} className="w-full relative group/item flex-1">
               <div 
                 className={cn(
-                  "rounded-md h-full flex flex-col",
-                  index === 0 ? 'bg-primary/10' : 'bg-[hsl(var(--chart-1))]/10',
+                  "h-full w-full",
                   index > 0 && 'border-t-2 border-dashed border-border'
                 )}
                 onClick={() => onRecipeClick(recipe)}
               >
-                <RecipeCard recipe={recipe} isCompact />
+                <RecipeCard 
+                  recipe={recipe} 
+                  isCompact 
+                  colorVariant={index === 0 ? 'primary' : 'secondary'}
+                />
               </div>
               <Button
                 variant="ghost"

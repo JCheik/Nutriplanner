@@ -13,11 +13,18 @@ interface RecipeCardProps {
   isCompact?: boolean;
   isListView?: boolean;
   onClick?: () => void;
+  colorVariant?: 'primary' | 'secondary';
 }
 
-const RecipePlaceholder = ({ recipeName }: { recipeName: string }) => (
-  <div className="w-full h-full bg-accent flex items-center justify-center p-2">
-    <span className="text-accent-foreground text-center font-semibold text-sm leading-tight line-clamp-2">
+const RecipePlaceholder = ({ recipeName, colorVariant = 'primary' }: { recipeName: string, colorVariant?: 'primary' | 'secondary' }) => (
+  <div className={cn(
+    "w-full h-full flex items-center justify-center p-2",
+    colorVariant === 'primary' ? 'bg-accent' : 'bg-chart-1'
+  )}>
+    <span className={cn(
+      "text-center font-semibold text-sm leading-tight line-clamp-2",
+       colorVariant === 'primary' ? 'text-accent-foreground' : 'text-white'
+    )}>
       {recipeName}
     </span>
   </div>
@@ -31,7 +38,7 @@ const MacroItem = ({ icon: Icon, value, unit, colorClass }: { icon: React.Elemen
 );
 
 
-export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isListView = false, onClick }: RecipeCardProps) {
+export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isListView = false, onClick, colorVariant = 'primary' }: RecipeCardProps) {
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
     if (!isDraggable) return;
     e.dataTransfer.setData('application/json', JSON.stringify(recipe));
@@ -69,10 +76,10 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
   if (isCompact) {
     return (
         <div 
-          className="p-2 w-full h-full cursor-pointer flex items-center justify-center"
+          className="w-full h-full cursor-pointer"
           onClick={onClick}
         >
-            <p className="text-xs font-semibold text-card-foreground text-center truncate">{recipe.name}</p>
+           <RecipePlaceholder recipeName={recipe.name} colorVariant={colorVariant} />
         </div>
     );
   }
