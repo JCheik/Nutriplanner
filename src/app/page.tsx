@@ -10,7 +10,6 @@ import { MealPlanner } from '@/components/nutri-planner/meal-planner';
 import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
 import { suggestRecipesFromIngredients } from '@/ai/flows/suggest-recipes-from-ingredients';
 import { useToast } from '@/hooks/use-toast';
-import { RecipeBuilder } from '@/components/nutri-planner/recipe-builder';
 
 export default function Home() {
   const { toast } = useToast();
@@ -68,7 +67,11 @@ export default function Home() {
       if (exists) {
         return prevRecipes.map(r => (r.id === recipe.id ? recipe : r));
       }
-      return [...prevRecipes, recipe];
+      const newRecipe = {
+        ...recipe,
+        imageUrl: recipe.imageUrl || `https://picsum.photos/seed/${self.crypto.randomUUID()}/400/300`,
+      };
+      return [...prevRecipes, newRecipe];
     });
     toast({
       title: '¡Receta guardada!',
@@ -183,9 +186,6 @@ export default function Home() {
           </div>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <RecipeLibrary recipes={recipes} onRecipeAction={handleRecipeAction} />
-            <RecipeBuilder onSave={handleSaveRecipe} />
-          </div>
-          <div>
             <AiSuggester onSuggest={handleAiSuggest} />
           </div>
         </div>
