@@ -108,12 +108,12 @@ export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onReci
         </div>
         <CardDescription>Arrastra y suelta recetas de tu biblioteca para planificar tu semana.</CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+      <CardContent className="overflow-x-auto pb-4">
+        <div className="grid grid-flow-col auto-cols-fr gap-4 min-w-[1400px]">
           {weekPlan.map(({ day, meals }) => {
             const dayTotals = dailyTotals.find(d => d.day === day)?.totals;
             return (
-              <div key={day} className="flex flex-col gap-4 p-4 rounded-xl bg-secondary/50">
+              <div key={day} className="flex flex-col gap-4 p-4 rounded-xl bg-secondary/50 w-[250px] flex-shrink-0">
                 <h3 className="font-semibold text-center text-lg text-card-foreground">{day}</h3>
                 <div className="space-y-4">
                   <MealSlot day={day} mealType="breakfast" mealRecipe={meals.breakfast.recipe} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} />
