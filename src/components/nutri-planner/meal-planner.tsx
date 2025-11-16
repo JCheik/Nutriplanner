@@ -1,0 +1,97 @@
+'use client';
+
+import type { DragEvent } from 'react';
+import type { WeekPlan, MealType, Recipe, DailyTotal } from '@/lib/types';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { RecipeCard } from './recipe-card';
+import { Button } from '@/components/ui/button';
+import { CalendarDays, X } from 'lucide-react';
+import { NutritionTotalsTooltip } from './nutrition-totals-tooltip';
+
+interface MealPlannerProps {
+  weekPlan: WeekPlan;
+  dailyTotals: DailyTotal[];
+  onDrop: (day: string, mealType: MealType, recipe: Recipe) => void;
+  onClearMeal: (day: string, mealType: MealType) => void;
+  onRecipeClick: (recipe: Recipe) => void;
+}
+
+interface MealSlotProps {
+  day: string;
+  mealType: MealType;
+  mealRecipe: Recipe | null;
+  onDrop: (day: string, mealType: MealType, recipe: Recipe) => void;
+  onClearMeal: (day: string, mealType: MealType) => void;
+  onRecipeClick: (recipe: Recipe) => void;
+}
+
+function MealSlot({ day, mealType, mealRecipe, onDrop, onClearMeal, onRecipeClick }: MealSlotProps) {
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const recipe = JSON.parse(e.dataTransfer.getData('application/json'));
+    onDrop(day, mealType, recipe);
+  };
+  
+  const mealTitle = mealType.charAt(0).toUpperCase() + mealType.slice(1);
+
+  return (
+    <div onDragOver={handleDragOver} onDrop={handleDrop} className="relative">
+      <h4 className="text-sm font-medium text-muted-foreground mb-2 pl-2">{mealTitle}</h4>
+      <div className="h-28 rounded-lg border-2 border-dashed bg-muted/50 flex items-center justify-center p-2 relative group">
+        {mealRecipe ? (
+          <>
+            <div className="w-full h-full" onClick={() => onRecipeClick(mealRecipe)}>
+              <RecipeCard recipe={mealRecipe} isCompact />
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-card/70 hover:bg-card"
+              onClick={() => onClearMeal(day, mealType)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground">Drop a recipe here</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onRecipeClick }: MealPlannerProps) {
+  return (
+    <Card className="h-full">
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <CalendarDays className="h-6 w-6 text-primary" />
+          <CardTitle>Weekly Meal Plan</CardTitle>
+        </div>
+        <CardDescription>Drag and drop recipes from your library to plan your week.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4">
+          {weekPlan.map(({ day, meals }) => {
+            const dayTotals = dailyTotals.find(d => d.day === day)?.totals;
+            return (
+              <div key={day} className="flex flex-col gap-4 p-3 rounded-lg bg-secondary/50">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-semibold text-center text-card-foreground">{day}</h3>
+                  {dayTotals && <NutritionTotalsTooltip totals={dayTotals} />}
+                </div>
+                <MealSlot day={day} mealType="breakfast" mealRecipe={meals.breakfast.recipe} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} />
+                <MealSlot day={day} mealType="lunch" mealRecipe={meals.lunch.recipe} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} />
+                <MealSlot day={day} mealType="dinner" mealRecipe={meals.dinner.recipe} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} />
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
