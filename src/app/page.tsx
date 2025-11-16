@@ -8,12 +8,17 @@ import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
 import { MealPlanner } from '@/components/nutri-planner/meal-planner';
 import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { AiSuggester } from '@/components/nutri-planner/ai-suggester';
+import { suggestRecipesFromIngredients } from '@/ai/flows/suggest-recipes-from-ingredients';
+import { AiSuggestionsDialog } from '@/components/nutri-planner/ai-suggestions-dialog';
 
 export default function Home() {
   const { toast } = useToast();
   const [recipes, setRecipes] = useState<Recipe[]>(INITIAL_RECIPES);
   const [weekPlan, setWeekPlan] = useState<WeekPlan>(INITIAL_WEEK_PLAN);
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
+  const [suggestedRecipes, setSuggestedRecipes] = useState<Recipe[]>([]);
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
 
   const handleDrop = useCallback((day: string, mealType: MealType, droppedRecipe: Recipe) => {
     setWeekPlan(prevPlan =>
@@ -65,8 +70,12 @@ export default function Home() {
       if (exists) {
         return prevRecipes.map(r => (r.id === recipe.id ? recipe : r));
       }
-      return [...prevRecipes, recipe];
+      return [{ ...recipe, isAiSuggestion: false }, ...prevRecipes];
     });
+     // If it was an AI suggestion, remove it from the suggestions list
+    if (recipe.isAiSuggestion) {
+      setSuggestedRecipes(prev => prev.filter(r => r.id !== recipe.id));
+    }
     toast({
       title: '¡Receta guardada!',
       description: `${recipe.name} se ha guardado en tu biblioteca.`,
@@ -105,6 +114,71 @@ export default function Home() {
     });
   }, [weekPlan]);
 
+  const handleAiSuggest = async (ingredients: string[], dietaryPreferences: string) => {
+    try {
+      const result = await suggestRecipesFromIngredients({ ingredients, dietaryPreferences });
+      if (result.recipes && result.recipes.length > 0) {
+        const newRecipes: Recipe[] = result.recipes.map(r => {
+          const recipeIngredients = r.ingredients.map(ing => {
+            const [quantity, unit, ...nameParts] = ing.split(' ');
+            return {
+              id: self.crypto.randomUUID(),
+              name: nameParts.join(' '),
+              quantity: parseFloat(quantity) || 0,
+              unit: unit || 'g',
+              calories: 0, protein: 0, carbs: 0, fat: 0,
+            };
+          });
+
+          return {
+            id: self.crypto.randomUUID(),
+            name: r.name,
+            description: `Receta sugerida por IA basada en tus ingredientes.`,
+            instructions: r.instructions,
+            ingredients: recipeIngredients,
+            calories: 0, protein: 0, carbs: 0, fat: 0,
+            isAiSuggestion: true,
+          };
+        });
+        
+        setSuggestedRecipes(newRecipes);
+        setIsSuggestionsOpen(true);
+        return newRecipes;
+      } else {
+        toast({
+          title: "No se encontraron recetas",
+          description: "La IA no pudo encontrar ninguna receta con tus ingredientes. ¡Intenta añadir más!",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('La sugerencia de IA falló:', error);
+      toast({
+        title: "Error de IA",
+        description: "Algo salió mal al obtener sugerencias. Por favor, inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddSelectedRecipes = useCallback((selectedRecipes: Recipe[]) => {
+    const recipesToAdd = selectedRecipes.map(r => ({ ...r, isAiSuggestion: false }));
+    setRecipes(prev => [...recipesToAdd, ...prev]);
+    setSuggestedRecipes(prev => prev.filter(r => !selectedRecipes.find(sr => sr.id === r.id)));
+    if (suggestedRecipes.length - selectedRecipes.length <= 0) {
+      setIsSuggestionsOpen(false);
+    }
+    toast({
+      title: '¡Recetas añadidas!',
+      description: `${selectedRecipes.length} nuevas recetas se han añadido a tu biblioteca.`,
+    });
+  }, [suggestedRecipes, toast]);
+
+  const handleEditSuggestion = (recipe: Recipe) => {
+    setIsSuggestionsOpen(false);
+    handleRecipeAction('edit', recipe);
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground font-body">
       <PageHeader />
@@ -119,8 +193,9 @@ export default function Home() {
               onRecipeClick={(recipe) => handleRecipeAction('view', recipe)}
             />
           </div>
-          <div className="grid grid-cols-1 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <RecipeLibrary recipes={recipes} onRecipeAction={handleRecipeAction} />
+            <AiSuggester onSuggest={handleAiSuggest} />
           </div>
         </div>
       </main>
@@ -130,6 +205,13 @@ export default function Home() {
         onSave={handleSaveRecipe}
         onDelete={handleDeleteRecipe}
         onEdit={(recipe) => handleRecipeAction('edit', recipe)}
+      />
+      <AiSuggestionsDialog
+        isOpen={isSuggestionsOpen}
+        onClose={() => setIsSuggestionsOpen(false)}
+        suggestedRecipes={suggestedRecipes}
+        onAddSelected={handleAddSelectedRecipes}
+        onEdit={handleEditSuggestion}
       />
     </div>
   );

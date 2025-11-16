@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import type { Recipe } from '@/lib/types';
 
 interface AiSuggesterProps {
-  onSuggest: (ingredients: string[], dietaryPreferences: string) => Promise<Recipe[] | undefined>;
+  onSuggest: (ingredients: string[], dietaryPreferences: string) => Promise<Recipe[] | void>;
 }
 
 export function AiSuggester({ onSuggest }: AiSuggesterProps) {
