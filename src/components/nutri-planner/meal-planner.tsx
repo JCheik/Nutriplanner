@@ -7,6 +7,7 @@ import { RecipeCard } from './recipe-card';
 import { Button } from '@/components/ui/button';
 import { CalendarDays, X, Flame, EggFried, Wheat, Droplets } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ScrollArea, ScrollBar } from '../ui/scroll-area';
 
 interface MealPlannerProps {
   weekPlan: WeekPlan;
@@ -76,7 +77,7 @@ function MealSlot({ day, mealType, mealRecipes, onDrop, onClearMeal, onRecipeCli
   const mealTitle = mealTitles[mealType];
 
   return (
-    <div onDragOver={handleDragOver} onDrop={handleDrop} className="relative">
+    <div onDragOver={handleDragOver} onDrop={handleDrop} className="relative flex flex-col h-full">
       <div className="flex justify-between items-center mb-2 pl-1">
         <h4 className="text-sm font-medium text-muted-foreground">{mealTitle}</h4>
         {mealRecipes.length > 0 && (
@@ -90,33 +91,34 @@ function MealSlot({ day, mealType, mealRecipes, onDrop, onClearMeal, onRecipeCli
           </Button>
         )}
       </div>
-      <div className="min-h-24 rounded-lg border-2 border-dashed bg-muted/50 flex flex-col items-center justify-center p-0 gap-0 relative group overflow-hidden">
+      <div className="flex-1 min-h-24 rounded-lg border-2 border-dashed bg-muted/50 p-1 flex flex-col items-center justify-center gap-1 relative group overflow-hidden">
         {mealRecipes.length > 0 ? (
-          mealRecipes.map((recipe, index) => (
-            <div key={recipe.id} className="w-full relative group/item flex-1">
-              <div 
-                className={cn(
-                  "h-full w-full",
-                  index > 0 && 'border-t-2 border-dashed border-border'
-                )}
-                onClick={() => onRecipeClick(recipe)}
-              >
-                <RecipeCard 
-                  recipe={recipe} 
-                  isCompact 
-                  colorVariant={index === 0 ? 'primary' : 'secondary'}
-                />
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute top-1/2 -translate-y-1/2 right-0 h-6 w-6 opacity-0 group-hover/item:opacity-100 transition-opacity z-10 bg-card/70 hover:bg-card"
-                onClick={(e) => { e.stopPropagation(); onRemoveRecipeFromMeal(day, mealType, recipe.id); }}
-              >
-                <X className="h-3 w-3" />
-              </Button>
+           <ScrollArea className="w-full h-full">
+            <div className="flex flex-col gap-1 p-1">
+                {mealRecipes.map((recipe) => (
+                    <div key={recipe.id} className="w-full relative group/item">
+                    <div 
+                        className="h-full w-full"
+                        onClick={() => onRecipeClick(recipe)}
+                    >
+                        <RecipeCard 
+                          recipe={recipe} 
+                          isCompact 
+                        />
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-1/2 -translate-y-1/2 right-0 h-6 w-6 opacity-0 group-hover/item:opacity-100 transition-opacity z-10 bg-card/70 hover:bg-card"
+                        onClick={(e) => { e.stopPropagation(); onRemoveRecipeFromMeal(day, mealType, recipe.id); }}
+                    >
+                        <X className="h-3 w-3" />
+                    </Button>
+                    </div>
+                ))}
             </div>
-          ))
+            <ScrollBar />
+          </ScrollArea>
         ) : (
           <p className="text-xs text-center text-muted-foreground px-2">Arrastra una receta aquí</p>
         )}
@@ -140,7 +142,7 @@ export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onReci
           {weekPlan.map(({ day, meals }) => {
             const dayTotals = dailyTotals.find(d => d.day === day)?.totals;
             return (
-              <div key={day} className="flex flex-col gap-4 p-4 rounded-xl bg-secondary/50 w-[170px] flex-shrink-0">
+              <div key={day} className="flex flex-col gap-4 p-4 rounded-xl bg-secondary/50 w-[200px] h-[550px] flex-shrink-0">
                 <h3 className="font-semibold text-center text-lg text-card-foreground">{day}</h3>
                 <div className="space-y-4 flex-1 flex flex-col">
                   <MealSlot day={day} mealType="breakfast" mealRecipes={meals.breakfast.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />

@@ -18,11 +18,11 @@ interface RecipeCardProps {
 
 const RecipePlaceholder = ({ recipeName, colorVariant = 'primary' }: { recipeName: string, colorVariant?: 'primary' | 'secondary' }) => (
   <div className={cn(
-    "w-full h-full flex items-center justify-center p-2",
+    "w-full h-full flex items-center justify-center p-2 rounded-md",
     colorVariant === 'primary' ? 'bg-accent' : 'bg-chart-1'
   )}>
     <span className={cn(
-      "text-center font-semibold text-sm leading-tight line-clamp-2",
+      "text-center font-semibold text-xs leading-tight line-clamp-2",
        colorVariant === 'primary' ? 'text-accent-foreground' : 'text-white'
     )}>
       {recipeName}
@@ -76,7 +76,7 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
   if (isCompact) {
     return (
         <div 
-          className="w-full h-full cursor-pointer"
+          className="w-full h-12 cursor-pointer"
           onClick={onClick}
         >
            <RecipePlaceholder recipeName={recipe.name} colorVariant={colorVariant} />
