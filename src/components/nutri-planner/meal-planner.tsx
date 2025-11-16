@@ -142,7 +142,7 @@ export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onReci
             return (
               <div key={day} className="flex flex-col gap-4 p-4 rounded-xl bg-secondary/50 w-[170px] flex-shrink-0">
                 <h3 className="font-semibold text-center text-lg text-card-foreground">{day}</h3>
-                <div className="space-y-4">
+                <div className="space-y-4 flex-1 flex flex-col">
                   <MealSlot day={day} mealType="breakfast" mealRecipes={meals.breakfast.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
                   <MealSlot day={day} mealType="lunch" mealRecipes={meals.lunch.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
                   <MealSlot day={day} mealType="snack" mealRecipes={meals.snack.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
