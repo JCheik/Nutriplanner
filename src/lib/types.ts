@@ -21,7 +21,7 @@ export interface Recipe extends Macros {
   imageUrl?: string;
 }
 
-export type MealType = 'breakfast' | 'lunch' | 'dinner';
+export type MealType = 'breakfast' | 'lunch' | 'snack' | 'dinner';
 
 export interface Meal {
   id: string;

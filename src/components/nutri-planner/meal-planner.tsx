@@ -1,12 +1,11 @@
 'use client';
 
 import type { DragEvent } from 'react';
-import type { WeekPlan, MealType, Recipe, DailyTotal } from '@/lib/types';
+import type { WeekPlan, MealType, Recipe, DailyTotal, Macros } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RecipeCard } from './recipe-card';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, X } from 'lucide-react';
-import { NutritionTotalsTooltip } from './nutrition-totals-tooltip';
+import { CalendarDays, X, Flame, EggFried, Wheat, Droplets } from 'lucide-react';
 
 interface MealPlannerProps {
   weekPlan: WeekPlan;
@@ -25,6 +24,35 @@ interface MealSlotProps {
   onRecipeClick: (recipe: Recipe) => void;
 }
 
+const DailyTotalsRow = ({ totals }: { totals: Macros }) => (
+  <div className="mt-2 p-2 rounded-lg bg-background/50">
+    <h4 className="text-sm font-semibold text-center mb-2">Totales del Día</h4>
+    <div className="grid grid-cols-4 gap-1 text-center text-xs">
+      <div className="flex flex-col items-center">
+        <Flame className="h-4 w-4 text-orange-500" />
+        <span>{Math.round(totals.calories)}</span>
+        <span className="text-muted-foreground text-[10px]">kcal</span>
+      </div>
+      <div className="flex flex-col items-center">
+        <EggFried className="h-4 w-4 text-amber-600" />
+        <span>{Math.round(totals.protein)}</span>
+        <span className="text-muted-foreground text-[10px]">g</span>
+      </div>
+      <div className="flex flex-col items-center">
+        <Wheat className="h-4 w-4 text-yellow-500" />
+        <span>{Math.round(totals.carbs)}</span>
+        <span className="text-muted-foreground text-[10px]">g</span>
+      </div>
+      <div className="flex flex-col items-center">
+        <Droplets className="h-4 w-4 text-sky-500" />
+        <span>{Math.round(totals.fat)}</span>
+        <span className="text-muted-foreground text-[10px]">g</span>
+      </div>
+    </div>
+  </div>
+);
+
+
 function MealSlot({ day, mealType, mealRecipe, onDrop, onClearMeal, onRecipeClick }: MealSlotProps) {
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -39,6 +67,7 @@ function MealSlot({ day, mealType, mealRecipe, onDrop, onClearMeal, onRecipeClic
   const mealTitles: Record<MealType, string> = {
     breakfast: 'Desayuno',
     lunch: 'Almuerzo',
+    snack: 'Merienda',
     dinner: 'Cena',
   };
   const mealTitle = mealTitles[mealType];
@@ -87,11 +116,12 @@ export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onReci
               <div key={day} className="flex flex-col gap-4 p-3 rounded-lg bg-secondary/50">
                 <div className="flex justify-between items-center">
                   <h3 className="font-semibold text-center text-card-foreground">{day}</h3>
-                  {dayTotals && <NutritionTotalsTooltip totals={dayTotals} />}
                 </div>
                 <MealSlot day={day} mealType="breakfast" mealRecipe={meals.breakfast.recipe} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} />
                 <MealSlot day={day} mealType="lunch" mealRecipe={meals.lunch.recipe} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} />
+                <MealSlot day={day} mealType="snack" mealRecipe={meals.snack.recipe} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} />
                 <MealSlot day={day} mealType="dinner" mealRecipe={meals.dinner.recipe} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} />
+                {dayTotals && <DailyTotalsRow totals={dayTotals} />}
               </div>
             );
           })}

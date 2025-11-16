@@ -80,6 +80,7 @@ export default function Home() {
         meals: {
           breakfast: dayPlan.meals.breakfast.recipe?.id === recipeId ? { ...dayPlan.meals.breakfast, recipe: null } : dayPlan.meals.breakfast,
           lunch: dayPlan.meals.lunch.recipe?.id === recipeId ? { ...dayPlan.meals.lunch, recipe: null } : dayPlan.meals.lunch,
+          snack: dayPlan.meals.snack.recipe?.id === recipeId ? { ...dayPlan.meals.snack, recipe: null } : dayPlan.meals.snack,
           dinner: dayPlan.meals.dinner.recipe?.id === recipeId ? { ...dayPlan.meals.dinner, recipe: null } : dayPlan.meals.dinner,
         }
       }))
