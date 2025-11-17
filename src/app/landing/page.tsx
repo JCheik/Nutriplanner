@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
-import type { Recipe, WeekPlan, MealType, DialogState, SortCriteria } from '@/lib/types';
+import type { Recipe, WeekPlan, MealType, DialogState } from '@/lib/types';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
 import { PageHeader } from '@/components/layout/page-header';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
@@ -31,8 +31,6 @@ export default function LandingPage() {
   const [weekPlan, setWeekPlan] = useState<WeekPlan>(INITIAL_WEEK_PLAN);
   
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
-  const [filterQuery, setFilterQuery] = useState('');
-  const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
   const [isSuggesterOpen, setIsSuggesterOpen] = useState(false);
   const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(true);
 
@@ -84,7 +82,7 @@ export default function LandingPage() {
                 ...dayPlan.meals,
                 [mealType]: {
                   ...dayPlan.meals[mealType],
-                  recipes: dayPlan.meals[mealType].recipes.filter(r => r.id !== recipeId)
+                  recipes: dayPlan.meals[mealType].recipes.filter((r, i) => `${r.id}-${i}` !== `${recipeId}-${i}`)
                 },
               },
             }
@@ -93,7 +91,7 @@ export default function LandingPage() {
     );
   }, []);
 
-  const handleRecipeAction = useCallback((action: 'view' | 'create' | 'edit', recipe?: Recipe) => {
+  const handleRecipeAction = useCallback((action: 'view' | 'create' | 'edit', recipe?: Recipe, isNutriPlannerRecipe: boolean = false) => {
     if (action !== 'view') {
         setIsLoginDialogOpen(true);
         return;
@@ -102,6 +100,7 @@ export default function LandingPage() {
       open: true,
       mode: action,
       recipe: recipe,
+      isNutriPlannerRecipe,
     });
   }, []);
 
@@ -114,6 +113,10 @@ export default function LandingPage() {
     }, []);
 
     const handleDeleteRecipe = useCallback((recipeId: string) => {
+        setIsLoginDialogOpen(true);
+    }, []);
+
+    const handleCopyRecipe = useCallback((recipe: Recipe) => {
         setIsLoginDialogOpen(true);
     }, []);
 
@@ -132,32 +135,6 @@ export default function LandingPage() {
       return { day: dayPlan.day, totals };
     });
   }, [weekPlan]);
-
-  const filteredAndSortedRecipes = useMemo(() => {
-    const filtered = recipes.filter(recipe => {
-      const query = filterQuery.toLowerCase();
-      if (!query) return true;
-      const nameMatch = recipe.name.toLowerCase().includes(query);
-      const ingredientMatch = recipe.ingredients.some(ing => ing.name.toLowerCase().includes(query));
-      return nameMatch || ingredientMatch;
-    });
-
-    const [key, order] = sortCriteria.split('-') as [keyof Recipe, 'asc' | 'desc'];
-
-    return filtered.sort((a, b) => {
-      let valA = a[key];
-      let valB = b[key];
-      
-      if (typeof valA === 'string' && typeof valB === 'string') {
-        valA = valA.toLowerCase();
-        valB = valB.toLowerCase();
-      }
-
-      if (valA < valB) return order === 'asc' ? -1 : 1;
-      if (valA > valB) return order === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [recipes, filterQuery, sortCriteria]);
 
   const handleAddSuggestedRecipes = useCallback((suggestedRecipes: Recipe[]) => {
     setIsLoginDialogOpen(true);
@@ -181,13 +158,11 @@ export default function LandingPage() {
           </div>
           <div className="grid grid-cols-1 gap-6">
             <RecipeLibrary
-              recipes={filteredAndSortedRecipes}
+              userRecipes={recipes}
+              nutriplannerRecipes={[]}
               onRecipeAction={handleRecipeAction}
               onSuggestClick={() => setIsSuggesterOpen(true)}
-              filterQuery={filterQuery}
-              onFilterChange={setFilterQuery}
-              sortCriteria={sortCriteria}
-              onSortChange={setSortCriteria}
+              onCopyRecipe={handleCopyRecipe}
             />
           </div>
         </div>
@@ -198,6 +173,7 @@ export default function LandingPage() {
         onSave={handleSaveRecipe}
         onDelete={handleDeleteRecipe}
         onEdit={(recipe) => handleRecipeAction('edit', recipe)}
+        onCopy={handleCopyRecipe}
       />
       <AiSuggesterDialog
         isOpen={isSuggesterOpen}

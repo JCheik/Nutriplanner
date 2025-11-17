@@ -50,11 +50,11 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, isNutriPlanner = fals
   const [filterQuery, setFilterQuery] = useState('');
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
 
-  const filteredAndSortedRecipes = recipes.filter(recipe => {
+  const filteredAndSortedRecipes = (recipes || []).filter(recipe => {
     const query = filterQuery.toLowerCase();
     if (!query) return true;
     const nameMatch = recipe.name.toLowerCase().includes(query);
-    const ingredientMatch = recipe.ingredients.some(ing => ing.name.toLowerCase().includes(query));
+    const ingredientMatch = (recipe.ingredients || []).some(ing => ing.name.toLowerCase().includes(query));
     return nameMatch || ingredientMatch;
   }).sort((a, b) => {
     const [key, order] = sortCriteria.split('-') as [keyof Recipe, 'asc' | 'desc'];
