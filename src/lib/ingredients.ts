@@ -3155,15 +3155,6 @@ export const ingredientsDB: BaseIngredient[] = [
 { "name": "Paté de hígado de cerdo (30% grasa) (f)", "calories": 342, "protein": 14, "carbs": 5, "sugar": 5, "fiber": 0, "fat": 29.5 },
 { "name": "Paté de hígado de cerdo (42% grasa) (f)", "calories": 454, "protein": 14, "carbs": 5, "sugar": 5, "fiber": 0, "fat": 42 },
 {
-  "name": "Pavo, pechuga sin piel",
-  "calories": 96,
-  "protein": 21.8,
-  "carbs": 0,
-  "sugar": 0,
-  "fiber": 0,
-  "fat": 0.99
-},
-{
   "name": "Salami",
   "calories": 459,
   "protein": 18.5,

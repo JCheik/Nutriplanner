@@ -221,8 +221,8 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
                         <CommandGroup>
                           {ingredientsDB
                             .filter(ing => ing.name.toLowerCase().includes(newIngredientName.toLowerCase()))
-                            .map((ing) => (
-                            <CommandItem key={ing.name} onSelect={() => handleSelectIngredient(ing)}>
+                            .map((ing, index) => (
+                            <CommandItem key={`${ing.name}-${index}`} onSelect={() => handleSelectIngredient(ing)}>
                               {ing.name}
                             </CommandItem>
                           ))}
