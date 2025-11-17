@@ -18,4 +18,4 @@ const ai = genkit({
   enableTracingAndMetrics: true,
 });
 
-export {ai};
+export default ai;
