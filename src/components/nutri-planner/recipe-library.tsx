@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { RecipeCard } from './recipe-card';
-import { BookHeart, PlusCircle, Search, ArrowUpDown, Sparkles, Copy } from 'lucide-react';
+import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -16,7 +16,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from '@/lib/utils';
 
 interface RecipeListProps {
   recipes: Recipe[];
@@ -30,7 +29,6 @@ interface RecipeLibraryProps {
   nutriplannerRecipes: Recipe[];
   onRecipeAction: (action: 'view' | 'create', recipe?: Recipe, isNutriPlannerRecipe?: boolean) => void;
   onCopyRecipe: (recipe: Recipe) => void;
-  onSuggestClick: () => void;
 }
 
 const sortOptions: { value: SortCriteria; label: string }[] = [
@@ -142,7 +140,6 @@ export function RecipeLibrary({
   nutriplannerRecipes,
   onRecipeAction,
   onCopyRecipe,
-  onSuggestClick,
 }: RecipeLibraryProps) {
   return (
     <Card className="flex flex-col h-[500px]">
@@ -165,10 +162,6 @@ export function RecipeLibrary({
               <TabsTrigger value="nutriplanner-recipes">Recetas NutriPlanner</TabsTrigger>
             </TabsList>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={onSuggestClick}>
-                <Sparkles className="mr-2 h-4 w-4" />
-                Sugerir con IA
-              </Button>
               <Button onClick={() => onRecipeAction('create')}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Nueva Receta

@@ -8,8 +8,6 @@ import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
 import { MealPlanner } from '@/components/nutri-planner/meal-planner';
 import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { AiSuggesterDialog } from '@/components/nutri-planner/ai-suggester-dialog';
-import { suggestRecipes } from '@/ai/flows/suggest-recipes';
 import { StickyNote } from '@/components/nutri-planner/sticky-note';
 import { FloatingGoals } from '@/components/nutri-planner/floating-goals';
 import { ShoppingListSheet } from '@/components/nutri-planner/shopping-list';
@@ -47,7 +45,6 @@ export default function Dashboard() {
   const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
 
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
-  const [isSuggesterOpen, setIsSuggesterOpen] = useState(false);
   const [activeFloatingMenu, setActiveFloatingMenu] = useState<string | null>(null);
 
   const currentUserRecipes = useMemo(() => userRecipes || [], [userRecipes]);
@@ -155,18 +152,16 @@ export default function Dashboard() {
   const handleSaveRecipe = useCallback((recipe: Recipe) => {
     if (!user || !userRecipesCollectionRef) return;
     
-    // Logic for saving a recipe (both new and edited)
-    // If it's a nutriplanner recipe being copied, it won't have an ID in the user's collection yet
     const isExistingUserRecipe = recipe.id && currentUserRecipes.some(r => r.id === recipe.id);
 
-    if (isExistingUserRecipe) { // Existing recipe in user's library
+    if (isExistingUserRecipe) { 
       const recipeRef = doc(userRecipesCollectionRef, recipe.id);
       setDocumentNonBlocking(recipeRef, recipe, { merge: true });
        toast({
         title: '¡Receta actualizada!',
         description: `${recipe.name} se ha actualizado en tu biblioteca.`,
       });
-    } else { // New recipe or a copy from NutriPlanner
+    } else { 
       const newRecipeRef = doc(userRecipesCollectionRef);
       addDocumentNonBlocking(userRecipesCollectionRef, { ...recipe, id: newRecipeRef.id });
       toast({
@@ -228,7 +223,6 @@ export default function Dashboard() {
   const handleCopyRecipe = useCallback((recipe: Recipe) => {
     if (!user || !userRecipesCollectionRef) return;
     
-    // Create a new recipe object, omitting the ID to get a new one from Firestore
     const { id, ...recipeData } = recipe;
     
     const newRecipeRef = doc(userRecipesCollectionRef);
@@ -256,22 +250,6 @@ export default function Dashboard() {
     });
   }, [currentWeekPlan]);
   
-  const handleAddSuggestedRecipes = useCallback((suggestedRecipes: Recipe[]) => {
-    if (user && userRecipesCollectionRef && firestore) {
-      const batch = writeBatch(firestore);
-      suggestedRecipes.forEach(recipe => {
-        const recipeRef = doc(userRecipesCollectionRef);
-        batch.set(recipeRef, { ...recipe, id: recipeRef.id });
-      });
-      batch.commit();
-    }
-    
-    toast({
-        title: '¡Recetas añadidas!',
-        description: `${suggestedRecipes.length} nuevas recetas se han añadido a tu biblioteca.`,
-    });
-  }, [toast, user, userRecipesCollectionRef, firestore]);
-
   const handleNoteSave = useCallback((content: string) => {
     if (user && userProfileRef) {
       updateDocumentNonBlocking(userProfileRef, { stickyNote: content });
@@ -317,7 +295,6 @@ export default function Dashboard() {
               userRecipes={currentUserRecipes}
               nutriplannerRecipes={currentNutriplannerRecipes}
               onRecipeAction={handleRecipeAction}
-              onSuggestClick={() => setIsSuggesterOpen(true)}
               onCopyRecipe={handleCopyRecipe}
             />
           </div>
@@ -330,13 +307,6 @@ export default function Dashboard() {
         onDelete={handleDeleteRecipe}
         onEdit={(recipe) => handleRecipeAction('edit', recipe)}
         onCopy={handleCopyRecipe}
-      />
-      <AiSuggesterDialog
-        isOpen={isSuggesterOpen}
-        onClose={() => setIsSuggesterOpen(false)}
-        onSuggest={suggestRecipes}
-        onAddRecipes={handleAddSuggestedRecipes}
-        onEditRecipe={(recipe) => handleRecipeAction('edit', recipe)}
       />
       
       <ShoppingListSheet

@@ -8,8 +8,6 @@ import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
 import { MealPlanner } from '@/components/nutri-planner/meal-planner';
 import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { AiSuggesterDialog } from '@/components/nutri-planner/ai-suggester-dialog';
-import { suggestRecipes } from '@/ai/flows/suggest-recipes';
 import { Button } from '@/components/ui/button';
 import { signInWithGoogle } from '@/firebase/auth/use-user';
 import { useAuth, useFirestore } from '@/firebase';
@@ -31,7 +29,6 @@ export default function LandingPage() {
   const [weekPlan, setWeekPlan] = useState<WeekPlan>(INITIAL_WEEK_PLAN);
   
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
-  const [isSuggesterOpen, setIsSuggesterOpen] = useState(false);
   const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(true);
 
   const handleSignIn = () => {
@@ -136,10 +133,6 @@ export default function LandingPage() {
     });
   }, [weekPlan]);
 
-  const handleAddSuggestedRecipes = useCallback((suggestedRecipes: Recipe[]) => {
-    setIsLoginDialogOpen(true);
-  }, []);
-
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground font-body">
@@ -161,7 +154,6 @@ export default function LandingPage() {
               userRecipes={recipes}
               nutriplannerRecipes={[]}
               onRecipeAction={handleRecipeAction}
-              onSuggestClick={() => setIsSuggesterOpen(true)}
               onCopyRecipe={handleCopyRecipe}
             />
           </div>
@@ -174,13 +166,6 @@ export default function LandingPage() {
         onDelete={handleDeleteRecipe}
         onEdit={(recipe) => handleRecipeAction('edit', recipe)}
         onCopy={handleCopyRecipe}
-      />
-      <AiSuggesterDialog
-        isOpen={isSuggesterOpen}
-        onClose={() => setIsSuggesterOpen(false)}
-        onSuggest={suggestRecipes}
-        onAddRecipes={handleAddSuggestedRecipes}
-        onEditRecipe={(recipe) => handleRecipeAction('edit', recipe)}
       />
       
       <Dialog open={isLoginDialogOpen} onOpenChange={setIsLoginDialogOpen}>
