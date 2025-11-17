@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import type { Recipe, WeekPlan, MealType, DialogState, SortCriteria, UserProfile, CalculationResult } from '@/lib/types';
+import type { DayPlan, Recipe, WeekPlan, MealType, DialogState, SortCriteria, UserProfile, CalculationResult } from '@/lib/types';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
 import { PageHeader } from '@/components/layout/page-header';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
@@ -17,11 +17,10 @@ import { useUser } from '@/firebase/auth/use-user';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useDoc } from '@/firebase/firestore/use-doc';
 import { useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, doc, setDoc, writeBatch, updateDoc } from 'firebase/firestore';
+import { collection, doc, writeBatch } from 'firebase/firestore';
 import { Logo } from '@/components/icons/logo';
 import {
   setDocumentNonBlocking,
-  addDocumentNonBlocking,
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
 } from '@/firebase/non-blocking-updates';
@@ -63,7 +62,7 @@ export default function Dashboard() {
 
       // Add initial week plan
       INITIAL_WEEK_PLAN.forEach(dayPlan => {
-        const dayRef = doc(collection(firestore, 'users', user.uid, 'weekPlan'), dayPlan.day);
+        const dayRef = doc(firestore, 'users', user.uid, 'weekPlan', dayPlan.day);
         batch.set(dayRef, dayPlan);
       });
       
@@ -105,7 +104,7 @@ export default function Dashboard() {
   };
 
 
-  const handleDrop = useCallback(async (day: string, mealType: MealType, droppedRecipe: Recipe) => {
+  const handleDrop = useCallback((day: string, mealType: MealType, droppedRecipe: Recipe) => {
     if (!user || !currentWeekPlan) return;
   
     const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
@@ -121,11 +120,11 @@ export default function Dashboard() {
       };
       
       const updatedDayPlan = { ...targetDay, meals: updatedMeals };
-      await setDoc(dayDocRef, updatedDayPlan, { merge: true });
+      setDocumentNonBlocking(dayDocRef, updatedDayPlan, { merge: true });
     }
   }, [user, firestore, currentWeekPlan]);
   
-  const handleClearMeal = useCallback(async (day: string, mealType: MealType) => {
+  const handleClearMeal = useCallback((day: string, mealType: MealType) => {
     if (!user || !currentWeekPlan) return;
 
     const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
@@ -141,11 +140,11 @@ export default function Dashboard() {
       };
       
       const updatedDayPlan = { ...targetDay, meals: updatedMeals };
-      await setDoc(dayDocRef, updatedDayPlan, { merge: true });
+      setDocumentNonBlocking(dayDocRef, updatedDayPlan, { merge: true });
     }
   }, [user, firestore, currentWeekPlan]);
   
-  const handleRemoveRecipeFromMeal = useCallback(async (day: string, mealType: MealType, recipeId: string) => {
+  const handleRemoveRecipeFromMeal = useCallback((day: string, mealType: MealType, recipeId: string) => {
     if (!user || !currentWeekPlan) return;
 
     const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
@@ -162,7 +161,7 @@ export default function Dashboard() {
         };
 
         const updatedDayPlan = { ...targetDay, meals: updatedMeals };
-        await setDoc(dayDocRef, updatedDayPlan, { merge: true });
+        setDocumentNonBlocking(dayDocRef, updatedDayPlan, { merge: true });
     }
   }, [user, firestore, currentWeekPlan]);
 
@@ -180,8 +179,13 @@ export default function Dashboard() {
 
   const handleSaveRecipe = useCallback((recipe: Recipe) => {
     if (user && recipesCollectionRef) {
-      const recipeRef = doc(recipesCollectionRef, recipe.id);
-      setDocumentNonBlocking(recipeRef, recipe, { merge: true });
+      if(recipe.id) {
+        const recipeRef = doc(recipesCollectionRef, recipe.id);
+        setDocumentNonBlocking(recipeRef, recipe, { merge: true });
+      } else {
+        const newRecipeRef = doc(recipesCollectionRef);
+        setDocumentNonBlocking(newRecipeRef, {...recipe, id: newRecipeRef.id}, { merge: true });
+      }
     }
 
     toast({
@@ -279,7 +283,7 @@ export default function Dashboard() {
         title: '¡Recetas añadidas!',
         description: `${suggestedRecipes.length} nuevas recetas se han añadido a tu biblioteca.`,
     });
-  }, [toast, user, recipesCollectionRef, firestore]);
+  }, [toast, user, recipesCollectionRef]);
 
   const handleNoteSave = useCallback((content: string) => {
     if (user && userProfileRef) {
