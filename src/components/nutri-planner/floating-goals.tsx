@@ -9,11 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalculatorDialog } from './calculator-dialog';
 
-interface FloatingGoalsProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
-
 const GoalCard = ({ title, icon: Icon, goal, isActive = false }: { title: string, icon: React.ElementType, goal: GoalMacros, isActive?: boolean }) => {
     return (
         <Card className={cn("text-center transition-all", isActive ? 'bg-primary text-primary-foreground' : 'bg-card')}>
@@ -105,7 +100,8 @@ const TargetGoalsDisplay = ({ result }: { result: CalculationResult | null }) =>
     );
 }
 
-export function FloatingGoals({ isOpen, onClose }: FloatingGoalsProps) {
+export function FloatingGoals() {
+  const [isOpen, setIsOpen] = useState(false);
   const [result, setResult] = useState<CalculationResult | null>(null);
 
   useEffect(() => {
@@ -126,21 +122,32 @@ export function FloatingGoals({ isOpen, onClose }: FloatingGoalsProps) {
   }, []);
 
   return (
-    <div
-      className={cn(
-        'fixed bottom-8 right-8 w-96 bg-card rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right',
-        isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'
-      )}
-    >
-      <Button
-          variant="ghost"
+    <>
+      <div className="fixed bottom-24 right-8 z-40">
+        <Button
+          onClick={() => setIsOpen(prev => !prev)}
+          className="h-16 w-16 rounded-full shadow-lg"
           size="icon"
-          className="absolute top-2 right-2 h-7 w-7"
-          onClick={onClose}
+        >
+          <Target className="h-8 w-8" />
+        </Button>
+      </div>
+      <div
+        className={cn(
+          'fixed bottom-24 right-28 w-96 bg-card rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right',
+          isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'
+        )}
       >
-          <X className="h-5 w-5" />
-      </Button>
-      <TargetGoalsDisplay result={result} />
-    </div>
+        <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 h-7 w-7"
+            onClick={() => setIsOpen(false)}
+        >
+            <X className="h-5 w-5" />
+        </Button>
+        <TargetGoalsDisplay result={result} />
+      </div>
+    </>
   );
 }

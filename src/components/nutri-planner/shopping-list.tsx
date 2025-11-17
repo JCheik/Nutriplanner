@@ -18,16 +18,11 @@ import { ShoppingCart, Smartphone } from 'lucide-react';
 import { QRCodeDialog } from './qr-code-dialog';
 
 interface ShoppingListSheetProps {
-  isOpen: boolean;
-  onClose: () => void;
   weekPlan: WeekPlan;
 }
 
-interface ShoppingListItem extends Ingredient {
-  checked: boolean;
-}
-
-export function ShoppingListSheet({ isOpen, onClose, weekPlan }: ShoppingListSheetProps) {
+export function ShoppingListSheet({ weekPlan }: ShoppingListSheetProps) {
+  const [isOpen, setIsOpen] = useState(false);
   const [isQrOpen, setIsQrOpen] = useState(false);
 
   const shoppingList = useMemo(() => {
@@ -80,7 +75,17 @@ export function ShoppingListSheet({ isOpen, onClose, weekPlan }: ShoppingListShe
 
   return (
     <>
-      <Sheet open={isOpen} onOpenChange={onClose}>
+      <div className="fixed bottom-8 right-8 z-40">
+        <Button
+          onClick={() => setIsOpen(true)}
+          className="h-16 w-16 rounded-full shadow-lg bg-blue-500 hover:bg-blue-600"
+          size="icon"
+        >
+          <ShoppingCart className="h-8 w-8" />
+        </Button>
+      </div>
+
+      <Sheet open={isOpen} onOpenChange={setIsOpen}>
         <SheetContent className="flex flex-col">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
@@ -127,7 +132,7 @@ export function ShoppingListSheet({ isOpen, onClose, weekPlan }: ShoppingListShe
                 Enviar al móvil
             </Button>
             <div className="flex gap-2">
-                <Button variant="outline" onClick={onClose}>Cerrar</Button>
+                <Button variant="outline" onClick={() => setIsOpen(false)}>Cerrar</Button>
                 <Button onClick={handleClearChecked} disabled={Object.values(checkedItems).every(v => !v)}>
                     Limpiar Comprados
                 </Button>
