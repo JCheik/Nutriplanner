@@ -54,6 +54,15 @@ export default function Dashboard() {
     if (user && !profileLoading && !userProfile) {
       const batch = writeBatch(firestore);
       
+      // Create user profile
+      const profileRef = doc(firestore, 'users', user.uid);
+      batch.set(profileRef, {
+        name: user.displayName,
+        email: user.email,
+        photoURL: user.photoURL,
+        stickyNote: '¡Bienvenido a NutriPlanner! Usa esta nota para apuntar lo que quieras.',
+      });
+      
       // Add initial recipes
       INITIAL_RECIPES.forEach(recipe => {
         const recipeRef = doc(collection(firestore, 'users', user.uid, 'recipes'));
@@ -64,15 +73,6 @@ export default function Dashboard() {
       INITIAL_WEEK_PLAN.forEach(dayPlan => {
         const dayRef = doc(firestore, 'users', user.uid, 'weekPlan', dayPlan.day);
         batch.set(dayRef, dayPlan);
-      });
-      
-      // Create user profile
-      const profileRef = doc(firestore, 'users', user.uid);
-      batch.set(profileRef, {
-        name: user.displayName,
-        email: user.email,
-        photoURL: user.photoURL,
-        stickyNote: '¡Bienvenido a NutriPlanner! Usa esta nota para apuntar lo que quieras.',
       });
 
       batch.commit().catch(console.error);
@@ -373,5 +373,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-    
