@@ -29,14 +29,16 @@ interface MealSlotProps {
 }
 
 const DailyTotalsRow = ({ totals }: { totals: Macros }) => (
-  <div className="mt-4 pt-3 border-t">
+  <div className="mt-2 pt-2 border-t">
     <h4 className="text-sm font-semibold text-center mb-2">Totales del Día</h4>
-    <div className="grid grid-cols-4 gap-1 text-center text-xs">
-      <div className="flex flex-col items-center p-1">
-        <Flame className="h-4 w-4 text-orange-500" />
-        <span className="font-bold">{Math.round(totals.calories)}</span>
-        <span className="text-muted-foreground text-[10px]">kcal</span>
+    <div className="flex flex-col items-center p-1">
+      <div className="flex items-center gap-1">
+        <Flame className="h-5 w-5 text-orange-500" />
+        <span className="font-bold text-lg">{Math.round(totals.calories)}</span>
+        <span className="text-muted-foreground text-sm">kcal</span>
       </div>
+    </div>
+    <div className="grid grid-cols-3 gap-1 text-center text-xs mt-1">
       <div className="flex flex-col items-center p-1">
         <EggFried className="h-4 w-4 text-amber-600" />
         <span className="font-bold">{Math.round(totals.protein)}</span>
@@ -78,8 +80,8 @@ function MealSlot({ day, mealType, mealRecipes, onDrop, onClearMeal, onRecipeCli
 
   return (
     <div onDragOver={handleDragOver} onDrop={handleDrop} className="relative flex flex-col h-full">
-      <div className="flex justify-between items-center mb-2 pl-1">
-        <h4 className="text-sm font-medium text-muted-foreground">{mealTitle}</h4>
+      <div className="flex justify-between items-center mb-1 pl-1">
+        <h4 className="text-xs font-medium text-muted-foreground">{mealTitle}</h4>
         {mealRecipes.length > 0 && (
           <Button
             variant="ghost"
@@ -91,7 +93,7 @@ function MealSlot({ day, mealType, mealRecipes, onDrop, onClearMeal, onRecipeCli
           </Button>
         )}
       </div>
-      <div className="flex-1 min-h-24 rounded-lg border-2 border-dashed bg-muted/50 p-1 flex flex-col items-center justify-center gap-1 relative group overflow-hidden">
+      <div className="flex-1 min-h-20 rounded-lg border-2 border-dashed bg-muted/50 p-1 flex flex-col items-center justify-center gap-1 relative group overflow-hidden">
         {mealRecipes.length > 0 ? (
            <div className="w-full h-full flex flex-col gap-1">
                 {mealRecipes.map((recipe, index) => (
@@ -140,9 +142,9 @@ export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onReci
           {weekPlan.map(({ day, meals }) => {
             const dayTotals = dailyTotals.find(d => d.day === day)?.totals;
             return (
-              <div key={day} className="flex flex-col gap-4 p-4 rounded-xl bg-secondary/50 w-[200px] h-[550px] flex-shrink-0">
+              <div key={day} className="flex flex-col gap-3 p-3 rounded-xl bg-secondary/50 w-[200px] h-[520px] flex-shrink-0">
                 <h3 className="font-semibold text-center text-lg text-card-foreground">{day}</h3>
-                <div className="space-y-4 flex-1 flex flex-col">
+                <div className="space-y-2 flex-1 flex flex-col">
                   <MealSlot day={day} mealType="breakfast" mealRecipes={meals.breakfast.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
                   <MealSlot day={day} mealType="lunch" mealRecipes={meals.lunch.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
                   <MealSlot day={day} mealType="snack" mealRecipes={meals.snack.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
