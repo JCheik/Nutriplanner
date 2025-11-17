@@ -56,8 +56,8 @@ service cloud.firestore {
         allow get: if isSignedIn() && isOwner(userId);
         allow list: if isSignedIn() && isOwner(userId);
         allow create: if isSignedIn() && isOwner(userId);
-        allow update: if isSignedIn() && isOwner(userId);
-        allow delete: if isSignedIn() && isOwner(userId);
+        allow update: if isSignedIn() && isExistingOwner(userId);
+        allow delete: if isSignedIn() && isExistingOwner(userId);
     }
 
     /**
@@ -121,7 +121,7 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
-        /**
+    /**
      * @description Checks if the request is made by the existing owner of the resource and the document exists.
      * @param {string} userId The user ID of the owner.
      * @return {boolean} True if the request is made by the owner and the document exists, false otherwise.
