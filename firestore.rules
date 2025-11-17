@@ -127,7 +127,7 @@ service cloud.firestore {
      * @return {boolean} True if the request is made by the owner and the document exists, false otherwise.
      */
     function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
+      return isOwner(userId) && exists(/databases/$(database)/documents/users/$(userId));
     }
   }
 }
