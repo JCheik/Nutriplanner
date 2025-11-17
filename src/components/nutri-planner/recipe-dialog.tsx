@@ -87,7 +87,7 @@ function RecipeView({ recipe, onEdit, onDelete }: { recipe: Recipe, onEdit: (rec
       <DialogFooter className="mt-6">
         <AlertDialog>
           <AlertDialogTrigger asChild>
-             { !recipe.isAiSuggestion && <Button variant="destructive" className="mr-auto"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button> }
+             <Button variant="destructive" className="mr-auto"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -142,8 +142,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
       description,
       instructions,
       ingredients,
-      ...totals,
-      isAiSuggestion: initialRecipe?.isAiSuggestion
+      ...totals
     };
     onSave(recipe);
   };
