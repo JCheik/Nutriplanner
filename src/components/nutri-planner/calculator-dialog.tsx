@@ -14,6 +14,8 @@ import { Flame, Target, Weight, TrendingDown, TrendingUp, Calculator, EggFried, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 import type { Macros } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Progress } from '../ui/progress';
 
 const formSchema = z.object({
   gender: z.enum(['male', 'female']),
@@ -78,6 +80,69 @@ const calculateMacros = (calories: number, weight: number): GoalMacros => {
     };
 };
 
+const MacroBreakdown = ({ goal }: { goal: GoalMacros }) => {
+    const totalGrams = goal.protein + goal.carbs + goal.fat;
+    const proteinPercentage = (goal.protein / totalGrams) * 100;
+    const carbsPercentage = (goal.carbs / totalGrams) * 100;
+    const fatPercentage = (goal.fat / totalGrams) * 100;
+
+    return (
+        <div className="space-y-4">
+            <div className="space-y-2">
+                <div className="flex justify-between items-center text-sm">
+                    <div className="flex items-center gap-2">
+                        <EggFried className="h-4 w-4 text-amber-500" />
+                        <span>Prot.</span>
+                    </div>
+                    <span className="font-bold">{goal.protein}g</span>
+                </div>
+                <Progress value={proteinPercentage} className="h-2 [&>div]:bg-amber-500" />
+            </div>
+             <div className="space-y-2">
+                <div className="flex justify-between items-center text-sm">
+                    <div className="flex items-center gap-2">
+                        <Wheat className="h-4 w-4 text-yellow-500" />
+                        <span>Carbs</span>
+                    </div>
+                    <span className="font-bold">{goal.carbs}g</span>
+                </div>
+                <Progress value={carbsPercentage} className="h-2 [&>div]:bg-yellow-500" />
+            </div>
+             <div className="space-y-2">
+                <div className="flex justify-between items-center text-sm">
+                    <div className="flex items-center gap-2">
+                        <Droplets className="h-4 w-4 text-sky-500" />
+                        <span>Grasas</span>
+                    </div>
+                    <span className="font-bold">{goal.fat}g</span>
+                </div>
+                <Progress value={fatPercentage} className="h-2 [&>div]:bg-sky-500" />
+            </div>
+        </div>
+    );
+}
+
+const GoalCard = ({ title, icon: Icon, goal }: { title: string, icon: React.ElementType, goal: GoalMacros }) => {
+    return (
+        <Card>
+            <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                    <Icon className="h-5 w-5 text-primary" />
+                    {title}
+                </CardTitle>
+                <CardDescription className="text-4xl font-bold text-foreground">
+                    {goal.calories} <span className="text-xl font-medium text-muted-foreground">kcal/día</span>
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <h4 className="text-sm font-semibold mb-3">Desglose de Macros</h4>
+                <MacroBreakdown goal={goal} />
+            </CardContent>
+        </Card>
+    )
+}
+
+
 export function CalculatorDialog({ isOpen, onClose }: CalculatorDialogProps) {
   const [result, setResult] = useState<CalculationResult | null>(null);
 
@@ -125,32 +190,6 @@ export function CalculatorDialog({ isOpen, onClose }: CalculatorDialogProps) {
     window.dispatchEvent(new Event('storage'));
   };
 
-  const MacroBreakdown = ({ goal, isPrimary }: { goal: GoalMacros, isPrimary?: boolean }) => (
-    <div className={cn("mt-3 space-y-2 text-sm", isPrimary ? "text-primary-foreground/90" : "text-foreground")}>
-        <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-                <EggFried className={cn("h-4 w-4", isPrimary ? "text-amber-300" : "text-amber-600")} />
-                <span>Prot.</span>
-            </div>
-            <span className="font-bold">{goal.protein}g</span>
-        </div>
-        <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-                <Wheat className={cn("h-4 w-4", isPrimary ? "text-yellow-300" : "text-yellow-500")} />
-                <span>Carbs</span>
-            </div>
-            <span className="font-bold">{goal.carbs}g</span>
-        </div>
-        <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-                <Droplets className={cn("h-4 w-4", isPrimary ? "text-sky-300" : "text-sky-500")} />
-                <span>Grasas</span>
-            </div>
-            <span className="font-bold">{goal.fat}g</span>
-        </div>
-    </div>
-  );
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-4xl">
@@ -160,7 +199,7 @@ export function CalculatorDialog({ isOpen, onClose }: CalculatorDialogProps) {
                 Calculadora de Calorías y Macros
               </DialogTitle>
               <DialogDescription>
-                Utiliza la fórmula de Mifflin-St Jeor para estimar tus necesidades calóricas y de macronutrientes diarias según tu objetivo.
+                Utiliza la fórmula de Mifflin-St Jeor para estimar tus necesidades diarias según tu objetivo.
               </DialogDescription>
             </DialogHeader>
             <div className="grid md:grid-cols-2 gap-8 py-4">
@@ -263,44 +302,29 @@ export function CalculatorDialog({ isOpen, onClose }: CalculatorDialogProps) {
                 </form>
               </Form>
 
-              <div className="flex flex-col items-center justify-center bg-secondary/50 p-6 rounded-lg">
-                <CardTitle className="mb-4">Tus Resultados</CardTitle>
+              <div className="flex flex-col">
                 {result ? (
-                  <div className="space-y-4 w-full text-center">
-                    <div className="p-4 rounded-lg bg-background">
-                        <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                            <Flame className="h-5 w-5" />
-                            <h4 className="font-semibold">Metabolismo Basal (BMR)</h4>
-                        </div>
-                        <p className="text-3xl font-bold text-primary">{result.bmr} kcal/día</p>
-                        <p className="text-xs text-muted-foreground">Calorías que tu cuerpo necesita en reposo total.</p>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
-                        <div className="p-3 rounded-lg bg-background">
-                            <h4 className="font-semibold text-sm flex items-center justify-center gap-1"><TrendingDown className="h-4 w-4"/>Perder Peso</h4>
-                            <p className="text-xl font-bold">{result.loss.calories} <span className="text-sm text-muted-foreground">kcal/día</span></p>
-                            <MacroBreakdown goal={result.loss} />
-                        </div>
-                         <div className="p-3 rounded-lg bg-primary text-primary-foreground border-2 border-primary-foreground/50">
-                            <h4 className="font-semibold text-sm flex items-center justify-center gap-1"><Weight className="h-4 w-4"/>Mantenimiento</h4>
-                            <p className="text-xl font-bold">{result.maintenance.calories} <span className="text-sm">kcal/día</span></p>
-                            <MacroBreakdown goal={result.maintenance} isPrimary />
-                        </div>
-                         <div className="p-3 rounded-lg bg-background">
-                            <h4 className="font-semibold text-sm flex items-center justify-center gap-1"><TrendingUp className="h-4 w-4"/>Ganar Músculo</h4>
-                            <p className="text-xl font-bold">{result.gain.calories} <span className="text-sm text-muted-foreground">kcal/día</span></p>
-                             <MacroBreakdown goal={result.gain} />
-                        </div>
-                    </div>
-                    
-                    <p className="text-xs text-muted-foreground pt-4">Estos son valores estimados. Tu ingesta real puede variar. Consulta a un profesional de la salud.</p>
-
-                  </div>
+                  <Tabs defaultValue="maintenance" className="w-full">
+                    <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="loss">Perder Peso</TabsTrigger>
+                        <TabsTrigger value="maintenance">Mantenimiento</TabsTrigger>
+                        <TabsTrigger value="gain">Ganar Músculo</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="loss">
+                        <GoalCard title="Objetivo: Perder Peso" icon={TrendingDown} goal={result.loss} />
+                    </TabsContent>
+                    <TabsContent value="maintenance">
+                        <GoalCard title="Objetivo: Mantenimiento" icon={Weight} goal={result.maintenance} />
+                    </TabsContent>
+                    <TabsContent value="gain">
+                        <GoalCard title="Objetivo: Ganar Músculo" icon={TrendingUp} goal={result.gain} />
+                    </TabsContent>
+                  </Tabs>
                 ) : (
-                  <div className="text-center text-muted-foreground">
-                    <Target className="h-12 w-12 mx-auto mb-2" />
-                    <p>Completa el formulario para ver tus resultados.</p>
+                  <div className="flex flex-col items-center justify-center h-full bg-secondary/50 rounded-lg text-center text-muted-foreground p-6">
+                    <Target className="h-12 w-12 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-foreground">Completa el formulario</h3>
+                    <p>Introduce tus datos para calcular tus necesidades diarias.</p>
                   </div>
                 )}
               </div>
