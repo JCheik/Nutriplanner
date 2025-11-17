@@ -39,6 +39,7 @@ interface RecipeDialogProps {
   onClose: () => void;
   onSave: (recipe: Recipe) => void;
   onDelete: (recipeId: string) => void;
+  onEdit: (recipe: Recipe) => void;
 }
 
 const MacroDisplay = ({ label, value, unit, icon: Icon }: { label: string, value: number, unit: string, icon: React.ElementType }) => (
@@ -69,16 +70,19 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
     setIngredients(initialRecipe?.ingredients || []);
   }, [initialRecipe]);
 
-  const totals = useMemo(() => {
+  const calculatedTotals = useMemo(() => {
     return ingredients.reduce((acc, ing) => {
-      const scale = ing.quantity / 100;
-      acc.calories += ing.calories * scale;
-      acc.protein += ing.protein * scale;
-      acc.carbs += ing.carbs * scale;
-      acc.fat += ing.fat * scale;
+      const baseIng = ingredientDBState.find(dbIng => dbIng.name === ing.name);
+      if (baseIng) {
+        const scale = ing.quantity / 100;
+        acc.calories += (baseIng.calories || 0) * scale;
+        acc.protein += (baseIng.protein || 0) * scale;
+        acc.carbs += (baseIng.carbs || 0) * scale;
+        acc.fat += (baseIng.fat || 0) * scale;
+      }
       return acc;
     }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
-  }, [ingredients]);
+  }, [ingredients, ingredientDBState]);
 
   const handleSave = () => {
     if (!name) return;
@@ -88,7 +92,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
       description,
       instructions,
       ingredients,
-      ...totals
+      ...calculatedTotals
     };
     onSave(recipe);
   };
@@ -103,7 +107,6 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
     
     if (!baseIng) return; // Should not happen if selected from list
 
-    const scale = newIngredientQty / 100;
     const newIng: Ingredient = {
       id: self.crypto.randomUUID(),
       name: baseIng.name,
@@ -131,20 +134,6 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
     setIsNewIngredientOpen(false);
     setTimeout(() => setPopoverOpen(true), 100); // Re-open popover to show new item
   }
-
-  const calculatedTotals = useMemo(() => {
-    return ingredients.reduce((acc, ing) => {
-      const baseIng = ingredientDBState.find(dbIng => dbIng.name === ing.name);
-      if (baseIng) {
-        const scale = ing.quantity / 100;
-        acc.calories += (baseIng.calories || 0) * scale;
-        acc.protein += (baseIng.protein || 0) * scale;
-        acc.carbs += (baseIng.carbs || 0) * scale;
-        acc.fat += (baseIng.fat || 0) * scale;
-      }
-      return acc;
-    }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
-  }, [ingredients, ingredientDBState]);
 
   return (
     <>
@@ -225,7 +214,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
         </div>
       </div>
       <DialogFooter className="justify-between">
-        {isEditing ? (
+        {isEditing && initialRecipe?.id ? (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
@@ -259,7 +248,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
 }
 
 
-function RecipeView({ recipe, onEdit, onDelete }: { recipe: Recipe; onEdit: () => void; onDelete: (id: string) => void }) {
+function RecipeView({ recipe, onEdit }: { recipe: Recipe; onEdit: (recipe: Recipe) => void; }) {
   return (
      <>
       <DialogHeader className="mb-4">
@@ -296,23 +285,15 @@ function RecipeView({ recipe, onEdit, onDelete }: { recipe: Recipe; onEdit: () =
         </ScrollArea>
       </div>
       <DialogFooter className="mt-6">
-         <Button variant="outline" onClick={onEdit}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
+         <Button variant="outline" onClick={() => onEdit(recipe)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
       </DialogFooter>
     </>
   )
 }
 
 
-export function RecipeDialog({ dialogState, onClose, onSave, onDelete }: RecipeDialogProps) {
+export function RecipeDialog({ dialogState, onClose, onSave, onDelete, onEdit }: RecipeDialogProps) {
   if (!dialogState.open) return null;
-
-  const handleEdit = () => {
-     if (dialogState.mode === 'view' && dialogState.recipe) {
-        // Here we'd need to switch the state in the parent component
-        // For now, let's assume parent handles this.
-        // A better way would be for onEdit to be called with the recipe.
-     }
-  }
 
   return (
     <Dialog open={dialogState.open} onOpenChange={onClose}>
@@ -320,8 +301,7 @@ export function RecipeDialog({ dialogState, onClose, onSave, onDelete }: RecipeD
         {dialogState.mode === 'view' && dialogState.recipe ? (
           <RecipeView 
             recipe={dialogState.recipe} 
-            onEdit={() => {/* Parent will handle mode change */}} 
-            onDelete={onDelete} 
+            onEdit={onEdit}
           />
         ) : (
           <RecipeForm

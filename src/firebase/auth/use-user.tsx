@@ -9,8 +9,9 @@ import {
 } from 'firebase/auth';
 import { useEffect, useState } from 'react';
 import { useAuth, useFirestore } from '..';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, writeBatch, collection } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
+import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
 
 export { type User };
 
@@ -21,16 +22,36 @@ export const signInWithGoogle = async (auth: Auth, firestore: ReturnType<typeof 
   try {
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
-    // After sign-in, check if user document exists, if not, create it.
+    
     const userRef = doc(firestore, 'users', user.uid);
     const userSnap = await getDoc(userRef);
+
     if (!userSnap.exists()) {
-      await setDoc(userRef, {
+      const batch = writeBatch(firestore);
+      
+      // 1. Create user profile document
+      batch.set(userRef, {
         name: user.displayName,
         email: user.email,
         photoURL: user.photoURL,
-        stickyNote: '', // Initialize with empty sticky note
+        stickyNote: '¡Bienvenido a NutriPlanner! Usa esta nota para apuntar lo que quieras.',
       }, { merge: true });
+
+      // 2. Add initial recipes
+      const recipesCollectionRef = collection(firestore, 'users', user.uid, 'recipes');
+      INITIAL_RECIPES.forEach(recipe => {
+        const recipeRef = doc(recipesCollectionRef);
+        batch.set(recipeRef, { ...recipe, id: recipeRef.id });
+      });
+
+      // 3. Add initial week plan
+      const weekPlanCollectionRef = collection(firestore, 'users', user.uid, 'weekPlan');
+      INITIAL_WEEK_PLAN.forEach(dayPlan => {
+        const dayRef = doc(weekPlanCollectionRef, dayPlan.day);
+        batch.set(dayRef, dayPlan);
+      });
+
+      await batch.commit();
     }
   } catch (error: any) {
     console.error('Error signing in with Google: ', error);

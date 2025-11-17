@@ -23,6 +23,7 @@ import {
   setDocumentNonBlocking,
   updateDocumentNonBlocking,
   addDocumentNonBlocking,
+  deleteDocumentNonBlocking
 } from '@/firebase/non-blocking-updates';
 
 
@@ -48,40 +49,6 @@ export default function Dashboard() {
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
   const [isSuggesterOpen, setIsSuggesterOpen] = useState(false);
   const [activeFloatingMenu, setActiveFloatingMenu] = useState<string | null>(null);
-  const [initialDataChecked, setInitialDataChecked] = useState(false);
-  
-  // Save initial data to Firestore for new users
-  useEffect(() => {
-    if (user && !profileLoading && !initialDataChecked) {
-      setInitialDataChecked(true); // Mark as checked to prevent re-running
-      if (!userProfile) { // Only run if profile doesn't exist
-        const batch = writeBatch(firestore);
-        
-        // Create user profile
-        const profileRef = doc(firestore, 'users', user.uid);
-        batch.set(profileRef, {
-          name: user.displayName,
-          email: user.email,
-          photoURL: user.photoURL,
-          stickyNote: '¡Bienvenido a NutriPlanner! Usa esta nota para apuntar lo que quieras.',
-        });
-        
-        // Add initial recipes
-        INITIAL_RECIPES.forEach(recipe => {
-          const recipeRef = doc(collection(firestore, 'users', user.uid, 'recipes'));
-          batch.set(recipeRef, { ...recipe, id: recipeRef.id });
-        });
-
-        // Add initial week plan
-        INITIAL_WEEK_PLAN.forEach(dayPlan => {
-          const dayRef = doc(firestore, 'users', user.uid, 'weekPlan', dayPlan.day);
-          batch.set(dayRef, dayPlan);
-        });
-
-        batch.commit().catch(console.error);
-      }
-    }
-  }, [user, firestore, userProfile, profileLoading, initialDataChecked]);
 
   // Handle data based on user auth state
   const currentRecipes = useMemo(() => recipes || [], [recipes]);
@@ -90,7 +57,6 @@ export default function Dashboard() {
     if (weekPlanLoading) return []; // Return empty while loading
     
     // If there's no data and the user has a profile, it means their plan is empty.
-    // Only use initial if the profile itself hasn't loaded or doesn't exist.
     if (!weekPlanData || weekPlanData.length === 0) {
        return userProfile ? INITIAL_WEEK_PLAN.map(day => ({...day, meals: { breakfast: { id: `b-${day.day}`, recipes: [] }, lunch: { id: `l-${day.day}`, recipes: [] }, snack: { id: `s-${day.day}`, recipes: [] }, dinner: { id: `d-${day.day}`, recipes: [] }}})) : INITIAL_WEEK_PLAN;
     }
@@ -105,7 +71,7 @@ export default function Dashboard() {
 
   }, [weekPlanData, weekPlanLoading, userProfile]);
 
-  const currentStickyNote = useMemo(() => userProfile?.stickyNote || '', [userProfile]);
+  const currentStickyNote = useMemo(() => userProfile?.stickyNote || '¡Bienvenido a NutriPlanner! Usa esta nota para apuntar lo que quieras.', [userProfile]);
   const currentCalorieResult = useMemo(() => userProfile?.calorieResult || null, [userProfile]);
   
   const handleToggleFloatingMenu = (menu: string) => {
@@ -331,7 +297,7 @@ export default function Dashboard() {
 
   const isLoading = userLoading || recipesLoading || weekPlanLoading || profileLoading;
 
-  if (isLoading && !initialDataChecked) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -375,6 +341,7 @@ export default function Dashboard() {
         onClose={handleDialogClose}
         onSave={handleSaveRecipe}
         onDelete={handleDeleteRecipe}
+        onEdit={(recipe) => handleRecipeAction('edit', recipe)}
       />
       <AiSuggesterDialog
         isOpen={isSuggesterOpen}
