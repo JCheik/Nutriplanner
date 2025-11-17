@@ -26,7 +26,7 @@ export function StickyNote() {
       {!isOpen && (
         <Button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-8 right-8 h-16 w-16 rounded-full shadow-lg z-50"
+          className="fixed bottom-8 right-8 h-16 w-16 rounded-full shadow-lg z-50 bg-yellow-300 text-yellow-800 hover:bg-yellow-400"
           size="icon"
         >
           <StickyNoteIcon className="h-8 w-8" />
@@ -35,7 +35,7 @@ export function StickyNote() {
 
       <div
         className={cn(
-          'fixed bottom-8 right-8 w-72 h-72 bg-yellow-200 rounded-md shadow-2xl p-4 transform transition-transform duration-300 ease-in-out z-50 origin-bottom-right rotate-3 flex flex-col',
+          'fixed bottom-8 right-8 w-80 h-80 bg-yellow-200 rounded-md shadow-2xl p-4 transform transition-transform duration-300 ease-in-out z-50 origin-bottom-right rotate-3 flex flex-col',
           isOpen ? 'scale-100' : 'scale-0'
         )}
       >
