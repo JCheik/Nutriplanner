@@ -50,3 +50,16 @@ export type SortCriteria =
   | 'protein-asc' | 'protein-desc'
   | 'carbs-asc' | 'carbs-desc'
   | 'fat-asc' | 'fat-desc';
+
+
+// Types for Calorie Calculator
+export interface GoalMacros extends Macros {
+  // Protein, Carbs, Fat in grams are already in Macros
+}
+
+export interface CalculationResult {
+  bmr: number;
+  maintenance: GoalMacros;
+  loss: GoalMacros;
+  gain: GoalMacros;
+}

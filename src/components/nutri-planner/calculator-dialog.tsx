@@ -10,8 +10,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Flame, Target, Weight, TrendingDown, TrendingUp, Calculator } from 'lucide-react';
+import { Flame, Target, Weight, TrendingDown, TrendingUp, Calculator, EggFried, Wheat, Droplets } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
+import type { Macros } from '@/lib/types';
 
 const formSchema = z.object({
   gender: z.enum(['male', 'female']),
@@ -23,11 +24,15 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+interface GoalMacros extends Macros {
+  // Protein, Carbs, Fat in grams
+}
+
 interface CalculationResult {
   bmr: number;
-  maintenance: number;
-  loss: number;
-  gain: number;
+  maintenance: GoalMacros;
+  loss: GoalMacros;
+  gain: GoalMacros;
 }
 
 const activityMultipliers = {
@@ -51,6 +56,27 @@ interface CalculatorDialogProps {
   onClose: () => void;
 }
 
+const calculateMacros = (calories: number, weight: number): GoalMacros => {
+    // Protein: 2.2g per kg of body weight
+    const proteinGrams = Math.round(weight * 2.2);
+    const proteinCalories = proteinGrams * 4;
+
+    // Fat: 25% of total calories
+    const fatCalories = calories * 0.25;
+    const fatGrams = Math.round(fatCalories / 9);
+
+    // Carbs: Remaining calories
+    const carbCalories = calories - proteinCalories - fatCalories;
+    const carbGrams = Math.round(carbCalories / 4);
+
+    return {
+        calories: Math.round(calories),
+        protein: proteinGrams,
+        carbs: carbGrams,
+        fat: fatGrams,
+    };
+};
+
 export function CalculatorDialog({ isOpen, onClose }: CalculatorDialogProps) {
   const [result, setResult] = useState<CalculationResult | null>(null);
 
@@ -73,23 +99,50 @@ export function CalculatorDialog({ isOpen, onClose }: CalculatorDialogProps) {
 
   const onSubmit: SubmitHandler<FormValues> = (data) => {
     let bmr: number;
+    // Mifflin-St Jeor Equation
     if (data.gender === 'male') {
-      bmr = 88.362 + (13.397 * data.weight) + (4.799 * data.height) - (5.677 * data.age);
+      bmr = (10 * data.weight) + (6.25 * data.height) - (5 * data.age) + 5;
     } else {
-      bmr = 447.593 + (9.247 * data.weight) + (3.098 * data.height) - (4.330 * data.age);
+      bmr = (10 * data.weight) + (6.25 * data.height) - (5 * data.age) - 161;
     }
 
-    const maintenance = bmr * activityMultipliers[data.activityLevel];
+    const maintenanceCalories = bmr * activityMultipliers[data.activityLevel];
+    const lossCalories = maintenanceCalories * 0.8; // 20% deficit
+    const gainCalories = maintenanceCalories * 1.1; // 10% surplus
+
     const newResult = {
       bmr: Math.round(bmr),
-      maintenance: Math.round(maintenance),
-      loss: Math.round(maintenance * 0.8), // 20% deficit
-      gain: Math.round(maintenance * 1.1), // 10% surplus
+      maintenance: calculateMacros(maintenanceCalories, data.weight),
+      loss: calculateMacros(lossCalories, data.weight),
+      gain: calculateMacros(gainCalories, data.weight),
     };
     
     setResult(newResult);
     localStorage.setItem('calorieResult', JSON.stringify(newResult));
+    
+    // Dispatch a custom event to notify other components
+    window.dispatchEvent(new Event('storage'));
   };
+
+  const MacroBreakdown = ({ goal }: { goal: GoalMacros }) => (
+    <div className="grid grid-cols-3 gap-2 mt-2 text-center text-xs">
+      <div className="flex flex-col items-center p-1 bg-secondary rounded-md">
+        <EggFried className="h-4 w-4 text-amber-600" />
+        <span className="font-bold">{goal.protein}g</span>
+        <span className="text-muted-foreground text-[10px]">Proteína</span>
+      </div>
+      <div className="flex flex-col items-center p-1 bg-secondary rounded-md">
+        <Wheat className="h-4 w-4 text-yellow-500" />
+        <span className="font-bold">{goal.carbs}g</span>
+        <span className="text-muted-foreground text-[10px]">Carbs</span>
+      </div>
+      <div className="flex flex-col items-center p-1 bg-secondary rounded-md">
+        <Droplets className="h-4 w-4 text-sky-500" />
+        <span className="font-bold">{goal.fat}g</span>
+        <span className="text-muted-foreground text-[10px]">Grasa</span>
+      </div>
+    </div>
+  );
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -97,10 +150,10 @@ export function CalculatorDialog({ isOpen, onClose }: CalculatorDialogProps) {
              <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Calculator className="h-6 w-6 text-primary" />
-                Calculadora de Ingesta Diaria de Calorías
+                Calculadora de Calorías y Macros
               </DialogTitle>
               <DialogDescription>
-                Utiliza la fórmula de Harris-Benedict para estimar tu gasto metabólico basal (BMR) y tus necesidades calóricas diarias según tu objetivo.
+                Utiliza la fórmula de Mifflin-St Jeor para estimar tus necesidades calóricas y de macronutrientes diarias según tu objetivo.
               </DialogDescription>
             </DialogHeader>
             <div className="grid md:grid-cols-2 gap-8 py-4">
@@ -213,21 +266,24 @@ export function CalculatorDialog({ isOpen, onClose }: CalculatorDialogProps) {
                             <h4 className="font-semibold">Metabolismo Basal (BMR)</h4>
                         </div>
                         <p className="text-3xl font-bold text-primary">{result.bmr} kcal/día</p>
-                        <p className="text-xs text-muted-foreground">Calorías que tu cuerpo necesita en reposo.</p>
+                        <p className="text-xs text-muted-foreground">Calorías que tu cuerpo necesita en reposo total.</p>
                     </div>
                     
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
                         <div className="p-3 rounded-lg bg-background">
                             <h4 className="font-semibold text-sm flex items-center justify-center gap-1"><TrendingDown className="h-4 w-4"/>Perder Peso</h4>
-                            <p className="text-xl font-bold">{result.loss} <span className="text-sm text-muted-foreground">kcal/día</span></p>
+                            <p className="text-xl font-bold">{result.loss.calories} <span className="text-sm text-muted-foreground">kcal/día</span></p>
+                            <MacroBreakdown goal={result.loss} />
                         </div>
                          <div className="p-3 rounded-lg bg-primary text-primary-foreground border-2 border-primary-foreground/50">
                             <h4 className="font-semibold text-sm flex items-center justify-center gap-1"><Weight className="h-4 w-4"/>Mantenimiento</h4>
-                            <p className="text-xl font-bold">{result.maintenance} <span className="text-sm">kcal/día</span></p>
+                            <p className="text-xl font-bold">{result.maintenance.calories} <span className="text-sm">kcal/día</span></p>
+                            <MacroBreakdown goal={result.maintenance} />
                         </div>
                          <div className="p-3 rounded-lg bg-background">
                             <h4 className="font-semibold text-sm flex items-center justify-center gap-1"><TrendingUp className="h-4 w-4"/>Ganar Músculo</h4>
-                            <p className="text-xl font-bold">{result.gain} <span className="text-sm text-muted-foreground">kcal/día</span></p>
+                            <p className="text-xl font-bold">{result.gain.calories} <span className="text-sm text-muted-foreground">kcal/día</span></p>
+                             <MacroBreakdown goal={result.gain} />
                         </div>
                     </div>
                     

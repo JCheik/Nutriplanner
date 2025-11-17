@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
-import type { Recipe, WeekPlan, MealType, DialogState, SortCriteria } from '@/lib/types';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import type { Recipe, WeekPlan, MealType, DialogState, SortCriteria, CalculationResult } from '@/lib/types';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
 import { PageHeader } from '@/components/layout/page-header';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AiSuggesterDialog } from '@/components/nutri-planner/ai-suggester-dialog';
 import { suggestRecipes } from '@/ai/flows/suggest-recipes';
 import { StickyNote } from '@/components/nutri-planner/sticky-note';
+import { TargetGoalsDisplay } from '@/components/nutri-planner/target-goals-display';
 
 
 export default function Home() {
@@ -21,6 +22,24 @@ export default function Home() {
   const [filterQuery, setFilterQuery] = useState('');
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
   const [isSuggesterOpen, setIsSuggesterOpen] = useState(false);
+  const [calorieResult, setCalorieResult] = useState<CalculationResult | null>(null);
+
+  useEffect(() => {
+    const fetchStoredResult = () => {
+        const savedResult = localStorage.getItem('calorieResult');
+        if (savedResult) {
+            setCalorieResult(JSON.parse(savedResult));
+        }
+    };
+
+    fetchStoredResult();
+
+    // Listen for changes from the calculator dialog
+    window.addEventListener('storage', fetchStoredResult);
+    return () => {
+        window.removeEventListener('storage', fetchStoredResult);
+    };
+  }, []);
 
   const handleDrop = useCallback((day: string, mealType: MealType, droppedRecipe: Recipe) => {
     setWeekPlan(prevPlan =>
@@ -171,6 +190,7 @@ export default function Home() {
       <PageHeader />
       <main className="flex-1 p-4 sm:p-6 lg:p-8">
         <div className="max-w-screen-2xl mx-auto flex flex-col gap-6">
+          {calorieResult && <TargetGoalsDisplay result={calorieResult} />}
           <div className="w-full">
             <MealPlanner
               weekPlan={weekPlan}
