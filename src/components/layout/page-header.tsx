@@ -6,7 +6,7 @@ import { Calculator, LogOut, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
 import { CalculatorDialog } from '../nutri-planner/calculator-dialog';
 import { useUser, signInWithGoogle, signOut } from '@/firebase/auth/use-user';
-import { useAuth } from '@/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,10 +22,11 @@ export function PageHeader() {
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const { user, loading } = useUser();
   const auth = useAuth();
+  const firestore = useFirestore();
 
   const handleSignIn = () => {
-    if (auth) {
-      signInWithGoogle(auth);
+    if (auth && firestore) {
+      signInWithGoogle(auth, firestore);
     }
   };
 
