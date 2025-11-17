@@ -5,7 +5,6 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { listModels } from 'genkit';
 import { z } from 'genkit';
 
 const ListModelsOutputSchema = z.object({
@@ -29,7 +28,7 @@ const listModelsFlow = ai.defineFlow(
     outputSchema: ListModelsOutputSchema,
   },
   async () => {
-    const models = await listModels();
+    const models = await ai.listModels();
     
     const formattedModels = models.map(m => ({
         name: m.name,
