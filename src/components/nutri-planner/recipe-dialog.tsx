@@ -136,6 +136,37 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
     setTimeout(() => setPopoverOpen(true), 100); // Re-open popover to show new item
   }
 
+  const filteredIngredients = useMemo(() => {
+    const lowercasedQuery = newIngredientName.toLowerCase();
+    if (!lowercasedQuery) {
+        return ingredientDBState.slice().sort((a, b) => a.name.localeCompare(b.name));
+    }
+    
+    return ingredientDBState
+        .map(ingredient => {
+            const lowercasedName = ingredient.name.toLowerCase();
+            const startsWith = lowercasedName.startsWith(lowercasedQuery);
+            const includes = lowercasedName.includes(lowercasedQuery);
+            
+            if (!includes) return null;
+
+            let score = 0;
+            if (startsWith) score = 2;
+            else if (includes) score = 1;
+            
+            return { ...ingredient, score };
+        })
+        .filter(item => item !== null)
+        .sort((a, b) => {
+          if (!a || !b) return 0;
+          if (b.score !== a.score) {
+              return b.score - a.score;
+          }
+          return a.name.localeCompare(b.name);
+        }) as BaseIngredient[];
+  }, [newIngredientName, ingredientDBState]);
+
+
   return (
     <>
       <DialogHeader>
@@ -168,27 +199,25 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
                             <Input value={newIngredientName} onChange={(e) => setNewIngredientName(e.target.value)} onFocus={() => setPopoverOpen(true)} placeholder="Buscar ingrediente..." />
                         </PopoverTrigger>
                         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                            <Command value={newIngredientName} onValueChange={setNewIngredientName}>
-                            <CommandInput placeholder="Buscar ingrediente..." />
-                            <CommandList>
-                                <CommandEmpty>
-                                  <div className="p-4 text-sm text-center">
-                                    <p>No se encontraron resultados.</p>
-                                    <Button variant="link" className="h-auto p-0 mt-1" onClick={() => { setPopoverOpen(false); setIsNewIngredientOpen(true); }}>
-                                      Crear nuevo alimento
-                                    </Button>
-                                  </div>
-                                </CommandEmpty>
-                                <CommandGroup>
-                                {ingredientDBState
-                                    .filter(ing => ing.name.toLowerCase().includes(newIngredientName.toLowerCase()))
-                                    .map((ing, index) => (
-                                    <CommandItem key={`${ing.name}-${index}`} value={ing.name} onSelect={handleSelectIngredient}>
-                                    {ing.name}
-                                    </CommandItem>
-                                ))}
-                                </CommandGroup>
-                            </CommandList>
+                            <Command>
+                                <CommandInput placeholder="Buscar ingrediente..." />
+                                <CommandList>
+                                    <CommandEmpty>
+                                      <div className="p-4 text-sm text-center">
+                                        <p>No se encontraron resultados.</p>
+                                        <Button variant="link" className="h-auto p-0 mt-1" onClick={() => { setPopoverOpen(false); setIsNewIngredientOpen(true); }}>
+                                          Crear nuevo alimento
+                                        </Button>
+                                      </div>
+                                    </CommandEmpty>
+                                    <CommandGroup>
+                                        {filteredIngredients.map((ing) => (
+                                            <CommandItem key={ing.name} value={ing.name} onSelect={handleSelectIngredient}>
+                                                {ing.name}
+                                            </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                </CommandList>
                             </Command>
                         </PopoverContent>
                     </Popover>
