@@ -2,9 +2,8 @@
 import { useState } from 'react';
 import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
-import { Calculator, LogOut, User as UserIcon } from 'lucide-react';
+import { LogOut, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
-import { CalculatorDialog } from '../nutri-planner/calculator-dialog';
 import { useUser, signInWithGoogle, signOut } from '@/firebase/auth/use-user';
 import { useAuth, useFirestore } from '@/firebase';
 import {
@@ -19,7 +18,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 
 
 export function PageHeader() {
-  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const { user, loading } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
@@ -48,10 +46,6 @@ export function PageHeader() {
               </span>
             </Link>
             <div className="flex items-center gap-4">
-              <Button variant="outline" onClick={() => setIsCalculatorOpen(true)}>
-                  <Calculator className="mr-2 h-4 w-4" />
-                  Calculadora
-              </Button>
               {loading ? (
                  <Button variant="outline" disabled>Cargando...</Button>
               ) : user ? (
@@ -92,7 +86,6 @@ export function PageHeader() {
           </div>
         </div>
       </header>
-      <CalculatorDialog isOpen={isCalculatorOpen} onClose={() => setIsCalculatorOpen(false)} />
     </>
   );
 }
