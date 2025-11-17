@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, PlusCircle } from 'lucide-react';
+import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, PlusCircle, Plus } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +31,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { NewIngredientDialog } from './new-ingredient-dialog';
+
 
 interface RecipeDialogProps {
   dialogState: DialogState;
@@ -113,7 +115,10 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
   const [description, setDescription] = useState('');
   const [instructions, setInstructions] = useState('');
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
-  const [open, setOpen] = useState(false);
+  const [ingredientDBState, setIngredientDBState] = useState<BaseIngredient[]>(ingredientsDB);
+  const [isNewIngredientOpen, setIsNewIngredientOpen] = useState(false);
+
+  const [popoverOpen, setPopoverOpen] = useState(false);
   const [newIngredientName, setNewIngredientName] = useState('');
   const [newIngredientQty, setNewIngredientQty] = useState(100);
 
@@ -149,28 +154,24 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
   
   const handleSelectIngredient = (ingredientName: string) => {
     setNewIngredientName(ingredientName);
-    setOpen(false);
+    setPopoverOpen(false);
   };
   
   const addIngredient = () => {
-    const baseIng = ingredientsDB.find(i => i.name.toLowerCase() === newIngredientName.toLowerCase());
+    const baseIng = ingredientDBState.find(i => i.name.toLowerCase() === newIngredientName.toLowerCase());
     
-    // For ingredients not in DB, we need manual input. For now, we'll just add with 0 macros
-    const macros = {calories: 0, protein: 0, carbs: 0, fat: 0};
-    if (baseIng) {
-        const scale = newIngredientQty / 100;
-        macros.calories = baseIng.calories * scale;
-        macros.protein = baseIng.protein * scale;
-        macros.carbs = baseIng.carbs * scale;
-        macros.fat = baseIng.fat * scale;
-    }
+    if (!baseIng) return; // Should not happen if selected from list
 
+    const scale = newIngredientQty / 100;
     const newIng: Ingredient = {
       id: self.crypto.randomUUID(),
-      name: baseIng?.name || newIngredientName,
+      name: baseIng.name,
       quantity: newIngredientQty,
       unit: 'g',
-      ...macros
+      calories: (baseIng.calories || 0) * scale,
+      protein: (baseIng.protein || 0) * scale,
+      carbs: (baseIng.carbs || 0) * scale,
+      fat: (baseIng.fat || 0) * scale,
     };
 
     setIngredients(prev => [...prev, newIng]);
@@ -181,7 +182,13 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
   const removeIngredient = (id: string) => {
     setIngredients(prev => prev.filter(i => i.id !== id));
   };
-
+  
+  const handleNewIngredientSave = (newIngredient: BaseIngredient) => {
+    setIngredientDBState(prev => [...prev, newIngredient]);
+    setNewIngredientName(newIngredient.name);
+    setIsNewIngredientOpen(false);
+    setTimeout(() => setPopoverOpen(true), 100); // Re-open popover to show new item
+  }
 
   return (
     <>
@@ -209,26 +216,31 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
             <div className="flex gap-2 items-end">
               <div className="flex-grow">
                 <Label className="text-xs">Ingrediente</Label>
-                <Popover open={open} onOpenChange={setOpen}>
-                  <PopoverTrigger asChild>
-                    <Input value={newIngredientName} onChange={(e) => setNewIngredientName(e.target.value)} onFocus={() => setOpen(true)} placeholder="Buscar o añadir ingrediente..." />
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                    <Command>
-                      <CommandInput placeholder="Buscar ingrediente..." />
-                      <CommandList>
-                        <CommandEmpty>No se encontraron resultados.</CommandEmpty>
-                        <CommandGroup>
-                          {ingredientsDB.map((ing, index) => (
-                            <CommandItem key={`${ing.name}-${index}`} value={ing.name} onSelect={handleSelectIngredient}>
-                              {ing.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                 <div className="flex gap-1">
+                    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                        <PopoverTrigger asChild>
+                            <Input value={newIngredientName} onChange={(e) => setNewIngredientName(e.target.value)} onFocus={() => setPopoverOpen(true)} placeholder="Buscar ingrediente..." />
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                            <Command value={newIngredientName} onValueChange={setNewIngredientName}>
+                            <CommandInput placeholder="Buscar ingrediente..." />
+                            <CommandList>
+                                <CommandEmpty>No se encontraron resultados.</CommandEmpty>
+                                <CommandGroup>
+                                {ingredientDBState.map((ing, index) => (
+                                    <CommandItem key={`${ing.name}-${index}`} value={ing.name} onSelect={handleSelectIngredient}>
+                                    {ing.name}
+                                    </CommandItem>
+                                ))}
+                                </CommandGroup>
+                            </CommandList>
+                            </Command>
+                        </PopoverContent>
+                    </Popover>
+                    <Button variant="outline" size="icon" onClick={() => setIsNewIngredientOpen(true)}>
+                        <Plus className="h-4 w-4" />
+                    </Button>
+                </div>
               </div>
               <div className="w-24">
                 <Label className="text-xs">Cantidad (g/ml)</Label>
@@ -260,6 +272,11 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
         <Button variant="outline" onClick={onCancel}>Cancelar</Button>
         <Button onClick={handleSave}>Guardar Receta</Button>
       </DialogFooter>
+      <NewIngredientDialog
+        isOpen={isNewIngredientOpen}
+        onClose={() => setIsNewIngredientOpen(false)}
+        onSave={handleNewIngredientSave}
+      />
     </>
   );
 }
