@@ -26,9 +26,9 @@ service cloud.firestore {
      */
     match /users/{userId} {
         allow create: if isSignedIn() && isOwner(userId);
-        allow get: if false;
+        allow get: if isSignedIn() && isOwner(userId);
         allow list: if false;
-        allow update: if false;
+        allow update: if isSignedIn() && isOwner(userId);
         allow delete: if false;
     }
 
@@ -45,11 +45,19 @@ service cloud.firestore {
      * @principle Enforces document ownership for writes, restricts read access to owner.
      */
     match /users/{userId}/recipes/{recipeId} {
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == recipeId;
+      allow create: if isSignedIn() && isOwner(userId);
       allow get: if isSignedIn() && isOwner(userId);
       allow list: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow update: if isSignedIn() && isExistingOwner(userId);
       allow delete: if isSignedIn() && isExistingOwner(userId);
+    }
+    
+    match /users/{userId}/weekPlan/{day} {
+        allow get: if isSignedIn() && isOwner(userId);
+        allow list: if isSignedIn() && isOwner(userId);
+        allow create: if isSignedIn() && isOwner(userId);
+        allow update: if isSignedIn() && isOwner(userId);
+        allow delete: if isSignedIn() && isOwner(userId);
     }
 
     /**
@@ -65,10 +73,10 @@ service cloud.firestore {
      * @principle Enforces document ownership for writes, restricts read access to owner.
      */
     match /users/{userId}/ingredients/{ingredientId} {
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == ingredientId;
+      allow create: if isSignedIn() && isOwner(userId);
       allow get: if isSignedIn() && isOwner(userId);
       allow list: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow update: if isSignedIn() && isExistingOwner(userId);
       allow delete: if isSignedIn() && isExistingOwner(userId);
     }
 
@@ -85,10 +93,10 @@ service cloud.firestore {
      * @principle Enforces document ownership for writes, restricts read access to owner.
      */
     match /users/{userId}/meal_plans/{mealPlanId} {
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == mealPlanId;
+      allow create: if isSignedIn() && isOwner(userId);
       allow get: if isSignedIn() && isOwner(userId);
       allow list: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow update: if isSignedIn() && isExistingOwner(userId);
       allow delete: if isSignedIn() && isExistingOwner(userId);
     }
 
