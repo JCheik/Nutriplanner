@@ -2,7 +2,12 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import type { DialogState, Recipe, Ingredient } from '@/lib/types';
-import { ingredientsDB, type BaseIngredient } from '@/lib/ingredients';
+import { useUser } from '@/firebase/auth/use-user';
+import { useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { collection, doc, writeBatch } from 'firebase/firestore';
+import type { BaseIngredient } from '@/lib/types';
 import {
   Dialog,
   DialogContent,
@@ -53,11 +58,17 @@ const MacroDisplay = ({ label, value, unit, icon: Icon }: { label: string, value
 
 function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { recipe?: Recipe, onSave: (recipe: Recipe) => void, onCancel: () => void, onDelete: (id: string) => void }) {
   const isEditing = !!initialRecipe;
+  const firestore = useFirestore();
+  const { user } = useUser();
+
+  const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);
+  const { data: ingredientDBState, loading: ingredientsLoading } = useCollection<BaseIngredient>(ingredientsCollectionRef);
+
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [instructions, setInstructions] = useState('');
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
-  const [ingredientDBState, setIngredientDBState] = useState<BaseIngredient[]>(ingredientsDB);
+  
   const [isNewIngredientOpen, setIsNewIngredientOpen] = useState(false);
 
   const [popoverOpen, setPopoverOpen] = useState(false);
@@ -73,7 +84,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
 
   const calculatedTotals = useMemo(() => {
     return ingredients.reduce((acc, ing) => {
-      const baseIng = ingredientDBState.find(dbIng => dbIng.name === ing.name);
+      const baseIng = (ingredientDBState || []).find(dbIng => dbIng.name === ing.name);
       if (baseIng) {
         const scale = ing.quantity / 100;
         acc.calories += (baseIng.calories || 0) * scale;
@@ -104,7 +115,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
   };
   
   const addIngredient = () => {
-    const baseIng = ingredientDBState.find(i => i.name.toLowerCase() === newIngredientName.toLowerCase());
+    const baseIng = (ingredientDBState || []).find(i => i.name.toLowerCase() === newIngredientName.toLowerCase());
     
     if (!baseIng) return; // Should not happen if selected from list
 
@@ -129,8 +140,9 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
     setIngredients(prev => prev.filter(i => i.id !== id));
   };
   
-  const handleNewIngredientSave = (newIngredient: BaseIngredient) => {
-    setIngredientDBState(prev => [...prev, newIngredient]);
+  const handleNewIngredientSave = (newIngredient: Omit<BaseIngredient, 'id'>) => {
+    if (!ingredientsCollectionRef) return;
+    addDocumentNonBlocking(ingredientsCollectionRef, newIngredient);
     setNewIngredientName(newIngredient.name);
     setIsNewIngredientOpen(false);
     setTimeout(() => setPopoverOpen(true), 100); // Re-open popover to show new item
@@ -138,11 +150,12 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
 
   const filteredIngredients = useMemo(() => {
     const lowercasedQuery = newIngredientName.toLowerCase();
+    const db = ingredientDBState || [];
     if (!lowercasedQuery) {
-        return ingredientDBState.slice().sort((a, b) => a.name.localeCompare(b.name));
+        return db.slice().sort((a, b) => a.name.localeCompare(b.name));
     }
     
-    return ingredientDBState
+    return db
         .map(ingredient => {
             const lowercasedName = ingredient.name.toLowerCase();
             const startsWith = lowercasedName.startsWith(lowercasedQuery);
@@ -212,7 +225,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
                                     </CommandEmpty>
                                     <CommandGroup>
                                         {filteredIngredients.map((ing) => (
-                                            <CommandItem key={ing.name} value={ing.name} onSelect={handleSelectIngredient}>
+                                            <CommandItem key={ing.id} value={ing.name} onSelect={handleSelectIngredient}>
                                                 {ing.name}
                                             </CommandItem>
                                         ))}
@@ -345,7 +358,6 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe }: 
           <Button onClick={() => onCopy(recipe)}><Copy className="mr-2 h-4 w-4" /> Copiar a Mis Recetas</Button>
         ) : (
           <div className='flex gap-2'>
-            <Button variant="destructive" onClick={() => onDelete(recipe.id)}><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
             <Button variant="outline" onClick={() => onEdit(recipe)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
           </div>
         )}

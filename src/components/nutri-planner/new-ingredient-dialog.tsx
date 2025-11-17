@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { BaseIngredient } from '@/lib/ingredients';
+import type { BaseIngredient } from '@/lib/types';
 import {
   Dialog,
   DialogContent,
@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 interface NewIngredientDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (ingredient: BaseIngredient) => void;
+  onSave: (ingredient: Omit<BaseIngredient, 'id'>) => void;
 }
 
 export function NewIngredientDialog({ isOpen, onClose, onSave }: NewIngredientDialogProps) {
@@ -26,17 +26,19 @@ export function NewIngredientDialog({ isOpen, onClose, onSave }: NewIngredientDi
   const [protein, setProtein] = useState(0);
   const [carbs, setCarbs] = useState(0);
   const [fat, setFat] = useState(0);
+  const [sugar, setSugar] = useState(0);
+  const [fiber, setFiber] = useState(0);
 
   const handleSave = () => {
     if (!name) return;
-    const newIngredient: BaseIngredient = {
+    const newIngredient: Omit<BaseIngredient, 'id'> = {
       name,
       calories,
       protein,
       carbs,
       fat,
-      sugar: 0, // Assuming 0 for simplicity
-      fiber: 0,  // Assuming 0 for simplicity
+      sugar,
+      fiber,
     };
     onSave(newIngredient);
     resetForm();
@@ -53,6 +55,8 @@ export function NewIngredientDialog({ isOpen, onClose, onSave }: NewIngredientDi
     setProtein(0);
     setCarbs(0);
     setFat(0);
+    setSugar(0);
+    setFiber(0);
   }
 
   return (
@@ -104,5 +108,3 @@ export function NewIngredientDialog({ isOpen, onClose, onSave }: NewIngredientDi
     </Dialog>
   );
 }
-
-    

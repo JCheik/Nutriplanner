@@ -5,6 +5,14 @@ export interface Macros {
   fat: number;
 }
 
+export interface BaseIngredient extends Macros {
+  id: string;
+  name: string;
+  // per 100g or 100ml
+  sugar: number;
+  fiber: number;
+}
+
 export interface Ingredient extends Macros {
   id: string;
   name: string;

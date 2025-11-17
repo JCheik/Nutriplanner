@@ -1,19 +1,19 @@
 /**
  * @fileoverview Firestore Security Rules for a user-centric recipe and meal planning application.
  *
- * Core Philosophy: This ruleset enforces a strict user-ownership model. Each user has complete control
- * over their own recipes, ingredients, and meal plans. A separate collection for global recipes is readable by
- * all users but only writable by admins.
+ * Core Philosophy: This ruleset enforces a strict user-ownership model for personal data, while
+ * enabling a collaborative, shared database for common resources like ingredients and global recipes.
  *
  * Data Structure: 
  * - User-specific data is nested under /users/{userId}.
  * - Global NutriPlanner recipes are in /nutriplanner_recipes/{recipeId}.
+ * - A global, shared ingredient database is in /ingredients/{ingredientId}.
  *
  * Key Security Decisions:
  * - Users can only access data under their own user ID.
- * - Listing of user-owned collections is allowed only by the owner.
- * - Global recipes are read-only for all signed-in users.
- * - Writes to global recipes are restricted to users with an 'admin' custom claim.
+ * - Global recipes are read-only for all signed-in users, writable only by admins.
+ * - The shared ingredient database is readable and appendable by all signed-in users.
+ *   Modification/deletion of ingredients is restricted to admins to maintain data integrity.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -50,15 +50,6 @@ service cloud.firestore {
     }
 
     /**
-     * @description Ingredients owned by a specific user.
-     * @path /users/{userId}/ingredients/{ingredientId}
-     */
-    match /users/{userId}/ingredients/{ingredientId} {
-      allow read, list, create: if isSignedIn() && isOwner(userId);
-      allow update, delete: if isSignedIn() && isExistingOwner(userId);
-    }
-
-    /**
      * @description Meal plans owned by a specific user (legacy, may be deprecated).
      * @path /users/{userId}/meal_plans/{mealPlanId}
      */
@@ -75,6 +66,19 @@ service cloud.firestore {
         allow get, list: if isSignedIn();
         // Only allow writes (create, update, delete) if the user is an admin.
         allow write: if isSignedIn() && request.auth.token.admin == true;
+    }
+
+    /**
+     * @description Shared, global ingredient database.
+     * @path /ingredients/{ingredientId}
+     */
+    match /ingredients/{ingredientId} {
+      // Any authenticated user can read the full list or a single ingredient.
+      allow get, list: if isSignedIn();
+      // Any authenticated user can add a new ingredient.
+      allow create: if isSignedIn();
+      // Only admins can update or delete ingredients to maintain data integrity.
+      allow update, delete: if isSignedIn() && request.auth.token.admin == true;
     }
 
     //----------------------------------------------------------------------------------------------

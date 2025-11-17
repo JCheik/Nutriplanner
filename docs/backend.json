@@ -206,7 +206,7 @@
           ]
         }
       },
-       {
+      {
         "path": "/nutriplanner_recipes/{recipeId}",
         "definition": {
           "entityName": "Recipe",
@@ -221,8 +221,24 @@
             }
           ]
         }
+      },
+      {
+        "path": "/ingredients/{ingredientId}",
+        "definition": {
+          "entityName": "Ingredient",
+          "schema": {
+            "$ref": "#/backend/entities/Ingredient"
+          },
+          "description": "A global, shared collection of food ingredients. All users can read and contribute to this collection.",
+          "params": [
+            {
+              "name": "ingredientId",
+              "description": "The ID of the ingredient."
+            }
+          ]
+        }
       }
     ],
-    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, DBAC, and QAPs. User-owned data (Recipes, MealPlans, Ingredients) are stored under `/users/{userId}` for secure, path-based ownership. This eliminates the need for complex `get()` calls in security rules, as authorization context is directly derived from the path. A new root collection `nutriplanner_recipes` is added for global, admin-managed recipes, readable by all authenticated users."
+    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, DBAC, and QAPs. User-owned data (Recipes, MealPlans) are stored under `/users/{userId}` for secure, path-based ownership. A global `nutriplanner_recipes` collection holds admin-managed recipes. A new global `ingredients` collection is added to serve as a shared, user-contributed database of food items, readable and writable by all authenticated users to foster a collaborative platform."
   }
 }
