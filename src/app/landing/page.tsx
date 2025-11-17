@@ -13,6 +13,14 @@ import { suggestRecipes } from '@/ai/flows/suggest-recipes';
 import { Button } from '@/components/ui/button';
 import { signInWithGoogle } from '@/firebase/auth/use-user';
 import { useAuth, useFirestore } from '@/firebase';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Logo } from '@/components/icons/logo';
 
 export default function LandingPage() {
   const { toast } = useToast();
@@ -26,6 +34,7 @@ export default function LandingPage() {
   const [filterQuery, setFilterQuery] = useState('');
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
   const [isSuggesterOpen, setIsSuggesterOpen] = useState(false);
+  const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(true);
 
   const handleSignIn = () => {
     if (auth && firestore) {
@@ -86,7 +95,7 @@ export default function LandingPage() {
 
   const handleRecipeAction = useCallback((action: 'view' | 'create' | 'edit', recipe?: Recipe) => {
     if (action !== 'view') {
-        handleSignIn();
+        setIsLoginDialogOpen(true);
         return;
     }
     setDialogState({
@@ -94,19 +103,19 @@ export default function LandingPage() {
       mode: action,
       recipe: recipe,
     });
-  }, [auth, firestore, handleSignIn]);
+  }, []);
 
   const handleDialogClose = useCallback(() => {
     setDialogState({ open: false });
   }, []);
   
     const handleSaveRecipe = useCallback((recipe: Recipe) => {
-        handleSignIn();
-    }, [auth, firestore, handleSignIn]);
+        setIsLoginDialogOpen(true);
+    }, []);
 
     const handleDeleteRecipe = useCallback((recipeId: string) => {
-        handleSignIn();
-    }, [auth, firestore, handleSignIn]);
+        setIsLoginDialogOpen(true);
+    }, []);
 
 
   const dailyTotals = useMemo(() => {
@@ -151,8 +160,8 @@ export default function LandingPage() {
   }, [recipes, filterQuery, sortCriteria]);
 
   const handleAddSuggestedRecipes = useCallback((suggestedRecipes: Recipe[]) => {
-    handleSignIn();
-  }, [auth, firestore, handleSignIn]);
+    setIsLoginDialogOpen(true);
+  }, []);
 
 
   return (
@@ -198,15 +207,27 @@ export default function LandingPage() {
         onEditRecipe={(recipe) => handleRecipeAction('edit', recipe)}
       />
       
-      <div className="fixed bottom-8 right-8 z-50">
-        <Button
-          onClick={handleSignIn}
-          className="h-16 rounded-full shadow-lg text-lg px-8"
-          size="lg"
-        >
-          Inicia sesión para probar NutriPlanner
-        </Button>
-      </div>
+      <Dialog open={isLoginDialogOpen} onOpenChange={setIsLoginDialogOpen}>
+        <DialogContent className="sm:max-w-md" hideCloseButton={true}>
+          <DialogHeader className="items-center text-center">
+            <Logo className="h-12 w-12 text-primary" />
+            <DialogTitle className="text-2xl">Bienvenido a NutriPlanner</DialogTitle>
+            <DialogDescription>
+              Inicia sesión para guardar tus recetas y planes de comidas.
+            </DialogDescription>
+          </DialogHeader>
+          <Button
+            onClick={handleSignIn}
+            className="w-full h-12 text-base"
+            size="lg"
+          >
+            <svg className="mr-2 h-5 w-5" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
+                <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 126 23.4 172.9 61.9l-76.2 64.5C308.6 106.5 280.4 96 248 96c-84.3 0-152.3 67.8-152.3 152s68 152 152.3 152c92.8 0 140.3-61.5 143.8-92.6H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
+            </svg>
+            Iniciar Sesión con Google
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
