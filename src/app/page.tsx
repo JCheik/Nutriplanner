@@ -12,9 +12,10 @@ import { AiSuggesterDialog } from '@/components/nutri-planner/ai-suggester-dialo
 import { suggestRecipes } from '@/ai/flows/suggest-recipes';
 import { StickyNote } from '@/components/nutri-planner/sticky-note';
 import { FloatingGoals } from '@/components/nutri-planner/floating-goals';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, StickyNote as StickyNoteIcon, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ShoppingListSheet } from '@/components/nutri-planner/shopping-list';
+import { cn } from '@/lib/utils';
 
 
 export default function Home() {
@@ -25,7 +26,10 @@ export default function Home() {
   const [filterQuery, setFilterQuery] = useState('');
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
   const [isSuggesterOpen, setIsSuggesterOpen] = useState(false);
+  
   const [isShoppingListOpen, setIsShoppingListOpen] = useState(false);
+  const [isGoalsOpen, setIsGoalsOpen] = useState(false);
+  const [isNoteOpen, setIsNoteOpen] = useState(false);
 
   const handleDrop = useCallback((day: string, mealType: MealType, droppedRecipe: Recipe) => {
     setWeekPlan(prevPlan =>
@@ -170,6 +174,7 @@ export default function Home() {
     });
   }, [toast]);
 
+  const fabBaseClasses = "fixed bottom-8 h-16 w-16 rounded-full shadow-lg z-50 transition-all duration-300 ease-in-out";
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground font-body">
@@ -213,20 +218,55 @@ export default function Home() {
         onAddRecipes={handleAddSuggestedRecipes}
         onEditRecipe={(recipe) => handleRecipeAction('edit', recipe)}
       />
-      <Button
-          onClick={() => setIsShoppingListOpen(true)}
-          className="fixed bottom-8 right-48 h-16 w-16 rounded-full shadow-lg z-50 bg-blue-500 hover:bg-blue-600"
-          size="icon"
-        >
-          <ShoppingCart className="h-8 w-8" />
-      </Button>
+      
+      {/* Floating Action Buttons */}
+      <div className="fixed bottom-8 right-8 flex items-center gap-4 z-50">
+        {!isNoteOpen && (
+          <Button
+            onClick={() => { setIsNoteOpen(true); setIsGoalsOpen(false); }}
+            className={cn(
+              "h-16 w-16 rounded-full shadow-lg bg-yellow-300 text-yellow-800 hover:bg-yellow-400 relative transition-all duration-300 ease-in-out",
+              (isGoalsOpen) && 'translate-x-[-10rem]'
+            )}
+            size="icon"
+          >
+            <StickyNoteIcon className="h-8 w-8" />
+          </Button>
+        )}
+        {!isGoalsOpen && (
+          <Button
+            onClick={() => { setIsGoalsOpen(true); setIsNoteOpen(false); }}
+            className={cn(
+                "h-16 w-16 rounded-full shadow-lg relative transition-all duration-300 ease-in-out",
+                isNoteOpen && 'translate-x-[-21rem]',
+            )}
+            size="icon"
+          >
+            <Target className="h-8 w-8" />
+          </Button>
+        )}
+        
+        <Button
+            onClick={() => setIsShoppingListOpen(true)}
+            className={cn(
+                "h-16 w-16 rounded-full shadow-lg bg-blue-500 hover:bg-blue-600 relative transition-all duration-300 ease-in-out",
+                isNoteOpen && 'translate-x-[-21rem]',
+                isGoalsOpen && 'translate-x-[-10rem]',
+            )}
+            size="icon"
+          >
+            <ShoppingCart className="h-8 w-8" />
+        </Button>
+      </div>
+
+
       <ShoppingListSheet 
         isOpen={isShoppingListOpen}
         onClose={() => setIsShoppingListOpen(false)}
         weekPlan={weekPlan}
       />
-      <StickyNote />
-      <FloatingGoals />
+      <StickyNote isOpen={isNoteOpen} onClose={() => setIsNoteOpen(false)} />
+      <FloatingGoals isOpen={isGoalsOpen} onClose={() => setIsGoalsOpen(false)} />
     </div>
   );
 }

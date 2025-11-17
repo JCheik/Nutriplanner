@@ -9,6 +9,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalculatorDialog } from './calculator-dialog';
 
+interface FloatingGoalsProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
 const GoalCard = ({ title, icon: Icon, goal, isActive = false }: { title: string, icon: React.ElementType, goal: GoalMacros, isActive?: boolean }) => {
     return (
         <Card className={cn("text-center transition-all", isActive ? 'bg-primary text-primary-foreground' : 'bg-card')}>
@@ -100,8 +105,7 @@ const TargetGoalsDisplay = ({ result }: { result: CalculationResult | null }) =>
     );
 }
 
-export function FloatingGoals() {
-  const [isOpen, setIsOpen] = useState(false);
+export function FloatingGoals({ isOpen, onClose }: FloatingGoalsProps) {
   const [result, setResult] = useState<CalculationResult | null>(null);
 
   useEffect(() => {
@@ -122,33 +126,21 @@ export function FloatingGoals() {
   }, []);
 
   return (
-    <>
-      {!isOpen && (
-        <Button
-          onClick={() => setIsOpen(true)}
-          className="fixed bottom-8 right-28 h-16 w-16 rounded-full shadow-lg z-50"
-          size="icon"
-        >
-          <Target className="h-8 w-8" />
-        </Button>
+    <div
+      className={cn(
+        'fixed bottom-8 right-8 w-96 bg-card rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right',
+        isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'
       )}
-
-      <div
-        className={cn(
-          'fixed bottom-8 right-8 w-96 bg-card rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right',
-          isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
-        )}
+    >
+      <Button
+          variant="ghost"
+          size="icon"
+          className="absolute top-2 right-2 h-7 w-7"
+          onClick={onClose}
       >
-        <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-2 right-2 h-7 w-7"
-            onClick={() => setIsOpen(false)}
-        >
-            <X className="h-5 w-5" />
-        </Button>
-        <TargetGoalsDisplay result={result} />
-      </div>
-    </>
+          <X className="h-5 w-5" />
+      </Button>
+      <TargetGoalsDisplay result={result} />
+    </div>
   );
 }
