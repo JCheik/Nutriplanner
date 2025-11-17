@@ -1,10 +1,14 @@
 'use client';
+import { useState } from 'react';
 import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
 import { Calculator } from 'lucide-react';
 import Link from 'next/link';
+import { CalculatorDialog } from '../nutri-planner/calculator-dialog';
 
 export function PageHeader() {
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
+
   return (
     <>
       <header className="border-b bg-card">
@@ -17,16 +21,15 @@ export function PageHeader() {
               </span>
             </Link>
             <div className="flex items-center gap-4">
-              <Link href="/calculator" passHref>
-                <Button variant="outline">
+              <Button variant="outline" onClick={() => setIsCalculatorOpen(true)}>
                   <Calculator className="mr-2 h-4 w-4" />
                   Calculadora de Calorías
-                </Button>
-              </Link>
+              </Button>
             </div>
           </div>
         </div>
       </header>
+      <CalculatorDialog isOpen={isCalculatorOpen} onClose={() => setIsCalculatorOpen(false)} />
     </>
   );
 }

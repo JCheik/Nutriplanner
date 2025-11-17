@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Flame, Target, Weight, TrendingDown, TrendingUp, Calculator } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 
 const formSchema = z.object({
   gender: z.enum(['male', 'female']),
@@ -45,7 +46,12 @@ const activityDescriptions = {
     extra: 'Ejercicio muy intenso + trabajo físico',
 };
 
-export default function CalculatorPage() {
+interface CalculatorDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export function CalculatorDialog({ isOpen, onClose }: CalculatorDialogProps) {
   const [result, setResult] = useState<CalculationResult | null>(null);
 
   const form = useForm<FormValues>({
@@ -57,11 +63,13 @@ export default function CalculatorPage() {
   });
 
   useEffect(() => {
-    const savedResult = localStorage.getItem('calorieResult');
-    if (savedResult) {
-      setResult(JSON.parse(savedResult));
+    if (isOpen) {
+        const savedResult = localStorage.getItem('calorieResult');
+        if (savedResult) {
+            setResult(JSON.parse(savedResult));
+        }
     }
-  }, []);
+  }, [isOpen]);
 
   const onSubmit: SubmitHandler<FormValues> = (data) => {
     let bmr: number;
@@ -84,20 +92,18 @@ export default function CalculatorPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground">
-      <main className="flex-1 p-4 sm:p-6 lg:p-8">
-        <div className="max-w-4xl mx-auto">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl">
+             <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
                 <Calculator className="h-6 w-6 text-primary" />
                 Calculadora de Ingesta Diaria de Calorías
-              </CardTitle>
-              <CardDescription>
+              </DialogTitle>
+              <DialogDescription>
                 Utiliza la fórmula de Harris-Benedict para estimar tu gasto metabólico basal (BMR) y tus necesidades calóricas diarias según tu objetivo.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid md:grid-cols-2 gap-8">
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid md:grid-cols-2 gap-8 py-4">
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   <FormField
@@ -235,10 +241,8 @@ export default function CalculatorPage() {
                   </div>
                 )}
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      </main>
-    </div>
+            </div>
+        </DialogContent>
+    </Dialog>
   );
 }
