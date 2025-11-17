@@ -16,7 +16,7 @@ import { ShoppingListSheet } from '@/components/nutri-planner/shopping-list';
 import { useUser } from '@/firebase/auth/use-user';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useDoc } from '@/firebase/firestore/use-doc';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, setDoc, writeBatch } from 'firebase/firestore';
 import { updateDoc } from 'firebase/firestore';
 import { Logo } from '@/components/icons/logo';
@@ -34,15 +34,15 @@ export default function Home() {
   const [localCalorieResult, setLocalCalorieResult] = useState<CalculationResult | null>(null);
 
   // Firestore-backed state for logged-in users
-  const recipesCollectionRef = useMemo(() => user ? collection(firestore, 'users', user.uid, 'recipes') : null, [firestore, user]);
-  const { data: recipes, setData: setRecipes, loading: recipesLoading } = useCollection<Recipe>(recipesCollectionRef);
+  const recipesCollectionRef = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'recipes') : null, [firestore, user]);
+  const { data: recipes, loading: recipesLoading } = useCollection<Recipe>(recipesCollectionRef);
   
-  const weekPlanCollectionRef = useMemo(() => user ? collection(firestore, 'users', user.uid, 'weekPlan') : null, [firestore, user]);
-  const { data: weekPlan, setData: setWeekPlan, loading: weekPlanLoading } = useCollection<WeekPlan[0]>(weekPlanCollectionRef, {
+  const weekPlanCollectionRef = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'weekPlan') : null, [firestore, user]);
+  const { data: weekPlan, loading: weekPlanLoading } = useCollection<WeekPlan[0]>(weekPlanCollectionRef, {
     onNewData: (data) => data.sort((a,b) => ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].indexOf(a.day) - ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].indexOf(b.day))
   });
   
-  const userProfileRef = useMemo(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
+  const userProfileRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
   const { data: userProfile, setData: setUserProfile, loading: profileLoading } = useDoc<UserProfile>(userProfileRef);
 
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
@@ -216,7 +216,7 @@ export default function Home() {
     handleDialogClose();
   }, [handleDialogClose, toast, user, recipesCollectionRef]);
 
-  const handleDeleteRecipe = useCallback((recipeId: string) => {
+  const handleDeleteRecipe = useCallback(async (recipeId: string) => {
     const updateWeekPlanLogic = (prevPlan: WeekPlan) => 
       prevPlan.map(dayPlan => ({
         ...dayPlan,
@@ -228,20 +228,43 @@ export default function Home() {
         }
       }));
 
-    if (user && recipesCollectionRef && weekPlanCollectionRef) {
-      // This is a bit more complex with subcollections, would need a transaction or batched write
-      // For now, let's just delete the recipe. The meal plan will have a dangling reference.
-      // A better solution would involve cloud functions to clean this up.
+    if (user && recipesCollectionRef) {
+      const batch = writeBatch(firestore);
+
+      // 1. Delete the recipe document
       const recipeRef = doc(recipesCollectionRef, recipeId);
-      // deleteDoc(recipeRef);
-      // For optimistic UI update, we can manually filter
-      setRecipes(prev => prev?.filter(r => r.id !== recipeId));
+      batch.delete(recipeRef);
+
+      // 2. Remove recipe from all meal plans for the user
+      if (weekPlan) {
+        weekPlan.forEach(dayPlan => {
+            const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', dayPlan.day);
+            const newMeals = { ...dayPlan.meals };
+            let updated = false;
+
+            (Object.keys(newMeals) as MealType[]).forEach(mealType => {
+                const meal = newMeals[mealType];
+                const initialLength = meal.recipes.length;
+                const filteredRecipes = meal.recipes.filter(r => r.id !== recipeId);
+                if (initialLength > filteredRecipes.length) {
+                    newMeals[mealType] = { ...meal, recipes: filteredRecipes };
+                    updated = true;
+                }
+            });
+            if (updated) {
+                 batch.update(dayDocRef, { meals: newMeals });
+            }
+        });
+      }
+      
+      await batch.commit();
+
     } else {
       setLocalRecipes(prev => prev.filter(r => r.id !== recipeId));
       setLocalWeekPlan(updateWeekPlanLogic);
     }
     handleDialogClose();
-  }, [handleDialogClose, user, recipesCollectionRef, weekPlanCollectionRef, setRecipes]);
+  }, [handleDialogClose, user, recipesCollectionRef, weekPlan, firestore]);
 
   const dailyTotals = useMemo(() => {
     return currentWeekPlan.map(dayPlan => {
