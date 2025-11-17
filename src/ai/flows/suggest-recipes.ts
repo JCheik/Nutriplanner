@@ -7,7 +7,7 @@
  * - SuggestRecipesOutput - The return type for the suggestRecipes function.
  */
 
-import {ai, geminiPro} from '@/ai/genkit';
+import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const SuggestRecipesInputSchema = z.object({
@@ -69,7 +69,7 @@ const suggestRecipesFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await ai.generate({
-        model: geminiPro,
+        model: 'gemini-1.5-flash-latest',
         prompt: prompt.render({input})
     });
     return output!;
