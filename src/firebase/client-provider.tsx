@@ -1,21 +1,26 @@
 'use client';
-import { initializeFirebase } from '.';
-import { FirebaseProvider } from './provider';
 
-// this is a workaround for a bug in nextjs
-// where the context provider is not shared between pages.
-const { firebaseApp, firestore, auth } = initializeFirebase();
+import React, { useMemo, type ReactNode } from 'react';
+import { FirebaseProvider } from '@/firebase/provider';
+import { initializeFirebase } from '@/firebase';
 
-export const FirebaseClientProvider: React.FC<React.PropsWithChildren> = ({
-  children,
-}) => {
+interface FirebaseClientProviderProps {
+  children: ReactNode;
+}
+
+export function FirebaseClientProvider({ children }: FirebaseClientProviderProps) {
+  const firebaseServices = useMemo(() => {
+    // Initialize Firebase on the client side, once per component mount.
+    return initializeFirebase();
+  }, []); // Empty dependency array ensures this runs only once on mount
+
   return (
     <FirebaseProvider
-      firebaseApp={firebaseApp}
-      firestore={firestore}
-      auth={auth}
+      firebaseApp={firebaseServices.firebaseApp}
+      auth={firebaseServices.auth}
+      firestore={firebaseServices.firestore}
     >
       {children}
     </FirebaseProvider>
   );
-};
+}

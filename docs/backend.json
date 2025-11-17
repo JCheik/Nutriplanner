@@ -1,135 +1,211 @@
 {
   "entities": {
-    "UserProfile": {
-      "title": "User Profile",
-      "description": "Stores user profile information.",
+    "Recipe": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Recipe",
       "type": "object",
+      "description": "Represents a recipe with its ingredients, instructions, and nutritional information.",
       "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Recipe entity."
+        },
         "name": {
           "type": "string",
-          "description": "The user's display name."
+          "description": "Name of the recipe."
         },
-        "email": {
+        "instructions": {
           "type": "string",
-          "description": "The user's email address."
+          "description": "Preparation instructions for the recipe."
         },
-        "photoURL": {
-          "type": "string",
-          "description": "URL of the user's profile picture."
+        "calories": {
+          "type": "number",
+          "description": "Total calories in the recipe."
         },
-        "stickyNote": {
-            "type": "string",
-            "description": "Content of the user's sticky note."
+        "protein": {
+          "type": "number",
+          "description": "Total protein (in grams) in the recipe."
         },
-        "calorieResult": {
-            "$ref": "#/entities/CalorieResult"
+        "carbs": {
+          "type": "number",
+          "description": "Total carbohydrates (in grams) in the recipe."
+        },
+        "fat": {
+          "type": "number",
+          "description": "Total fat (in grams) in the recipe."
+        },
+        "ingredientIds": {
+          "type": "array",
+          "description": "References to Ingredients. (Relationship: Recipe 1:N Ingredient)",
+          "items": {
+            "type": "string"
+          }
         }
       },
-      "required": ["name", "email"]
-    },
-    "Recipe": {
-        "title": "Recipe",
-        "description": "A single recipe with macros and ingredients.",
-        "type": "object",
-        "properties": {
-            "id": {"type": "string"},
-            "name": {"type": "string"},
-            "description": {"type": "string"},
-            "instructions": {"type": "string"},
-            "calories": {"type": "number"},
-            "protein": {"type": "number"},
-            "carbs": {"type": "number"},
-            "fat": {"type": "number"},
-            "ingredients": {
-                "type": "array",
-                "items": { "$ref": "#/entities/Ingredient" }
-            }
-        },
-        "required": ["id", "name", "instructions", "ingredients"]
+      "required": [
+        "id",
+        "name",
+        "instructions",
+        "calories",
+        "protein",
+        "carbs",
+        "fat"
+      ]
     },
     "Ingredient": {
-        "title": "Ingredient",
-        "description": "An ingredient within a recipe.",
-        "type": "object",
-        "properties": {
-            "id": {"type": "string"},
-            "name": {"type": "string"},
-            "quantity": {"type": "number"},
-            "unit": {"type": "string"},
-            "calories": {"type": "number"},
-            "protein": {"type": "number"},
-            "carbs": {"type": "number"},
-            "fat": {"type": "number"}
-        },
-        "required": ["id", "name", "quantity", "unit"]
-    },
-    "DayPlan": {
-      "title": "Day Plan",
-      "description": "A plan for a single day.",
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Ingredient",
       "type": "object",
+      "description": "Represents an ingredient used in a recipe, including its nutritional information.",
       "properties": {
-        "day": {"type": "string"},
-        "meals": {
-            "type": "object",
-            "properties": {
-                "breakfast": { "$ref": "#/entities/Meal" },
-                "lunch": { "$ref": "#/entities/Meal" },
-                "snack": { "$ref": "#/entities/Meal" },
-                "dinner": { "$ref": "#/entities/Meal" }
-            }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Ingredient entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the ingredient."
+        },
+        "calories": {
+          "type": "number",
+          "description": "Calories per serving of the ingredient."
+        },
+        "protein": {
+          "type": "number",
+          "description": "Protein (in grams) per serving of the ingredient."
+        },
+        "carbs": {
+          "type": "number",
+          "description": "Carbohydrates (in grams) per serving of the ingredient."
+        },
+        "fat": {
+          "type": "number",
+          "description": "Fat (in grams) per serving of the ingredient."
         }
-      }
+      },
+      "required": [
+        "id",
+        "name",
+        "calories",
+        "protein",
+        "carbs",
+        "fat"
+      ]
     },
-    "Meal": {
-        "title": "Meal",
-        "description": "A meal containing recipes.",
-        "type": "object",
-        "properties": {
-            "id": {"type": "string"},
-            "recipes": {
-                "type": "array",
-                "items": { "$ref": "#/entities/Recipe" }
-            }
+    "MealPlan": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "MealPlan",
+      "type": "object",
+      "description": "Represents a meal plan for a specific day.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the MealPlan entity."
+        },
+        "date": {
+          "type": "string",
+          "description": "The date for which the meal plan is created.",
+          "format": "date"
+        },
+        "recipeIds": {
+          "type": "array",
+          "description": "References to Recipes. (Relationship: MealPlan 1:N Recipe)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "totalCalories": {
+          "type": "number",
+          "description": "The meal plan's total calories for the given day."
+        },
+        "totalProtein": {
+          "type": "number",
+          "description": "The meal plan's total protein for the given day."
+        },
+        "totalCarbs": {
+          "type": "number",
+          "description": "The meal plan's total carbs for the given day."
+        },
+        "totalFat": {
+          "type": "number",
+          "description": "The meal plan's total fat for the given day."
         }
-    },
-    "CalorieResult": {
-        "title": "Calorie Calculation Result",
-        "description": "Stores the result from the calorie calculator.",
-        "type": "object",
-        "properties": {
-            "bmr": {"type": "number"},
-            "maintenance": { "$ref": "#/entities/GoalMacros" },
-            "loss": { "$ref": "#/entities/GoalMacros" },
-            "gain": { "$ref": "#/entities/GoalMacros" }
-        }
-    },
-    "GoalMacros": {
-        "title": "Goal Macros",
-        "description": "Macronutrient goals for a specific calorie target.",
-        "type": "object",
-        "properties": {
-            "calories": {"type": "number"},
-            "protein": {"type": "number"},
-            "carbs": {"type": "number"},
-            "fat": {"type": "number"}
-        }
+      },
+      "required": [
+        "id",
+        "date"
+      ]
     }
   },
   "auth": {
-    "providers": ["google.com"]
+    "providers": [
+      "password",
+      "anonymous"
+    ]
   },
   "firestore": {
-    "/users/{userId}": {
-      "schema": { "$ref": "#/entities/UserProfile" },
-      "description": "Stores public profile information for a user."
-    },
-    "/users/{userId}/recipes/{recipeId}": {
-      "schema": { "$ref": "#/entities/Recipe" },
-      "description": "Stores the recipes created by a user."
-    },
-    "/users/{userId}/weekPlan/{day}": {
-      "schema": { "$ref": "#/entities/DayPlan" },
-      "description": "Stores the weekly meal plan for a user."
-    }
+    "structure": [
+      {
+        "path": "/users/{userId}/recipes/{recipeId}",
+        "definition": {
+          "entityName": "Recipe",
+          "schema": {
+            "$ref": "#/backend/entities/Recipe"
+          },
+          "description": "Recipes owned by a specific user. Path-based ownership for simple security rules.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user who owns the recipe."
+            },
+            {
+              "name": "recipeId",
+              "description": "The ID of the recipe."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/ingredients/{ingredientId}",
+        "definition": {
+          "entityName": "Ingredient",
+          "schema": {
+            "$ref": "#/backend/entities/Ingredient"
+          },
+          "description": "Ingredients owned by a specific user. Path-based ownership for simple security rules.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user who owns the ingredient."
+            },
+            {
+              "name": "ingredientId",
+              "description": "The ID of the ingredient."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/meal_plans/{mealPlanId}",
+        "definition": {
+          "entityName": "MealPlan",
+          "schema": {
+            "$ref": "#/backend/entities/MealPlan"
+          },
+          "description": "Meal plans owned by a specific user. Path-based ownership for simple security rules.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user who owns the meal plan."
+            },
+            {
+              "name": "mealPlanId",
+              "description": "The ID of the meal plan."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, DBAC, and QAPs. User-owned data (Recipes, MealPlans, Ingredients) are stored under `/users/{userId}` for secure, path-based ownership. This eliminates the need for complex `get()` calls in security rules, as authorization context is directly derived from the path.  Denormalization isn't required since there's no collaborative data.\n\nThe database structure supports the listed app features.\n\nTo address the 'configuration-not-found' error, the recommended actions are:\n\n1.  Verify the Firebase configuration:\n    *   Double-check the Firebase configuration object in your Next.js application (`firebaseConfig`). Ensure all required parameters (apiKey, authDomain, projectId, etc.) are correctly set and match your Firebase project settings.\n    *   Confirm that the configuration object is being correctly initialized within your Firebase app instance.\n\n2.  Check the Firebase project settings:\n    *   In the Firebase console, verify that the Firebase Authentication service is enabled. If it's not enabled, the application will not be able to initialize correctly.\n    *   Ensure that the authentication methods you intend to use (e.g., email/password, Google Sign-in) are enabled in the Authentication settings.\n\n3.  Review environment variables:\n    *   If you are using environment variables to store your Firebase configuration, ensure that these variables are correctly set in your deployment environment (e.g., Vercel, Netlify).\n    *   Check for any typos or incorrect values in the environment variables.\n\n4.  Update Firebase SDK version:\n    *   Make sure you are using the latest version of the Firebase SDK in your application. Outdated SDK versions may have compatibility issues. You can update the SDK via npm or yarn.\n\n5.  Inspect the Next.js build process:\n    *   Examine the Next.js build process to ensure that the Firebase configuration is being correctly injected during the build. Use console logs or debugging tools to verify this.\n\n6.  Check for conflicting libraries:\n    *   In rare cases, conflicts with other libraries may cause Firebase initialization issues. Review your project dependencies for potential conflicts.\n\n\n"
   }
 }

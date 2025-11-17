@@ -1,10 +1,125 @@
+/**
+ * @fileoverview Firestore Security Rules for a user-centric recipe and meal planning application.
+ *
+ * Core Philosophy: This ruleset enforces a strict user-ownership model. Each user has complete control
+ * over their own recipes, ingredients, and meal plans. No data is shared between users.
+ *
+ * Data Structure: All data is nested under /users/{userId}. Each user owns their data tree.
+ *
+ * Key Security Decisions:
+ * - Users can only access data under their own user ID.
+ * - Listing of user-owned collections is allowed only by the owner.
+ * - Data validation is minimal, focusing on relational integrity (ownership) rather than schema enforcement,
+ *   to allow for rapid prototyping.
+ * - The rules explicitly prevent unauthorized data modification or deletion.
+ */
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can only read and write their own data.
-    match /users/{userId}/{documents=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+    /**
+     * @description Root-level access control.  All paths begin with /users/{userId}/...
+     * @path /users/{userId}
+     * @allow (create) User 'user_abc' can create their own root user document if request.auth.uid == userId
+     * @deny (create) User 'user_abc' cannot create a document with a different userId.
+     * @principle Enforces user-based data isolation.
+     */
+    match /users/{userId} {
+        allow create: if isSignedIn() && isOwner(userId);
+        allow get: if false;
+        allow list: if false;
+        allow update: if false;
+        allow delete: if false;
+    }
+
+    /**
+     * @description Recipes owned by a specific user.
+     * @path /users/{userId}/recipes/{recipeId}
+     * @allow (create) User 'user_abc' can create a recipe with user_abc as the owner.
+     * @allow (get) User 'user_abc' can read their own recipe.
+     * @allow (update) User 'user_abc' can update their own recipe.
+     * @allow (delete) User 'user_abc' can delete their own recipe.
+     * @deny (create) User 'user_xyz' cannot create a recipe for user_abc.
+     * @deny (update) User 'user_xyz' cannot update user_abc's recipe.
+     * @deny (delete) User 'user_xyz' cannot delete user_abc's recipe.
+     * @principle Enforces document ownership for writes, restricts read access to owner.
+     */
+    match /users/{userId}/recipes/{recipeId} {
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == recipeId;
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isSignedIn() && isExistingOwner(userId);
+    }
+
+    /**
+     * @description Ingredients owned by a specific user.
+     * @path /users/{userId}/ingredients/{ingredientId}
+     * @allow (create) User 'user_abc' can create an ingredient with user_abc as the owner.
+     * @allow (get) User 'user_abc' can read their own ingredient.
+     * @allow (update) User 'user_abc' can update their own ingredient.
+     * @allow (delete) User 'user_abc' can delete their own ingredient.
+     * @deny (create) User 'user_xyz' cannot create an ingredient for user_abc.
+     * @deny (update) User 'user_xyz' cannot update user_abc's ingredient.
+     * @deny (delete) User 'user_xyz' cannot delete user_abc's ingredient.
+     * @principle Enforces document ownership for writes, restricts read access to owner.
+     */
+    match /users/{userId}/ingredients/{ingredientId} {
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == ingredientId;
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isSignedIn() && isExistingOwner(userId);
+    }
+
+    /**
+     * @description Meal plans owned by a specific user.
+     * @path /users/{userId}/meal_plans/{mealPlanId}
+     * @allow (create) User 'user_abc' can create a meal plan with user_abc as the owner.
+     * @allow (get) User 'user_abc' can read their own meal plan.
+     * @allow (update) User 'user_abc' can update their own meal plan.
+     * @allow (delete) User 'user_abc' can delete their own meal plan.
+     * @deny (create) User 'user_xyz' cannot create a meal plan for user_abc.
+     * @deny (update) User 'user_xyz' cannot update user_abc's meal plan.
+     * @deny (delete) User 'user_xyz' cannot delete user_abc's meal plan.
+     * @principle Enforces document ownership for writes, restricts read access to owner.
+     */
+    match /users/{userId}/meal_plans/{mealPlanId} {
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == mealPlanId;
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isSignedIn() && isExistingOwner(userId);
+    }
+
+    //----------------------------------------------------------------------------------------------
+    // Helper functions
+    //----------------------------------------------------------------------------------------------
+
+    /**
+     * @description Checks if the user is signed in.
+     * @return {boolean} True if the user is signed in, false otherwise.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the request is made by the owner of the resource.
+     * @param {string} userId The user ID of the owner.
+     * @return {boolean} True if the request is made by the owner, false otherwise.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+        /**
+     * @description Checks if the request is made by the existing owner of the resource and the document exists.
+     * @param {string} userId The user ID of the owner.
+     * @return {boolean} True if the request is made by the owner and the document exists, false otherwise.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
     }
   }
 }
