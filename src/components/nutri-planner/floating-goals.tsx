@@ -37,7 +37,7 @@ const GoalCard = ({ title, icon: Icon, goal, isActive = false }: { title: string
                     <div className="flex flex-col items-center">
                         <Droplets className={cn("h-4 w-4", isActive ? 'text-sky-300' : 'text-sky-500')} />
                         <span className="font-bold">{goal.fat}g</span>
-                        <span>Grasa</span>
+                        <span>Grasas</span>
                     </div>
                 </div>
             </CardContent>

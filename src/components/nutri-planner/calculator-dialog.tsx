@@ -130,21 +130,21 @@ export function CalculatorDialog({ isOpen, onClose }: CalculatorDialogProps) {
         <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
                 <EggFried className={cn("h-4 w-4", isPrimary ? "text-amber-300" : "text-amber-600")} />
-                <span>Proteína</span>
+                <span>Prot.</span>
             </div>
             <span className="font-bold">{goal.protein}g</span>
         </div>
         <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
                 <Wheat className={cn("h-4 w-4", isPrimary ? "text-yellow-300" : "text-yellow-500")} />
-                <span>Carbohidratos</span>
+                <span>Carbs</span>
             </div>
             <span className="font-bold">{goal.carbs}g</span>
         </div>
         <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
                 <Droplets className={cn("h-4 w-4", isPrimary ? "text-sky-300" : "text-sky-500")} />
-                <span>Grasa</span>
+                <span>Grasas</span>
             </div>
             <span className="font-bold">{goal.fat}g</span>
         </div>
