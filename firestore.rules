@@ -64,8 +64,10 @@ service cloud.firestore {
      */
     match /nutriplanner_recipes/{recipeId} {
         allow get, list: if isSignedIn();
-        // Only allow writes (create, update, delete) if the user is an admin.
-        allow write: if isSignedIn() && request.auth.token.admin == true;
+        // Allow initial creation if the document does not exist, or if the user is an admin.
+        allow create: if isSignedIn() && (!exists(/databases/$(database)/documents/nutriplanner_recipes/$(recipeId)) || request.auth.token.admin == true);
+        // Only allow updates and deletes if the user is an admin.
+        allow update, delete: if isSignedIn() && request.auth.token.admin == true;
     }
 
     /**
