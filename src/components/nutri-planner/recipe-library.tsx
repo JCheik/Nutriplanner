@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { RecipeCard } from './recipe-card';
-import { BookHeart, PlusCircle, Search, ArrowUpDown } from 'lucide-react';
+import { BookHeart, PlusCircle, Search, ArrowUpDown, Sparkles } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -18,6 +18,7 @@ import {
 interface RecipeLibraryProps {
   recipes: Recipe[];
   onRecipeAction: (action: 'view' | 'create', recipe?: Recipe) => void;
+  onSuggestClick: () => void;
   filterQuery: string;
   onFilterChange: (query: string) => void;
   sortCriteria: SortCriteria;
@@ -39,7 +40,8 @@ const sortOptions: { value: SortCriteria; label: string }[] = [
 
 export function RecipeLibrary({ 
     recipes, 
-    onRecipeAction, 
+    onRecipeAction,
+    onSuggestClick,
     filterQuery, 
     onFilterChange,
     sortCriteria,
@@ -56,10 +58,16 @@ export function RecipeLibrary({
             </div>
             <CardDescription>Tu colección de recetas guardadas.</CardDescription>
           </div>
-          <Button onClick={() => onRecipeAction('create')}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Nueva Receta
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onSuggestClick}>
+              <Sparkles className="mr-2 h-4 w-4" />
+              Sugerir con IA
+            </Button>
+            <Button onClick={() => onRecipeAction('create')}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Nueva Receta
+            </Button>
+          </div>
         </div>
         <div className="flex gap-2 mt-4">
             <div className="relative flex-grow">

@@ -8,6 +8,8 @@ import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
 import { MealPlanner } from '@/components/nutri-planner/meal-planner';
 import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { AiSuggesterDialog } from '@/components/nutri-planner/ai-suggester-dialog';
+import { suggestRecipes } from '@/ai/flows/suggest-recipes';
 
 export default function Home() {
   const { toast } = useToast();
@@ -16,6 +18,7 @@ export default function Home() {
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
   const [filterQuery, setFilterQuery] = useState('');
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
+  const [isSuggesterOpen, setIsSuggesterOpen] = useState(false);
 
   const handleDrop = useCallback((day: string, mealType: MealType, droppedRecipe: Recipe) => {
     setWeekPlan(prevPlan =>
@@ -86,7 +89,7 @@ export default function Home() {
       if (exists) {
         return prevRecipes.map(r => (r.id === recipe.id ? recipe : r));
       }
-      return [{ ...recipe, isAiSuggestion: false }, ...prevRecipes];
+      return [ recipe, ...prevRecipes];
     });
     toast({
       title: '¡Receta guardada!',
@@ -152,6 +155,15 @@ export default function Home() {
     });
   }, [recipes, filterQuery, sortCriteria]);
 
+  const handleAddSuggestedRecipes = useCallback((suggestedRecipes: Recipe[]) => {
+    setRecipes(prev => [...suggestedRecipes, ...prev]);
+    toast({
+        title: '¡Recetas añadidas!',
+        description: `${suggestedRecipes.length} nuevas recetas se han añadido a tu biblioteca.`,
+    });
+  }, [toast]);
+
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground font-body">
       <PageHeader />
@@ -171,6 +183,7 @@ export default function Home() {
             <RecipeLibrary 
               recipes={filteredAndSortedRecipes} 
               onRecipeAction={handleRecipeAction}
+              onSuggestClick={() => setIsSuggesterOpen(true)}
               filterQuery={filterQuery}
               onFilterChange={setFilterQuery}
               sortCriteria={sortCriteria}
@@ -185,6 +198,13 @@ export default function Home() {
         onSave={handleSaveRecipe}
         onDelete={handleDeleteRecipe}
         onEdit={(recipe) => handleRecipeAction('edit', recipe)}
+      />
+      <AiSuggesterDialog
+        isOpen={isSuggesterOpen}
+        onClose={() => setIsSuggesterOpen(false)}
+        onSuggest={suggestRecipes}
+        onAddRecipes={handleAddSuggestedRecipes}
+        onEditRecipe={(recipe) => handleRecipeAction('edit', recipe)}
       />
     </div>
   );
