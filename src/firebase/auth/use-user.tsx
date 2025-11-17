@@ -9,13 +9,37 @@ import {
 } from 'firebase/auth';
 import { useEffect, useState } from 'react';
 import { useAuth, useFirestore } from '..';
-import { doc, setDoc, getDoc, writeBatch, collection } from 'firebase/firestore';
+import { doc, setDoc, getDoc, writeBatch, collection, getDocs, query, limit } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
+import { initialIngredients } from '@/lib/initial-ingredients';
 
 export { type User };
 
 const provider = new GoogleAuthProvider();
+
+// One-time migration of initial ingredients to the global collection
+const migrateIngredients = async (firestore: ReturnType<typeof useFirestore>) => {
+    if (!firestore) return;
+    const ingredientsCol = collection(firestore, 'ingredients');
+    const q = query(ingredientsCol, limit(1));
+    const snapshot = await getDocs(q);
+
+    // If the collection is empty, populate it.
+    if (snapshot.empty) {
+        console.log("Migrating initial ingredients to Firestore...");
+        const batch = writeBatch(firestore);
+        initialIngredients.forEach(ingredient => {
+            const docRef = doc(ingredientsCol); // auto-generate ID
+            // We need to add the id property to the object itself
+            const ingredientWithId = { ...ingredient, id: docRef.id };
+            batch.set(docRef, ingredientWithId);
+        });
+        await batch.commit();
+        console.log("Initial ingredients migrated successfully.");
+    }
+}
+
 
 export const signInWithGoogle = async (auth: Auth, firestore: ReturnType<typeof useFirestore>) => {
   if (!auth || !firestore) return;
@@ -25,6 +49,9 @@ export const signInWithGoogle = async (auth: Auth, firestore: ReturnType<typeof 
     
     const userRef = doc(firestore, 'users', user.uid);
     const userSnap = await getDoc(userRef);
+
+    // Run ingredient migration check on successful sign-in
+    await migrateIngredients(firestore);
 
     if (!userSnap.exists()) {
       const batch = writeBatch(firestore);

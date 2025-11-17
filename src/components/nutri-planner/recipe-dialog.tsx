@@ -62,7 +62,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
   const { user } = useUser();
 
   const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);
-  const { data: ingredientDBState, loading: ingredientsLoading } = useCollection<BaseIngredient>(ingredientsCollectionRef);
+  const { data: ingredientDBState, isLoading: ingredientsLoading } = useCollection<BaseIngredient>(ingredientsCollectionRef);
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
