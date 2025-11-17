@@ -34,7 +34,6 @@ export default function Dashboard() {
   const { user, loading: userLoading } = useUser();
   const firestore = useFirestore();
 
-  // Firestore-backed state for logged-in users
   const recipesCollectionRef = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'recipes') : null, [firestore, user]);
   const { data: recipes, loading: recipesLoading } = useCollection<Recipe>(recipesCollectionRef);
   
@@ -50,18 +49,16 @@ export default function Dashboard() {
   const [isSuggesterOpen, setIsSuggesterOpen] = useState(false);
   const [activeFloatingMenu, setActiveFloatingMenu] = useState<string | null>(null);
 
-  // Handle data based on user auth state
   const currentRecipes = useMemo(() => recipes || [], [recipes]);
   
   const currentWeekPlan = useMemo(() => {
-    if (weekPlanLoading) return []; // Return empty while loading
+    if (weekPlanLoading || profileLoading) return []; 
     
-    // If there's no data and the user has a profile, it means their plan is empty.
-    if (!weekPlanData || weekPlanData.length === 0) {
-       return userProfile ? INITIAL_WEEK_PLAN.map(day => ({...day, meals: { breakfast: { id: `b-${day.day}`, recipes: [] }, lunch: { id: `l-${day.day}`, recipes: [] }, snack: { id: `s-${day.day}`, recipes: [] }, dinner: { id: `d-${day.day}`, recipes: [] }}})) : INITIAL_WEEK_PLAN;
+    if ((!weekPlanData || weekPlanData.length === 0) && userProfile) {
+       return INITIAL_WEEK_PLAN;
     }
     
-    const planMap = new Map(weekPlanData.map(day => [day.day, day]));
+    const planMap = new Map((weekPlanData || []).map(day => [day.day, day]));
 
     const fullWeek = INITIAL_WEEK_PLAN.map(defaultDay => 
       planMap.get(defaultDay.day) || defaultDay
@@ -69,7 +66,7 @@ export default function Dashboard() {
 
     return fullWeek.sort((a, b) => DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day));
 
-  }, [weekPlanData, weekPlanLoading, userProfile]);
+  }, [weekPlanData, weekPlanLoading, userProfile, profileLoading]);
 
   const currentStickyNote = useMemo(() => userProfile?.stickyNote || '¡Bienvenido a NutriPlanner! Usa esta nota para apuntar lo que quieras.', [userProfile]);
   const currentCalorieResult = useMemo(() => userProfile?.calorieResult || null, [userProfile]);
@@ -156,7 +153,6 @@ export default function Dashboard() {
     if (!user || !recipesCollectionRef) return;
     
     if (recipe.id && currentRecipes.some(r => r.id === recipe.id)) {
-      // It's an existing recipe, update it
       const recipeRef = doc(recipesCollectionRef, recipe.id);
       setDocumentNonBlocking(recipeRef, recipe, { merge: true });
        toast({
@@ -164,7 +160,6 @@ export default function Dashboard() {
         description: `${recipe.name} se ha actualizado en tu biblioteca.`,
       });
     } else {
-      // It's a new recipe, add it
       const newRecipeRef = doc(recipesCollectionRef);
       addDocumentNonBlocking(recipesCollectionRef, { ...recipe, id: newRecipeRef.id });
       toast({
@@ -177,7 +172,7 @@ export default function Dashboard() {
 
 
   const handleDeleteRecipe = useCallback(async (recipeId: string) => {
-    if (!user || !recipesCollectionRef) return;
+    if (!user || !recipesCollectionRef || !firestore) return;
     
     const batch = writeBatch(firestore);
     
@@ -268,7 +263,7 @@ export default function Dashboard() {
   }, [currentRecipes, filterQuery, sortCriteria]);
 
   const handleAddSuggestedRecipes = useCallback((suggestedRecipes: Recipe[]) => {
-    if (user && recipesCollectionRef) {
+    if (user && recipesCollectionRef && firestore) {
       const batch = writeBatch(firestore);
       suggestedRecipes.forEach(recipe => {
         const recipeRef = doc(recipesCollectionRef);
@@ -281,7 +276,7 @@ export default function Dashboard() {
         title: '¡Recetas añadidas!',
         description: `${suggestedRecipes.length} nuevas recetas se han añadido a tu biblioteca.`,
     });
-  }, [toast, user, recipesCollectionRef]);
+  }, [toast, user, recipesCollectionRef, firestore]);
 
   const handleNoteSave = useCallback((content: string) => {
     if (user && userProfileRef) {
