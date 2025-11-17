@@ -210,12 +210,12 @@ export function CalculatorDialog({ isOpen, onClose }: CalculatorDialogProps) {
                     name="gender"
                     render={({ field }) => (
                       <FormItem className="space-y-3">
-                        <FormLabel>Género</FormLabel>
+                        <FormLabel className="text-center block">Género</FormLabel>
                         <FormControl>
                           <RadioGroup
                             onValueChange={field.onChange}
                             defaultValue={field.value}
-                            className="flex items-center gap-4"
+                            className="flex items-center justify-center gap-4"
                           >
                             <FormItem className="flex items-center space-x-3 space-y-0">
                               <FormControl>
@@ -243,7 +243,7 @@ export function CalculatorDialog({ isOpen, onClose }: CalculatorDialogProps) {
                         <FormItem>
                           <FormLabel>Edad</FormLabel>
                           <FormControl>
-                            <Input type="number" placeholder="años" {...field} />
+                            <Input type="number" placeholder="años" {...field} className="bg-input" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -256,7 +256,7 @@ export function CalculatorDialog({ isOpen, onClose }: CalculatorDialogProps) {
                         <FormItem>
                           <FormLabel>Peso</FormLabel>
                           <FormControl>
-                            <Input type="number" placeholder="kg" {...field} />
+                            <Input type="number" placeholder="kg" {...field} className="bg-input" />
                           </FormControl>
                            <FormMessage />
                         </FormItem>
@@ -269,7 +269,7 @@ export function CalculatorDialog({ isOpen, onClose }: CalculatorDialogProps) {
                         <FormItem>
                           <FormLabel>Altura</FormLabel>
                           <FormControl>
-                            <Input type="number" placeholder="cm" {...field} />
+                            <Input type="number" placeholder="cm" {...field} className="bg-input" />
                           </FormControl>
                            <FormMessage />
                         </FormItem>
@@ -284,7 +284,7 @@ export function CalculatorDialog({ isOpen, onClose }: CalculatorDialogProps) {
                         <FormLabel>Nivel de Actividad</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger className="bg-input">
                               <SelectValue placeholder="Selecciona tu nivel de actividad" />
                             </SelectTrigger>
                           </FormControl>
