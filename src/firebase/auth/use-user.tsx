@@ -13,6 +13,7 @@ import { doc, setDoc, getDoc, writeBatch, collection, getDocs, query, limit } fr
 import type { User } from 'firebase/auth';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
 import { initialIngredients } from '@/lib/initial-ingredients';
+import { initialNutriplannerRecipes } from '@/lib/initial-nutriplanner-recipes';
 
 export { type User };
 
@@ -38,7 +39,28 @@ const migrateIngredients = async (firestore: ReturnType<typeof useFirestore>) =>
         await batch.commit();
         console.log("Initial ingredients migrated successfully.");
     }
-}
+};
+
+// One-time migration of initial nutriplanner recipes to the global collection
+const migrateNutriplannerRecipes = async (firestore: ReturnType<typeof useFirestore>) => {
+    if (!firestore) return;
+    const recipesCol = collection(firestore, 'nutriplanner_recipes');
+    const q = query(recipesCol, limit(1));
+    const snapshot = await getDocs(q);
+
+    // If the collection is empty, populate it.
+    if (snapshot.empty) {
+        console.log("Migrating initial NutriPlanner recipes to Firestore...");
+        const batch = writeBatch(firestore);
+        initialNutriplannerRecipes.forEach(recipe => {
+            const docRef = doc(recipesCol); // auto-generate ID
+            const recipeWithId = { ...recipe, id: docRef.id };
+            batch.set(docRef, recipeWithId);
+        });
+        await batch.commit();
+        console.log("Initial NutriPlanner recipes migrated successfully.");
+    }
+};
 
 
 export const signInWithGoogle = async (auth: Auth, firestore: ReturnType<typeof useFirestore>) => {
@@ -50,8 +72,9 @@ export const signInWithGoogle = async (auth: Auth, firestore: ReturnType<typeof 
     const userRef = doc(firestore, 'users', user.uid);
     const userSnap = await getDoc(userRef);
 
-    // Run ingredient migration check on successful sign-in
+    // Run one-time migrations
     await migrateIngredients(firestore);
+    await migrateNutriplannerRecipes(firestore);
 
     if (!userSnap.exists()) {
       const batch = writeBatch(firestore);
