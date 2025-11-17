@@ -112,18 +112,34 @@ export default function Dashboard() {
       const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
       const targetDay = currentWeekPlan.find(d => d.day === day);
       if (targetDay) {
-        const updatedRecipes = [...targetDay.meals[mealType].recipes, droppedRecipe];
-        updateDocumentNonBlocking(dayDocRef, { [`meals.${mealType}.recipes`]: updatedRecipes });
+        const updatedMeals = {
+          ...targetDay.meals,
+          [mealType]: {
+            ...targetDay.meals[mealType],
+            recipes: [...targetDay.meals[mealType].recipes, droppedRecipe]
+          }
+        };
+        updateDocumentNonBlocking(dayDocRef, { meals: updatedMeals });
       }
     }
   }, [user, firestore, currentWeekPlan]);
   
   const handleClearMeal = useCallback(async (day: string, mealType: MealType) => {
-    if (user) {
+    if (user && currentWeekPlan) {
       const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
-      updateDocumentNonBlocking(dayDocRef, { [`meals.${mealType}.recipes`]: [] });
+      const targetDay = currentWeekPlan.find(d => d.day === day);
+      if (targetDay) {
+        const updatedMeals = {
+          ...targetDay.meals,
+          [mealType]: {
+            ...targetDay.meals[mealType],
+            recipes: []
+          }
+        };
+        updateDocumentNonBlocking(dayDocRef, { meals: updatedMeals });
+      }
     }
-  }, [user, firestore]);
+  }, [user, firestore, currentWeekPlan]);
   
   const handleRemoveRecipeFromMeal = useCallback(async (day: string, mealType: MealType, recipeId: string) => {
     if (user && currentWeekPlan) {
@@ -131,7 +147,14 @@ export default function Dashboard() {
       const targetDay = currentWeekPlan.find(d => d.day === day);
       if (targetDay) {
         const updatedRecipes = targetDay.meals[mealType].recipes.filter(r => r.id !== recipeId);
-        updateDocumentNonBlocking(dayDocRef, { [`meals.${mealType}.recipes`]: updatedRecipes });
+        const updatedMeals = {
+          ...targetDay.meals,
+          [mealType]: {
+            ...targetDay.meals[mealType],
+            recipes: updatedRecipes
+          }
+        };
+        updateDocumentNonBlocking(dayDocRef, { meals: updatedMeals });
       }
     }
   }, [user, firestore, currentWeekPlan]);
