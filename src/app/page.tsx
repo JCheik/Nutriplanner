@@ -19,6 +19,7 @@ import { useDoc } from '@/firebase/firestore/use-doc';
 import { useFirestore } from '@/firebase';
 import { collection, doc, setDoc, writeBatch } from 'firebase/firestore';
 import { updateDoc } from 'firebase/firestore';
+import { Logo } from '@/components/icons/logo';
 
 
 export default function Home() {
