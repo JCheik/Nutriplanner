@@ -5,8 +5,12 @@ import { Button } from '@/components/ui/button';
 import { StickyNote as StickyNoteIcon, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export function StickyNote() {
-  const [isOpen, setIsOpen] = useState(false);
+interface StickyNoteProps {
+  isOpen: boolean;
+  onToggle: () => void;
+}
+
+export function StickyNote({ isOpen, onToggle }: StickyNoteProps) {
   const [noteContent, setNoteContent] = useState('');
 
   useEffect(() => {
@@ -25,7 +29,7 @@ export function StickyNote() {
     <>
       <div className="fixed bottom-48 right-8 z-40">
          <Button
-          onClick={() => setIsOpen(prev => !prev)}
+          onClick={onToggle}
           className="h-16 w-16 rounded-full shadow-lg bg-yellow-300 text-yellow-800 hover:bg-yellow-400"
           size="icon"
         >
@@ -45,7 +49,7 @@ export function StickyNote() {
             variant="ghost"
             size="icon"
             className="h-7 w-7 text-yellow-700 hover:bg-yellow-300/50"
-            onClick={() => setIsOpen(false)}
+            onClick={onToggle}
           >
             <X className="h-5 w-5" />
           </Button>

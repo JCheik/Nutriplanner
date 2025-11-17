@@ -19,10 +19,11 @@ import { QRCodeDialog } from './qr-code-dialog';
 
 interface ShoppingListSheetProps {
   weekPlan: WeekPlan;
+  isOpen: boolean;
+  onToggle: () => void;
 }
 
-export function ShoppingListSheet({ weekPlan }: ShoppingListSheetProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListSheetProps) {
   const [isQrOpen, setIsQrOpen] = useState(false);
 
   const shoppingList = useMemo(() => {
@@ -77,7 +78,7 @@ export function ShoppingListSheet({ weekPlan }: ShoppingListSheetProps) {
     <>
       <div className="fixed bottom-8 right-8 z-40">
         <Button
-          onClick={() => setIsOpen(true)}
+          onClick={onToggle}
           className="h-16 w-16 rounded-full shadow-lg bg-blue-500 hover:bg-blue-600"
           size="icon"
         >
@@ -85,7 +86,7 @@ export function ShoppingListSheet({ weekPlan }: ShoppingListSheetProps) {
         </Button>
       </div>
 
-      <Sheet open={isOpen} onOpenChange={setIsOpen}>
+      <Sheet open={isOpen} onOpenChange={onToggle}>
         <SheetContent className="flex flex-col">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
@@ -132,7 +133,7 @@ export function ShoppingListSheet({ weekPlan }: ShoppingListSheetProps) {
                 Enviar al móvil
             </Button>
             <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setIsOpen(false)}>Cerrar</Button>
+                <Button variant="outline" onClick={onToggle}>Cerrar</Button>
                 <Button onClick={handleClearChecked} disabled={Object.values(checkedItems).every(v => !v)}>
                     Limpiar Comprados
                 </Button>

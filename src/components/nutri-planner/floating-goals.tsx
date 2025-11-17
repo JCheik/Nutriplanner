@@ -100,8 +100,12 @@ const TargetGoalsDisplay = ({ result }: { result: CalculationResult | null }) =>
     );
 }
 
-export function FloatingGoals() {
-  const [isOpen, setIsOpen] = useState(false);
+interface FloatingGoalsProps {
+  isOpen: boolean;
+  onToggle: () => void;
+}
+
+export function FloatingGoals({ isOpen, onToggle }: FloatingGoalsProps) {
   const [result, setResult] = useState<CalculationResult | null>(null);
 
   useEffect(() => {
@@ -125,7 +129,7 @@ export function FloatingGoals() {
     <>
       <div className="fixed bottom-28 right-8 z-40">
         <Button
-          onClick={() => setIsOpen(prev => !prev)}
+          onClick={onToggle}
           className="h-16 w-16 rounded-full shadow-lg"
           size="icon"
         >
@@ -142,7 +146,7 @@ export function FloatingGoals() {
             variant="ghost"
             size="icon"
             className="absolute top-2 right-2 h-7 w-7"
-            onClick={() => setIsOpen(false)}
+            onClick={onToggle}
         >
             <X className="h-5 w-5" />
         </Button>

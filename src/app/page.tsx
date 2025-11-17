@@ -23,7 +23,12 @@ export default function Home() {
   const [filterQuery, setFilterQuery] = useState('');
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
   const [isSuggesterOpen, setIsSuggesterOpen] = useState(false);
+  const [activeFloatingMenu, setActiveFloatingMenu] = useState<string | null>(null);
   
+  const handleToggleFloatingMenu = (menu: string) => {
+    setActiveFloatingMenu(prev => (prev === menu ? null : menu));
+  };
+
 
   const handleDrop = useCallback((day: string, mealType: MealType, droppedRecipe: Recipe) => {
     setWeekPlan(prevPlan =>
@@ -212,9 +217,19 @@ export default function Home() {
       />
       
       {/* Floating Action Buttons & Panels */}
-      <ShoppingListSheet weekPlan={weekPlan} />
-      <FloatingGoals />
-      <StickyNote />
+      <ShoppingListSheet
+        weekPlan={weekPlan}
+        isOpen={activeFloatingMenu === 'shopping-list'}
+        onToggle={() => handleToggleFloatingMenu('shopping-list')}
+      />
+      <FloatingGoals
+        isOpen={activeFloatingMenu === 'goals'}
+        onToggle={() => handleToggleFloatingMenu('goals')}
+      />
+      <StickyNote
+        isOpen={activeFloatingMenu === 'sticky-note'}
+        onToggle={() => handleToggleFloatingMenu('sticky-note')}
+      />
     </div>
   );
 }
