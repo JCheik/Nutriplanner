@@ -198,7 +198,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
                         <PopoverTrigger asChild>
                             <Input value={newIngredientName} onChange={(e) => setNewIngredientName(e.target.value)} onFocus={() => setPopoverOpen(true)} placeholder="Buscar ingrediente..." />
                         </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0 rounded-xl shadow-lg">
                             <Command>
                                 <CommandInput placeholder="Buscar ingrediente..." />
                                 <CommandList>
@@ -344,7 +344,10 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe }: 
         {isNutriPlannerRecipe ? (
           <Button onClick={() => onCopy(recipe)}><Copy className="mr-2 h-4 w-4" /> Copiar a Mis Recetas</Button>
         ) : (
-          <Button variant="outline" onClick={() => onEdit(recipe)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
+          <div className='flex gap-2'>
+            <Button variant="destructive" onClick={() => onDelete(recipe.id)}><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
+            <Button variant="outline" onClick={() => onEdit(recipe)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
+          </div>
         )}
       </DialogFooter>
     </>
@@ -379,5 +382,3 @@ export function RecipeDialog({ dialogState, onClose, onSave, onDelete, onEdit, o
     </Dialog>
   );
 }
-
-    
