@@ -12,6 +12,9 @@ import { AiSuggesterDialog } from '@/components/nutri-planner/ai-suggester-dialo
 import { suggestRecipes } from '@/ai/flows/suggest-recipes';
 import { StickyNote } from '@/components/nutri-planner/sticky-note';
 import { FloatingGoals } from '@/components/nutri-planner/floating-goals';
+import { ShoppingCart } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ShoppingListSheet } from '@/components/nutri-planner/shopping-list';
 
 
 export default function Home() {
@@ -22,6 +25,7 @@ export default function Home() {
   const [filterQuery, setFilterQuery] = useState('');
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
   const [isSuggesterOpen, setIsSuggesterOpen] = useState(false);
+  const [isShoppingListOpen, setIsShoppingListOpen] = useState(false);
 
   const handleDrop = useCallback((day: string, mealType: MealType, droppedRecipe: Recipe) => {
     setWeekPlan(prevPlan =>
@@ -208,6 +212,18 @@ export default function Home() {
         onSuggest={suggestRecipes}
         onAddRecipes={handleAddSuggestedRecipes}
         onEditRecipe={(recipe) => handleRecipeAction('edit', recipe)}
+      />
+      <Button
+          onClick={() => setIsShoppingListOpen(true)}
+          className="fixed bottom-8 right-48 h-16 w-16 rounded-full shadow-lg z-50 bg-blue-500 hover:bg-blue-600"
+          size="icon"
+        >
+          <ShoppingCart className="h-8 w-8" />
+      </Button>
+      <ShoppingListSheet 
+        isOpen={isShoppingListOpen}
+        onClose={() => setIsShoppingListOpen(false)}
+        weekPlan={weekPlan}
       />
       <StickyNote />
       <FloatingGoals />
