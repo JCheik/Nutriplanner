@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Target, X, TrendingDown, Weight, TrendingUp, EggFried, Wheat, Droplets } from 'lucide-react';
+import { Target, X, TrendingDown, Weight, TrendingUp, EggFried, Wheat, Droplets, Calculator } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CalculationResult, GoalMacros } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CalculatorDialog } from './calculator-dialog';
 
 const GoalCard = ({ title, icon: Icon, goal, isActive = false }: { title: string, icon: React.ElementType, goal: GoalMacros, isActive?: boolean }) => {
     return (
@@ -41,8 +42,32 @@ const GoalCard = ({ title, icon: Icon, goal, isActive = false }: { title: string
     )
 }
 
-const TargetGoalsDisplay = ({ result }: { result: CalculationResult }) => {
-    if (!result) return null;
+const TargetGoalsDisplay = ({ result }: { result: CalculationResult | null }) => {
+    const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
+
+    if (!result) {
+        return (
+            <>
+                <Card className="w-full border-0 shadow-none bg-transparent">
+                     <CardHeader className="px-0">
+                        <CardTitle>Tus Objetivos Nutricionales</CardTitle>
+                        <CardDescription>Aún no has calculado tus objetivos. ¡Pruébalo!</CardDescription>
+                    </CardHeader>
+                    <CardContent className="px-0 flex flex-col items-center justify-center text-center h-60">
+                        <div className="text-center text-muted-foreground">
+                            <Target className="h-12 w-12 mx-auto mb-2" />
+                            <p className="mb-4">Usa la calculadora para establecer tus metas de calorías y macros.</p>
+                            <Button onClick={() => setIsCalculatorOpen(true)}>
+                                <Calculator className="mr-2 h-4 w-4" />
+                                Abrir Calculadora
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+                <CalculatorDialog isOpen={isCalculatorOpen} onClose={() => setIsCalculatorOpen(false)} />
+            </>
+        );
+    }
 
     return (
         <Card className="w-full border-0 shadow-none bg-transparent">
@@ -81,6 +106,8 @@ export function FloatingGoals() {
         const savedResult = localStorage.getItem('calorieResult');
         if (savedResult) {
             setResult(JSON.parse(savedResult));
+        } else {
+            setResult(null);
         }
     };
 
@@ -90,8 +117,6 @@ export function FloatingGoals() {
         window.removeEventListener('storage', fetchStoredResult);
     };
   }, []);
-
-  if (!result) return null;
 
   return (
     <>
