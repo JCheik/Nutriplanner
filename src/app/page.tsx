@@ -10,6 +10,8 @@ import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { AiSuggesterDialog } from '@/components/nutri-planner/ai-suggester-dialog';
 import { suggestRecipes } from '@/ai/flows/suggest-recipes';
+import { StickyNote } from '@/components/nutri-planner/sticky-note';
+
 
 export default function Home() {
   const { toast } = useToast();
@@ -206,6 +208,7 @@ export default function Home() {
         onAddRecipes={handleAddSuggestedRecipes}
         onEditRecipe={(recipe) => handleRecipeAction('edit', recipe)}
       />
+      <StickyNote />
     </div>
   );
 }
