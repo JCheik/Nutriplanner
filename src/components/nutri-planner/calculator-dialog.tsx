@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Flame, Target, Weight, TrendingDown, TrendingUp, Calculator, EggFried, Wheat, Droplets } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 import type { Macros } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
   gender: z.enum(['male', 'female']),
@@ -124,23 +125,29 @@ export function CalculatorDialog({ isOpen, onClose }: CalculatorDialogProps) {
     window.dispatchEvent(new Event('storage'));
   };
 
-  const MacroBreakdown = ({ goal }: { goal: GoalMacros }) => (
-    <div className="grid grid-cols-3 gap-2 mt-2 text-center text-xs">
-      <div className="flex flex-col items-center p-1 bg-secondary rounded-md">
-        <EggFried className="h-4 w-4 text-amber-600" />
-        <span className="font-bold">{goal.protein}g</span>
-        <span className="text-muted-foreground text-[10px]">Proteína</span>
-      </div>
-      <div className="flex flex-col items-center p-1 bg-secondary rounded-md">
-        <Wheat className="h-4 w-4 text-yellow-500" />
-        <span className="font-bold">{goal.carbs}g</span>
-        <span className="text-muted-foreground text-[10px]">Carbs</span>
-      </div>
-      <div className="flex flex-col items-center p-1 bg-secondary rounded-md">
-        <Droplets className="h-4 w-4 text-sky-500" />
-        <span className="font-bold">{goal.fat}g</span>
-        <span className="text-muted-foreground text-[10px]">Grasa</span>
-      </div>
+  const MacroBreakdown = ({ goal, isPrimary }: { goal: GoalMacros, isPrimary?: boolean }) => (
+    <div className={cn("mt-3 space-y-2 text-sm", isPrimary ? "text-primary-foreground/90" : "text-foreground")}>
+        <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+                <EggFried className={cn("h-4 w-4", isPrimary ? "text-amber-300" : "text-amber-600")} />
+                <span>Proteína</span>
+            </div>
+            <span className="font-bold">{goal.protein}g</span>
+        </div>
+        <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+                <Wheat className={cn("h-4 w-4", isPrimary ? "text-yellow-300" : "text-yellow-500")} />
+                <span>Carbohidratos</span>
+            </div>
+            <span className="font-bold">{goal.carbs}g</span>
+        </div>
+        <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+                <Droplets className={cn("h-4 w-4", isPrimary ? "text-sky-300" : "text-sky-500")} />
+                <span>Grasa</span>
+            </div>
+            <span className="font-bold">{goal.fat}g</span>
+        </div>
     </div>
   );
 
@@ -278,7 +285,7 @@ export function CalculatorDialog({ isOpen, onClose }: CalculatorDialogProps) {
                          <div className="p-3 rounded-lg bg-primary text-primary-foreground border-2 border-primary-foreground/50">
                             <h4 className="font-semibold text-sm flex items-center justify-center gap-1"><Weight className="h-4 w-4"/>Mantenimiento</h4>
                             <p className="text-xl font-bold">{result.maintenance.calories} <span className="text-sm">kcal/día</span></p>
-                            <MacroBreakdown goal={result.maintenance} />
+                            <MacroBreakdown goal={result.maintenance} isPrimary />
                         </div>
                          <div className="p-3 rounded-lg bg-background">
                             <h4 className="font-semibold text-sm flex items-center justify-center gap-1"><TrendingUp className="h-4 w-4"/>Ganar Músculo</h4>
