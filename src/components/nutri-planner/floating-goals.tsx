@@ -98,7 +98,7 @@ export function FloatingGoals() {
       {!isOpen && (
         <Button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-8 left-8 h-16 w-16 rounded-full shadow-lg z-50"
+          className="fixed bottom-8 right-28 h-16 w-16 rounded-full shadow-lg z-50"
           size="icon"
         >
           <Target className="h-8 w-8" />
@@ -107,7 +107,7 @@ export function FloatingGoals() {
 
       <div
         className={cn(
-          'fixed bottom-8 left-8 w-96 bg-card rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-left',
+          'fixed bottom-8 right-8 w-96 bg-card rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right',
           isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
         )}
       >
