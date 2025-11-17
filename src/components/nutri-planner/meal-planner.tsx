@@ -96,7 +96,7 @@ function MealSlot({ day, mealType, mealRecipes, onDrop, onClearMeal, onRecipeCli
         {mealRecipes.length > 0 ? (
            <div className="w-full h-full flex flex-col gap-1">
                 {mealRecipes.map((recipe, index) => (
-                    <div key={recipe.id} className="w-full relative group/item flex-1">
+                    <div key={`${recipe.id}-${index}`} className="w-full relative group/item flex-1">
                     <div 
                         className="h-full w-full"
                         onClick={() => onRecipeClick(recipe)}
