@@ -248,7 +248,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
 }
 
 
-function RecipeView({ recipe, onEdit }: { recipe: Recipe; onEdit: (recipe: Recipe) => void; }) {
+function RecipeView({ recipe, onEdit, onDelete }: { recipe: Recipe; onEdit: (recipe: Recipe) => void; onDelete: (id: string) => void; }) {
   return (
      <>
       <DialogHeader className="mb-4">
@@ -284,8 +284,25 @@ function RecipeView({ recipe, onEdit }: { recipe: Recipe; onEdit: (recipe: Recip
           </div>
         </ScrollArea>
       </div>
-      <DialogFooter className="mt-6">
-         <Button variant="outline" onClick={() => onEdit(recipe)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
+      <DialogFooter className="mt-6 justify-between">
+        <AlertDialog>
+            <AlertDialogTrigger asChild>
+            <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                <AlertDialogDescription>
+                Esta acción no se puede deshacer. Esto eliminará permanentemente la receta de tu biblioteca y de todos los planes de comidas.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={() => onDelete(recipe.id)}>Borrar</AlertDialogAction>
+            </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+        <Button variant="outline" onClick={() => onEdit(recipe)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
       </DialogFooter>
     </>
   )
@@ -302,6 +319,7 @@ export function RecipeDialog({ dialogState, onClose, onSave, onDelete, onEdit }:
           <RecipeView 
             recipe={dialogState.recipe} 
             onEdit={onEdit}
+            onDelete={onDelete}
           />
         ) : (
           <RecipeForm
