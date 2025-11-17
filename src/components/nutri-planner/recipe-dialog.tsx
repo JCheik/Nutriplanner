@@ -171,9 +171,18 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
                             <Command value={newIngredientName} onValueChange={setNewIngredientName}>
                             <CommandInput placeholder="Buscar ingrediente..." />
                             <CommandList>
-                                <CommandEmpty>No se encontraron resultados.</CommandEmpty>
+                                <CommandEmpty>
+                                  <div className="p-4 text-sm text-center">
+                                    <p>No se encontraron resultados.</p>
+                                    <Button variant="link" className="h-auto p-0 mt-1" onClick={() => { setPopoverOpen(false); setIsNewIngredientOpen(true); }}>
+                                      Crear nuevo alimento
+                                    </Button>
+                                  </div>
+                                </CommandEmpty>
                                 <CommandGroup>
-                                {ingredientDBState.map((ing, index) => (
+                                {ingredientDBState
+                                    .filter(ing => ing.name.toLowerCase().includes(newIngredientName.toLowerCase()))
+                                    .map((ing, index) => (
                                     <CommandItem key={`${ing.name}-${index}`} value={ing.name} onSelect={handleSelectIngredient}>
                                     {ing.name}
                                     </CommandItem>
@@ -183,9 +192,6 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
                             </Command>
                         </PopoverContent>
                     </Popover>
-                    <Button variant="outline" size="icon" onClick={() => setIsNewIngredientOpen(true)}>
-                        <Plus className="h-4 w-4" />
-                    </Button>
                 </div>
               </div>
               <div className="w-24">
@@ -344,3 +350,5 @@ export function RecipeDialog({ dialogState, onClose, onSave, onDelete, onEdit, o
     </Dialog>
   );
 }
+
+    

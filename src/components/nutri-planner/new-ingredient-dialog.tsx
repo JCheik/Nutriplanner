@@ -104,3 +104,5 @@ export function NewIngredientDialog({ isOpen, onClose, onSave }: NewIngredientDi
     </Dialog>
   );
 }
+
+    
