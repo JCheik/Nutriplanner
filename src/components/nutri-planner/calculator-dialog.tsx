@@ -151,6 +151,9 @@ export function CalculatorDialog({ isOpen, onClose }: CalculatorDialogProps) {
     defaultValues: {
       gender: 'male',
       activityLevel: 'light',
+      age: '' as any,
+      weight: '' as any,
+      height: '' as any,
     },
   });
 
