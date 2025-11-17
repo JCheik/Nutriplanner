@@ -1,0 +1,135 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user profile information.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The user's display name."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address."
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "URL of the user's profile picture."
+        },
+        "stickyNote": {
+            "type": "string",
+            "description": "Content of the user's sticky note."
+        },
+        "calorieResult": {
+            "$ref": "#/entities/CalorieResult"
+        }
+      },
+      "required": ["name", "email"]
+    },
+    "Recipe": {
+        "title": "Recipe",
+        "description": "A single recipe with macros and ingredients.",
+        "type": "object",
+        "properties": {
+            "id": {"type": "string"},
+            "name": {"type": "string"},
+            "description": {"type": "string"},
+            "instructions": {"type": "string"},
+            "calories": {"type": "number"},
+            "protein": {"type": "number"},
+            "carbs": {"type": "number"},
+            "fat": {"type": "number"},
+            "ingredients": {
+                "type": "array",
+                "items": { "$ref": "#/entities/Ingredient" }
+            }
+        },
+        "required": ["id", "name", "instructions", "ingredients"]
+    },
+    "Ingredient": {
+        "title": "Ingredient",
+        "description": "An ingredient within a recipe.",
+        "type": "object",
+        "properties": {
+            "id": {"type": "string"},
+            "name": {"type": "string"},
+            "quantity": {"type": "number"},
+            "unit": {"type": "string"},
+            "calories": {"type": "number"},
+            "protein": {"type": "number"},
+            "carbs": {"type": "number"},
+            "fat": {"type": "number"}
+        },
+        "required": ["id", "name", "quantity", "unit"]
+    },
+    "DayPlan": {
+      "title": "Day Plan",
+      "description": "A plan for a single day.",
+      "type": "object",
+      "properties": {
+        "day": {"type": "string"},
+        "meals": {
+            "type": "object",
+            "properties": {
+                "breakfast": { "$ref": "#/entities/Meal" },
+                "lunch": { "$ref": "#/entities/Meal" },
+                "snack": { "$ref": "#/entities/Meal" },
+                "dinner": { "$ref": "#/entities/Meal" }
+            }
+        }
+      }
+    },
+    "Meal": {
+        "title": "Meal",
+        "description": "A meal containing recipes.",
+        "type": "object",
+        "properties": {
+            "id": {"type": "string"},
+            "recipes": {
+                "type": "array",
+                "items": { "$ref": "#/entities/Recipe" }
+            }
+        }
+    },
+    "CalorieResult": {
+        "title": "Calorie Calculation Result",
+        "description": "Stores the result from the calorie calculator.",
+        "type": "object",
+        "properties": {
+            "bmr": {"type": "number"},
+            "maintenance": { "$ref": "#/entities/GoalMacros" },
+            "loss": { "$ref": "#/entities/GoalMacros" },
+            "gain": { "$ref": "#/entities/GoalMacros" }
+        }
+    },
+    "GoalMacros": {
+        "title": "Goal Macros",
+        "description": "Macronutrient goals for a specific calorie target.",
+        "type": "object",
+        "properties": {
+            "calories": {"type": "number"},
+            "protein": {"type": "number"},
+            "carbs": {"type": "number"},
+            "fat": {"type": "number"}
+        }
+    }
+  },
+  "auth": {
+    "providers": ["google.com"]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Stores public profile information for a user."
+    },
+    "/users/{userId}/recipes/{recipeId}": {
+      "schema": { "$ref": "#/entities/Recipe" },
+      "description": "Stores the recipes created by a user."
+    },
+    "/users/{userId}/weekPlan/{day}": {
+      "schema": { "$ref": "#/entities/DayPlan" },
+      "description": "Stores the weekly meal plan for a user."
+    }
+  }
+}

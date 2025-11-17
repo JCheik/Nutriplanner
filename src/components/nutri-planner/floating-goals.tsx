@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Target, X, TrendingDown, Weight, TrendingUp, EggFried, Wheat, Droplets, Calculator } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -45,8 +45,12 @@ const GoalCard = ({ title, icon: Icon, goal, isActive = false }: { title: string
     )
 }
 
-const TargetGoalsDisplay = ({ result }: { result: CalculationResult | null }) => {
+const TargetGoalsDisplay = ({ result, onCalculate }: { result: CalculationResult | null, onCalculate: (result: CalculationResult) => void }) => {
     const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
+
+    const handleOpenCalculator = () => {
+        setIsCalculatorOpen(true);
+    };
 
     if (!result) {
         return (
@@ -60,30 +64,33 @@ const TargetGoalsDisplay = ({ result }: { result: CalculationResult | null }) =>
                         <div className="text-center text-muted-foreground">
                             <Target className="h-12 w-12 mx-auto mb-2" />
                             <p className="mb-4">Usa la calculadora para establecer tus metas de calorías y macros.</p>
-                            <Button onClick={() => setIsCalculatorOpen(true)}>
+                            <Button onClick={handleOpenCalculator}>
                                 <Calculator className="mr-2 h-4 w-4" />
                                 Abrir Calculadora
                             </Button>
                         </div>
                     </CardContent>
                 </Card>
-                <CalculatorDialog isOpen={isCalculatorOpen} onClose={() => setIsCalculatorOpen(false)} />
+                <CalculatorDialog isOpen={isCalculatorOpen} onClose={() => setIsCalculatorOpen(false)} onCalculate={onCalculate} />
             </>
         );
     }
 
     return (
         <Card className="w-full border-0 shadow-none bg-transparent">
-            <CardHeader className="px-0">
-                <CardTitle>Tus Objetivos Nutricionales</CardTitle>
-                <CardDescription>Tus objetivos diarios calculados. Úsalos como guía.</CardDescription>
+            <CardHeader className="px-0 flex-row items-center justify-between">
+              <div>
+                <CardTitle>Tus Objetivos</CardTitle>
+                <CardDescription>Tus objetivos diarios calculados.</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={handleOpenCalculator}>Editar</Button>
             </CardHeader>
             <CardContent className="px-0">
                 <Tabs defaultValue="maintenance" className="w-full">
                     <TabsList className="grid w-full grid-cols-3">
-                        <TabsTrigger value="loss">Perder Peso</TabsTrigger>
-                        <TabsTrigger value="maintenance">Mantenimiento</TabsTrigger>
-                        <TabsTrigger value="gain">Ganar Músculo</TabsTrigger>
+                        <TabsTrigger value="loss">Perder</TabsTrigger>
+                        <TabsTrigger value="maintenance">Mantener</TabsTrigger>
+                        <TabsTrigger value="gain">Ganar</TabsTrigger>
                     </TabsList>
                     <TabsContent value="loss">
                         <GoalCard title="Objetivo: Perder Peso" icon={TrendingDown} goal={result.loss} isActive />
@@ -95,6 +102,7 @@ const TargetGoalsDisplay = ({ result }: { result: CalculationResult | null }) =>
                         <GoalCard title="Objetivo: Ganar Músculo" icon={TrendingUp} goal={result.gain} isActive />
                     </TabsContent>
                 </Tabs>
+                 <CalculatorDialog isOpen={isCalculatorOpen} onClose={() => setIsCalculatorOpen(false)} onCalculate={onCalculate} initialResult={result} />
             </CardContent>
         </Card>
     );
@@ -103,28 +111,11 @@ const TargetGoalsDisplay = ({ result }: { result: CalculationResult | null }) =>
 interface FloatingGoalsProps {
   isOpen: boolean;
   onToggle: () => void;
+  calorieResult: CalculationResult | null;
+  onCalorieResultSave: (result: CalculationResult) => void;
 }
 
-export function FloatingGoals({ isOpen, onToggle }: FloatingGoalsProps) {
-  const [result, setResult] = useState<CalculationResult | null>(null);
-
-  useEffect(() => {
-    const fetchStoredResult = () => {
-        const savedResult = localStorage.getItem('calorieResult');
-        if (savedResult) {
-            setResult(JSON.parse(savedResult));
-        } else {
-            setResult(null);
-        }
-    };
-
-    fetchStoredResult();
-    window.addEventListener('storage', fetchStoredResult);
-    return () => {
-        window.removeEventListener('storage', fetchStoredResult);
-    };
-  }, []);
-
+export function FloatingGoals({ isOpen, onToggle, calorieResult, onCalorieResultSave }: FloatingGoalsProps) {
   return (
     <>
       <div className="fixed bottom-28 right-8 z-40">
@@ -150,7 +141,7 @@ export function FloatingGoals({ isOpen, onToggle }: FloatingGoalsProps) {
         >
             <X className="h-5 w-5" />
         </Button>
-        <TargetGoalsDisplay result={result} />
+        <TargetGoalsDisplay result={calorieResult} onCalculate={onCalorieResultSave} />
       </div>
     </>
   );

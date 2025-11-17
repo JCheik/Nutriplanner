@@ -12,7 +12,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Flame, Target, Weight, TrendingDown, TrendingUp, Calculator, EggFried, Wheat, Droplets } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
-import type { Macros } from '@/lib/types';
+import type { Macros, CalculationResult } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Progress } from '../ui/progress';
@@ -31,11 +31,11 @@ interface GoalMacros extends Macros {
   // Protein, Carbs, Fat in grams
 }
 
-interface CalculationResult {
-  bmr: number;
-  maintenance: GoalMacros;
-  loss: GoalMacros;
-  gain: GoalMacros;
+interface CalculatorDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onCalculate?: (result: CalculationResult) => void;
+  initialResult?: CalculationResult | null;
 }
 
 const activityMultipliers = {
@@ -54,10 +54,6 @@ const activityDescriptions = {
     extra: 'Ejercicio muy intenso + trabajo físico',
 };
 
-interface CalculatorDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
 
 const calculateMacros = (calories: number, weight: number): GoalMacros => {
     // Protein: 2.2g per kg of body weight
@@ -82,9 +78,9 @@ const calculateMacros = (calories: number, weight: number): GoalMacros => {
 
 const MacroBreakdown = ({ goal }: { goal: GoalMacros }) => {
     const totalGrams = goal.protein + goal.carbs + goal.fat;
-    const proteinPercentage = (goal.protein / totalGrams) * 100;
-    const carbsPercentage = (goal.carbs / totalGrams) * 100;
-    const fatPercentage = (goal.fat / totalGrams) * 100;
+    const proteinPercentage = totalGrams > 0 ? (goal.protein / totalGrams) * 100 : 0;
+    const carbsPercentage = totalGrams > 0 ? (goal.carbs / totalGrams) * 100 : 0;
+    const fatPercentage = totalGrams > 0 ? (goal.fat / totalGrams) * 100 : 0;
 
     return (
         <div className="space-y-4">
@@ -143,8 +139,8 @@ const GoalCard = ({ title, icon: Icon, goal }: { title: string, icon: React.Elem
 }
 
 
-export function CalculatorDialog({ isOpen, onClose }: CalculatorDialogProps) {
-  const [result, setResult] = useState<CalculationResult | null>(null);
+export function CalculatorDialog({ isOpen, onClose, onCalculate, initialResult }: CalculatorDialogProps) {
+  const [result, setResult] = useState<CalculationResult | null>(initialResult || null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -158,13 +154,10 @@ export function CalculatorDialog({ isOpen, onClose }: CalculatorDialogProps) {
   });
 
   useEffect(() => {
-    if (isOpen) {
-        const savedResult = localStorage.getItem('calorieResult');
-        if (savedResult) {
-            setResult(JSON.parse(savedResult));
-        }
+    if(isOpen && initialResult) {
+        setResult(initialResult);
     }
-  }, [isOpen]);
+  }, [isOpen, initialResult]);
 
   const onSubmit: SubmitHandler<FormValues> = (data) => {
     let bmr: number;
@@ -187,10 +180,9 @@ export function CalculatorDialog({ isOpen, onClose }: CalculatorDialogProps) {
     };
     
     setResult(newResult);
-    localStorage.setItem('calorieResult', JSON.stringify(newResult));
-    
-    // Dispatch a custom event to notify other components
-    window.dispatchEvent(new Event('storage'));
+    if(onCalculate) {
+      onCalculate(newResult);
+    }
   };
 
   return (

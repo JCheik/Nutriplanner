@@ -8,21 +8,23 @@ import { cn } from '@/lib/utils';
 interface StickyNoteProps {
   isOpen: boolean;
   onToggle: () => void;
+  initialContent: string;
+  onSave: (content: string) => void;
 }
 
-export function StickyNote({ isOpen, onToggle }: StickyNoteProps) {
-  const [noteContent, setNoteContent] = useState('');
+export function StickyNote({ isOpen, onToggle, initialContent, onSave }: StickyNoteProps) {
+  const [noteContent, setNoteContent] = useState(initialContent);
 
   useEffect(() => {
-    const savedNote = localStorage.getItem('stickyNoteContent');
-    if (savedNote) {
-      setNoteContent(savedNote);
-    }
-  }, []);
+    setNoteContent(initialContent);
+  }, [initialContent]);
 
   const handleNoteChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setNoteContent(e.target.value);
-    localStorage.setItem('stickyNoteContent', e.target.value);
+  };
+  
+  const handleBlur = () => {
+    onSave(noteContent);
   };
 
   return (
@@ -57,6 +59,7 @@ export function StickyNote({ isOpen, onToggle }: StickyNoteProps) {
         <textarea
           value={noteContent}
           onChange={handleNoteChange}
+          onBlur={handleBlur}
           placeholder="Escribe algo..."
           className="w-full h-full bg-transparent border-0 resize-none focus:ring-0 font-handwriting text-lg text-yellow-900 placeholder:text-yellow-600/70"
         />

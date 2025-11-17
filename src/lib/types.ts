@@ -63,3 +63,11 @@ export interface CalculationResult {
   loss: GoalMacros;
   gain: GoalMacros;
 }
+
+export interface UserProfile {
+  name: string;
+  email: string;
+  photoURL: string;
+  stickyNote?: string;
+  calorieResult?: CalculationResult;
+}
