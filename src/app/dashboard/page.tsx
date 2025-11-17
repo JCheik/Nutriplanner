@@ -39,7 +39,7 @@ export default function Dashboard() {
   const { data: recipes, loading: recipesLoading } = useCollection<Recipe>(recipesCollectionRef);
   
   const weekPlanCollectionRef = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'weekPlan') : null, [firestore, user]);
-  const { data: weekPlanData, loading: weekPlanLoading } = useCollection<WeekPlan[0]>(weekPlanCollectionRef);
+  const { data: weekPlanData, loading: weekPlanLoading } = useCollection<DayPlan>(weekPlanCollectionRef);
   
   const userProfileRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
   const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
@@ -52,7 +52,7 @@ export default function Dashboard() {
   
   // Save initial data to Firestore for new users
   useEffect(() => {
-    if (user && !recipesLoading && !weekPlanLoading && !profileLoading && recipes?.length === 0 && weekPlanData?.length === 0 && !userProfile) {
+    if (user && !profileLoading && !userProfile) {
       const batch = writeBatch(firestore);
       
       // Add initial recipes
@@ -73,31 +73,29 @@ export default function Dashboard() {
         name: user.displayName,
         email: user.email,
         photoURL: user.photoURL,
-        stickyNote: '',
+        stickyNote: '¡Bienvenido a NutriPlanner! Usa esta nota para apuntar lo que quieras.',
       });
 
       batch.commit().catch(console.error);
     }
-  }, [user, firestore, recipes, weekPlanData, userProfile, recipesLoading, weekPlanLoading, profileLoading]);
+  }, [user, firestore, userProfile, profileLoading]);
 
   // Handle data based on user auth state
   const currentRecipes = useMemo(() => recipes || [], [recipes]);
   
   const currentWeekPlan = useMemo(() => {
-    if (!weekPlanData) return INITIAL_WEEK_PLAN; // Return default structure if no data
+    if (weekPlanLoading) return []; // Return empty while loading
+    if (!weekPlanData || weekPlanData.length === 0) return INITIAL_WEEK_PLAN; // Return default if no data
     
-    // Create a map for quick lookups
     const planMap = new Map(weekPlanData.map(day => [day.day, day]));
 
-    // Build the full week, using saved data or the default structure
     const fullWeek = INITIAL_WEEK_PLAN.map(defaultDay => 
       planMap.get(defaultDay.day) || defaultDay
     );
 
-    // Sort the final array to ensure correct day order
     return fullWeek.sort((a, b) => DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day));
 
-  }, [weekPlanData]);
+  }, [weekPlanData, weekPlanLoading]);
 
   const currentStickyNote = useMemo(() => userProfile?.stickyNote || '', [userProfile]);
   const currentCalorieResult = useMemo(() => userProfile?.calorieResult || null, [userProfile]);
@@ -108,44 +106,52 @@ export default function Dashboard() {
 
 
   const handleDrop = useCallback(async (day: string, mealType: MealType, droppedRecipe: Recipe) => {
-    if (user && currentWeekPlan) {
-      const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
-      const targetDay = currentWeekPlan.find(d => d.day === day);
-      if (targetDay) {
-        const updatedMeals = {
-          ...targetDay.meals,
-          [mealType]: {
-            ...targetDay.meals[mealType],
-            recipes: [...targetDay.meals[mealType].recipes, droppedRecipe]
-          }
-        };
-        updateDocumentNonBlocking(dayDocRef, { meals: updatedMeals });
-      }
+    if (!user || !currentWeekPlan) return;
+  
+    const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
+    const targetDay = currentWeekPlan.find(d => d.day === day);
+  
+    if (targetDay) {
+      const updatedMeals = {
+        ...targetDay.meals,
+        [mealType]: {
+          ...targetDay.meals[mealType],
+          recipes: [...targetDay.meals[mealType].recipes, droppedRecipe]
+        }
+      };
+      
+      const updatedDayPlan = { ...targetDay, meals: updatedMeals };
+      await setDoc(dayDocRef, updatedDayPlan, { merge: true });
     }
   }, [user, firestore, currentWeekPlan]);
   
   const handleClearMeal = useCallback(async (day: string, mealType: MealType) => {
-    if (user && currentWeekPlan) {
-      const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
-      const targetDay = currentWeekPlan.find(d => d.day === day);
-      if (targetDay) {
-        const updatedMeals = {
-          ...targetDay.meals,
-          [mealType]: {
-            ...targetDay.meals[mealType],
-            recipes: []
-          }
-        };
-        updateDocumentNonBlocking(dayDocRef, { meals: updatedMeals });
-      }
+    if (!user || !currentWeekPlan) return;
+
+    const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
+    const targetDay = currentWeekPlan.find(d => d.day === day);
+
+    if (targetDay) {
+      const updatedMeals = {
+        ...targetDay.meals,
+        [mealType]: {
+          ...targetDay.meals[mealType],
+          recipes: []
+        }
+      };
+      
+      const updatedDayPlan = { ...targetDay, meals: updatedMeals };
+      await setDoc(dayDocRef, updatedDayPlan, { merge: true });
     }
   }, [user, firestore, currentWeekPlan]);
   
   const handleRemoveRecipeFromMeal = useCallback(async (day: string, mealType: MealType, recipeId: string) => {
-    if (user && currentWeekPlan) {
-      const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
-      const targetDay = currentWeekPlan.find(d => d.day === day);
-      if (targetDay) {
+    if (!user || !currentWeekPlan) return;
+
+    const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
+    const targetDay = currentWeekPlan.find(d => d.day === day);
+
+    if (targetDay) {
         const updatedRecipes = targetDay.meals[mealType].recipes.filter(r => r.id !== recipeId);
         const updatedMeals = {
           ...targetDay.meals,
@@ -154,8 +160,9 @@ export default function Dashboard() {
             recipes: updatedRecipes
           }
         };
-        updateDocumentNonBlocking(dayDocRef, { meals: updatedMeals });
-      }
+
+        const updatedDayPlan = { ...targetDay, meals: updatedMeals };
+        await setDoc(dayDocRef, updatedDayPlan, { merge: true });
     }
   }, [user, firestore, currentWeekPlan]);
 
@@ -362,3 +369,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
+    
