@@ -23,6 +23,8 @@ import {
   addDocumentNonBlocking,
   deleteDocumentNonBlocking
 } from '@/firebase/non-blocking-updates';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 
 const DAY_ORDER = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -33,13 +35,13 @@ export default function Dashboard() {
   const firestore = useFirestore();
 
   const userRecipesCollectionRef = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'recipes') : null, [firestore, user]);
-  const { data: userRecipes, loading: userRecipesLoading } = useCollection<Recipe>(userRecipesCollectionRef);
+  const { data: userRecipes, isLoading: userRecipesLoading } = useCollection<Recipe>(userRecipesCollectionRef);
 
   const nutriplannerRecipesCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'nutriplanner_recipes') : null, [firestore]);
-  const { data: nutriplannerRecipes, loading: nutriplannerRecipesLoading } = useCollection<Recipe>(nutriplannerRecipesCollectionRef);
+  const { data: nutriplannerRecipes, isLoading: nutriplannerRecipesLoading } = useCollection<Recipe>(nutriplannerRecipesCollectionRef);
 
   const weekPlanCollectionRef = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'weekPlan') : null, [firestore, user]);
-  const { data: weekPlanData, loading: weekPlanLoading } = useCollection<DayPlan>(weekPlanCollectionRef);
+  const { data: weekPlanData, isLoading: weekPlanLoading } = useCollection<DayPlan>(weekPlanCollectionRef);
   
   const userProfileRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
   const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
@@ -173,7 +175,7 @@ export default function Dashboard() {
   }, [handleDialogClose, toast, user, userRecipesCollectionRef, currentUserRecipes]);
 
 
-  const handleDeleteRecipe = useCallback(async (recipeId: string) => {
+  const handleDeleteRecipe = useCallback((recipeId: string) => {
     if (!user || !userRecipesCollectionRef || !firestore) return;
     
     const batch = writeBatch(firestore);
@@ -202,20 +204,18 @@ export default function Dashboard() {
       }
     });
     
-    try {
-      await batch.commit();
-      toast({
-        title: 'Receta eliminada',
-        description: 'La receta ha sido eliminada de tu biblioteca y de tu plan semanal.',
-      });
-    } catch (error) {
-      console.error("Error deleting recipe and updating week plan:", error);
-      toast({
-        variant: 'destructive',
-        title: 'Error al eliminar',
-        description: 'No se pudo eliminar la receta. Inténtalo de nuevo.',
-      });
-    }
+    batch.commit().then(() => {
+        toast({
+            title: 'Receta eliminada',
+            description: 'La receta ha sido eliminada de tu biblioteca y de tu plan semanal.',
+        });
+    }).catch(error => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: `users/${user.uid}/recipes/${recipeId}`,
+            operation: 'delete',
+            requestResourceData: { note: 'Batch delete recipe and update week plan.' }
+        }));
+    });
     
     handleDialogClose();
   }, [handleDialogClose, user, firestore, userRecipesCollectionRef, currentWeekPlan, toast]);

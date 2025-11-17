@@ -14,6 +14,8 @@ import type { User } from 'firebase/auth';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
 import { initialIngredients } from '@/lib/initial-ingredients';
 import { initialNutriplannerRecipes } from '@/lib/initial-nutriplanner-recipes';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { errorEmitter } from '@/firebase/error-emitter';
 
 export { type User };
 
@@ -36,8 +38,15 @@ const migrateIngredients = async (firestore: ReturnType<typeof useFirestore>) =>
             const ingredientWithId = { ...ingredient, id: docRef.id };
             batch.set(docRef, ingredientWithId);
         });
-        await batch.commit();
-        console.log("Initial ingredients migrated successfully.");
+        
+        batch.commit().catch(error => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: '/ingredients',
+                operation: 'write',
+                requestResourceData: { note: `${initialIngredients.length} initial ingredients.` }
+            }));
+        });
+        console.log("Initial ingredients migration triggered.");
     }
 };
 
@@ -57,8 +66,15 @@ const migrateNutriplannerRecipes = async (firestore: ReturnType<typeof useFirest
             const recipeWithId = { ...recipe, id: docRef.id };
             batch.set(docRef, recipeWithId);
         });
-        await batch.commit();
-        console.log("Initial NutriPlanner recipes migrated successfully.");
+
+        batch.commit().catch(error => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: '/nutriplanner_recipes',
+                operation: 'write',
+                requestResourceData: { note: `${initialNutriplannerRecipes.length} initial recipes.` }
+            }));
+        });
+        console.log("Initial NutriPlanner recipes migration triggered.");
     }
 };
 
@@ -101,7 +117,13 @@ export const signInWithGoogle = async (auth: Auth, firestore: ReturnType<typeof 
         batch.set(dayRef, dayPlan);
       });
 
-      await batch.commit();
+      batch.commit().catch(error => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+              path: `/users/${user.uid}`,
+              operation: 'write',
+              requestResourceData: { note: 'Initial user setup batch write.' }
+          }));
+      });
     }
   } catch (error: any) {
     console.error('Error signing in with Google: ', error);
