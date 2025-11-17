@@ -12,72 +12,12 @@ import { useAuth, useFirestore } from '..';
 import { doc, setDoc, getDoc, writeBatch, collection, getDocs, query, limit } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
-import { initialIngredients } from '@/lib/initial-ingredients';
-import { initialNutriplannerRecipes } from '@/lib/initial-nutriplanner-recipes';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 
 export { type User };
 
 const provider = new GoogleAuthProvider();
-
-// One-time migration of initial ingredients to the global collection
-const migrateIngredients = async (firestore: ReturnType<typeof useFirestore>) => {
-    if (!firestore) return;
-    const ingredientsCol = collection(firestore, 'ingredients');
-    const q = query(ingredientsCol, limit(1));
-    const snapshot = await getDocs(q);
-
-    // If the collection is empty, populate it.
-    if (snapshot.empty) {
-        console.log("Migrating initial ingredients to Firestore...");
-        const batch = writeBatch(firestore);
-        initialIngredients.forEach(ingredient => {
-            const docRef = doc(ingredientsCol); // auto-generate ID
-            // We need to add the id property to the object itself
-            const ingredientWithId = { ...ingredient, id: docRef.id };
-            batch.set(docRef, ingredientWithId);
-        });
-        
-        batch.commit().catch(error => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: '/ingredients',
-                operation: 'write',
-                requestResourceData: { note: `${initialIngredients.length} initial ingredients.` }
-            }));
-        });
-        console.log("Initial ingredients migration triggered.");
-    }
-};
-
-// One-time migration of initial nutriplanner recipes to the global collection
-const migrateNutriplannerRecipes = async (firestore: ReturnType<typeof useFirestore>) => {
-    if (!firestore) return;
-    const recipesCol = collection(firestore, 'nutriplanner_recipes');
-    const q = query(recipesCol, limit(1));
-    const snapshot = await getDocs(q);
-
-    // If the collection is empty, populate it.
-    if (snapshot.empty) {
-        console.log("Migrating initial NutriPlanner recipes to Firestore...");
-        const batch = writeBatch(firestore);
-        initialNutriplannerRecipes.forEach(recipe => {
-            const docRef = doc(recipesCol); // auto-generate ID
-            const recipeWithId = { ...recipe, id: docRef.id };
-            batch.set(docRef, recipeWithId);
-        });
-
-        batch.commit().catch(error => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: '/nutriplanner_recipes',
-                operation: 'write',
-                requestResourceData: { note: `${initialNutriplannerRecipes.length} initial recipes.` }
-            }));
-        });
-        console.log("Initial NutriPlanner recipes migration triggered.");
-    }
-};
-
 
 export const signInWithGoogle = async (auth: Auth, firestore: ReturnType<typeof useFirestore>) => {
   if (!auth || !firestore) return;
@@ -87,10 +27,6 @@ export const signInWithGoogle = async (auth: Auth, firestore: ReturnType<typeof 
     
     const userRef = doc(firestore, 'users', user.uid);
     const userSnap = await getDoc(userRef);
-
-    // Run one-time migrations
-    await migrateIngredients(firestore);
-    await migrateNutriplannerRecipes(firestore);
 
     if (!userSnap.exists()) {
       const batch = writeBatch(firestore);
