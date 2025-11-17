@@ -94,7 +94,7 @@ export default function LandingPage() {
       mode: action,
       recipe: recipe,
     });
-  }, [auth, firestore]);
+  }, [auth, firestore, handleSignIn]);
 
   const handleDialogClose = useCallback(() => {
     setDialogState({ open: false });
@@ -102,11 +102,11 @@ export default function LandingPage() {
   
     const handleSaveRecipe = useCallback((recipe: Recipe) => {
         handleSignIn();
-    }, [auth, firestore]);
+    }, [auth, firestore, handleSignIn]);
 
     const handleDeleteRecipe = useCallback((recipeId: string) => {
         handleSignIn();
-    }, [auth, firestore]);
+    }, [auth, firestore, handleSignIn]);
 
 
   const dailyTotals = useMemo(() => {
@@ -152,7 +152,7 @@ export default function LandingPage() {
 
   const handleAddSuggestedRecipes = useCallback((suggestedRecipes: Recipe[]) => {
     handleSignIn();
-  }, [auth, firestore]);
+  }, [auth, firestore, handleSignIn]);
 
 
   return (
