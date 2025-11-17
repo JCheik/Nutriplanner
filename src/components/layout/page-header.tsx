@@ -6,6 +6,7 @@ import { Calculator, LogOut, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
 import { CalculatorDialog } from '../nutri-planner/calculator-dialog';
 import { useUser, signInWithGoogle, signOut } from '@/firebase/auth/use-user';
+import { useAuth } from '@/firebase';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +21,19 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 export function PageHeader() {
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const { user, loading } = useUser();
+  const auth = useAuth();
+
+  const handleSignIn = () => {
+    if (auth) {
+      signInWithGoogle(auth);
+    }
+  };
+
+  const handleSignOut = () => {
+    if (auth) {
+      signOut(auth);
+    }
+  };
 
   return (
     <>
@@ -59,14 +73,14 @@ export function PageHeader() {
                       </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={signOut}>
+                    <DropdownMenuItem onClick={handleSignOut}>
                       <LogOut className="mr-2 h-4 w-4" />
                       <span>Cerrar sesión</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
-                <Button onClick={signInWithGoogle}>
+                <Button onClick={handleSignIn}>
                   <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
                     <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 126 23.4 172.9 61.9l-76.2 64.5C308.6 106.5 280.4 96 248 96c-84.3 0-152.3 67.8-152.3 152s68 152 152.3 152c92.8 0 140.3-61.5 143.8-92.6H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
                   </svg>

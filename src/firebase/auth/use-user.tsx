@@ -4,6 +4,7 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
   signOut as firebaseSignOut,
+  type Auth,
 } from 'firebase/auth';
 import { useEffect, useState } from 'react';
 import { useAuth, useFirestore } from '..';
@@ -14,8 +15,7 @@ export { type User };
 
 const provider = new GoogleAuthProvider();
 
-export const signInWithGoogle = async () => {
-  const auth = useAuth();
+export const signInWithGoogle = async (auth: Auth) => {
   if (!auth) return;
   try {
     await signInWithPopup(auth, provider);
@@ -24,8 +24,7 @@ export const signInWithGoogle = async () => {
   }
 };
 
-export const signOut = async () => {
-  const auth = useAuth();
+export const signOut = async (auth: Auth) => {
   if (!auth) return;
   try {
     await firebaseSignOut(auth);
@@ -50,12 +49,14 @@ export function useUser() {
       if (user) {
         setUser(user);
         // Create or update user profile in Firestore
-        const userRef = doc(firestore, 'users', user.uid);
-        await setDoc(userRef, {
-            name: user.displayName,
-            email: user.email,
-            photoURL: user.photoURL
-        }, { merge: true });
+        if (firestore) {
+          const userRef = doc(firestore, 'users', user.uid);
+          await setDoc(userRef, {
+              name: user.displayName,
+              email: user.email,
+              photoURL: user.photoURL
+          }, { merge: true });
+        }
 
       } else {
         setUser(null);
