@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
-import { LogOut, User as UserIcon } from 'lucide-react';
+import { LogOut, User as UserIcon, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, signInWithGoogle, signOut } from '@/firebase/auth/use-user';
 import { useAuth, useFirestore } from '@/firebase';
@@ -15,12 +15,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import type { ListModelsOutput } from '@/ai/flows/list-models';
+import { listAvailableModels } from '@/ai/flows/list-models';
+import { AiModelsDialog } from '../nutri-planner/ai-models-dialog';
 
 
 export function PageHeader() {
   const { user, loading } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
+  const [isModelsDialogOpen, setIsModelsDialogOpen] = useState(false);
+  const [modelsInfo, setModelsInfo] = useState<ListModelsOutput | null>(null);
 
   const handleSignIn = () => {
     if (auth && firestore) {
@@ -33,6 +38,12 @@ export function PageHeader() {
       signOut(auth);
     }
   };
+  
+  const handleCheckConfig = async () => {
+    const models = await listAvailableModels();
+    setModelsInfo(models);
+    setIsModelsDialogOpen(true);
+  }
 
   return (
     <>
@@ -68,6 +79,11 @@ export function PageHeader() {
                       </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleCheckConfig}>
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      <span>Verificar Configuración</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleSignOut}>
                       <LogOut className="mr-2 h-4 w-4" />
                       <span>Cerrar sesión</span>
@@ -86,6 +102,13 @@ export function PageHeader() {
           </div>
         </div>
       </header>
+      {modelsInfo && (
+        <AiModelsDialog
+            isOpen={isModelsDialogOpen}
+            onClose={() => setIsModelsDialogOpen(false)}
+            modelsInfo={modelsInfo}
+        />
+      )}
     </>
   );
 }
