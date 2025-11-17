@@ -147,8 +147,8 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
     onSave(recipe);
   };
   
-  const handleSelectIngredient = (baseIngredient: BaseIngredient) => {
-    setNewIngredientName(baseIngredient.name);
+  const handleSelectIngredient = (ingredientName: string) => {
+    setNewIngredientName(ingredientName);
     setOpen(false);
   };
   
@@ -169,7 +169,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
       id: self.crypto.randomUUID(),
       name: baseIng?.name || newIngredientName,
       quantity: newIngredientQty,
-      unit: baseIng?.unit || 'g',
+      unit: 'g',
       ...macros
     };
 
@@ -214,15 +214,13 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
                     <Input value={newIngredientName} onChange={(e) => setNewIngredientName(e.target.value)} onFocus={() => setOpen(true)} placeholder="Buscar o añadir ingrediente..." />
                   </PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                    <Command shouldFilter={false}>
-                      <CommandInput value={newIngredientName} onValueChange={setNewIngredientName} placeholder="Buscar ingrediente..." />
+                    <Command>
+                      <CommandInput placeholder="Buscar ingrediente..." />
                       <CommandList>
                         <CommandEmpty>No se encontraron resultados.</CommandEmpty>
                         <CommandGroup>
-                          {ingredientsDB
-                            .filter(ing => ing.name.toLowerCase().includes(newIngredientName.toLowerCase()))
-                            .map((ing, index) => (
-                            <CommandItem key={`${ing.name}-${index}`} onSelect={() => handleSelectIngredient(ing)}>
+                          {ingredientsDB.map((ing, index) => (
+                            <CommandItem key={`${ing.name}-${index}`} value={ing.name} onSelect={handleSelectIngredient}>
                               {ing.name}
                             </CommandItem>
                           ))}
