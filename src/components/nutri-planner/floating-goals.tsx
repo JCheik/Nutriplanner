@@ -123,7 +123,7 @@ export function FloatingGoals() {
 
   return (
     <>
-      <div className="fixed bottom-24 right-8 z-40">
+      <div className="fixed bottom-28 right-8 z-40">
         <Button
           onClick={() => setIsOpen(prev => !prev)}
           className="h-16 w-16 rounded-full shadow-lg"
@@ -134,7 +134,7 @@ export function FloatingGoals() {
       </div>
       <div
         className={cn(
-          'fixed bottom-24 right-28 w-96 bg-card rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right',
+          'fixed bottom-28 right-28 w-96 bg-card rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right',
           isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'
         )}
       >
