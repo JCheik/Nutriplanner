@@ -137,26 +137,23 @@ export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onReci
         <CardDescription>Arrastra y suelta recetas de tu biblioteca para planificar tu semana.</CardDescription>
       </CardHeader>
       <CardContent className="pb-4">
-        <ScrollArea className="w-full whitespace-nowrap">
-            <div className="flex w-max space-x-4">
-            {weekPlan.map(({ day, meals }) => {
-                const dayTotals = dailyTotals.find(d => d.day === day)?.totals;
-                return (
-                <div key={day} className="flex flex-col gap-3 p-3 rounded-xl bg-secondary/50 w-[200px] flex-shrink-0">
-                    <h3 className="font-semibold text-center text-lg text-card-foreground">{day}</h3>
-                    <div className="space-y-2 flex-1 flex flex-col h-[400px]">
-                      <MealSlot day={day} mealType="breakfast" mealRecipes={meals.breakfast.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
-                      <MealSlot day={day} mealType="lunch" mealRecipes={meals.lunch.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
-                      <MealSlot day={day} mealType="snack" mealRecipes={meals.snack.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
-                      <MealSlot day={day} mealType="dinner" mealRecipes={meals.dinner.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
-                    </div>
-                    {dayTotals && <DailyTotalsRow totals={dayTotals} />}
-                </div>
-                );
-            })}
-            </div>
-            <ScrollBar orientation="horizontal" />
-        </ScrollArea>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+          {weekPlan.map(({ day, meals }) => {
+              const dayTotals = dailyTotals.find(d => d.day === day)?.totals;
+              return (
+              <div key={day} className="flex flex-col gap-3 p-3 rounded-xl bg-secondary/50 min-w-[200px]">
+                  <h3 className="font-semibold text-center text-lg text-card-foreground">{day}</h3>
+                  <div className="space-y-2 flex-1 flex flex-col min-h-[400px]">
+                    <MealSlot day={day} mealType="breakfast" mealRecipes={meals.breakfast.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
+                    <MealSlot day={day} mealType="lunch" mealRecipes={meals.lunch.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
+                    <MealSlot day={day} mealType="snack" mealRecipes={meals.snack.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
+                    <MealSlot day={day} mealType="dinner" mealRecipes={meals.dinner.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
+                  </div>
+                  {dayTotals && <DailyTotalsRow totals={dayTotals} />}
+              </div>
+              );
+          })}
+        </div>
       </CardContent>
     </Card>
   );
