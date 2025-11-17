@@ -76,7 +76,7 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
   if (isCompact) {
     return (
         <div 
-          className="w-full h-12 cursor-pointer"
+          className="w-full h-full cursor-pointer"
           onClick={onClick}
         >
            <RecipePlaceholder recipeName={recipe.name} colorVariant={colorVariant} />
