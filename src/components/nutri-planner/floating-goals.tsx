@@ -11,7 +11,7 @@ import { CalculatorDialog } from './calculator-dialog';
 
 const GoalCard = ({ title, icon: Icon, goal, isActive = false }: { title: string, icon: React.ElementType, goal: GoalMacros, isActive?: boolean }) => {
     return (
-        <Card className={`text-center transition-all ${isActive ? 'bg-primary text-primary-foreground' : 'bg-card'}`}>
+        <Card className={cn("text-center transition-all", isActive ? 'bg-primary text-primary-foreground' : 'bg-card')}>
             <CardHeader className="p-4">
                 <CardTitle className="text-base flex items-center justify-center gap-2">
                     <Icon className="h-5 w-5" />
@@ -20,19 +20,22 @@ const GoalCard = ({ title, icon: Icon, goal, isActive = false }: { title: string
             </CardHeader>
             <CardContent className="p-4 pt-0">
                 <p className="text-3xl font-bold">{goal.calories}<span className="text-base font-normal"> kcal</span></p>
-                <div className={`grid grid-cols-3 gap-2 mt-3 text-xs p-2 rounded-lg ${isActive ? 'bg-primary-foreground/20' : 'bg-secondary'}`}>
+                <div className={cn(
+                    "grid grid-cols-3 gap-2 mt-3 text-xs p-2 rounded-lg",
+                    isActive ? 'bg-primary-foreground/20' : 'bg-secondary'
+                )}>
                     <div className="flex flex-col items-center">
-                        <EggFried className={`h-4 w-4 ${isActive ? 'text-amber-300' : 'text-amber-600'}`} />
+                        <EggFried className={cn("h-4 w-4", isActive ? 'text-amber-300' : 'text-amber-600')} />
                         <span className="font-bold">{goal.protein}g</span>
                         <span>Prot.</span>
                     </div>
                     <div className="flex flex-col items-center">
-                        <Wheat className={`h-4 w-4 ${isActive ? 'text-yellow-300' : 'text-yellow-500'}`} />
+                        <Wheat className={cn("h-4 w-4", isActive ? 'text-yellow-300' : 'text-yellow-500')} />
                         <span className="font-bold">{goal.carbs}g</span>
                         <span>Carbs</span>
                     </div>
                     <div className="flex flex-col items-center">
-                        <Droplets className={`h-4 w-4 ${isActive ? 'text-sky-300' : 'text-sky-500'}`} />
+                        <Droplets className={cn("h-4 w-4", isActive ? 'text-sky-300' : 'text-sky-500')} />
                         <span className="font-bold">{goal.fat}g</span>
                         <span>Grasa</span>
                     </div>

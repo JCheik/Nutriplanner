@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import type { Recipe, WeekPlan, MealType, DialogState, SortCriteria } from '@/lib/types';
+import type { Recipe, WeekPlan, MealType, DialogState, SortCriteria, CalculationResult } from '@/lib/types';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
 import { PageHeader } from '@/components/layout/page-header';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
