@@ -27,6 +27,8 @@ import {
 } from '@/firebase/non-blocking-updates';
 
 
+const DAY_ORDER = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
 export default function Dashboard() {
   const { toast } = useToast();
   const { user, loading } = useUser();
@@ -37,9 +39,7 @@ export default function Dashboard() {
   const { data: recipes, loading: recipesLoading } = useCollection<Recipe>(recipesCollectionRef);
   
   const weekPlanCollectionRef = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'weekPlan') : null, [firestore, user]);
-  const { data: weekPlan, loading: weekPlanLoading } = useCollection<WeekPlan[0]>(weekPlanCollectionRef, {
-    onNewData: (data) => data.sort((a,b) => ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].indexOf(a.day) - ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].indexOf(b.day))
-  });
+  const { data: weekPlanData, loading: weekPlanLoading } = useCollection<WeekPlan[0]>(weekPlanCollectionRef);
   
   const userProfileRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
   const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
@@ -52,7 +52,7 @@ export default function Dashboard() {
   
   // Save initial data to Firestore for new users
   useEffect(() => {
-    if (user && !recipesLoading && !weekPlanLoading && !profileLoading && recipes?.length === 0 && weekPlan?.length === 0 && !userProfile) {
+    if (user && !recipesLoading && !weekPlanLoading && !profileLoading && recipes?.length === 0 && weekPlanData?.length === 0 && !userProfile) {
       const batch = writeBatch(firestore);
       
       // Add initial recipes
@@ -78,11 +78,27 @@ export default function Dashboard() {
 
       batch.commit().catch(console.error);
     }
-  }, [user, firestore, recipes, weekPlan, userProfile, recipesLoading, weekPlanLoading, profileLoading]);
+  }, [user, firestore, recipes, weekPlanData, userProfile, recipesLoading, weekPlanLoading, profileLoading]);
 
   // Handle data based on user auth state
   const currentRecipes = useMemo(() => recipes || [], [recipes]);
-  const currentWeekPlan = useMemo(() => weekPlan || [], [weekPlan]);
+  
+  const currentWeekPlan = useMemo(() => {
+    if (!weekPlanData) return INITIAL_WEEK_PLAN; // Return default structure if no data
+    
+    // Create a map for quick lookups
+    const planMap = new Map(weekPlanData.map(day => [day.day, day]));
+
+    // Build the full week, using saved data or the default structure
+    const fullWeek = INITIAL_WEEK_PLAN.map(defaultDay => 
+      planMap.get(defaultDay.day) || defaultDay
+    );
+
+    // Sort the final array to ensure correct day order
+    return fullWeek.sort((a, b) => DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day));
+
+  }, [weekPlanData]);
+
   const currentStickyNote = useMemo(() => userProfile?.stickyNote || '', [userProfile]);
   const currentCalorieResult = useMemo(() => userProfile?.calorieResult || null, [userProfile]);
   
@@ -92,15 +108,15 @@ export default function Dashboard() {
 
 
   const handleDrop = useCallback(async (day: string, mealType: MealType, droppedRecipe: Recipe) => {
-    if (user && weekPlan) {
+    if (user && currentWeekPlan) {
       const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
-      const targetDay = weekPlan.find(d => d.day === day);
+      const targetDay = currentWeekPlan.find(d => d.day === day);
       if (targetDay) {
         const updatedRecipes = [...targetDay.meals[mealType].recipes, droppedRecipe];
         updateDocumentNonBlocking(dayDocRef, { [`meals.${mealType}.recipes`]: updatedRecipes });
       }
     }
-  }, [user, firestore, weekPlan]);
+  }, [user, firestore, currentWeekPlan]);
   
   const handleClearMeal = useCallback(async (day: string, mealType: MealType) => {
     if (user) {
@@ -110,15 +126,15 @@ export default function Dashboard() {
   }, [user, firestore]);
   
   const handleRemoveRecipeFromMeal = useCallback(async (day: string, mealType: MealType, recipeId: string) => {
-    if (user && weekPlan) {
+    if (user && currentWeekPlan) {
       const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
-      const targetDay = weekPlan.find(d => d.day === day);
+      const targetDay = currentWeekPlan.find(d => d.day === day);
       if (targetDay) {
         const updatedRecipes = targetDay.meals[mealType].recipes.filter(r => r.id !== recipeId);
         updateDocumentNonBlocking(dayDocRef, { [`meals.${mealType}.recipes`]: updatedRecipes });
       }
     }
-  }, [user, firestore, weekPlan]);
+  }, [user, firestore, currentWeekPlan]);
 
   const handleRecipeAction = useCallback((action: 'view' | 'create' | 'edit', recipe?: Recipe) => {
     setDialogState({
@@ -152,8 +168,8 @@ export default function Dashboard() {
       const recipeRef = doc(recipesCollectionRef, recipeId);
       batch.delete(recipeRef);
 
-      if (weekPlan) {
-        weekPlan.forEach(dayPlan => {
+      if (currentWeekPlan) {
+        currentWeekPlan.forEach(dayPlan => {
             const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', dayPlan.day);
             const newMeals = { ...dayPlan.meals };
             let updated = false;
@@ -176,7 +192,7 @@ export default function Dashboard() {
       await batch.commit();
     }
     handleDialogClose();
-  }, [handleDialogClose, user, recipesCollectionRef, weekPlan, firestore]);
+  }, [handleDialogClose, user, recipesCollectionRef, currentWeekPlan, firestore]);
 
   const dailyTotals = useMemo(() => {
     return (currentWeekPlan || []).map(dayPlan => {
