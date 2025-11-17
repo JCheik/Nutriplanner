@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { ShoppingCart, Smartphone, PlusCircle, Trash2, Pencil } from 'lucide-react';
 import { QRCodeDialog } from './qr-code-dialog';
+import { cn } from '@/lib/utils';
 
 interface ShoppingListItem {
   id: string;
@@ -117,15 +118,19 @@ export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListDi
       <div className="fixed bottom-8 right-8 z-40">
         <Button
           onClick={onToggle}
-          className="h-16 w-16 rounded-full shadow-lg bg-blue-500 hover:bg-blue-600"
+          className="h-16 w-16 rounded-full shadow-lg"
           size="icon"
         >
           <ShoppingCart className="h-8 w-8" />
         </Button>
       </div>
 
-      <Dialog open={isOpen} onOpenChange={onToggle}>
-        <DialogContent className="max-w-lg w-full flex flex-col h-[70vh]">
+       <div
+        className={cn(
+          'fixed bottom-8 right-28 w-96 bg-card rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right flex flex-col h-[70vh]',
+          isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'
+        )}
+      >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ShoppingCart className="h-6 w-6" />
@@ -136,7 +141,7 @@ export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListDi
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex gap-2 items-end border-b pb-4">
+          <div className="flex gap-2 items-end border-b pb-4 mt-4">
               <div className="flex-grow">
                 <Label htmlFor="new-item-name" className="text-xs">Añadir artículo</Label>
                 <Input
@@ -213,20 +218,14 @@ export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListDi
               </div>
             )}
           </ScrollArea>
-          <DialogFooter className="mt-auto pt-4 border-t grid grid-cols-3 gap-2">
-              <Button variant="outline" onClick={handleClearList} className="col-span-1">
-                Limpiar lista
-              </Button>
+          <DialogFooter className="mt-auto pt-4 border-t grid grid-cols-2 gap-2">
              <Button variant="secondary" onClick={() => setIsQrOpen(true)} disabled={shoppingList.length === 0} className="col-span-1">
                 <Smartphone className="mr-2 h-4 w-4" />
                 Generar QR
             </Button>
-            <DialogClose asChild className="col-span-1">
-              <Button>Cerrar</Button>
-            </DialogClose>
+            <Button onClick={onToggle} className="col-span-1">Cerrar</Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
       <QRCodeDialog
         isOpen={isQrOpen}
         onClose={() => setIsQrOpen(false)}
