@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AiSuggesterDialog } from '@/components/nutri-planner/ai-suggester-dialog';
 import { suggestRecipes } from '@/ai/flows/suggest-recipes';
 import { StickyNote } from '@/components/nutri-planner/sticky-note';
-import { TargetGoalsDisplay } from '@/components/nutri-planner/target-goals-display';
+import { FloatingGoals } from '@/components/nutri-planner/floating-goals';
 
 
 export default function Home() {
@@ -190,7 +190,6 @@ export default function Home() {
       <PageHeader />
       <main className="flex-1 p-4 sm:p-6 lg:p-8">
         <div className="max-w-screen-2xl mx-auto flex flex-col gap-6">
-          {calorieResult && <TargetGoalsDisplay result={calorieResult} />}
           <div className="w-full">
             <MealPlanner
               weekPlan={weekPlan}
@@ -229,6 +228,7 @@ export default function Home() {
         onEditRecipe={(recipe) => handleRecipeAction('edit', recipe)}
       />
       <StickyNote />
+      <FloatingGoals />
     </div>
   );
 }

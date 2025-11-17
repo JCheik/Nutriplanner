@@ -1,13 +1,12 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Target, X, TrendingDown, Weight, TrendingUp, EggFried, Wheat, Droplets } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { CalculationResult, GoalMacros } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Target, TrendingDown, Weight, TrendingUp, Flame, EggFried, Wheat, Droplets } from "lucide-react";
-
-interface TargetGoalsDisplayProps {
-    result: CalculationResult;
-}
 
 const GoalCard = ({ title, icon: Icon, goal, isActive = false }: { title: string, icon: React.ElementType, goal: GoalMacros, isActive?: boolean }) => {
     return (
@@ -42,19 +41,16 @@ const GoalCard = ({ title, icon: Icon, goal, isActive = false }: { title: string
     )
 }
 
-export function TargetGoalsDisplay({ result }: TargetGoalsDisplayProps) {
+const TargetGoalsDisplay = ({ result }: { result: CalculationResult }) => {
     if (!result) return null;
 
     return (
-        <Card>
-            <CardHeader>
-                <div className="flex items-center gap-3">
-                    <Target className="h-6 w-6 text-primary" />
-                    <CardTitle>Tus Objetivos Nutricionales</CardTitle>
-                </div>
-                <CardDescription>Estos son tus objetivos diarios calculados. Úsalos como guía para planificar tu semana.</CardDescription>
+        <Card className="w-full border-0 shadow-none bg-transparent">
+            <CardHeader className="px-0">
+                <CardTitle>Tus Objetivos Nutricionales</CardTitle>
+                <CardDescription>Tus objetivos diarios calculados. Úsalos como guía.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-0">
                 <Tabs defaultValue="maintenance" className="w-full">
                     <TabsList className="grid w-full grid-cols-3">
                         <TabsTrigger value="loss">Perder Peso</TabsTrigger>
@@ -74,4 +70,57 @@ export function TargetGoalsDisplay({ result }: TargetGoalsDisplayProps) {
             </CardContent>
         </Card>
     );
+}
+
+export function FloatingGoals() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [result, setResult] = useState<CalculationResult | null>(null);
+
+  useEffect(() => {
+    const fetchStoredResult = () => {
+        const savedResult = localStorage.getItem('calorieResult');
+        if (savedResult) {
+            setResult(JSON.parse(savedResult));
+        }
+    };
+
+    fetchStoredResult();
+    window.addEventListener('storage', fetchStoredResult);
+    return () => {
+        window.removeEventListener('storage', fetchStoredResult);
+    };
+  }, []);
+
+  if (!result) return null;
+
+  return (
+    <>
+      {!isOpen && (
+        <Button
+          onClick={() => setIsOpen(true)}
+          className="fixed bottom-8 left-8 h-16 w-16 rounded-full shadow-lg z-50"
+          size="icon"
+        >
+          <Target className="h-8 w-8" />
+        </Button>
+      )}
+
+      <div
+        className={cn(
+          'fixed bottom-8 left-8 w-96 bg-card rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-left',
+          isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
+        )}
+      >
+        <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 h-7 w-7"
+            onClick={() => setIsOpen(false)}
+        >
+            <X className="h-5 w-5" />
+        </Button>
+        <TargetGoalsDisplay result={result} />
+      </div>
+    </>
+  );
 }
