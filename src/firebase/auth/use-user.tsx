@@ -5,6 +5,7 @@ import {
   GoogleAuthProvider,
   signOut as firebaseSignOut,
   type Auth,
+  signInAnonymously,
 } from 'firebase/auth';
 import { useEffect, useState } from 'react';
 import { useAuth, useFirestore } from '..';
@@ -31,8 +32,16 @@ export const signInWithGoogle = async (auth: Auth, firestore: ReturnType<typeof 
         stickyNote: '', // Initialize with empty sticky note
       }, { merge: true });
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error signing in with Google: ', error);
+    // If Google sign-in is not allowed, fall back to anonymous sign-in
+    if (error.code === 'auth/operation-not-allowed') {
+        try {
+            await signInAnonymously(auth);
+        } catch (anonError) {
+            console.error('Error signing in anonymously after Google failed: ', anonError);
+        }
+    }
   }
 };
 
