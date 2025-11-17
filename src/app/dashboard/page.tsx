@@ -22,7 +22,7 @@ import { Logo } from '@/components/icons/logo';
 import {
   setDocumentNonBlocking,
   updateDocumentNonBlocking,
-  deleteDocumentNonBlocking,
+  addDocumentNonBlocking,
 } from '@/firebase/non-blocking-updates';
 
 
@@ -30,7 +30,7 @@ const DAY_ORDER = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábad
 
 export default function Dashboard() {
   const { toast } = useToast();
-  const { user, loading } = useUser();
+  const { user, loading: userLoading } = useUser();
   const firestore = useFirestore();
 
   // Firestore-backed state for logged-in users
@@ -48,43 +48,52 @@ export default function Dashboard() {
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
   const [isSuggesterOpen, setIsSuggesterOpen] = useState(false);
   const [activeFloatingMenu, setActiveFloatingMenu] = useState<string | null>(null);
+  const [initialDataChecked, setInitialDataChecked] = useState(false);
   
   // Save initial data to Firestore for new users
   useEffect(() => {
-    if (user && !profileLoading && !userProfile) {
-      const batch = writeBatch(firestore);
-      
-      // Create user profile
-      const profileRef = doc(firestore, 'users', user.uid);
-      batch.set(profileRef, {
-        name: user.displayName,
-        email: user.email,
-        photoURL: user.photoURL,
-        stickyNote: '¡Bienvenido a NutriPlanner! Usa esta nota para apuntar lo que quieras.',
-      });
-      
-      // Add initial recipes
-      INITIAL_RECIPES.forEach(recipe => {
-        const recipeRef = doc(collection(firestore, 'users', user.uid, 'recipes'));
-        batch.set(recipeRef, { ...recipe, id: recipeRef.id });
-      });
+    if (user && !profileLoading && !initialDataChecked) {
+      setInitialDataChecked(true); // Mark as checked to prevent re-running
+      if (!userProfile) { // Only run if profile doesn't exist
+        const batch = writeBatch(firestore);
+        
+        // Create user profile
+        const profileRef = doc(firestore, 'users', user.uid);
+        batch.set(profileRef, {
+          name: user.displayName,
+          email: user.email,
+          photoURL: user.photoURL,
+          stickyNote: '¡Bienvenido a NutriPlanner! Usa esta nota para apuntar lo que quieras.',
+        });
+        
+        // Add initial recipes
+        INITIAL_RECIPES.forEach(recipe => {
+          const recipeRef = doc(collection(firestore, 'users', user.uid, 'recipes'));
+          batch.set(recipeRef, { ...recipe, id: recipeRef.id });
+        });
 
-      // Add initial week plan
-      INITIAL_WEEK_PLAN.forEach(dayPlan => {
-        const dayRef = doc(firestore, 'users', user.uid, 'weekPlan', dayPlan.day);
-        batch.set(dayRef, dayPlan);
-      });
+        // Add initial week plan
+        INITIAL_WEEK_PLAN.forEach(dayPlan => {
+          const dayRef = doc(firestore, 'users', user.uid, 'weekPlan', dayPlan.day);
+          batch.set(dayRef, dayPlan);
+        });
 
-      batch.commit().catch(console.error);
+        batch.commit().catch(console.error);
+      }
     }
-  }, [user, firestore, userProfile, profileLoading]);
+  }, [user, firestore, userProfile, profileLoading, initialDataChecked]);
 
   // Handle data based on user auth state
   const currentRecipes = useMemo(() => recipes || [], [recipes]);
   
   const currentWeekPlan = useMemo(() => {
     if (weekPlanLoading) return []; // Return empty while loading
-    if (!weekPlanData || weekPlanData.length === 0) return INITIAL_WEEK_PLAN; // Return default if no data
+    
+    // If there's no data and the user has a profile, it means their plan is empty.
+    // Only use initial if the profile itself hasn't loaded or doesn't exist.
+    if (!weekPlanData || weekPlanData.length === 0) {
+       return userProfile ? INITIAL_WEEK_PLAN.map(day => ({...day, meals: { breakfast: { id: `b-${day.day}`, recipes: [] }, lunch: { id: `l-${day.day}`, recipes: [] }, snack: { id: `s-${day.day}`, recipes: [] }, dinner: { id: `d-${day.day}`, recipes: [] }}})) : INITIAL_WEEK_PLAN;
+    }
     
     const planMap = new Map(weekPlanData.map(day => [day.day, day]));
 
@@ -94,7 +103,7 @@ export default function Dashboard() {
 
     return fullWeek.sort((a, b) => DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day));
 
-  }, [weekPlanData, weekPlanLoading]);
+  }, [weekPlanData, weekPlanLoading, userProfile]);
 
   const currentStickyNote = useMemo(() => userProfile?.stickyNote || '', [userProfile]);
   const currentCalorieResult = useMemo(() => userProfile?.calorieResult || null, [userProfile]);
@@ -178,55 +187,78 @@ export default function Dashboard() {
   }, []);
 
   const handleSaveRecipe = useCallback((recipe: Recipe) => {
-    if (user && recipesCollectionRef) {
-      if(recipe.id) {
-        const recipeRef = doc(recipesCollectionRef, recipe.id);
-        setDocumentNonBlocking(recipeRef, recipe, { merge: true });
-      } else {
-        const newRecipeRef = doc(recipesCollectionRef);
-        setDocumentNonBlocking(newRecipeRef, {...recipe, id: newRecipeRef.id}, { merge: true });
-      }
+    if (!user || !recipesCollectionRef) return;
+    
+    if (recipe.id && currentRecipes.some(r => r.id === recipe.id)) {
+      // It's an existing recipe, update it
+      const recipeRef = doc(recipesCollectionRef, recipe.id);
+      setDocumentNonBlocking(recipeRef, recipe, { merge: true });
+       toast({
+        title: '¡Receta actualizada!',
+        description: `${recipe.name} se ha actualizado en tu biblioteca.`,
+      });
+    } else {
+      // It's a new recipe, add it
+      const newRecipeRef = doc(recipesCollectionRef);
+      addDocumentNonBlocking(recipesCollectionRef, { ...recipe, id: newRecipeRef.id });
+      toast({
+        title: '¡Receta guardada!',
+        description: `${recipe.name} se ha guardado en tu biblioteca.`,
+      });
     }
-
-    toast({
-      title: '¡Receta guardada!',
-      description: `${recipe.name} se ha guardado en tu biblioteca.`,
-    });
     handleDialogClose();
-  }, [handleDialogClose, toast, user, recipesCollectionRef]);
+  }, [handleDialogClose, toast, user, recipesCollectionRef, currentRecipes]);
+
 
   const handleDeleteRecipe = useCallback(async (recipeId: string) => {
-    if (user && recipesCollectionRef) {
-      const batch = writeBatch(firestore);
-
-      const recipeRef = doc(recipesCollectionRef, recipeId);
-      batch.delete(recipeRef);
-
-      if (currentWeekPlan) {
-        currentWeekPlan.forEach(dayPlan => {
-            const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', dayPlan.day);
-            const newMeals = { ...dayPlan.meals };
-            let updated = false;
-
-            (Object.keys(newMeals) as MealType[]).forEach(mealType => {
-                const meal = newMeals[mealType];
-                const initialLength = meal.recipes.length;
-                const filteredRecipes = meal.recipes.filter(r => r.id !== recipeId);
-                if (initialLength > filteredRecipes.length) {
-                    newMeals[mealType] = { ...meal, recipes: filteredRecipes };
-                    updated = true;
-                }
-            });
-            if (updated) {
-                 batch.update(dayDocRef, { meals: newMeals });
-            }
-        });
-      }
+    if (!user || !recipesCollectionRef) return;
+    
+    const batch = writeBatch(firestore);
+    
+    // 1. Delete the recipe from the library
+    const recipeRef = doc(recipesCollectionRef, recipeId);
+    batch.delete(recipeRef);
+    
+    // 2. Remove the recipe from all meals in the week plan
+    (currentWeekPlan || []).forEach(dayPlan => {
+      const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', dayPlan.day);
+      const newMeals = { ...dayPlan.meals };
+      let dayWasUpdated = false;
       
+      (Object.keys(newMeals) as MealType[]).forEach(mealType => {
+        const meal = newMeals[mealType];
+        const initialLength = meal.recipes.length;
+        const filteredRecipes = meal.recipes.filter(r => r.id !== recipeId);
+        
+        if (initialLength > filteredRecipes.length) {
+          newMeals[mealType] = { ...meal, recipes: filteredRecipes };
+          dayWasUpdated = true;
+        }
+      });
+      
+      if (dayWasUpdated) {
+        batch.set(dayDocRef, { meals: newMeals }, { merge: true });
+      }
+    });
+    
+    try {
       await batch.commit();
+      toast({
+        title: 'Receta eliminada',
+        description: 'La receta ha sido eliminada de tu biblioteca y de tu plan semanal.',
+      });
+    } catch (error) {
+      console.error("Error deleting recipe and updating week plan:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Error al eliminar',
+        description: 'No se pudo eliminar la receta. Inténtalo de nuevo.',
+      });
     }
+    
     handleDialogClose();
-  }, [handleDialogClose, user, recipesCollectionRef, currentWeekPlan, firestore]);
+  }, [handleDialogClose, user, firestore, recipesCollectionRef, currentWeekPlan, toast]);
+
 
   const dailyTotals = useMemo(() => {
     return (currentWeekPlan || []).map(dayPlan => {
@@ -297,9 +329,9 @@ export default function Dashboard() {
     }
   }, [user, userProfileRef]);
 
-  const isLoading = loading || recipesLoading || weekPlanLoading || profileLoading;
+  const isLoading = userLoading || recipesLoading || weekPlanLoading || profileLoading;
 
-  if (isLoading) {
+  if (isLoading && !initialDataChecked) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -343,7 +375,6 @@ export default function Dashboard() {
         onClose={handleDialogClose}
         onSave={handleSaveRecipe}
         onDelete={handleDeleteRecipe}
-        onEdit={(recipe) => handleRecipeAction('edit', recipe)}
       />
       <AiSuggesterDialog
         isOpen={isSuggesterOpen}

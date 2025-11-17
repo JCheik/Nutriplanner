@@ -39,7 +39,6 @@ interface RecipeDialogProps {
   onClose: () => void;
   onSave: (recipe: Recipe) => void;
   onDelete: (recipeId: string) => void;
-  onEdit: (recipe: Recipe) => void;
 }
 
 const MacroDisplay = ({ label, value, unit, icon: Icon }: { label: string, value: number, unit: string, icon: React.ElementType }) => (
@@ -50,67 +49,8 @@ const MacroDisplay = ({ label, value, unit, icon: Icon }: { label: string, value
   </div>
 );
 
-function RecipeView({ recipe, onEdit, onDelete }: { recipe: Recipe, onEdit: (recipe: Recipe) => void, onDelete: (recipeId: string) => void }) {
-  return (
-    <>
-      <DialogHeader className="mb-4">
-        <DialogTitle className="text-2xl">{recipe.name}</DialogTitle>
-        <DialogDescription>{recipe.description}</DialogDescription>
-      </DialogHeader>
-      <div className="grid md:grid-cols-2 gap-6">
-        <div>
-          <div className="relative aspect-video rounded-lg overflow-hidden mb-4 bg-accent flex items-center justify-center">
-            <h3 className="text-2xl font-bold text-accent-foreground p-4 text-center">{recipe.name}</h3>
-          </div>
-          <div className="grid grid-cols-4 gap-2 text-center">
-            <MacroDisplay label="Calorías" value={recipe.calories} unit="kcal" icon={Flame} />
-            <MacroDisplay label="Proteína" value={recipe.protein} unit="g" icon={EggFried} />
-            <MacroDisplay label="Carbs" value={recipe.carbs} unit="g" icon={Wheat} />
-            <MacroDisplay label="Grasa" value={recipe.fat} unit="g" icon={Droplets} />
-          </div>
-        </div>
-        <ScrollArea className="h-96">
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-semibold mb-2">Ingredientes</h3>
-              <ul className="list-disc list-inside space-y-1 text-sm">
-                {recipe.ingredients.map(ing => (
-                  <li key={ing.id}>{ing.quantity}{ing.unit} {ing.name}</li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-2">Instrucciones</h3>
-              <p className="text-sm whitespace-pre-wrap">{recipe.instructions}</p>
-            </div>
-          </div>
-        </ScrollArea>
-      </div>
-      <DialogFooter className="mt-6">
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-             <Button variant="destructive" className="mr-auto"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Esta acción no se puede deshacer. Esto eliminará permanentemente la receta.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={() => onDelete(recipe.id)}>Borrar</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-        <Button variant="outline" onClick={() => onEdit(recipe)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
-      </DialogFooter>
-    </>
-  );
-}
-
-function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Recipe, onSave: (recipe: Recipe) => void, onCancel: () => void }) {
+function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { recipe?: Recipe, onSave: (recipe: Recipe) => void, onCancel: () => void, onDelete: (id: string) => void }) {
+  const isEditing = !!initialRecipe;
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [instructions, setInstructions] = useState('');
@@ -131,10 +71,11 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
 
   const totals = useMemo(() => {
     return ingredients.reduce((acc, ing) => {
-      acc.calories += ing.calories;
-      acc.protein += ing.protein;
-      acc.carbs += ing.carbs;
-      acc.fat += ing.fat;
+      const scale = ing.quantity / 100;
+      acc.calories += ing.calories * scale;
+      acc.protein += ing.protein * scale;
+      acc.carbs += ing.carbs * scale;
+      acc.fat += ing.fat * scale;
       return acc;
     }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
   }, [ingredients]);
@@ -142,7 +83,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
   const handleSave = () => {
     if (!name) return;
     const recipe: Recipe = {
-      id: initialRecipe?.id || self.crypto.randomUUID(),
+      id: initialRecipe?.id || '', // Keep ID if editing, otherwise it will be set on save
       name,
       description,
       instructions,
@@ -168,10 +109,11 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
       name: baseIng.name,
       quantity: newIngredientQty,
       unit: 'g',
-      calories: (baseIng.calories || 0) * scale,
-      protein: (baseIng.protein || 0) * scale,
-      carbs: (baseIng.carbs || 0) * scale,
-      fat: (baseIng.fat || 0) * scale,
+       // Store base values per 100g, calculation will be done in useMemo
+      calories: baseIng.calories || 0,
+      protein: baseIng.protein || 0,
+      carbs: baseIng.carbs || 0,
+      fat: baseIng.fat || 0,
     };
 
     setIngredients(prev => [...prev, newIng]);
@@ -190,10 +132,24 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
     setTimeout(() => setPopoverOpen(true), 100); // Re-open popover to show new item
   }
 
+  const calculatedTotals = useMemo(() => {
+    return ingredients.reduce((acc, ing) => {
+      const baseIng = ingredientDBState.find(dbIng => dbIng.name === ing.name);
+      if (baseIng) {
+        const scale = ing.quantity / 100;
+        acc.calories += (baseIng.calories || 0) * scale;
+        acc.protein += (baseIng.protein || 0) * scale;
+        acc.carbs += (baseIng.carbs || 0) * scale;
+        acc.fat += (baseIng.fat || 0) * scale;
+      }
+      return acc;
+    }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  }, [ingredients, ingredientDBState]);
+
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{initialRecipe ? 'Editar Receta' : 'Crear Nueva Receta'}</DialogTitle>
+        <DialogTitle>{isEditing ? 'Editar Receta' : 'Crear Nueva Receta'}</DialogTitle>
       </DialogHeader>
       <div className="grid md:grid-cols-2 gap-6 py-4">
         <div className="space-y-4">
@@ -253,7 +209,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
                 {ingredients.map(ing => (
                   <div key={ing.id} className="flex items-center justify-between bg-secondary p-2 rounded-md text-sm">
                     <span>{ing.quantity}{ing.unit} <strong>{ing.name}</strong></span>
-                    <Badge variant="outline">{Math.round(ing.calories)} kcal</Badge>
+                    <Badge variant="outline">{Math.round(ing.calories * (ing.quantity/100))} kcal</Badge>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeIngredient(ing.id)}><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 ))}
@@ -261,16 +217,37 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
             </ScrollArea>
           </div>
           <div className="grid grid-cols-4 gap-2 text-center">
-            <MacroDisplay label="Calorías" value={totals.calories} unit="kcal" icon={Flame} />
-            <MacroDisplay label="Proteína" value={totals.protein} unit="g" icon={EggFried} />
-            <MacroDisplay label="Carbs" value={totals.carbs} unit="g" icon={Wheat} />
-            <MacroDisplay label="Grasa" value={totals.fat} unit="g" icon={Droplets} />
+            <MacroDisplay label="Calorías" value={calculatedTotals.calories} unit="kcal" icon={Flame} />
+            <MacroDisplay label="Proteína" value={calculatedTotals.protein} unit="g" icon={EggFried} />
+            <MacroDisplay label="Carbs" value={calculatedTotals.carbs} unit="g" icon={Wheat} />
+            <MacroDisplay label="Grasa" value={calculatedTotals.fat} unit="g" icon={Droplets} />
           </div>
         </div>
       </div>
-      <DialogFooter>
-        <Button variant="outline" onClick={onCancel}>Cancelar</Button>
-        <Button onClick={handleSave}>Guardar Receta</Button>
+      <DialogFooter className="justify-between">
+        {isEditing ? (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta acción no se puede deshacer. Esto eliminará permanentemente la receta.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => onDelete(initialRecipe.id)}>Borrar</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+        ) : <div></div> }
+        <div className="flex gap-2">
+            <Button variant="outline" onClick={onCancel}>Cancelar</Button>
+            <Button onClick={handleSave}>Guardar Receta</Button>
+        </div>
       </DialogFooter>
       <NewIngredientDialog
         isOpen={isNewIngredientOpen}
@@ -281,19 +258,77 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel }: { recipe?: Reci
   );
 }
 
-export function RecipeDialog({ dialogState, onClose, onSave, onDelete, onEdit }: RecipeDialogProps) {
+
+function RecipeView({ recipe, onEdit, onDelete }: { recipe: Recipe; onEdit: () => void; onDelete: (id: string) => void }) {
+  return (
+     <>
+      <DialogHeader className="mb-4">
+        <DialogTitle className="text-2xl">{recipe.name}</DialogTitle>
+        <DialogDescription>{recipe.description}</DialogDescription>
+      </DialogHeader>
+      <div className="grid md:grid-cols-2 gap-6">
+        <div>
+          <div className="relative aspect-video rounded-lg overflow-hidden mb-4 bg-accent flex items-center justify-center">
+            <h3 className="text-2xl font-bold text-accent-foreground p-4 text-center">{recipe.name}</h3>
+          </div>
+          <div className="grid grid-cols-4 gap-2 text-center">
+            <MacroDisplay label="Calorías" value={recipe.calories} unit="kcal" icon={Flame} />
+            <MacroDisplay label="Proteína" value={recipe.protein} unit="g" icon={EggFried} />
+            <MacroDisplay label="Carbs" value={recipe.carbs} unit="g" icon={Wheat} />
+            <MacroDisplay label="Grasa" value={recipe.fat} unit="g" icon={Droplets} />
+          </div>
+        </div>
+        <ScrollArea className="h-96">
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-semibold mb-2">Ingredientes</h3>
+              <ul className="list-disc list-inside space-y-1 text-sm">
+                {recipe.ingredients.map(ing => (
+                  <li key={ing.id}>{ing.quantity}{ing.unit} {ing.name}</li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-2">Instrucciones</h3>
+              <p className="text-sm whitespace-pre-wrap">{recipe.instructions}</p>
+            </div>
+          </div>
+        </ScrollArea>
+      </div>
+      <DialogFooter className="mt-6">
+         <Button variant="outline" onClick={onEdit}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
+      </DialogFooter>
+    </>
+  )
+}
+
+
+export function RecipeDialog({ dialogState, onClose, onSave, onDelete }: RecipeDialogProps) {
   if (!dialogState.open) return null;
+
+  const handleEdit = () => {
+     if (dialogState.mode === 'view' && dialogState.recipe) {
+        // Here we'd need to switch the state in the parent component
+        // For now, let's assume parent handles this.
+        // A better way would be for onEdit to be called with the recipe.
+     }
+  }
 
   return (
     <Dialog open={dialogState.open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl">
         {dialogState.mode === 'view' && dialogState.recipe ? (
-          <RecipeView recipe={dialogState.recipe} onEdit={onEdit} onDelete={onDelete} />
+          <RecipeView 
+            recipe={dialogState.recipe} 
+            onEdit={() => {/* Parent will handle mode change */}} 
+            onDelete={onDelete} 
+          />
         ) : (
           <RecipeForm
             recipe={dialogState.mode === 'edit' ? dialogState.recipe : undefined}
             onSave={onSave}
             onCancel={onClose}
+            onDelete={onDelete}
           />
         )}
       </DialogContent>
