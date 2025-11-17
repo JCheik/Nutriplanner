@@ -205,8 +205,24 @@
             }
           ]
         }
+      },
+       {
+        "path": "/nutriplanner_recipes/{recipeId}",
+        "definition": {
+          "entityName": "Recipe",
+          "schema": {
+            "$ref": "#/backend/entities/Recipe"
+          },
+          "description": "Pre-defined recipes provided by NutriPlanner. These are read-only for users but can be copied to their personal library.",
+          "params": [
+            {
+              "name": "recipeId",
+              "description": "The ID of the NutriPlanner recipe."
+            }
+          ]
+        }
       }
     ],
-    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, DBAC, and QAPs. User-owned data (Recipes, MealPlans, Ingredients) are stored under `/users/{userId}` for secure, path-based ownership. This eliminates the need for complex `get()` calls in security rules, as authorization context is directly derived from the path.  Denormalization isn't required since there's no collaborative data.\n\nThe database structure supports the listed app features.\n\nTo address the 'configuration-not-found' error, the recommended actions are:\n\n1.  Verify the Firebase configuration:\n    *   Double-check the Firebase configuration object in your Next.js application (`firebaseConfig`). Ensure all required parameters (apiKey, authDomain, projectId, etc.) are correctly set and match your Firebase project settings.\n    *   Confirm that the configuration object is being correctly initialized within your Firebase app instance.\n\n2.  Check the Firebase project settings:\n    *   In the Firebase console, verify that the Firebase Authentication service is enabled. If it's not enabled, the application will not be able to initialize correctly.\n    *   Ensure that the authentication methods you intend to use (e.g., email/password, Google Sign-in) are enabled in the Authentication settings.\n\n3.  Review environment variables:\n    *   If you are using environment variables to store your Firebase configuration, ensure that these variables are correctly set in your deployment environment (e.g., Vercel, Netlify).\n    *   Check for any typos or incorrect values in the environment variables.\n\n4.  Update Firebase SDK version:\n    *   Make sure you are using the latest version of the Firebase SDK in your application. Outdated SDK versions may have compatibility issues. You can update the SDK via npm or yarn.\n\n5.  Inspect the Next.js build process:\n    *   Examine the Next.js build process to ensure that the Firebase configuration is being correctly injected during the build. Use console logs or debugging tools to verify this.\n\n6.  Check for conflicting libraries:\n    *   In rare cases, conflicts with other libraries may cause Firebase initialization issues. Review your project dependencies for potential conflicts.\n\n\n"
+    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, DBAC, and QAPs. User-owned data (Recipes, MealPlans, Ingredients) are stored under `/users/{userId}` for secure, path-based ownership. This eliminates the need for complex `get()` calls in security rules, as authorization context is directly derived from the path. A new root collection `nutriplanner_recipes` is added for global, admin-managed recipes, readable by all authenticated users."
   }
 }

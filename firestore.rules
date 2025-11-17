@@ -2,102 +2,79 @@
  * @fileoverview Firestore Security Rules for a user-centric recipe and meal planning application.
  *
  * Core Philosophy: This ruleset enforces a strict user-ownership model. Each user has complete control
- * over their own recipes, ingredients, and meal plans. No data is shared between users.
+ * over their own recipes, ingredients, and meal plans. A separate collection for global recipes is readable by
+ * all users but only writable by admins.
  *
- * Data Structure: All data is nested under /users/{userId}. Each user owns their data tree.
+ * Data Structure: 
+ * - User-specific data is nested under /users/{userId}.
+ * - Global NutriPlanner recipes are in /nutriplanner_recipes/{recipeId}.
  *
  * Key Security Decisions:
  * - Users can only access data under their own user ID.
  * - Listing of user-owned collections is allowed only by the owner.
- * - Data validation is minimal, focusing on relational integrity (ownership) rather than schema enforcement,
- *   to allow for rapid prototyping.
- * - The rules explicitly prevent unauthorized data modification or deletion.
+ * - Global recipes are read-only for all signed-in users.
+ * - Writes to global recipes are restricted to users with an 'admin' custom claim.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Root-level access control.  All paths begin with /users/{userId}/...
+     * @description User profile documents.
      * @path /users/{userId}
-     * @allow (create) User 'user_abc' can create their own root user document if request.auth.uid == userId
-     * @deny (create) User 'user_abc' cannot create a document with a different userId.
-     * @principle Enforces user-based data isolation.
      */
     match /users/{userId} {
         allow create: if isSignedIn() && isOwner(userId);
         allow get: if isSignedIn() && isOwner(userId);
-        allow list: if false;
+        allow list: if false; // Disallow listing all user documents
         allow update: if isSignedIn() && isOwner(userId);
-        allow delete: if false;
+        allow delete: if false; // Users should not delete their own root doc
     }
 
     /**
      * @description Recipes owned by a specific user.
      * @path /users/{userId}/recipes/{recipeId}
-     * @allow (create) User 'user_abc' can create a recipe with user_abc as the owner.
-     * @allow (get) User 'user_abc' can read their own recipe.
-     * @allow (update) User 'user_abc' can update their own recipe.
-     * @allow (delete) User 'user_abc' can delete their own recipe.
-     * @deny (create) User 'user_xyz' cannot create a recipe for user_abc.
-     * @deny (update) User 'user_xyz' cannot update user_abc's recipe.
-     * @deny (delete) User 'user_xyz' cannot delete user_abc's recipe.
-     * @principle Enforces document ownership for writes, restricts read access to owner.
      */
     match /users/{userId}/recipes/{recipeId} {
-      allow create: if isSignedIn() && isOwner(userId);
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow read, list, create: if isSignedIn() && isOwner(userId);
+      allow update, delete: if isSignedIn() && isExistingOwner(userId);
     }
     
+    /**
+     * @description Weekly meal plan documents for a specific user.
+     * @path /users/{userId}/weekPlan/{day}
+     */
     match /users/{userId}/weekPlan/{day} {
-        allow get: if isSignedIn() && isOwner(userId);
-        allow list: if isSignedIn() && isOwner(userId);
-        allow create: if isSignedIn() && isOwner(userId);
-        allow update: if isSignedIn() && isExistingOwner(userId);
-        allow delete: if isSignedIn() && isExistingOwner(userId);
+        allow read, list, create: if isSignedIn() && isOwner(userId);
+        allow update, delete: if isSignedIn() && isExistingOwner(userId);
     }
 
     /**
      * @description Ingredients owned by a specific user.
      * @path /users/{userId}/ingredients/{ingredientId}
-     * @allow (create) User 'user_abc' can create an ingredient with user_abc as the owner.
-     * @allow (get) User 'user_abc' can read their own ingredient.
-     * @allow (update) User 'user_abc' can update their own ingredient.
-     * @allow (delete) User 'user_abc' can delete their own ingredient.
-     * @deny (create) User 'user_xyz' cannot create an ingredient for user_abc.
-     * @deny (update) User 'user_xyz' cannot update user_abc's ingredient.
-     * @deny (delete) User 'user_xyz' cannot delete user_abc's ingredient.
-     * @principle Enforces document ownership for writes, restricts read access to owner.
      */
     match /users/{userId}/ingredients/{ingredientId} {
-      allow create: if isSignedIn() && isOwner(userId);
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow read, list, create: if isSignedIn() && isOwner(userId);
+      allow update, delete: if isSignedIn() && isExistingOwner(userId);
     }
 
     /**
-     * @description Meal plans owned by a specific user.
+     * @description Meal plans owned by a specific user (legacy, may be deprecated).
      * @path /users/{userId}/meal_plans/{mealPlanId}
-     * @allow (create) User 'user_abc' can create a meal plan with user_abc as the owner.
-     * @allow (get) User 'user_abc' can read their own meal plan.
-     * @allow (update) User 'user_abc' can update their own meal plan.
-     * @allow (delete) User 'user_abc' can delete their own meal plan.
-     * @deny (create) User 'user_xyz' cannot create a meal plan for user_abc.
-     * @deny (update) User 'user_xyz' cannot update user_abc's meal plan.
-     * @deny (delete) User 'user_xyz' cannot delete user_abc's meal plan.
-     * @principle Enforces document ownership for writes, restricts read access to owner.
      */
     match /users/{userId}/meal_plans/{mealPlanId} {
-      allow create: if isSignedIn() && isOwner(userId);
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow read, list, create: if isSignedIn() && isOwner(userId);
+      allow update, delete: if isSignedIn() && isExistingOwner(userId);
+    }
+
+    /**
+     * @description Global recipes managed by administrators.
+     * @path /nutriplanner_recipes/{recipeId}
+     */
+    match /nutriplanner_recipes/{recipeId} {
+        allow get, list: if isSignedIn();
+        // Only allow writes (create, update, delete) if the user is an admin.
+        allow write: if isSignedIn() && request.auth.token.admin == true;
     }
 
     //----------------------------------------------------------------------------------------------
@@ -122,9 +99,9 @@ service cloud.firestore {
     }
 
     /**
-     * @description Checks if the request is made by the existing owner of the resource and the document exists.
+     * @description Checks if the request is made by the existing owner of the resource.
      * @param {string} userId The user ID of the owner.
-     * @return {boolean} True if the request is made by the owner and the document exists, false otherwise.
+     * @return {boolean} True if the request is made by the owner and their document exists, false otherwise.
      */
     function isExistingOwner(userId) {
       return isOwner(userId) && exists(/databases/$(database)/documents/users/$(userId));

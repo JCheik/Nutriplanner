@@ -34,9 +34,12 @@ export default function Dashboard() {
   const { user, loading: userLoading } = useUser();
   const firestore = useFirestore();
 
-  const recipesCollectionRef = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'recipes') : null, [firestore, user]);
-  const { data: recipes, loading: recipesLoading } = useCollection<Recipe>(recipesCollectionRef);
-  
+  const userRecipesCollectionRef = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'recipes') : null, [firestore, user]);
+  const { data: userRecipes, loading: userRecipesLoading } = useCollection<Recipe>(userRecipesCollectionRef);
+
+  const nutriplannerRecipesCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'nutriplanner_recipes') : null, [firestore]);
+  const { data: nutriplannerRecipes, loading: nutriplannerRecipesLoading } = useCollection<Recipe>(nutriplannerRecipesCollectionRef);
+
   const weekPlanCollectionRef = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'weekPlan') : null, [firestore, user]);
   const { data: weekPlanData, loading: weekPlanLoading } = useCollection<DayPlan>(weekPlanCollectionRef);
   
@@ -44,12 +47,11 @@ export default function Dashboard() {
   const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
 
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
-  const [filterQuery, setFilterQuery] = useState('');
-  const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
   const [isSuggesterOpen, setIsSuggesterOpen] = useState(false);
   const [activeFloatingMenu, setActiveFloatingMenu] = useState<string | null>(null);
 
-  const currentRecipes = useMemo(() => recipes || [], [recipes]);
+  const currentUserRecipes = useMemo(() => userRecipes || [], [userRecipes]);
+  const currentNutriplannerRecipes = useMemo(() => nutriplannerRecipes || [], [nutriplannerRecipes]);
   
   const currentWeekPlan = useMemo(() => {
     if (weekPlanLoading || profileLoading) return []; 
@@ -137,11 +139,12 @@ export default function Dashboard() {
     }
   }, [user, firestore, currentWeekPlan]);
 
-  const handleRecipeAction = useCallback((action: 'view' | 'create' | 'edit', recipe?: Recipe) => {
+  const handleRecipeAction = useCallback((action: 'view' | 'create' | 'edit', recipe?: Recipe, isNutriPlannerRecipe: boolean = false) => {
     setDialogState({
       open: true,
       mode: action,
       recipe: recipe || undefined,
+      isNutriPlannerRecipe,
     });
   }, []);
 
@@ -150,37 +153,39 @@ export default function Dashboard() {
   }, []);
 
   const handleSaveRecipe = useCallback((recipe: Recipe) => {
-    if (!user || !recipesCollectionRef) return;
+    if (!user || !userRecipesCollectionRef) return;
     
-    if (recipe.id && currentRecipes.some(r => r.id === recipe.id)) {
-      const recipeRef = doc(recipesCollectionRef, recipe.id);
+    // Logic for saving a recipe (both new and edited)
+    // If it's a nutriplanner recipe being copied, it won't have an ID in the user's collection yet
+    const isExistingUserRecipe = recipe.id && currentUserRecipes.some(r => r.id === recipe.id);
+
+    if (isExistingUserRecipe) { // Existing recipe in user's library
+      const recipeRef = doc(userRecipesCollectionRef, recipe.id);
       setDocumentNonBlocking(recipeRef, recipe, { merge: true });
        toast({
         title: '¡Receta actualizada!',
         description: `${recipe.name} se ha actualizado en tu biblioteca.`,
       });
-    } else {
-      const newRecipeRef = doc(recipesCollectionRef);
-      addDocumentNonBlocking(recipesCollectionRef, { ...recipe, id: newRecipeRef.id });
+    } else { // New recipe or a copy from NutriPlanner
+      const newRecipeRef = doc(userRecipesCollectionRef);
+      addDocumentNonBlocking(userRecipesCollectionRef, { ...recipe, id: newRecipeRef.id });
       toast({
         title: '¡Receta guardada!',
         description: `${recipe.name} se ha guardado en tu biblioteca.`,
       });
     }
     handleDialogClose();
-  }, [handleDialogClose, toast, user, recipesCollectionRef, currentRecipes]);
+  }, [handleDialogClose, toast, user, userRecipesCollectionRef, currentUserRecipes]);
 
 
   const handleDeleteRecipe = useCallback(async (recipeId: string) => {
-    if (!user || !recipesCollectionRef || !firestore) return;
+    if (!user || !userRecipesCollectionRef || !firestore) return;
     
     const batch = writeBatch(firestore);
     
-    // 1. Delete the recipe from the library
-    const recipeRef = doc(recipesCollectionRef, recipeId);
+    const recipeRef = doc(userRecipesCollectionRef, recipeId);
     batch.delete(recipeRef);
     
-    // 2. Remove the recipe from all meals in the week plan
     (currentWeekPlan || []).forEach(dayPlan => {
       const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', dayPlan.day);
       const newMeals = { ...dayPlan.meals };
@@ -218,7 +223,22 @@ export default function Dashboard() {
     }
     
     handleDialogClose();
-  }, [handleDialogClose, user, firestore, recipesCollectionRef, currentWeekPlan, toast]);
+  }, [handleDialogClose, user, firestore, userRecipesCollectionRef, currentWeekPlan, toast]);
+
+  const handleCopyRecipe = useCallback((recipe: Recipe) => {
+    if (!user || !userRecipesCollectionRef) return;
+    
+    // Create a new recipe object, omitting the ID to get a new one from Firestore
+    const { id, ...recipeData } = recipe;
+    
+    const newRecipeRef = doc(userRecipesCollectionRef);
+    addDocumentNonBlocking(userRecipesCollectionRef, { ...recipeData, id: newRecipeRef.id });
+
+    toast({
+        title: '¡Receta Copiada!',
+        description: `${recipe.name} ha sido añadida a "Mis Recetas".`,
+    });
+  }, [user, userRecipesCollectionRef, toast]);
 
 
   const dailyTotals = useMemo(() => {
@@ -236,37 +256,11 @@ export default function Dashboard() {
     });
   }, [currentWeekPlan]);
   
-  const filteredAndSortedRecipes = useMemo(() => {
-    const filtered = (currentRecipes || []).filter(recipe => {
-      const query = filterQuery.toLowerCase();
-      if (!query) return true;
-      const nameMatch = recipe.name.toLowerCase().includes(query);
-      const ingredientMatch = recipe.ingredients.some(ing => ing.name.toLowerCase().includes(query));
-      return nameMatch || ingredientMatch;
-    });
-
-    const [key, order] = sortCriteria.split('-') as [keyof Recipe, 'asc' | 'desc'];
-
-    return filtered.sort((a, b) => {
-      let valA = a[key];
-      let valB = b[key];
-      
-      if (typeof valA === 'string' && typeof valB === 'string') {
-        valA = valA.toLowerCase();
-        valB = valB.toLowerCase();
-      }
-
-      if (valA < valB) return order === 'asc' ? -1 : 1;
-      if (valA > valB) return order === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [currentRecipes, filterQuery, sortCriteria]);
-
   const handleAddSuggestedRecipes = useCallback((suggestedRecipes: Recipe[]) => {
-    if (user && recipesCollectionRef && firestore) {
+    if (user && userRecipesCollectionRef && firestore) {
       const batch = writeBatch(firestore);
       suggestedRecipes.forEach(recipe => {
-        const recipeRef = doc(recipesCollectionRef);
+        const recipeRef = doc(userRecipesCollectionRef);
         batch.set(recipeRef, { ...recipe, id: recipeRef.id });
       });
       batch.commit();
@@ -276,7 +270,7 @@ export default function Dashboard() {
         title: '¡Recetas añadidas!',
         description: `${suggestedRecipes.length} nuevas recetas se han añadido a tu biblioteca.`,
     });
-  }, [toast, user, recipesCollectionRef, firestore]);
+  }, [toast, user, userRecipesCollectionRef, firestore]);
 
   const handleNoteSave = useCallback((content: string) => {
     if (user && userProfileRef) {
@@ -290,7 +284,7 @@ export default function Dashboard() {
     }
   }, [user, userProfileRef]);
 
-  const isLoading = userLoading || recipesLoading || weekPlanLoading || profileLoading;
+  const isLoading = userLoading || userRecipesLoading || nutriplannerRecipesLoading || weekPlanLoading || profileLoading;
 
   if (isLoading) {
     return (
@@ -320,13 +314,11 @@ export default function Dashboard() {
           </div>
           <div className="grid grid-cols-1 gap-6">
             <RecipeLibrary 
-              recipes={filteredAndSortedRecipes} 
+              userRecipes={currentUserRecipes}
+              nutriplannerRecipes={currentNutriplannerRecipes}
               onRecipeAction={handleRecipeAction}
               onSuggestClick={() => setIsSuggesterOpen(true)}
-              filterQuery={filterQuery}
-              onFilterChange={setFilterQuery}
-              sortCriteria={sortCriteria}
-              onSortChange={setSortCriteria}
+              onCopyRecipe={handleCopyRecipe}
             />
           </div>
         </div>
@@ -337,6 +329,7 @@ export default function Dashboard() {
         onSave={handleSaveRecipe}
         onDelete={handleDeleteRecipe}
         onEdit={(recipe) => handleRecipeAction('edit', recipe)}
+        onCopy={handleCopyRecipe}
       />
       <AiSuggesterDialog
         isOpen={isSuggesterOpen}

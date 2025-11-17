@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, PlusCircle, Plus } from 'lucide-react';
+import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, PlusCircle, Plus, Copy } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +40,7 @@ interface RecipeDialogProps {
   onSave: (recipe: Recipe) => void;
   onDelete: (recipeId: string) => void;
   onEdit: (recipe: Recipe) => void;
+  onCopy: (recipe: Recipe) => void;
 }
 
 const MacroDisplay = ({ label, value, unit, icon: Icon }: { label: string, value: number, unit: string, icon: React.ElementType }) => (
@@ -248,7 +249,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
 }
 
 
-function RecipeView({ recipe, onEdit, onDelete }: { recipe: Recipe; onEdit: (recipe: Recipe) => void; onDelete: (id: string) => void; }) {
+function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe }: { recipe: Recipe; onEdit: (recipe: Recipe) => void; onDelete: (id: string) => void; onCopy: (recipe: Recipe) => void; isNutriPlannerRecipe: boolean }) {
   return (
      <>
       <DialogHeader className="mb-4">
@@ -285,32 +286,40 @@ function RecipeView({ recipe, onEdit, onDelete }: { recipe: Recipe; onEdit: (rec
         </ScrollArea>
       </div>
       <DialogFooter className="mt-6 justify-between">
-        <AlertDialog>
-            <AlertDialogTrigger asChild>
-            <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                <AlertDialogDescription>
-                Esta acción no se puede deshacer. Esto eliminará permanentemente la receta de tu biblioteca y de todos los planes de comidas.
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={() => onDelete(recipe.id)}>Borrar</AlertDialogAction>
-            </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
-        <Button variant="outline" onClick={() => onEdit(recipe)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
+         {!isNutriPlannerRecipe ? (
+          <AlertDialog>
+              <AlertDialogTrigger asChild>
+              <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+              <AlertDialogHeader>
+                  <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                  Esta acción no se puede deshacer. Esto eliminará permanentemente la receta de tu biblioteca y de todos los planes de comidas.
+                  </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => onDelete(recipe.id)}>Borrar</AlertDialogAction>
+              </AlertDialogFooter>
+              </AlertDialogContent>
+          </AlertDialog>
+        ) : <div></div>}
+        
+        {isNutriPlannerRecipe ? (
+          <Button onClick={() => onCopy(recipe)}><Copy className="mr-2 h-4 w-4" /> Copiar a Mis Recetas</Button>
+        ) : (
+          <Button variant="outline" onClick={() => onEdit(recipe)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
+        )}
       </DialogFooter>
     </>
   )
 }
 
 
-export function RecipeDialog({ dialogState, onClose, onSave, onDelete, onEdit }: RecipeDialogProps) {
+export function RecipeDialog({ dialogState, onClose, onSave, onDelete, onEdit, onCopy }: RecipeDialogProps) {
   if (!dialogState.open) return null;
+  const isNutriPlannerRecipe = dialogState.mode === 'view' && dialogState.isNutriPlannerRecipe;
 
   return (
     <Dialog open={dialogState.open} onOpenChange={onClose}>
@@ -320,6 +329,8 @@ export function RecipeDialog({ dialogState, onClose, onSave, onDelete, onEdit }:
             recipe={dialogState.recipe} 
             onEdit={onEdit}
             onDelete={onDelete}
+            onCopy={onCopy}
+            isNutriPlannerRecipe={!!isNutriPlannerRecipe}
           />
         ) : (
           <RecipeForm
