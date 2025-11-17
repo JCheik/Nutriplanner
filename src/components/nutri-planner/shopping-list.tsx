@@ -16,7 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { ShoppingCart, Smartphone, PlusCircle, Trash2, Pencil } from 'lucide-react';
+import { ShoppingCart, Smartphone, PlusCircle, Trash2, Pencil, X } from 'lucide-react';
 import { QRCodeDialog } from './qr-code-dialog';
 import { cn } from '@/lib/utils';
 
@@ -125,12 +125,22 @@ export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListDi
         </Button>
       </div>
 
-       <div
-        className={cn(
-          'fixed bottom-8 right-28 w-96 bg-card rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right flex flex-col h-[70vh]',
-          isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'
-        )}
-      >
+       <Dialog open={isOpen} onOpenChange={onToggle}>
+        <DialogContent 
+          className={cn(
+            'fixed bottom-8 right-28 w-96 bg-card rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right flex flex-col h-[70vh]',
+            isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'
+          )}
+          hideCloseButton
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 h-7 w-7"
+            onClick={onToggle}
+          >
+            <X className="h-5 w-5" />
+          </Button>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ShoppingCart className="h-6 w-6" />
@@ -225,7 +235,8 @@ export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListDi
             </Button>
             <Button onClick={onToggle} className="col-span-1">Cerrar</Button>
           </DialogFooter>
-        </div>
+        </DialogContent>
+      </Dialog>
       <QRCodeDialog
         isOpen={isQrOpen}
         onClose={() => setIsQrOpen(false)}
