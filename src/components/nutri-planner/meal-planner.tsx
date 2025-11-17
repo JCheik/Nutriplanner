@@ -30,8 +30,7 @@ interface MealSlotProps {
 
 const DailyTotalsRow = ({ totals }: { totals: Macros }) => (
   <div className="mt-2 pt-2 border-t">
-    <h4 className="text-sm font-semibold text-center mb-2">Totales del Día</h4>
-    <div className="flex flex-col items-center p-1">
+    <div className="flex flex-col items-center">
       <div className="flex items-center gap-1">
         <Flame className="h-5 w-5 text-orange-500" />
         <span className="font-bold text-lg">{Math.round(totals.calories)}</span>
@@ -93,7 +92,7 @@ function MealSlot({ day, mealType, mealRecipes, onDrop, onClearMeal, onRecipeCli
           </Button>
         )}
       </div>
-      <div className="flex-1 min-h-20 rounded-lg border-2 border-dashed bg-muted/50 p-1 flex flex-col items-center justify-center gap-1 relative group overflow-hidden">
+      <div className="flex-1 min-h-[5rem] rounded-lg border-2 border-dashed bg-muted/50 p-1 flex flex-col items-center justify-center gap-1 relative group overflow-hidden">
         {mealRecipes.length > 0 ? (
            <div className="w-full h-full flex flex-col gap-1">
                 {mealRecipes.map((recipe, index) => (
@@ -105,7 +104,7 @@ function MealSlot({ day, mealType, mealRecipes, onDrop, onClearMeal, onRecipeCli
                         <RecipeCard 
                           recipe={recipe} 
                           isCompact 
-                          colorVariant={index === 0 ? 'primary' : 'secondary'}
+                          colorVariant={index % 2 === 0 ? 'primary' : 'secondary'}
                         />
                     </div>
                     <Button
@@ -137,24 +136,27 @@ export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onReci
         </div>
         <CardDescription>Arrastra y suelta recetas de tu biblioteca para planificar tu semana.</CardDescription>
       </CardHeader>
-      <CardContent className="overflow-x-auto pb-4">
-        <div className="grid grid-flow-col auto-cols-fr gap-4 min-w-[1200px]">
-          {weekPlan.map(({ day, meals }) => {
-            const dayTotals = dailyTotals.find(d => d.day === day)?.totals;
-            return (
-              <div key={day} className="flex flex-col gap-3 p-3 rounded-xl bg-secondary/50 w-[200px] h-[520px] flex-shrink-0">
-                <h3 className="font-semibold text-center text-lg text-card-foreground">{day}</h3>
-                <div className="space-y-2 flex-1 flex flex-col">
-                  <MealSlot day={day} mealType="breakfast" mealRecipes={meals.breakfast.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
-                  <MealSlot day={day} mealType="lunch" mealRecipes={meals.lunch.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
-                  <MealSlot day={day} mealType="snack" mealRecipes={meals.snack.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
-                  <MealSlot day={day} mealType="dinner" mealRecipes={meals.dinner.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
+      <CardContent className="pb-4">
+        <ScrollArea className="w-full whitespace-nowrap">
+            <div className="flex w-max space-x-4">
+            {weekPlan.map(({ day, meals }) => {
+                const dayTotals = dailyTotals.find(d => d.day === day)?.totals;
+                return (
+                <div key={day} className="flex flex-col gap-3 p-3 rounded-xl bg-secondary/50 w-[200px] flex-shrink-0">
+                    <h3 className="font-semibold text-center text-lg text-card-foreground">{day}</h3>
+                    <div className="space-y-2 flex-1 flex flex-col h-[400px]">
+                      <MealSlot day={day} mealType="breakfast" mealRecipes={meals.breakfast.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
+                      <MealSlot day={day} mealType="lunch" mealRecipes={meals.lunch.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
+                      <MealSlot day={day} mealType="snack" mealRecipes={meals.snack.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
+                      <MealSlot day={day} mealType="dinner" mealRecipes={meals.dinner.recipes} onDrop={onDrop} onClearMeal={onClearMeal} onRecipeClick={onRecipeClick} onRemoveRecipeFromMeal={onRemoveRecipeFromMeal} />
+                    </div>
+                    {dayTotals && <DailyTotalsRow totals={dayTotals} />}
                 </div>
-                {dayTotals && <DailyTotalsRow totals={dayTotals} />}
-              </div>
-            );
-          })}
-        </div>
+                );
+            })}
+            </div>
+            <ScrollBar orientation="horizontal" />
+        </ScrollArea>
       </CardContent>
     </Card>
   );
