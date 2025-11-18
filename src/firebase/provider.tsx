@@ -51,8 +51,16 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         if (firebaseUser) {
           try {
             const idTokenResult: IdTokenResult = await firebaseUser.getIdTokenResult();
+            
+            // Temporary admin override for development
+            const finalClaims: UserClaims = { ...idTokenResult.claims };
+            if (firebaseUser.email === 'jonicheik@gmail.com') {
+              finalClaims.admin = true;
+            }
+
             setUser(firebaseUser);
-            setClaims(idTokenResult.claims as UserClaims);
+            setClaims(finalClaims);
+
           } catch (e) {
             console.error("Error getting user claims:", e);
             setUser(firebaseUser); // Set user even if claims fail
