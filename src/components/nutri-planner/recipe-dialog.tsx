@@ -62,7 +62,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
   const { user } = useUser();
 
   const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);
-  const { data: ingredientDBState, isLoading: ingredientsLoading } = useCollection<BaseIngredient>(ingredientsCollectionRef);
+  const { data: ingredientDB, isLoading: ingredientsLoading } = useCollection<BaseIngredient>(ingredientsCollectionRef);
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -72,8 +72,9 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
   const [isNewIngredientOpen, setIsNewIngredientOpen] = useState(false);
 
   const [popoverOpen, setPopoverOpen] = useState(false);
-  const [newIngredientName, setNewIngredientName] = useState('');
-  const [newIngredientQty, setNewIngredientQty] = useState(100);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedIngredient, setSelectedIngredient] = useState<BaseIngredient | null>(null);
+  const [newIngredientQty, setNewIngredientQty] = useState<number | string>(100);
 
   useEffect(() => {
     setName(initialRecipe?.name || '');
@@ -84,17 +85,15 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
 
   const calculatedTotals = useMemo(() => {
     return ingredients.reduce((acc, ing) => {
-      const baseIng = (ingredientDBState || []).find(dbIng => dbIng.name === ing.name);
-      if (baseIng) {
         const scale = ing.quantity / 100;
-        acc.calories += (baseIng.calories || 0) * scale;
-        acc.protein += (baseIng.protein || 0) * scale;
-        acc.carbs += (baseIng.carbs || 0) * scale;
-        acc.fat += (baseIng.fat || 0) * scale;
-      }
+        acc.calories += (ing.calories || 0) * scale;
+        acc.protein += (ing.protein || 0) * scale;
+        acc.carbs += (ing.carbs || 0) * scale;
+        acc.fat += (ing.fat || 0) * scale;
+      
       return acc;
     }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
-  }, [ingredients, ingredientDBState]);
+  }, [ingredients]);
 
   const handleSave = () => {
     if (!name) return;
@@ -109,30 +108,28 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
     onSave(recipe);
   };
   
-  const handleSelectIngredient = (ingredientName: string) => {
-    setNewIngredientName(ingredientName);
+  const handleSelectIngredient = (ingredient: BaseIngredient) => {
+    setSearchQuery('');
+    setSelectedIngredient(ingredient);
     setPopoverOpen(false);
   };
   
   const addIngredient = () => {
-    const baseIng = (ingredientDBState || []).find(i => i.name.toLowerCase() === newIngredientName.toLowerCase());
-    
-    if (!baseIng) return; // Should not happen if selected from list
+    if (!selectedIngredient) return;
 
     const newIng: Ingredient = {
       id: self.crypto.randomUUID(),
-      name: baseIng.name,
-      quantity: newIngredientQty,
+      name: selectedIngredient.name,
+      quantity: Number(newIngredientQty) || 100,
       unit: 'g',
-       // Store base values per 100g, calculation will be done in useMemo
-      calories: baseIng.calories || 0,
-      protein: baseIng.protein || 0,
-      carbs: baseIng.carbs || 0,
-      fat: baseIng.fat || 0,
+      calories: selectedIngredient.calories || 0,
+      protein: selectedIngredient.protein || 0,
+      carbs: selectedIngredient.carbs || 0,
+      fat: selectedIngredient.fat || 0,
     };
 
     setIngredients(prev => [...prev, newIng]);
-    setNewIngredientName('');
+    setSelectedIngredient(null);
     setNewIngredientQty(100);
   };
   
@@ -142,42 +139,31 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
   
   const handleNewIngredientSave = (newIngredient: Omit<BaseIngredient, 'id'>) => {
     if (!ingredientsCollectionRef) return;
+    
     addDocumentNonBlocking(ingredientsCollectionRef, newIngredient);
-    setNewIngredientName(newIngredient.name);
+
+    // We optimistically create the BaseIngredient to use it right away
+    const optimisticIngredient: BaseIngredient = {
+      ...newIngredient,
+      id: `optimistic-${self.crypto.randomUUID()}`
+    }
+
+    setSelectedIngredient(optimisticIngredient);
     setIsNewIngredientOpen(false);
-    setTimeout(() => setPopoverOpen(true), 100); // Re-open popover to show new item
   }
 
   const filteredIngredients = useMemo(() => {
-    const lowercasedQuery = newIngredientName.toLowerCase();
-    const db = ingredientDBState || [];
+    const lowercasedQuery = searchQuery.toLowerCase();
+    const db = ingredientDB || [];
     if (!lowercasedQuery) {
-        return db.slice(0, 5).sort((a, b) => a.name.localeCompare(b.name));
+        return [];
     }
     
     return db
-        .map(ingredient => {
-            const lowercasedName = ingredient.name.toLowerCase();
-            const startsWith = lowercasedName.startsWith(lowercasedQuery);
-            const includes = lowercasedName.includes(lowercasedQuery);
-            
-            if (!includes) return null;
-
-            let score = 0;
-            if (startsWith) score = 2;
-            else if (includes) score = 1;
-            
-            return { ...ingredient, score };
-        })
-        .filter(item => item !== null)
-        .sort((a, b) => {
-          if (!a || !b) return 0;
-          if (b.score !== a.score) {
-              return b.score - a.score;
-          }
-          return a.name.localeCompare(b.name);
-        }) as BaseIngredient[];
-  }, [newIngredientName, ingredientDBState]);
+        .filter(ingredient => ingredient.name.toLowerCase().includes(lowercasedQuery))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .slice(0, 5);
+  }, [searchQuery, ingredientDB]);
 
 
   return (
@@ -185,7 +171,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
       <DialogHeader>
         <DialogTitle>{isEditing ? 'Editar Receta' : 'Crear Nueva Receta'}</DialogTitle>
       </DialogHeader>
-      <div className="grid md:grid-cols-2 gap-6 py-4">
+      <div className="grid md:grid-cols-2 gap-8 py-4">
         <div className="space-y-4">
           <div>
             <Label htmlFor="name">Nombre de la Receta</Label>
@@ -197,71 +183,95 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
           </div>
           <div>
             <Label htmlFor="instructions">Instrucciones</Label>
-            <Textarea id="instructions" value={instructions} onChange={e => setInstructions(e.target.value)} className="h-40" />
+            <Textarea id="instructions" value={instructions} onChange={e => setInstructions(e.target.value)} className="h-48" />
           </div>
         </div>
         <div className="space-y-4">
-          <Label>Ingredientes</Label>
-          <div className="p-2 border rounded-lg space-y-2">
-            <div className="flex gap-2 items-end">
-              <div className="flex-grow">
-                <Label className="text-xs">Ingrediente</Label>
-                 <div className="flex gap-1">
-                    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-                        <PopoverTrigger asChild>
-                            <Input value={newIngredientName} onChange={(e) => { setNewIngredientName(e.target.value); if(!popoverOpen) {setPopoverOpen(true)}}} onFocus={() => setPopoverOpen(true)} placeholder="Buscar ingrediente..." />
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0 rounded-xl shadow-lg">
-                            <Command>
-                                <CommandList>
-                                    <CommandEmpty>
-                                      <div className="p-4 text-sm text-center">
-                                        <p>No se encontraron resultados.</p>
-                                        <Button variant="link" className="h-auto p-0 mt-1" onClick={() => { setPopoverOpen(false); setIsNewIngredientOpen(true); }}>
-                                          Crear nuevo alimento
-                                        </Button>
-                                      </div>
-                                    </CommandEmpty>
-                                    <CommandGroup>
-                                        {filteredIngredients.map((ing) => (
-                                            <CommandItem key={ing.id} value={ing.name} onSelect={handleSelectIngredient}>
-                                                {ing.name}
-                                            </CommandItem>
-                                        ))}
-                                    </CommandGroup>
-                                </CommandList>
-                            </Command>
-                        </PopoverContent>
-                    </Popover>
+            {/* INGREDIENT MANAGEMENT */}
+            <div className="space-y-3">
+                <Label>Ingredientes</Label>
+                <div className="p-3 border rounded-lg space-y-3">
+                    {/* SEARCH AND ADD */}
+                    <div>
+                         <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                            <PopoverTrigger asChild>
+                                <Input 
+                                    value={searchQuery} 
+                                    onChange={(e) => { setSearchQuery(e.target.value); if(!popoverOpen) {setPopoverOpen(true)}}}
+                                    onFocus={() => setPopoverOpen(true)}
+                                    placeholder="Buscar ingrediente..." 
+                                />
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                                <Command>
+                                    <CommandList>
+                                        <CommandEmpty>
+                                        <div className="p-4 text-sm text-center">
+                                            <p>No se encontraron resultados.</p>
+                                            <Button variant="link" className="h-auto p-0 mt-1" onClick={() => { setPopoverOpen(false); setIsNewIngredientOpen(true); }}>
+                                            Crear nuevo alimento
+                                            </Button>
+                                        </div>
+                                        </CommandEmpty>
+                                        <CommandGroup>
+                                            {filteredIngredients.map((ing) => (
+                                                <CommandItem key={ing.id} value={ing.name} onSelect={() => handleSelectIngredient(ing)}>
+                                                    {ing.name}
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+
+                    {selectedIngredient && (
+                        <div className="flex gap-2 items-end bg-secondary/50 p-2 rounded-md">
+                            <div className="flex-grow">
+                                <Label className="text-xs">Ingrediente seleccionado</Label>
+                                <p className="font-semibold">{selectedIngredient.name}</p>
+                            </div>
+                            <div className="w-24">
+                                <Label className="text-xs">Cantidad (g)</Label>
+                                <Input type="number" value={newIngredientQty} onChange={e => setNewIngredientQty(e.target.value)} />
+                            </div>
+                            <Button size="icon" onClick={addIngredient}><Plus className="h-4 w-4" /></Button>
+                        </div>
+                    )}
+                    
+                    {/* INGREDIENT LIST */}
+                    <ScrollArea className="h-36">
+                        <div className="space-y-2 pr-4">
+                            {ingredients.map(ing => (
+                            <div key={ing.id} className="flex items-center justify-between bg-secondary p-2 rounded-md text-sm">
+                                <span>{ing.quantity}{ing.unit} <strong>{ing.name}</strong></span>
+                                <Badge variant="outline">{Math.round(ing.calories * (ing.quantity/100))} kcal</Badge>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeIngredient(ing.id)}><Trash2 className="h-4 w-4" /></Button>
+                            </div>
+                            ))}
+                            {ingredients.length === 0 && (
+                                <p className="text-sm text-muted-foreground text-center pt-8">Añade ingredientes para verlos aquí.</p>
+                            )}
+                        </div>
+                    </ScrollArea>
                 </div>
-              </div>
-              <div className="w-24">
-                <Label className="text-xs">Cantidad (g)</Label>
-                <Input type="number" value={newIngredientQty} onChange={e => setNewIngredientQty(parseFloat(e.target.value) || 0)} />
-              </div>
-              <Button size="icon" onClick={addIngredient} disabled={!newIngredientName}><PlusCircle className="h-4 w-4" /></Button>
             </div>
-            <ScrollArea className="h-48">
-              <div className="space-y-2 pr-4">
-                {ingredients.map(ing => (
-                  <div key={ing.id} className="flex items-center justify-between bg-secondary p-2 rounded-md text-sm">
-                    <span>{ing.quantity}{ing.unit} <strong>{ing.name}</strong></span>
-                    <Badge variant="outline">{Math.round(ing.calories * (ing.quantity/100))} kcal</Badge>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeIngredient(ing.id)}><Trash2 className="h-4 w-4" /></Button>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </div>
-          <div className="grid grid-cols-4 gap-2 text-center">
-            <MacroDisplay label="Calorías" value={calculatedTotals.calories} unit="kcal" icon={Flame} />
-            <MacroDisplay label="Proteína" value={calculatedTotals.protein} unit="g" icon={EggFried} />
-            <MacroDisplay label="Carbs" value={calculatedTotals.carbs} unit="g" icon={Wheat} />
-            <MacroDisplay label="Grasa" value={calculatedTotals.fat} unit="g" icon={Droplets} />
-          </div>
+
+            {/* MACRO TOTALS */}
+            <div>
+                 <Label>Totales de la Receta</Label>
+                <div className="grid grid-cols-4 gap-2 text-center mt-1">
+                    <MacroDisplay label="Calorías" value={calculatedTotals.calories} unit="kcal" icon={Flame} />
+                    <MacroDisplay label="Proteína" value={calculatedTotals.protein} unit="g" icon={EggFried} />
+                    <MacroDisplay label="Carbs" value={calculatedTotals.carbs} unit="g" icon={Wheat} />
+                    <MacroDisplay label="Grasa" value={calculatedTotals.fat} unit="g" icon={Droplets} />
+                </div>
+            </div>
+
         </div>
       </div>
-      <DialogFooter className="justify-between">
+      <DialogFooter className="justify-between pt-4">
         {isEditing && initialRecipe?.id ? (
             <AlertDialog>
               <AlertDialogTrigger asChild>
