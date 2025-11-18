@@ -1,0 +1,15 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Rules for all files in storage
+    match /{allPaths=**} {
+      // Allow public read access to all files.
+      // This is useful for images that need to be displayed in the app.
+      allow read;
+      
+      // Allow write access (uploads) only to authenticated users.
+      // This prevents anonymous users from uploading files.
+      allow write: if request.auth != null;
+    }
+  }
+}
