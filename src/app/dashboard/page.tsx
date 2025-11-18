@@ -17,7 +17,6 @@ import { useDoc } from '@/firebase/firestore/use-doc';
 import { useFirestore } from '@/firebase/provider';
 import { useMemoFirebase } from '@/firebase/index';
 import { collection, doc, writeBatch } from 'firebase/firestore';
-import { Logo } from '@/components/icons/logo';
 import {
   setDocumentNonBlocking,
   updateDocumentNonBlocking,
@@ -199,17 +198,28 @@ export default function Dashboard() {
     if (!user || !firestore) return;
 
     setIsSaving(true);
+    let finalImageUrl = recipe.imageUrl || '';
+
+    if (imageFile) {
+        try {
+            finalImageUrl = await uploadImageAndGetUrl(imageFile, recipe.id);
+        } catch (error) {
+            console.error("Error uploading image:", error);
+            toast({
+                variant: "destructive",
+                title: "¡Error al subir la imagen!",
+                description: "No se pudo subir la imagen. Por favor, inténtalo de nuevo.",
+            });
+            setIsSaving(false);
+            return;
+        }
+    }
 
     try {
-        let finalImageUrl = recipe.imageUrl || '';
-        if (imageFile) {
-            finalImageUrl = await uploadImageAndGetUrl(imageFile, recipe.id);
-        }
-
         const finalRecipe = { ...recipe, imageUrl: finalImageUrl };
 
         const targetCollectionRef = isGlobal ? nutriplannerRecipesCollectionRef : userRecipesCollectionRef;
-        if (!targetCollectionRef) throw new Error("Target collection not found.");
+        if (!targetCollectionRef) throw new Error("Colección de destino no encontrada.");
 
         const recipeRef = doc(targetCollectionRef, finalRecipe.id);
         setDocumentNonBlocking(recipeRef, finalRecipe, { merge: true });
@@ -223,16 +233,16 @@ export default function Dashboard() {
 
         handleDialogClose();
     } catch (error) {
-        console.error("Error saving recipe:", error);
+        console.error("Error saving recipe to Firestore:", error);
         toast({
             variant: "destructive",
             title: "¡Oh no! Algo salió mal.",
-            description: "No se pudo guardar la receta. Revisa los permisos e inténtalo de nuevo.",
+            description: "No se pudo guardar la receta en la base de datos.",
         });
     } finally {
         setIsSaving(false);
     }
-  }, [user, firestore, nutriplannerRecipesCollectionRef, userRecipesCollectionRef, currentNutriplannerRecipes, currentUserRecipes, toast, handleDialogClose]);
+}, [user, firestore, nutriplannerRecipesCollectionRef, userRecipesCollectionRef, currentNutriplannerRecipes, currentUserRecipes, toast, handleDialogClose]);
 
 
 
