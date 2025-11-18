@@ -2,13 +2,10 @@
 
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, doc, getDoc, writeBatch, collection } from 'firebase/firestore';
-import { Auth, User, onAuthStateChanged, getRedirectResult, IdTokenResult } from 'firebase/auth';
+import { Firestore } from 'firebase/firestore';
+import { Auth, User, onAuthStateChanged, IdTokenResult } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
-import type { UserClaims, UserProfile } from '@/lib/types';
-import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import type { UserClaims } from '@/lib/types';
 
 interface FirebaseContextState {
   firebaseApp: FirebaseApp | null;
@@ -46,64 +43,14 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       setError(new Error("Firebase Auth or Firestore service not provided."));
       return;
     }
-    
-    // First, handle the redirect result from Google Sign-In
-    getRedirectResult(auth)
-      .then(async (result) => {
-        if (result && result.user) {
-          const user = result.user;
-          const userRef = doc(firestore, 'users', user.uid);
-          const userSnap = await getDoc(userRef);
-
-          if (!userSnap.exists()) {
-             // Create user profile and initial data if they are new
-            const batch = writeBatch(firestore);
-            
-            const profile: UserProfile = {
-              name: user.displayName || 'Nuevo Usuario',
-              email: user.email || '',
-              photoURL: user.photoURL || '',
-              stickyNote: '¡Bienvenido a NutriPlanner! Usa esta nota para apuntar lo que quieras.',
-            }
-            batch.set(userRef, profile, { merge: true });
-
-            const recipesCollectionRef = collection(firestore, 'users', user.uid, 'recipes');
-            INITIAL_RECIPES.forEach(recipe => {
-              const recipeRef = doc(recipesCollectionRef);
-              batch.set(recipeRef, { ...recipe, id: recipeRef.id });
-            });
-
-            const weekPlanCollectionRef = collection(firestore, 'users', user.uid, 'weekPlan');
-            INITIAL_WEEK_PLAN.forEach(dayPlan => {
-              const dayRef = doc(weekPlanCollectionRef, dayPlan.day);
-              batch.set(dayRef, dayPlan);
-            });
-
-            await batch.commit().catch(err => {
-              console.error("Error creating initial user data:", err);
-              errorEmitter.emit('permission-error', new FirestorePermissionError({
-                  path: `/users/${user.uid}`,
-                  operation: 'write',
-                  requestResourceData: { note: 'Initial user setup batch write.' }
-              }));
-            });
-          }
-        }
-      })
-      .catch(err => {
-        if (err.code !== 'auth/user-cancelled' && err.code !== 'auth/account-exists-with-different-credential') {
-          console.error('Error handling redirect result: ', err);
-          setError(err);
-        }
-      });
-      
 
     const unsubscribe = onAuthStateChanged(
       auth,
       async (firebaseUser) => {
+        setIsLoading(true);
         if (firebaseUser) {
           try {
-            const idTokenResult = await firebaseUser.getIdTokenResult();
+            const idTokenResult: IdTokenResult = await firebaseUser.getIdTokenResult();
             setUser(firebaseUser);
             setClaims(idTokenResult.claims as UserClaims);
           } catch (e) {
@@ -160,5 +107,3 @@ export const useUser = () => {
     const { user, claims, isLoading, error } = useFirebase();
     return { user, claims, loading: isLoading, error };
 }
-
-

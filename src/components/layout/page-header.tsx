@@ -22,9 +22,9 @@ export function PageHeader() {
   const auth = useAuth();
   const firestore = useFirestore();
   
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
     if (auth && firestore) {
-      signInWithGoogle(auth, firestore);
+      await signInWithGoogle(auth, firestore);
     }
   };
 
@@ -47,7 +47,7 @@ export function PageHeader() {
             </Link>
             <div className="flex items-center gap-4">
               {loading ? (
-                 <Button variant="outline" disabled>Cargando...</Button>
+                 <div className="h-10 w-24 rounded-md bg-muted animate-pulse" />
               ) : user ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

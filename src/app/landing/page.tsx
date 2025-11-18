@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { Recipe, WeekPlan, DialogState } from '@/lib/types';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
 import { PageHeader } from '@/components/layout/page-header';
@@ -9,7 +9,7 @@ import { MealPlanner } from '@/components/nutri-planner/meal-planner';
 import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { signInWithGoogle } from '@/firebase/auth/use-user';
+import { signInWithGoogle, useUser } from '@/firebase/auth/use-user';
 import { useAuth, useFirestore } from '@/firebase/provider';
 import {
   Dialog,
@@ -22,6 +22,7 @@ import { Logo } from '@/components/icons/logo';
 
 export default function LandingPage() {
   const { toast } = useToast();
+  const { user } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
 
@@ -30,10 +31,19 @@ export default function LandingPage() {
   
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
   const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(true);
+  
+  useEffect(() => {
+    if (user) {
+      setIsLoginDialogOpen(false);
+    } else {
+      setIsLoginDialogOpen(true);
+    }
+  }, [user]);
 
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
     if (auth && firestore) {
-      signInWithGoogle(auth, firestore);
+      await signInWithGoogle(auth, firestore);
+      // The user state will update via the provider, and the useEffect above will handle the dialog.
     }
   };
 
@@ -171,7 +181,7 @@ export default function LandingPage() {
         onCopy={handleCopyRecipe}
       />
       
-      <Dialog open={isLoginDialogOpen} onOpenChange={setIsLoginDialogOpen}>
+      <Dialog open={isLoginDialogOpen}>
         <DialogContent className="sm:max-w-md" hideCloseButton={true}>
           <DialogHeader className="items-center text-center">
             <Logo className="h-12 w-12 text-primary" />
