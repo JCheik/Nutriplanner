@@ -24,6 +24,7 @@ import {
   deleteDocumentNonBlocking
 } from '@/firebase/non-blocking-updates';
 import { uploadImageAndGetUrl } from '@/firebase/storage/image-upload';
+import { Logo } from '@/components/icons/logo';
 
 
 const DAY_ORDER = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -403,5 +404,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-    
