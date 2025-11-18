@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import type { DialogState, Recipe, Ingredient } from '@/lib/types';
 import { useUser, useFirestore, useMemoFirebase } from '@/firebase/index';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { collection } from 'firebase/firestore';
 import type { BaseIngredient } from '@/lib/types';
 import {
@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, Plus, Copy, Search, Image as ImageIcon, UploadCloud } from 'lucide-react';
+import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, Plus, Copy, Search, Image as ImageIcon, UploadCloud, Globe } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,14 +36,15 @@ import { NewIngredientDialog } from './new-ingredient-dialog';
 import { Card, CardContent } from '../ui/card';
 import Image from 'next/image';
 import { uploadImageAndGetUrl } from '@/firebase/storage/image-upload';
+import { Switch } from '../ui/switch';
 
 
 interface RecipeDialogProps {
   dialogState: DialogState;
   onClose: () => void;
-  onSave: (recipe: Recipe) => void;
-  onDelete: (recipeId: string) => void;
-  onEdit: (recipe: Recipe) => void;
+  onSave: (recipe: Recipe, isGlobal: boolean) => void;
+  onDelete: (recipeId: string, isGlobal: boolean) => void;
+  onEdit: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void;
   onCopy: (recipe: Recipe) => void;
 }
 
@@ -55,11 +56,11 @@ const MacroDisplay = ({ label, value, unit, icon: Icon }: { label: string, value
   </div>
 );
 
-function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { recipe?: Recipe, onSave: (recipe: Recipe) => void, onCancel: () => void, onDelete: (id: string) => void }) {
+function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, onSave, onCancel, onDelete }: { recipe?: Recipe, isInitiallyGlobal?: boolean, onSave: (recipe: Recipe, isGlobal: boolean) => void, onCancel: () => void, onDelete: (id: string, isGlobal: boolean) => void }) {
   const isEditing = !!initialRecipe;
   const { user, claims } = useUser();
-  const firestore = useFirestore();
   const isAdmin = claims?.admin === true;
+  const firestore = useFirestore();
 
   const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);
   const { data: ingredientDB, isLoading: ingredientsLoading } = useCollection<BaseIngredient>(ingredientsCollectionRef);
@@ -71,6 +72,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
   const [imageUrl, setImageUrl] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [saveAsGlobal, setSaveAsGlobal] = useState(isInitiallyGlobal);
   
   const [isNewIngredientOpen, setIsNewIngredientOpen] = useState(false);
 
@@ -92,9 +94,9 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
         setIngredients([]);
         setImageUrl('');
     }
-     // Reset file input on recipe change
+    setSaveAsGlobal(isInitiallyGlobal);
     setImageFile(null);
-  }, [initialRecipe]);
+  }, [initialRecipe, isInitiallyGlobal]);
 
   const calculatedTotals = useMemo(() => {
     return ingredients.reduce((acc, ing) => {
@@ -110,16 +112,17 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
 
   const handleSave = async () => {
     if (!name) return;
-    setIsUploading(true);
-
+    
+    // An ID is required for image upload path. For new recipes, create one.
+    const recipeId = initialRecipe?.id || doc(collection(firestore!, 'dummy')).id;
     let finalImageUrl = initialRecipe?.imageUrl || '';
 
-    if (imageFile && initialRecipe?.id) {
+    if (imageFile) {
+        setIsUploading(true);
         try {
-            finalImageUrl = await uploadImageAndGetUrl(imageFile, initialRecipe.id);
+            finalImageUrl = await uploadImageAndGetUrl(imageFile, recipeId);
         } catch (error) {
             console.error("Error al subir la imagen:", error);
-            // Opcional: mostrar un toast de error al usuario
             setIsUploading(false);
             return;
         }
@@ -127,7 +130,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
 
 
     const recipe: Recipe = {
-      id: initialRecipe?.id || '', // El ID se necesita para la subida de imagen
+      id: recipeId,
       name,
       description,
       instructions,
@@ -135,7 +138,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
       imageUrl: finalImageUrl,
       ...calculatedTotals
     };
-    onSave(recipe);
+    onSave(recipe, saveAsGlobal);
     setIsUploading(false);
   };
   
@@ -203,7 +206,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
             <Label htmlFor="name">Nombre de la Receta</Label>
             <Input id="name" value={name} onChange={e => setName(e.target.value)} />
           </div>
-            {isAdmin && isEditing && (
+            {isAdmin && (
              <div>
                 <Label htmlFor="imageFile">Subir o cambiar imagen</Label>
                 <div className="flex items-center gap-2 mt-1">
@@ -310,6 +313,20 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
                     <MacroDisplay label="Grasa" value={calculatedTotals.fat} unit="g" icon={Droplets} />
                 </div>
             </div>
+             {isAdmin && (
+                <div className="flex items-center space-x-2 rounded-lg border p-3">
+                    <Globe className="h-5 w-5 text-primary" />
+                    <div className="flex-1">
+                        <Label htmlFor="global-recipe-switch">Guardar como receta global de NutriPlanner</Label>
+                        <p className="text-xs text-muted-foreground">La receta será visible para todos los usuarios.</p>
+                    </div>
+                    <Switch
+                        id="global-recipe-switch"
+                        checked={saveAsGlobal}
+                        onCheckedChange={setSaveAsGlobal}
+                    />
+                </div>
+            )}
 
         </div>
       </div>
@@ -323,12 +340,12 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
                 <AlertDialogHeader>
                   <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Esta acción no se puede deshacer. Esto eliminará permanentemente la receta de tu biblioteca y de todos los planes de comidas.
+                    Esta acción no se puede deshacer. Esto eliminará permanentemente la receta.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => onDelete(initialRecipe.id)}>Borrar</AlertDialogAction>
+                  <AlertDialogAction onClick={() => onDelete(initialRecipe.id, saveAsGlobal)}>Borrar</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
@@ -350,7 +367,10 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
 }
 
 
-function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe }: { recipe: Recipe; onEdit: (recipe: Recipe) => void; onDelete: (id: string) => void; onCopy: (recipe: Recipe) => void; isNutriPlannerRecipe: boolean }) {
+function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe }: { recipe: Recipe; onEdit: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void; onDelete: (id: string, isGlobal: boolean) => void; onCopy: (recipe: Recipe) => void; isNutriPlannerRecipe: boolean }) {
+  const { claims } = useUser();
+  const isAdmin = claims?.admin === true;
+
   return (
      <>
       <DialogHeader className="mb-4">
@@ -400,7 +420,7 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe }: 
         </ScrollArea>
       </div>
       <DialogFooter className="mt-6 justify-between">
-         {!isNutriPlannerRecipe ? (
+         {!isNutriPlannerRecipe && isAdmin ? (
           <AlertDialog>
               <AlertDialogTrigger asChild>
               <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
@@ -414,19 +434,23 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe }: 
               </AlertDialogHeader>
               <AlertDialogFooter>
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => onDelete(recipe.id)}>Borrar</AlertDialogAction>
+                  <AlertDialogAction onClick={() => onDelete(recipe.id, false)}>Borrar</AlertDialogAction>
               </AlertDialogFooter>
               </AlertDialogContent>
           </AlertDialog>
         ) : <div></div>}
         
-        {isNutriPlannerRecipe ? (
-          <Button onClick={() => onCopy(recipe)}><Copy className="mr-2 h-4 w-4" /> Copiar a Mis Recetas</Button>
-        ) : (
-          <div className='flex gap-2'>
-            <Button variant="outline" onClick={() => onEdit(recipe)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
-          </div>
-        )}
+        <div className='flex gap-2'>
+          {isNutriPlannerRecipe && (
+            <Button onClick={() => onCopy(recipe)}><Copy className="mr-2 h-4 w-4" /> Copiar a Mis Recetas</Button>
+          )}
+          {isAdmin && (
+            <Button variant="outline" onClick={() => onEdit(recipe, isNutriPlannerRecipe)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
+          )}
+          {!isNutriPlannerRecipe && !isAdmin && (
+            <Button variant="outline" onClick={() => onEdit(recipe, false)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
+          )}
+        </div>
       </DialogFooter>
     </>
   )
@@ -439,13 +463,17 @@ export function RecipeDialog({ dialogState, onClose, onSave, onDelete, onEdit, o
   const isViewMode = dialogState.mode === 'view';
   const isNutriPlannerRecipe = isViewMode && dialogState.isNutriPlannerRecipe;
 
+  const handleEdit = (recipe: Recipe) => {
+    onEdit(recipe, dialogState.mode === 'view' ? dialogState.isNutriPlannerRecipe : false);
+  };
+  
   return (
     <Dialog open={dialogState.open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl">
         {isViewMode && dialogState.recipe ? (
           <RecipeView 
             recipe={dialogState.recipe} 
-            onEdit={onEdit}
+            onEdit={handleEdit}
             onDelete={onDelete}
             onCopy={onCopy}
             isNutriPlannerRecipe={!!isNutriPlannerRecipe}
@@ -453,6 +481,7 @@ export function RecipeDialog({ dialogState, onClose, onSave, onDelete, onEdit, o
         ) : (
           <RecipeForm
             recipe={dialogState.mode === 'edit' ? dialogState.recipe : undefined}
+            isInitiallyGlobal={dialogState.mode === 'edit' ? dialogState.isNutriPlannerRecipe : false}
             onSave={onSave}
             onCancel={onClose}
             onDelete={onDelete}

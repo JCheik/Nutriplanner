@@ -32,7 +32,8 @@ interface IngredientsDialogProps {
 }
 
 function IngredientDatabaseViewer() {
-    const { user } = useUser();
+    const { user, claims } = useUser();
+    const isAdmin = claims?.admin === true;
     const { toast } = useToast();
     const firestore = useFirestore();
     const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);
@@ -53,26 +54,34 @@ function IngredientDatabaseViewer() {
     }, [ingredients, searchQuery]);
     
     const handleEditClick = (ingredient: BaseIngredient) => {
-        if (user && ingredient.createdBy === user.uid) {
+        const canEdit = user && (ingredient.createdBy === user.uid || isAdmin);
+        if (canEdit) {
             setIngredientToEdit(ingredient);
             setIsEditOpen(true);
+             if (isAdmin && ingredient.createdBy !== user?.uid) {
+                toast({ title: 'Permiso de administrador', description: 'Editando un ingrediente de otro usuario.' });
+            }
         } else {
             toast({
                 variant: 'destructive',
                 title: 'Acción no permitida',
-                description: 'Solo el propietario puede realizar cambios sobre este producto.',
+                description: 'Solo el propietario o un administrador puede editar este ingrediente.',
             });
         }
     };
     
     const handleDeleteTrigger = (ingredient: BaseIngredient) => {
-        if (user && ingredient.createdBy === user.uid) {
+        const canDelete = user && (ingredient.createdBy === user.uid || isAdmin);
+        if (canDelete) {
             setIngredientToDelete(ingredient);
+            if (isAdmin && ingredient.createdBy !== user?.uid) {
+                toast({ title: 'Permiso de administrador', description: 'Estás a punto de borrar un ingrediente de otro usuario.' });
+            }
         } else {
              toast({
                 variant: 'destructive',
                 title: 'Acción no permitida',
-                description: 'Solo el propietario puede realizar cambios sobre este producto.',
+                description: 'Solo el propietario o un administrador puede borrar este ingrediente.',
             });
         }
     }
@@ -81,7 +90,14 @@ function IngredientDatabaseViewer() {
         if (!firestore || !ingredientData.id || !user) return;
         const { id, ...data } = ingredientData;
         const ingredientRef = doc(firestore, 'ingredients', id);
-        setDocumentNonBlocking(ingredientRef, { ...data, createdBy: user.uid }, { merge: true });
+        
+        // Ensure createdBy is not overwritten if an admin edits
+        const finalData = {
+            ...data,
+            createdBy: ingredientToEdit?.createdBy || user.uid,
+        };
+
+        setDocumentNonBlocking(ingredientRef, finalData, { merge: true });
         setIsEditOpen(false);
         setIngredientToEdit(null);
     };
@@ -126,6 +142,7 @@ function IngredientDatabaseViewer() {
                     )}
                     {filteredIngredients.length > 0 ? (
                         filteredIngredients.map((ingredient) => {
+                            const canManage = user && (ingredient.createdBy === user.uid || isAdmin);
                             return (
                                 <TableRow key={ingredient.id}>
                                 <TableCell className="font-medium">{ingredient.name}</TableCell>
@@ -136,16 +153,16 @@ function IngredientDatabaseViewer() {
                                 <TableCell className="text-right">{ingredient.fiber || 0}</TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex justify-end gap-2">
-                                        <Button variant="ghost" size="icon" onClick={() => handleEditClick(ingredient)}>
+                                        <Button variant="ghost" size="icon" onClick={() => handleEditClick(ingredient)} disabled={!canManage}>
                                             <Edit className="h-4 w-4" />
                                         </Button>
                                          <AlertDialog>
                                             <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteTrigger(ingredient)}>
+                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteTrigger(ingredient)} disabled={!canManage}>
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
                                             </AlertDialogTrigger>
-                                            {ingredientToDelete?.id === ingredient.id && (
+                                            {ingredientToDelete?.id === ingredient.id && canManage && (
                                                 <AlertDialogContent>
                                                     <AlertDialogHeader>
                                                     <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>

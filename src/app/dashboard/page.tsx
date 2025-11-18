@@ -16,7 +16,7 @@ import { useCollection } from '@/firebase/firestore/use-collection';
 import { useDoc } from '@/firebase/firestore/use-doc';
 import { useFirestore } from '@/firebase/provider';
 import { useMemoFirebase } from '@/firebase/index';
-import { collection, doc, writeBatch } from 'firebase/firestore';
+import { collection, doc, writeBatch, deleteDoc } from 'firebase/firestore';
 import { Logo } from '@/components/icons/logo';
 import {
   setDocumentNonBlocking,
@@ -194,73 +194,81 @@ export default function Dashboard() {
     setDialogState({ open: false });
   }, []);
 
-  const handleSaveRecipe = useCallback((recipe: Recipe) => {
-    if (!user || !userRecipesCollectionRef) return;
+  const handleSaveRecipe = useCallback((recipe: Recipe, isGlobal: boolean) => {
+    if (!user || !firestore) return;
     
-    const isExistingUserRecipe = recipe.id && currentUserRecipes.some(r => r.id === recipe.id);
+    const targetCollectionRef = isGlobal ? nutriplannerRecipesCollectionRef : userRecipesCollectionRef;
+    if (!targetCollectionRef) return;
 
-    if (isExistingUserRecipe) { 
-      const recipeRef = doc(userRecipesCollectionRef, recipe.id);
-      setDocumentNonBlocking(recipeRef, recipe, { merge: true });
-       toast({
-        title: '¡Receta actualizada!',
-        description: `${recipe.name} se ha actualizado en tu biblioteca.`,
-      });
+    const isExistingRecipe = (isGlobal ? currentNutriplannerRecipes : currentUserRecipes).some(r => r.id === recipe.id);
+
+    if (isExistingRecipe) { 
+        const recipeRef = doc(targetCollectionRef, recipe.id);
+        setDocumentNonBlocking(recipeRef, recipe, { merge: true });
+        toast({
+            title: '¡Receta actualizada!',
+            description: `${recipe.name} se ha actualizado.`,
+        });
     } else { 
-      const newRecipeRef = doc(userRecipesCollectionRef);
-      addDocumentNonBlocking(userRecipesCollectionRef, { ...recipe, id: newRecipeRef.id });
-      toast({
-        title: '¡Receta guardada!',
-        description: `${recipe.name} se ha guardado en tu biblioteca.`,
-      });
+        // For new recipes, the form generates an ID, so we use it.
+        const newRecipeRef = doc(targetCollectionRef, recipe.id);
+        setDocumentNonBlocking(newRecipeRef, recipe, {});
+        toast({
+            title: '¡Receta guardada!',
+            description: `${recipe.name} se ha guardado.`,
+        });
     }
     handleDialogClose();
-  }, [handleDialogClose, toast, user, userRecipesCollectionRef, currentUserRecipes]);
+  }, [handleDialogClose, toast, user, firestore, userRecipesCollectionRef, nutriplannerRecipesCollectionRef, currentUserRecipes, currentNutriplannerRecipes]);
 
 
-  const handleDeleteRecipe = useCallback((recipeId: string) => {
-    if (!user || !userRecipesCollectionRef || !firestore) return;
+  const handleDeleteRecipe = useCallback(async (recipeId: string, isGlobal: boolean) => {
+    if (!user || !firestore) return;
     
-    const batch = writeBatch(firestore);
-    
-    const recipeRef = doc(userRecipesCollectionRef, recipeId);
-    batch.delete(recipeRef);
-    
-    (currentWeekPlan || []).forEach(dayPlan => {
-      const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', dayPlan.day);
-      let dayWasUpdated = false;
-      
-      const newMeals = dayPlan.meals.map(meal => {
-        const initialLength = meal.recipes.length;
-        const filteredRecipes = meal.recipes.filter(r => r.id !== recipeId);
-        
-        if (initialLength > filteredRecipes.length) {
-          dayWasUpdated = true;
-          return { ...meal, recipes: filteredRecipes };
+    const targetCollectionRef = isGlobal ? nutriplannerRecipesCollectionRef : userRecipesCollectionRef;
+    if (!targetCollectionRef) return;
+
+    try {
+        const recipeRef = doc(targetCollectionRef, recipeId);
+        await deleteDoc(recipeRef);
+
+        if (!isGlobal) {
+            // If it's a user recipe, also remove it from any meal plans
+            const batch = writeBatch(firestore);
+            (currentWeekPlan || []).forEach(dayPlan => {
+                let dayWasUpdated = false;
+                const newMeals = dayPlan.meals.map(meal => {
+                    const initialLength = meal.recipes.length;
+                    const filteredRecipes = meal.recipes.filter(r => r.id !== recipeId);
+                    if (initialLength > filteredRecipes.length) {
+                        dayWasUpdated = true;
+                        return { ...meal, recipes: filteredRecipes };
+                    }
+                    return meal;
+                });
+                if (dayWasUpdated) {
+                    const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', dayPlan.day);
+                    batch.set(dayDocRef, { meals: newMeals }, { merge: true });
+                }
+            });
+            await batch.commit();
         }
-        return meal;
-      });
-      
-      if (dayWasUpdated) {
-        batch.set(dayDocRef, { meals: newMeals }, { merge: true });
-      }
-    });
-    
-    batch.commit().then(() => {
+
         toast({
             title: 'Receta eliminada',
-            description: 'La receta ha sido eliminada de tu biblioteca y de tu plan semanal.',
+            description: 'La receta ha sido eliminada permanentemente.',
         });
-    }).catch(error => {
+
+    } catch (error) {
+        console.error("Error deleting recipe:", error);
         errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: `users/${user.uid}/recipes/${recipeId}`,
+            path: `${isGlobal ? 'nutriplanner_recipes' : `users/${user.uid}/recipes`}/${recipeId}`,
             operation: 'delete',
-            requestResourceData: { note: 'Batch delete recipe and update week plan.' }
         }));
-    });
+    }
     
     handleDialogClose();
-  }, [handleDialogClose, user, firestore, userRecipesCollectionRef, currentWeekPlan, toast]);
+  }, [handleDialogClose, user, firestore, userRecipesCollectionRef, nutriplannerRecipesCollectionRef, currentWeekPlan, toast]);
 
   const handleCopyRecipe = useCallback((recipe: Recipe) => {
     if (!user || !userRecipesCollectionRef) return;
@@ -352,7 +360,7 @@ export default function Dashboard() {
         onClose={handleDialogClose}
         onSave={handleSaveRecipe}
         onDelete={handleDeleteRecipe}
-        onEdit={(recipe) => handleRecipeAction('edit', recipe)}
+        onEdit={(recipe, isGlobal) => handleRecipeAction('edit', recipe, isGlobal)}
         onCopy={handleCopyRecipe}
       />
       
