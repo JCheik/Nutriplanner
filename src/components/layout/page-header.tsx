@@ -2,10 +2,10 @@
 import { useState } from 'react';
 import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
-import { LogOut, User as UserIcon } from 'lucide-react';
+import { LogOut, User as UserIcon, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, signInWithGoogle, signOut } from '@/firebase/auth/use-user';
-import { useAuth, useFirestore } from '@/firebase/provider';
+import { useAuth, useFirestore, useFirebaseApp } from '@/firebase/provider';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,9 +18,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 
 
 export function PageHeader() {
-  const { user, loading } = useUser();
+  const { user, claims, loading } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
+  const firebaseApp = useFirebaseApp();
+  const isAdmin = claims?.admin === true || user?.email === 'jonicheik@gmail.com';
   
   const handleSignIn = async () => {
     if (auth && firestore) {
@@ -60,7 +62,7 @@ export function PageHeader() {
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuContent className="w-64" align="end" forceMount>
                     <DropdownMenuLabel className="font-normal">
                       <div className="flex flex-col space-y-1">
                         <p className="text-sm font-medium leading-none">{user.displayName}</p>
@@ -72,6 +74,15 @@ export function PageHeader() {
                       <LogOut className="mr-2 h-4 w-4" />
                       <span>Cerrar sesión</span>
                     </DropdownMenuItem>
+                    {isAdmin && firebaseApp && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                          <span>Conectado a: <span className="font-semibold text-foreground">{firebaseApp.options.projectId}</span></span>
+                        </DropdownMenuLabel>
+                      </>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
