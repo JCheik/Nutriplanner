@@ -14,8 +14,7 @@ import { ShoppingListSheet } from '@/components/nutri-planner/shopping-list';
 import { useUser } from '@/firebase/auth/use-user';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useDoc } from '@/firebase/firestore/use-doc';
-import { useFirestore } from '@/firebase/provider';
-import { useMemoFirebase } from '@/firebase/index';
+import { useFirebase, useFirestore, useMemoFirebase } from '@/firebase/index';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 import {
   setDocumentNonBlocking,
@@ -32,7 +31,7 @@ const DAY_ORDER = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábad
 export default function Dashboard() {
   const { toast } = useToast();
   const { user, loading: userLoading } = useUser();
-  const firestore = useFirestore();
+  const { firestore, storage } = useFirebase();
 
   const userRecipesCollectionRef = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'users', user.uid, 'recipes') : null, [firestore, user]);
   const { data: userRecipes, isLoading: userRecipesLoading } = useCollection<Recipe>(userRecipesCollectionRef);
@@ -196,27 +195,16 @@ export default function Dashboard() {
   }, []);
 
   const handleSaveRecipe = useCallback(async (recipe: Recipe, imageFile: File | null, isGlobal: boolean) => {
-    if (!user || !firestore) return;
+    if (!user || !firestore || !storage) return;
 
     setIsSaving(true);
     let finalImageUrl = recipe.imageUrl || '';
 
-    if (imageFile) {
-        try {
-            finalImageUrl = await uploadImageAndGetUrl(imageFile, recipe.id);
-        } catch (error) {
-            console.error("Error uploading image:", error);
-            toast({
-                variant: "destructive",
-                title: "¡Error al subir la imagen!",
-                description: "No se pudo subir la imagen. Por favor, inténtalo de nuevo.",
-            });
-            setIsSaving(false);
-            return;
-        }
-    }
-
     try {
+        if (imageFile) {
+            finalImageUrl = await uploadImageAndGetUrl(storage, imageFile, recipe.id);
+        }
+        
         const finalRecipe = { ...recipe, imageUrl: finalImageUrl };
 
         const targetCollectionRef = isGlobal ? nutriplannerRecipesCollectionRef : userRecipesCollectionRef;
@@ -234,16 +222,16 @@ export default function Dashboard() {
 
         handleDialogClose();
     } catch (error) {
-        console.error("Error saving recipe to Firestore:", error);
+        console.error("Error al guardar la receta:", error);
         toast({
             variant: "destructive",
             title: "¡Oh no! Algo salió mal.",
-            description: "No se pudo guardar la receta en la base de datos.",
+            description: (error as Error).message || "No se pudo guardar la receta.",
         });
     } finally {
         setIsSaving(false);
     }
-}, [user, firestore, nutriplannerRecipesCollectionRef, userRecipesCollectionRef, currentNutriplannerRecipes, currentUserRecipes, toast, handleDialogClose]);
+}, [user, firestore, storage, nutriplannerRecipesCollectionRef, userRecipesCollectionRef, currentNutriplannerRecipes, currentUserRecipes, toast, handleDialogClose]);
 
 
 

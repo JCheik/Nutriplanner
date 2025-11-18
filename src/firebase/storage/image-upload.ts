@@ -1,17 +1,16 @@
 'use client';
 
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, FirebaseStorage } from 'firebase/storage';
 
 /**
  * Uploads an image file to Firebase Storage and returns its public URL.
  *
+ * @param storage The Firebase Storage instance.
  * @param file The image file to upload.
  * @param recipeId The ID of the recipe, used to create a unique path.
  * @returns A promise that resolves with the public URL of the uploaded image.
  */
-export async function uploadImageAndGetUrl(file: File, recipeId: string): Promise<string> {
-  const storage = getStorage();
-  
+export async function uploadImageAndGetUrl(storage: FirebaseStorage, file: File, recipeId: string): Promise<string> {
   // Create a unique path for the image based on the recipe ID.
   // Example: recipes/123xyz.jpg
   const fileExtension = file.name.split('.').pop();

@@ -4,6 +4,7 @@ import React, { createContext, useContext, ReactNode, useMemo, useState, useEffe
 import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged, IdTokenResult } from 'firebase/auth';
+import { FirebaseStorage } from 'firebase/storage';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import type { UserClaims } from '@/lib/types';
 
@@ -11,6 +12,7 @@ interface FirebaseContextState {
   firebaseApp: FirebaseApp | null;
   firestore: Firestore | null;
   auth: Auth | null;
+  storage: FirebaseStorage | null;
   user: User | null;
   claims: UserClaims | null;
   isLoading: boolean;
@@ -24,6 +26,7 @@ interface FirebaseProviderProps {
   firebaseApp: FirebaseApp;
   firestore: Firestore;
   auth: Auth;
+  storage: FirebaseStorage;
 }
 
 export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
@@ -31,6 +34,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   firebaseApp,
   firestore,
   auth,
+  storage,
 }) => {
   const [user, setUser] = useState<User | null>(null);
   const [claims, setClaims] = useState<UserClaims | null>(null);
@@ -86,11 +90,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     firebaseApp,
     firestore,
     auth,
+    storage,
     user,
     claims,
     isLoading,
     error,
-  }), [firebaseApp, firestore, auth, user, claims, isLoading, error]);
+  }), [firebaseApp, firestore, auth, storage, user, claims, isLoading, error]);
 
   return (
     <FirebaseContext.Provider value={contextValue}>
