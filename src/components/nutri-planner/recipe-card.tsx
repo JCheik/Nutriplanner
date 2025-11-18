@@ -101,14 +101,29 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
             <GripVertical className="h-5 w-5 text-muted-foreground" />
           </div>
         )}
-        <div className="relative w-full h-full">
+        <div className="relative w-full h-2/3">
             <RecipePlaceholder recipeName={recipe.name} />
         </div>
         {!isCompact && (
-            <div className="absolute bottom-0 left-0 right-0 p-2 text-primary-foreground bg-black/30">
-                 <h3 className="font-bold text-base line-clamp-1 leading-tight text-white">{recipe.name}</h3>
-                <div className="mt-2">
-                    <NutritionTotalsTooltip totals={recipe} />
+            <div className="p-2 flex-1 flex flex-col justify-center">
+                 <h3 className="font-bold text-sm line-clamp-1 leading-tight text-foreground">{recipe.name}</h3>
+                <div className="mt-2 flex justify-around text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                        <Flame className="h-3 w-3 text-orange-500" />
+                        <span className="text-xs font-medium">{Math.round(recipe.calories)}<span className="text-muted-foreground text-[10px]">kcal</span></span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <EggFried className="h-3 w-3 text-amber-600" />
+                        <span className="text-xs font-medium">{Math.round(recipe.protein)}<span className="text-muted-foreground text-[10px]">g</span></span>
+                    </div>
+                     <div className="flex items-center gap-1">
+                        <Wheat className="h-3 w-3 text-yellow-500" />
+                        <span className="text-xs font-medium">{Math.round(recipe.carbs)}<span className="text-muted-foreground text-[10px]">g</span></span>
+                    </div>
+                     <div className="flex items-center gap-1">
+                        <Droplets className="h-3 w-3 text-sky-500" />
+                        <span className="text-xs font-medium">{Math.round(recipe.fat)}<span className="text-muted-foreground text-[10px]">g</span></span>
+                    </div>
                 </div>
             </div>
         )}
