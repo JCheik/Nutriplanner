@@ -16,7 +16,7 @@ import { useCollection } from '@/firebase/firestore/use-collection';
 import { useDoc } from '@/firebase/firestore/use-doc';
 import { useFirestore } from '@/firebase/provider';
 import { useMemoFirebase } from '@/firebase/index';
-import { collection, doc, writeBatch, deleteDoc } from 'firebase/firestore';
+import { collection, doc, writeBatch, deleteDoc, setDoc } from 'firebase/firestore';
 import { Logo } from '@/components/icons/logo';
 import {
   setDocumentNonBlocking,
@@ -194,30 +194,32 @@ export default function Dashboard() {
     setDialogState({ open: false });
   }, []);
 
-  const handleSaveRecipe = useCallback((recipe: Recipe, isGlobal: boolean) => {
+  const handleSaveRecipe = useCallback(async (recipe: Recipe, isGlobal: boolean) => {
     if (!user || !firestore) return;
     
     const targetCollectionRef = isGlobal ? nutriplannerRecipesCollectionRef : userRecipesCollectionRef;
     if (!targetCollectionRef) return;
 
-    const isExistingRecipe = (isGlobal ? currentNutriplannerRecipes : currentUserRecipes).some(r => r.id === recipe.id);
-
-    if (isExistingRecipe) { 
+    try {
         const recipeRef = doc(targetCollectionRef, recipe.id);
-        setDocumentNonBlocking(recipeRef, recipe, { merge: true });
+        await setDoc(recipeRef, recipe, { merge: true });
+        
+        const isExistingRecipe = (isGlobal ? currentNutriplannerRecipes : currentUserRecipes).some(r => r.id === recipe.id);
+
         toast({
-            title: '¡Receta actualizada!',
-            description: `${recipe.name} se ha actualizado.`,
+            title: isExistingRecipe ? '¡Receta actualizada!' : '¡Receta guardada!',
+            description: `${recipe.name} se ha ${isExistingRecipe ? 'actualizado' : 'guardado'}.`,
         });
-    } else { 
-        // For new recipes, the form generates an ID, so we use it.
-        const newRecipeRef = doc(targetCollectionRef, recipe.id);
-        setDocumentNonBlocking(newRecipeRef, recipe, {});
-        toast({
-            title: '¡Receta guardada!',
-            description: `${recipe.name} se ha guardado.`,
-        });
+
+    } catch (error) {
+        console.error("Error saving recipe:", error);
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: `${isGlobal ? 'nutriplanner_recipes' : `users/${user.uid}/recipes`}/${recipe.id}`,
+            operation: 'write',
+            requestResourceData: recipe,
+        }));
     }
+    
     handleDialogClose();
   }, [handleDialogClose, toast, user, firestore, userRecipesCollectionRef, nutriplannerRecipesCollectionRef, currentUserRecipes, currentNutriplannerRecipes]);
 

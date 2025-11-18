@@ -113,33 +113,32 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, onSave, 
   const handleSave = async () => {
     if (!name || !firestore) return;
     
-    // An ID is required for image upload path. For new recipes, create one.
+    setIsUploading(true);
     const recipeId = initialRecipe?.id || doc(collection(firestore!, 'dummy')).id;
-    let finalImageUrl = initialRecipe?.imageUrl || '';
+    let finalImageUrl = imageUrl || '';
 
-    if (imageFile) {
-        setIsUploading(true);
-        try {
+    try {
+        if (imageFile) {
             finalImageUrl = await uploadImageAndGetUrl(imageFile, recipeId);
-        } catch (error) {
-            console.error("Error al subir la imagen:", error);
-            setIsUploading(false);
-            return;
         }
+
+        const recipe: Recipe = {
+          id: recipeId,
+          name,
+          description,
+          instructions,
+          ingredients,
+          imageUrl: finalImageUrl,
+          ...calculatedTotals
+        };
+
+        await onSave(recipe, saveAsGlobal);
+
+    } catch (error) {
+        console.error("Error during save process:", error);
+    } finally {
+        setIsUploading(false);
     }
-
-
-    const recipe: Recipe = {
-      id: recipeId,
-      name,
-      description,
-      instructions,
-      ingredients,
-      imageUrl: finalImageUrl,
-      ...calculatedTotals
-    };
-    onSave(recipe, saveAsGlobal);
-    setIsUploading(false);
   };
   
   const handleSelectIngredient = (ingredient: BaseIngredient) => {
