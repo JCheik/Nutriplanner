@@ -1,17 +1,15 @@
 'use client';
 
-import { firebaseConfig } from '@/firebase/config';
-import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { firebaseConfig as devFirebaseConfig } from '@/firebase/config';
+import { initializeApp, getApps, getApp, FirebaseApp, FirebaseOptions } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import {type DependencyList, useMemo} from "react";
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
-export function initializeFirebase() {
+export function initializeFirebase(firebaseConfig: FirebaseOptions) {
   if (getApps().length === 0) {
-    // In a production environment with App Hosting, the config is automatically provided.
-    // In a development environment, we'll use the config from the .env file.
     // @ts-ignore
     if (typeof __FIREBASE_DEFAULTS__ !== 'undefined') {
         // @ts-ignore
