@@ -101,27 +101,39 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, isNutriPlanner = fals
         </DropdownMenu>
       </div>
       <ScrollArea className="flex-1 mt-2">
-        <div className="flex flex-col gap-3 pr-4">
+        <div className={isNutriPlanner ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 pr-4" : "flex flex-col gap-3 pr-4"}>
           {filteredAndSortedRecipes.length > 0 ? (
             filteredAndSortedRecipes.map(recipe => (
-              <div key={recipe.id} className="flex items-center gap-2 group">
-                <RecipeCard 
-                  recipe={recipe} 
-                  isDraggable={!isNutriPlanner}
-                  isListView
-                  onClick={() => onRecipeClick(recipe)}
-                />
-                {isNutriPlanner && onCopyClick && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onCopyClick(recipe)}
-                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                    aria-label="Copiar a Mis Recetas"
-                  >
-                    <Copy className="h-5 w-5" />
-                  </Button>
-                )}
+              <div key={recipe.id} className="group flex items-center gap-2">
+                 {isNutriPlanner ? (
+                   <div className="aspect-square w-full relative">
+                      <RecipeCard 
+                        recipe={recipe} 
+                        isDraggable={false}
+                        onClick={() => onRecipeClick(recipe)}
+                      />
+                      {onCopyClick && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => { e.stopPropagation(); onCopyClick(recipe);}}
+                          className="absolute top-1 right-1 z-10 h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity bg-background/50 hover:bg-background/80"
+                          aria-label="Copiar a Mis Recetas"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                 ) : (
+                    <>
+                      <RecipeCard 
+                        recipe={recipe} 
+                        isDraggable={true}
+                        isListView
+                        onClick={() => onRecipeClick(recipe)}
+                      />
+                    </>
+                 )}
               </div>
             ))
           ) : (
