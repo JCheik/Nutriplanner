@@ -14,6 +14,8 @@ import type { User } from 'firebase/auth';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
+import type { UserClaims } from '@/lib/types';
+
 
 export { type User };
 
@@ -63,7 +65,6 @@ export const signInWithGoogle = async (auth: Auth, firestore: ReturnType<typeof 
     }
   } catch (error: any) {
     console.error('Error signing in with Google: ', error);
-    // If Google sign-in is not allowed, fall back to anonymous sign-in
     if (error.code === 'auth/operation-not-allowed') {
         try {
             await signInAnonymously(auth);
@@ -84,10 +85,17 @@ export const signOut = async (auth: Auth) => {
   }
 };
 
-export function useUser() {
+interface UseUserResult {
+  user: User | null;
+  claims: UserClaims | null;
+  loading: boolean;
+}
+
+export function useUser(): UseUserResult {
   const auth = useAuth();
   const firestore = useFirestore();
   const [user, setUser] = useState<User | null>(null);
+  const [claims, setClaims] = useState<UserClaims | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -98,9 +106,12 @@ export function useUser() {
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        const idTokenResult = await user.getIdTokenResult();
         setUser(user);
+        setClaims(idTokenResult.claims as UserClaims);
       } else {
         setUser(null);
+        setClaims(null);
       }
       setLoading(false);
     });
@@ -108,5 +119,5 @@ export function useUser() {
     return () => unsubscribe();
   }, [auth, firestore]);
 
-  return { user, loading };
+  return { user, claims, loading };
 }

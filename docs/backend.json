@@ -81,6 +81,10 @@
         "fat": {
           "type": "number",
           "description": "Fat (in grams) per serving of the ingredient."
+        },
+        "fiber": {
+          "type": "number",
+          "description": "Fiber (in grams) per serving of the ingredient."
         }
       },
       "required": [
@@ -89,7 +93,8 @@
         "calories",
         "protein",
         "carbs",
-        "fat"
+        "fat",
+        "fiber"
       ]
     },
     "MealPlan": {

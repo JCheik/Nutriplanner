@@ -79,3 +79,9 @@ export interface UserProfile {
   stickyNote?: string;
   calorieResult?: CalculationResult;
 }
+
+
+export interface UserClaims {
+  admin?: boolean;
+  // Add other custom claims here
+}
