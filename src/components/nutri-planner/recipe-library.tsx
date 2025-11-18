@@ -101,7 +101,7 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, isNutriPlanner = fals
         </DropdownMenu>
       </div>
       <ScrollArea className="flex-1 mt-2">
-        <div className={isNutriPlanner ? "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-3 pr-4" : "flex flex-col gap-3 pr-4"}>
+        <div className={isNutriPlanner ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 pr-4" : "flex flex-col gap-3 pr-4"}>
           {filteredAndSortedRecipes.length > 0 ? (
             filteredAndSortedRecipes.map(recipe => (
               <div key={recipe.id} className="group flex items-center gap-2">
