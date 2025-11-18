@@ -61,9 +61,14 @@ export default function Dashboard() {
     
     const planMap = new Map((weekPlanData || []).map(day => [day.day, day]));
 
-    const fullWeek = INITIAL_WEEK_PLAN.map(defaultDay => 
-      planMap.get(defaultDay.day) || defaultDay
-    );
+    const fullWeek = INITIAL_WEEK_PLAN.map(defaultDay => {
+      const savedDay = planMap.get(defaultDay.day);
+      if (savedDay) {
+        // Ensure meals is always an array
+        return { ...defaultDay, ...savedDay, meals: Array.isArray(savedDay.meals) ? savedDay.meals : defaultDay.meals };
+      }
+      return defaultDay;
+    });
 
     return fullWeek.sort((a, b) => DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day));
 
@@ -278,14 +283,16 @@ export default function Dashboard() {
   const dailyTotals = useMemo(() => {
     return (currentWeekPlan || []).map(dayPlan => {
       const totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
-      dayPlan.meals.forEach(meal => {
-        meal.recipes.forEach(recipe => {
-          totals.calories += recipe.calories;
-          totals.protein += recipe.protein;
-          totals.carbs += recipe.carbs;
-          totals.fat += recipe.fat;
+      if (Array.isArray(dayPlan.meals)) {
+        dayPlan.meals.forEach(meal => {
+          meal.recipes.forEach(recipe => {
+            totals.calories += recipe.calories;
+            totals.protein += recipe.protein;
+            totals.carbs += recipe.carbs;
+            totals.fat += recipe.fat;
+          });
         });
-      });
+      }
       return { day: dayPlan.day, totals };
     });
   }, [currentWeekPlan]);
