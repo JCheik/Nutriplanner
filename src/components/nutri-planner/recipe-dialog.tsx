@@ -56,6 +56,7 @@ const MacroDisplay = ({ label, value, unit, icon: Icon }: { label: string, value
 
 function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { recipe?: Recipe, onSave: (recipe: Recipe) => void, onCancel: () => void, onDelete: (id: string) => void }) {
   const isEditing = !!initialRecipe;
+  const { user } = useUser();
   const firestore = useFirestore();
 
   const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);
@@ -132,7 +133,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
     setIngredients(prev => prev.filter(i => i.id !== id));
   };
   
-  const handleNewIngredientSave = (newIngredient: Omit<BaseIngredient, 'id'>) => {
+  const handleNewIngredientSave = (newIngredient: Omit<BaseIngredient, 'id' | 'createdBy'> & { createdBy: string }) => {
     if (!ingredientsCollectionRef) return;
     
     addDocumentNonBlocking(ingredientsCollectionRef, newIngredient);

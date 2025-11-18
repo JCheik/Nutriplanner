@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import type { BaseIngredient } from '@/lib/types';
+import { useUser } from '@/firebase/auth/use-user';
 import {
   Dialog,
   DialogContent,
@@ -14,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-type EditableIngredient = Partial<Omit<BaseIngredient, 'id'>> & { id?: string };
+type EditableIngredient = Partial<Omit<BaseIngredient, 'id' | 'createdBy'>> & { id?: string; createdBy?: string };
 
 interface NewIngredientDialogProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ interface NewIngredientDialogProps {
 }
 
 export function NewIngredientDialog({ isOpen, onClose, onSave, ingredientToEdit }: NewIngredientDialogProps) {
+  const { user } = useUser();
   const [name, setName] = useState('');
   const [calories, setCalories] = useState(0);
   const [protein, setProtein] = useState(0);
@@ -49,7 +51,7 @@ export function NewIngredientDialog({ isOpen, onClose, onSave, ingredientToEdit 
   }, [isOpen, ingredientToEdit]);
 
   const handleSave = () => {
-    if (!name) return;
+    if (!name || !user) return;
     const newIngredient: EditableIngredient = {
       name,
       calories,
@@ -58,6 +60,7 @@ export function NewIngredientDialog({ isOpen, onClose, onSave, ingredientToEdit 
       fat,
       sugar,
       fiber,
+      createdBy: user.uid,
     };
     if (isEditing) {
         newIngredient.id = ingredientToEdit?.id;

@@ -13,7 +13,7 @@
  * - Users can only access data under their own user ID.
  * - Global recipes are read-only for all signed-in users, writable only by admins.
  * - The shared ingredient database is readable and appendable by all signed-in users.
- *   Modification/deletion of ingredients is restricted to admins to maintain data integrity.
+ *   Modification/deletion of ingredients is restricted to the user who created them.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -77,10 +77,10 @@ service cloud.firestore {
     match /ingredients/{ingredientId} {
       // Any authenticated user can read the full list or a single ingredient.
       allow get, list: if isSignedIn();
-      // Any authenticated user can add a new ingredient.
-      allow create: if isSignedIn();
-      // Only admins can update or delete ingredients to maintain data integrity.
-      allow update, delete: if isSignedIn() && request.auth.token.admin == true;
+      // Any authenticated user can add a new ingredient, if they set themselves as the creator.
+      allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
+      // Only the user who created the ingredient can update or delete it.
+      allow update, delete: if isSignedIn() && resource.data.createdBy == request.auth.uid;
     }
 
     //----------------------------------------------------------------------------------------------

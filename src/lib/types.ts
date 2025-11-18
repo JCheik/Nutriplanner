@@ -11,6 +11,7 @@ export interface BaseIngredient extends Macros {
   // per 100g or 100ml
   sugar: number;
   fiber: number;
+  createdBy: string;
 }
 
 export interface Ingredient extends Macros {

@@ -85,6 +85,10 @@
         "fiber": {
           "type": "number",
           "description": "Fiber (in grams) per serving of the ingredient."
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "The UID of the user who created this ingredient."
         }
       },
       "required": [
@@ -94,7 +98,8 @@
         "protein",
         "carbs",
         "fat",
-        "fiber"
+        "fiber",
+        "createdBy"
       ]
     },
     "MealPlan": {

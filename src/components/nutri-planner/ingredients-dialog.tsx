@@ -32,7 +32,7 @@ interface IngredientsDialogProps {
 }
 
 function IngredientDatabaseViewer() {
-    const { claims } = useUser();
+    const { user } = useUser();
     const firestore = useFirestore();
     const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);
     const { data: ingredients, isLoading } = useCollection<BaseIngredient>(ingredientsCollectionRef);
@@ -56,10 +56,10 @@ function IngredientDatabaseViewer() {
     };
     
     const handleSaveIngredient = (ingredientData: Partial<BaseIngredient>) => {
-        if (!firestore || !ingredientData.id) return;
+        if (!firestore || !ingredientData.id || !user) return;
         const { id, ...data } = ingredientData;
         const ingredientRef = doc(firestore, 'ingredients', id);
-        setDocumentNonBlocking(ingredientRef, data, { merge: true });
+        setDocumentNonBlocking(ingredientRef, { ...data, createdBy: user.uid }, { merge: true });
         setIsEditOpen(false);
         setIngredientToEdit(null);
     };
@@ -102,42 +102,45 @@ function IngredientDatabaseViewer() {
                         </TableRow>
                     )}
                     {filteredIngredients.length > 0 ? (
-                        filteredIngredients.map((ingredient) => (
-                            <TableRow key={ingredient.id}>
-                            <TableCell className="font-medium">{ingredient.name}</TableCell>
-                            <TableCell className="text-right">{ingredient.calories}</TableCell>
-                            <TableCell className="text-right">{ingredient.protein}</TableCell>
-                            <TableCell className="text-right">{ingredient.carbs}</TableCell>
-                            <TableCell className="text-right">{ingredient.fat}</TableCell>
-                            <TableCell className="text-right">{ingredient.fiber || 0}</TableCell>
-                            <TableCell className="text-right">
-                                <div className="flex justify-end gap-2">
-                                    <Button variant="ghost" size="icon" onClick={() => handleEditClick(ingredient)} disabled={!claims?.admin}>
-                                        <Edit className="h-4 w-4" />
-                                    </Button>
-                                     <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={!claims?.admin}>
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                Esta acción eliminará permanentemente el ingrediente "{ingredient.name}" de la base de datos.
-                                            </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleDeleteIngredient(ingredient.id)}>Borrar</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </div>
-                            </TableCell>
-                            </TableRow>
-                        ))
+                        filteredIngredients.map((ingredient) => {
+                            const canModify = user && ingredient.createdBy === user.uid;
+                            return (
+                                <TableRow key={ingredient.id}>
+                                <TableCell className="font-medium">{ingredient.name}</TableCell>
+                                <TableCell className="text-right">{ingredient.calories}</TableCell>
+                                <TableCell className="text-right">{ingredient.protein}</TableCell>
+                                <TableCell className="text-right">{ingredient.carbs}</TableCell>
+                                <TableCell className="text-right">{ingredient.fat}</TableCell>
+                                <TableCell className="text-right">{ingredient.fiber || 0}</TableCell>
+                                <TableCell className="text-right">
+                                    <div className="flex justify-end gap-2">
+                                        <Button variant="ghost" size="icon" onClick={() => handleEditClick(ingredient)} disabled={!canModify}>
+                                            <Edit className="h-4 w-4" />
+                                        </Button>
+                                         <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={!canModify}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    Esta acción eliminará permanentemente el ingrediente "{ingredient.name}" de la base de datos.
+                                                </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleDeleteIngredient(ingredient.id)}>Borrar</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </div>
+                                </TableCell>
+                                </TableRow>
+                            );
+                        })
                     ) : !isLoading && (
                         <TableRow>
                             <TableCell colSpan={7} className="text-center">No se encontraron ingredientes.</TableCell>
