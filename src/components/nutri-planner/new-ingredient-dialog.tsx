@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import type { BaseIngredient } from '@/lib/types';
-import { useUser } from '@/firebase/auth/use-user';
+import { useUser } from '@/firebase/provider';
 import {
   Dialog,
   DialogContent,

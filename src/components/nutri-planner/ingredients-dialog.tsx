@@ -5,13 +5,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useFirestore, useMemoFirebase } from '@/firebase';
+import { useFirestore, useMemoFirebase, useUser } from '@/firebase/provider';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import type { BaseIngredient } from '@/lib/types';
 import { collection, doc } from 'firebase/firestore';
 import { Input } from '@/components/ui/input';
 import { Search, Edit, Trash2 } from 'lucide-react';
-import { useUser } from '@/firebase/auth/use-user';
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { NewIngredientDialog } from './new-ingredient-dialog';
 import {

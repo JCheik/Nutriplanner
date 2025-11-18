@@ -10,7 +10,7 @@ import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { signInWithGoogle } from '@/firebase/auth/use-user';
-import { useAuth, useFirestore } from '@/firebase';
+import { useAuth, useFirestore } from '@/firebase/provider';
 import {
   Dialog,
   DialogContent,

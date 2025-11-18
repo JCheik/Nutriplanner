@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import type { DayPlan, Recipe, Meal, WeekPlan, DialogState, UserProfile, CalculationResult } from '@/lib/types';
 import { INITIAL_WEEK_PLAN } from '@/lib/data';
 import { PageHeader } from '@/components/layout/page-header';
@@ -14,14 +14,14 @@ import { ShoppingListSheet } from '@/components/nutri-planner/shopping-list';
 import { useUser } from '@/firebase/auth/use-user';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useDoc } from '@/firebase/firestore/use-doc';
-import { useFirestore, useMemoFirebase } from '@/firebase';
+import { useFirestore } from '@/firebase/provider';
+import { useMemoFirebase } from '@/firebase/index';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 import { Logo } from '@/components/icons/logo';
 import {
   setDocumentNonBlocking,
   updateDocumentNonBlocking,
-  addDocumentNonBlocking,
-  deleteDocumentNonBlocking
+  addDocumentNonBlocking
 } from '@/firebase/non-blocking-updates';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -34,16 +34,16 @@ export default function Dashboard() {
   const { user, loading: userLoading } = useUser();
   const firestore = useFirestore();
 
-  const userRecipesCollectionRef = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'recipes') : null, [firestore, user]);
+  const userRecipesCollectionRef = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'users', user.uid, 'recipes') : null, [firestore, user]);
   const { data: userRecipes, isLoading: userRecipesLoading } = useCollection<Recipe>(userRecipesCollectionRef);
 
   const nutriplannerRecipesCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'nutriplanner_recipes') : null, [firestore]);
   const { data: nutriplannerRecipes, isLoading: nutriplannerRecipesLoading } = useCollection<Recipe>(nutriplannerRecipesCollectionRef);
 
-  const weekPlanCollectionRef = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'weekPlan') : null, [firestore, user]);
+  const weekPlanCollectionRef = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'users', user.uid, 'weekPlan') : null, [firestore, user]);
   const { data: weekPlanData, isLoading: weekPlanLoading } = useCollection<DayPlan>(weekPlanCollectionRef);
   
-  const userProfileRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
+  const userProfileRef = useMemoFirebase(() => (user && firestore) ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
   const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
 
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
@@ -53,18 +53,15 @@ export default function Dashboard() {
   const currentNutriplannerRecipes = useMemo(() => nutriplannerRecipes || [], [nutriplannerRecipes]);
   
   const currentWeekPlan = useMemo(() => {
-    if (weekPlanLoading || profileLoading) return []; 
-    
-    if ((!weekPlanData || weekPlanData.length === 0) && userProfile) {
+    if (!weekPlanData || weekPlanData.length === 0) {
        return INITIAL_WEEK_PLAN;
     }
     
-    const planMap = new Map((weekPlanData || []).map(day => [day.day, day]));
+    const planMap = new Map(weekPlanData.map(day => [day.day, day]));
 
     const fullWeek = INITIAL_WEEK_PLAN.map(defaultDay => {
       const savedDay = planMap.get(defaultDay.day);
       if (savedDay) {
-        // Ensure meals is always an array
         return { ...defaultDay, ...savedDay, meals: Array.isArray(savedDay.meals) ? savedDay.meals : defaultDay.meals };
       }
       return defaultDay;
@@ -72,7 +69,7 @@ export default function Dashboard() {
 
     return fullWeek.sort((a, b) => DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day));
 
-  }, [weekPlanData, weekPlanLoading, userProfile, profileLoading]);
+  }, [weekPlanData]);
 
   const currentStickyNote = useMemo(() => userProfile?.stickyNote || '¡Bienvenido a NutriPlanner! Usa esta nota para apuntar lo que quieras.', [userProfile]);
   const currentCalorieResult = useMemo(() => userProfile?.calorieResult || null, [userProfile]);
@@ -83,7 +80,7 @@ export default function Dashboard() {
 
 
   const handleDrop = useCallback((day: string, mealId: string, droppedRecipe: Recipe) => {
-    if (!user || !currentWeekPlan) return;
+    if (!user || !firestore || !currentWeekPlan) return;
 
     const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
     const targetDay = currentWeekPlan.find(d => d.day === day);
@@ -101,7 +98,7 @@ export default function Dashboard() {
   }, [user, firestore, currentWeekPlan]);
   
   const handleClearMeal = useCallback((day: string, mealId: string) => {
-    if (!user || !currentWeekPlan) return;
+    if (!user || !firestore || !currentWeekPlan) return;
 
     const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
     const targetDay = currentWeekPlan.find(d => d.day === day);
@@ -119,7 +116,7 @@ export default function Dashboard() {
   }, [user, firestore, currentWeekPlan]);
   
   const handleRemoveRecipeFromMeal = useCallback((day: string, mealId: string, recipeId: string) => {
-    if (!user || !currentWeekPlan) return;
+    if (!user || !firestore || !currentWeekPlan) return;
 
     const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
     const targetDay = currentWeekPlan.find(d => d.day === day);
@@ -139,7 +136,7 @@ export default function Dashboard() {
   }, [user, firestore, currentWeekPlan]);
 
     const handleUpdateMealTitle = useCallback((day: string, mealId: string, newTitle: string) => {
-        if (!user || !currentWeekPlan) return;
+        if (!user || !firestore || !currentWeekPlan) return;
 
         const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
         const targetDay = currentWeekPlan.find(d => d.day === day);
@@ -154,7 +151,7 @@ export default function Dashboard() {
     }, [user, firestore, currentWeekPlan]);
 
     const handleAddMeal = useCallback((day: string) => {
-        if (!user || !currentWeekPlan) return;
+        if (!user || !firestore || !currentWeekPlan) return;
 
         const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
         const targetDay = currentWeekPlan.find(d => d.day === day);
@@ -172,7 +169,7 @@ export default function Dashboard() {
     }, [user, firestore, currentWeekPlan]);
 
     const handleDeleteMeal = useCallback((day: string, mealId: string) => {
-        if (!user || !currentWeekPlan) return;
+        if (!user || !firestore || !currentWeekPlan) return;
 
         const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
         const targetDay = currentWeekPlan.find(d => d.day === day);

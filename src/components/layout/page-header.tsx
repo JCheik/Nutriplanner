@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { LogOut, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, signInWithGoogle, signOut } from '@/firebase/auth/use-user';
-import { useAuth, useFirestore } from '@/firebase';
+import { useAuth, useFirestore } from '@/firebase/provider';
 import {
   DropdownMenu,
   DropdownMenuContent,

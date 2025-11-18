@@ -4,24 +4,24 @@ import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore'
+import {type DependencyList, useMemo} from "react";
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
-  if (!getApps().length) {
-    let firebaseApp;
-    try {
-        firebaseApp = initializeApp(firebaseConfig);
-    } catch (e) {
-      if (process.env.NODE_ENV === "production") {
-        console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
-      }
-      firebaseApp = initializeApp(firebaseConfig);
+  if (getApps().length === 0) {
+    // In a production environment with App Hosting, the config is automatically provided.
+    // In a development environment, we'll use the config from the .env file.
+    // @ts-ignore
+    if (typeof __FIREBASE_DEFAULTS__ !== 'undefined') {
+        // @ts-ignore
+        return getSdks(initializeApp(__FIREBASE_DEFAULTS__));
     }
-
-    return getSdks(firebaseApp);
+    
+    // Fallback for local development
+    return getSdks(initializeApp(firebaseConfig));
   }
-
-  // If already initialized, return the SDKs with the already initialized App
+  
+  // If already initialized, return the SDKs with the existing App
   return getSdks(getApp());
 }
 
@@ -32,6 +32,23 @@ export function getSdks(firebaseApp: FirebaseApp) {
     firestore: getFirestore(firebaseApp)
   };
 }
+
+export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T {
+  const memoized = useMemo(factory, deps);
+
+  if (typeof memoized !== 'object' || memoized === null) return memoized;
+
+  // Add a non-enumerable property to mark the object as memoized.
+  // This helps our hooks detect if a reference is not stable.
+  Object.defineProperty(memoized, '__memo', {
+    value: true,
+    enumerable: false,
+    configurable: true,
+  });
+  
+  return memoized;
+}
+
 
 export * from './provider';
 export * from './client-provider';

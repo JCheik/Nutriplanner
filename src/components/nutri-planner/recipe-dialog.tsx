@@ -2,8 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import type { DialogState, Recipe, Ingredient } from '@/lib/types';
-import { useUser } from '@/firebase/auth/use-user';
-import { useFirestore, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useMemoFirebase } from '@/firebase/provider';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { collection } from 'firebase/firestore';
@@ -62,10 +61,10 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
   const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);
   const { data: ingredientDB, isLoading: ingredientsLoading } = useCollection<BaseIngredient>(ingredientsCollectionRef);
 
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [instructions, setInstructions] = useState('');
-  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [name, setName] = useState(initialRecipe?.name || '');
+  const [description, setDescription] = useState(initialRecipe?.description || '');
+  const [instructions, setInstructions] = useState(initialRecipe?.instructions || '');
+  const [ingredients, setIngredients] = useState<Ingredient[]>(initialRecipe?.ingredients || []);
   
   const [isNewIngredientOpen, setIsNewIngredientOpen] = useState(false);
 
@@ -74,10 +73,17 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
   const [newIngredientQty, setNewIngredientQty] = useState<number | string>(100);
 
   useEffect(() => {
-    setName(initialRecipe?.name || '');
-    setDescription(initialRecipe?.description || '');
-    setInstructions(initialRecipe?.instructions || '');
-    setIngredients(initialRecipe?.ingredients || []);
+    if (initialRecipe) {
+        setName(initialRecipe.name);
+        setDescription(initialRecipe.description);
+        setInstructions(initialRecipe.instructions);
+        setIngredients(initialRecipe.ingredients);
+    } else {
+        setName('');
+        setDescription('');
+        setInstructions('');
+        setIngredients([]);
+    }
   }, [initialRecipe]);
 
   const calculatedTotals = useMemo(() => {
@@ -136,7 +142,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
   const handleNewIngredientSave = (newIngredient: Omit<BaseIngredient, 'id' | 'createdBy'> & { createdBy: string }) => {
     if (!ingredientsCollectionRef) return;
     
-    addDocumentNonBlocking(ingredientsCollectionRef, newIngredient);
+    const newId = addDocumentNonBlocking(ingredientsCollectionRef, newIngredient).then(docRef => docRef.id);
 
     const optimisticIngredient: BaseIngredient = {
       ...newIngredient,
@@ -149,12 +155,9 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
 
   const filteredIngredients = useMemo(() => {
     const lowercasedQuery = searchQuery.toLowerCase();
-    const db = ingredientDB || [];
-    if (!lowercasedQuery) {
-        return [];
-    }
+    if (!lowercasedQuery) return [];
     
-    return db
+    return (ingredientDB || [])
         .filter(ingredient => ingredient.name.toLowerCase().includes(lowercasedQuery))
         .sort((a, b) => a.name.localeCompare(b.name))
         .slice(0, 5);
@@ -373,12 +376,14 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe }: 
 
 export function RecipeDialog({ dialogState, onClose, onSave, onDelete, onEdit, onCopy }: RecipeDialogProps) {
   if (!dialogState.open) return null;
-  const isNutriPlannerRecipe = dialogState.mode === 'view' && dialogState.isNutriPlannerRecipe;
+
+  const isViewMode = dialogState.mode === 'view';
+  const isNutriPlannerRecipe = isViewMode && dialogState.isNutriPlannerRecipe;
 
   return (
     <Dialog open={dialogState.open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl">
-        {dialogState.mode === 'view' && dialogState.recipe ? (
+        {isViewMode && dialogState.recipe ? (
           <RecipeView 
             recipe={dialogState.recipe} 
             onEdit={onEdit}
