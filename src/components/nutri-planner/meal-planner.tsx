@@ -5,7 +5,7 @@ import type { WeekPlan, Recipe, DailyTotal, Macros, Meal } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RecipeCard } from './recipe-card';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, X, Flame, EggFried, Wheat, Droplets, Plus, Edit, Trash2 } from 'lucide-react';
+import { CalendarDays, X, Flame, EggFried, Wheat, Droplets, Plus, Edit, Trash2, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '../ui/input';
 
@@ -24,6 +24,7 @@ interface MealPlannerProps {
 interface MealSlotProps {
   day: string;
   meal: Meal;
+  isEditing: boolean;
   onDrop: (day: string, mealId: string, recipe: Recipe) => void;
   onClearMeal: (day: string, mealId: string) => void;
   onRecipeClick: (recipe: Recipe) => void;
@@ -62,7 +63,7 @@ const DailyTotalsRow = ({ totals }: { totals: Macros }) => (
 );
 
 
-function MealSlot({ day, meal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onDeleteMeal }: MealSlotProps) {
+function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onDeleteMeal }: MealSlotProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(meal.title);
 
@@ -106,17 +107,18 @@ function MealSlot({ day, meal, onDrop, onClearMeal, onRecipeClick, onRemoveRecip
            />
         ) : (
             <h4
-              className="text-xs font-medium text-muted-foreground cursor-pointer"
-              onClick={() => setIsEditingTitle(true)}
+              className={cn("text-xs font-medium text-muted-foreground", isEditing && 'cursor-pointer hover:underline')}
+              onClick={() => isEditing && setIsEditingTitle(true)}
             >
               {meal.title}
             </h4>
         )}
 
         <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsEditingTitle(true)}><Edit className="h-3 w-3"/></Button>
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onDeleteMeal(day, meal.id)}><Trash2 className="h-3 w-3 text-destructive"/></Button>
-          {meal.recipes.length > 0 && (
+          {isEditing && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsEditingTitle(true)}><Edit className="h-3 w-3"/></Button>}
+          {isEditing && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onDeleteMeal(day, meal.id)}><Trash2 className="h-3 w-3 text-destructive"/></Button>}
+          
+          {!isEditing && meal.recipes.length > 0 && (
             <Button
               variant="ghost"
               size="icon"
@@ -163,14 +165,22 @@ function MealSlot({ day, meal, onDrop, onClearMeal, onRecipeClick, onRemoveRecip
 }
 
 export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onAddMeal, onDeleteMeal }: MealPlannerProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  
   return (
     <Card className="h-full">
-      <CardHeader>
-        <div className="flex items-center gap-3">
-          <CalendarDays className="h-6 w-6 text-primary" />
-          <CardTitle>Plan de Comidas Semanal</CardTitle>
+      <CardHeader className="flex-row items-center justify-between">
+        <div>
+            <div className="flex items-center gap-3">
+            <CalendarDays className="h-6 w-6 text-primary" />
+            <CardTitle>Plan de Comidas Semanal</CardTitle>
+            </div>
+            <CardDescription>Arrastra y suelta recetas de tu biblioteca para planificar tu semana.</CardDescription>
         </div>
-        <CardDescription>Arrastra y suelta recetas de tu biblioteca para planificar tu semana.</CardDescription>
+        <Button variant="outline" onClick={() => setIsEditing(!isEditing)}>
+            {isEditing ? <Check className="mr-2 h-4 w-4" /> : <Edit className="mr-2 h-4 w-4" />}
+            {isEditing ? 'Finalizar Edición' : 'Editar Plan'}
+        </Button>
       </CardHeader>
       <CardContent className="pb-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
@@ -185,6 +195,7 @@ export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onReci
                         key={meal.id}
                         day={day} 
                         meal={meal}
+                        isEditing={isEditing}
                         onDrop={onDrop} 
                         onClearMeal={onClearMeal} 
                         onRecipeClick={onRecipeClick} 
@@ -193,9 +204,11 @@ export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onReci
                         onDeleteMeal={onDeleteMeal}
                        />
                     ))}
-                    <Button variant="outline" size="sm" className="w-full mt-2" onClick={() => onAddMeal(day)}>
-                      <Plus className="h-4 w-4 mr-2"/> Añadir Comida
-                    </Button>
+                    {isEditing && (
+                        <Button variant="outline" size="sm" className="w-full mt-2" onClick={() => onAddMeal(day)}>
+                        <Plus className="h-4 w-4 mr-2"/> Añadir Comida
+                        </Button>
+                    )}
                   </div>
                   {dayTotals && <DailyTotalsRow totals={dayTotals} />}
               </div>
