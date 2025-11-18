@@ -6,7 +6,7 @@ import { useUser } from '@/firebase/auth/use-user';
 import { useFirestore, useMemoFirebase } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection, doc, writeBatch } from 'firebase/firestore';
+import { collection } from 'firebase/firestore';
 import type { BaseIngredient } from '@/lib/types';
 import {
   Dialog,
@@ -21,10 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, PlusCircle, Plus, Copy } from 'lucide-react';
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import { Badge } from '@/components/ui/badge';
+import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, Plus, Copy, Search } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,6 +34,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { NewIngredientDialog } from './new-ingredient-dialog';
+import { Card, CardContent } from '../ui/card';
 
 
 interface RecipeDialogProps {
@@ -59,7 +57,6 @@ const MacroDisplay = ({ label, value, unit, icon: Icon }: { label: string, value
 function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { recipe?: Recipe, onSave: (recipe: Recipe) => void, onCancel: () => void, onDelete: (id: string) => void }) {
   const isEditing = !!initialRecipe;
   const firestore = useFirestore();
-  const { user } = useUser();
 
   const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);
   const { data: ingredientDB, isLoading: ingredientsLoading } = useCollection<BaseIngredient>(ingredientsCollectionRef);
@@ -71,7 +68,6 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
   
   const [isNewIngredientOpen, setIsNewIngredientOpen] = useState(false);
 
-  const [popoverOpen, setPopoverOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIngredient, setSelectedIngredient] = useState<BaseIngredient | null>(null);
   const [newIngredientQty, setNewIngredientQty] = useState<number | string>(100);
@@ -98,7 +94,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
   const handleSave = () => {
     if (!name) return;
     const recipe: Recipe = {
-      id: initialRecipe?.id || '', // Keep ID if editing, otherwise it will be set on save
+      id: initialRecipe?.id || '',
       name,
       description,
       instructions,
@@ -111,7 +107,6 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
   const handleSelectIngredient = (ingredient: BaseIngredient) => {
     setSearchQuery('');
     setSelectedIngredient(ingredient);
-    setPopoverOpen(false);
   };
   
   const addIngredient = () => {
@@ -142,7 +137,6 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
     
     addDocumentNonBlocking(ingredientsCollectionRef, newIngredient);
 
-    // We optimistically create the BaseIngredient to use it right away
     const optimisticIngredient: BaseIngredient = {
       ...newIngredient,
       id: `optimistic-${self.crypto.randomUUID()}`
@@ -187,78 +181,78 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
           </div>
         </div>
         <div className="space-y-4">
-            {/* INGREDIENT MANAGEMENT */}
             <div className="space-y-3">
                 <Label>Ingredientes</Label>
-                <div className="p-3 border rounded-lg space-y-3">
-                    {/* SEARCH AND ADD */}
-                    <div>
-                         <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-                            <PopoverTrigger asChild>
+                <Card>
+                    <CardContent className="p-4 space-y-4">
+                        <div className="space-y-2">
+                             <Label>1. Buscar y añadir ingrediente</Label>
+                             <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input 
-                                    value={searchQuery} 
-                                    onChange={(e) => { setSearchQuery(e.target.value); if(!popoverOpen) {setPopoverOpen(true)}}}
-                                    onFocus={() => setPopoverOpen(true)}
-                                    placeholder="Buscar ingrediente..." 
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    placeholder="Buscar ingrediente..."
+                                    className="pl-10"
                                 />
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                                <Command>
-                                    <CommandList>
-                                        <CommandEmpty>
+                             </div>
+                            {searchQuery && (
+                                <Card className="p-2">
+                                    {filteredIngredients.length > 0 ? (
+                                        filteredIngredients.map((ing) => (
+                                            <div key={ing.id} onClick={() => handleSelectIngredient(ing)} className="p-2 hover:bg-secondary rounded-md cursor-pointer text-sm">
+                                                {ing.name}
+                                            </div>
+                                        ))
+                                    ) : !ingredientsLoading && (
                                         <div className="p-4 text-sm text-center">
                                             <p>No se encontraron resultados.</p>
-                                            <Button variant="link" className="h-auto p-0 mt-1" onClick={() => { setPopoverOpen(false); setIsNewIngredientOpen(true); }}>
-                                            Crear nuevo alimento
+                                            <Button variant="link" className="h-auto p-0 mt-1" onClick={() => { setIsNewIngredientOpen(true); }}>
+                                                Crear nuevo alimento
                                             </Button>
                                         </div>
-                                        </CommandEmpty>
-                                        <CommandGroup>
-                                            {filteredIngredients.map((ing) => (
-                                                <CommandItem key={ing.id} value={ing.name} onSelect={() => handleSelectIngredient(ing)}>
-                                                    {ing.name}
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
-                    </div>
-
-                    {selectedIngredient && (
-                        <div className="flex gap-2 items-end bg-secondary/50 p-2 rounded-md">
-                            <div className="flex-grow">
-                                <Label className="text-xs">Ingrediente seleccionado</Label>
-                                <p className="font-semibold">{selectedIngredient.name}</p>
-                            </div>
-                            <div className="w-24">
-                                <Label className="text-xs">Cantidad (g)</Label>
-                                <Input type="number" value={newIngredientQty} onChange={e => setNewIngredientQty(e.target.value)} />
-                            </div>
-                            <Button size="icon" onClick={addIngredient}><Plus className="h-4 w-4" /></Button>
-                        </div>
-                    )}
-                    
-                    {/* INGREDIENT LIST */}
-                    <ScrollArea className="h-36">
-                        <div className="space-y-2 pr-4">
-                            {ingredients.map(ing => (
-                            <div key={ing.id} className="flex items-center justify-between bg-secondary p-2 rounded-md text-sm">
-                                <span>{ing.quantity}{ing.unit} <strong>{ing.name}</strong></span>
-                                <Badge variant="outline">{Math.round(ing.calories * (ing.quantity/100))} kcal</Badge>
-                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeIngredient(ing.id)}><Trash2 className="h-4 w-4" /></Button>
-                            </div>
-                            ))}
-                            {ingredients.length === 0 && (
-                                <p className="text-sm text-muted-foreground text-center pt-8">Añade ingredientes para verlos aquí.</p>
+                                    )}
+                                </Card>
                             )}
                         </div>
-                    </ScrollArea>
-                </div>
+
+                        {selectedIngredient && (
+                            <div className="flex gap-2 items-end bg-secondary/50 p-2 rounded-md">
+                                <div className="flex-grow">
+                                    <Label className="text-xs">Ingrediente seleccionado</Label>
+                                    <p className="font-semibold">{selectedIngredient.name}</p>
+                                </div>
+                                <div className="w-24">
+                                    <Label htmlFor='qty' className="text-xs">Cantidad (g)</Label>
+                                    <Input id='qty' type="number" value={newIngredientQty} onChange={e => setNewIngredientQty(e.target.value)} />
+                                </div>
+                                <Button size="icon" onClick={addIngredient}><Plus className="h-4 w-4" /></Button>
+                            </div>
+                        )}
+                        
+                        <div className='space-y-2'>
+                            <Label>2. Ingredientes de la Receta</Label>
+                            <ScrollArea className="h-36 border rounded-lg p-2">
+                                <div className="space-y-2 pr-2">
+                                    {ingredients.map(ing => (
+                                    <div key={ing.id} className="flex items-center justify-between bg-secondary p-2 rounded-md text-sm">
+                                        <span>{ing.quantity}{ing.unit} <strong>{ing.name}</strong></span>
+                                        <div className='flex items-center gap-2'>
+                                            <span className='text-xs text-muted-foreground'>{Math.round(ing.calories * (ing.quantity/100))} kcal</span>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeIngredient(ing.id)}><Trash2 className="h-4 w-4" /></Button>
+                                        </div>
+                                    </div>
+                                    ))}
+                                    {ingredients.length === 0 && (
+                                        <p className="text-sm text-muted-foreground text-center pt-8">Añade ingredientes para verlos aquí.</p>
+                                    )}
+                                </div>
+                            </ScrollArea>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
 
-            {/* MACRO TOTALS */}
             <div>
                  <Label>Totales de la Receta</Label>
                 <div className="grid grid-cols-4 gap-2 text-center mt-1">
