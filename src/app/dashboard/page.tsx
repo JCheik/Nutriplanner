@@ -194,26 +194,48 @@ export default function Dashboard() {
     setDialogState({ open: false });
   }, []);
 
-  const handleSaveRecipe = useCallback(async (recipe: Recipe, imageFile: File | null, isGlobal: boolean) => {
+  const handleSaveRecipe = useCallback(async (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
     if (!user || !firestore || !storage) return;
 
     setIsSaving(true);
-    let finalImageUrl = recipe.imageUrl || '';
-
+    
     try {
-        if (imageFile) {
-            finalImageUrl = await uploadImageAndGetUrl(storage, imageFile, recipe.id);
-        }
-        
-        const finalRecipe = { ...recipe, imageUrl: finalImageUrl };
-
         const targetCollectionRef = isGlobal ? nutriplannerRecipesCollectionRef : userRecipesCollectionRef;
         if (!targetCollectionRef) throw new Error("Colección de destino no encontrada.");
 
-        const recipeRef = doc(targetCollectionRef, finalRecipe.id);
-        setDocumentNonBlocking(recipeRef, finalRecipe, { merge: true });
+        // Determine the recipe ID: use existing, or generate a new one.
+        const recipeId = existingId || doc(targetCollectionRef).id;
+        let finalImageUrl = (existingId && (isGlobal ? currentNutriplannerRecipes : currentUserRecipes).find(r => r.id === existingId)?.imageUrl) || '';
 
-        const isExistingRecipe = (isGlobal ? currentNutriplannerRecipes : currentUserRecipes).some(r => r.id === finalRecipe.id);
+        // Step 1: Upload image if a new one is provided
+        if (imageFile) {
+          try {
+            finalImageUrl = await uploadImageAndGetUrl(storage, imageFile, recipeId);
+          } catch(uploadError) {
+             console.error("Error al subir la imagen:", uploadError);
+             toast({
+                variant: "destructive",
+                title: "¡Oh no! Error de subida.",
+                description: "No se pudo subir la imagen. Por favor, inténtalo de nuevo.",
+            });
+             setIsSaving(false);
+             return;
+          }
+        }
+        
+        // Step 2: Prepare final recipe object with the correct ID and image URL
+        const finalRecipe: Recipe = { 
+            ...recipe, 
+            id: recipeId,
+            imageUrl: finalImageUrl 
+        };
+
+        // Step 3: Save recipe to Firestore
+        const recipeRef = doc(targetCollectionRef, recipeId);
+        await setDocumentNonBlocking(recipeRef, finalRecipe, { merge: true });
+        
+        // Step 4: Show success feedback and close dialog
+        const isExistingRecipe = !!existingId;
 
         toast({
             title: isExistingRecipe ? '¡Receta actualizada!' : '¡Receta guardada!',
@@ -221,6 +243,7 @@ export default function Dashboard() {
         });
 
         handleDialogClose();
+
     } catch (error) {
         console.error("Error al guardar la receta:", error);
         toast({

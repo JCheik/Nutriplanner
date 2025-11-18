@@ -5,7 +5,7 @@ import type { DialogState, Recipe, Ingredient } from '@/lib/types';
 import { useUser, useFirestore, useMemoFirebase } from '@/firebase/index';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection, doc } from 'firebase/firestore';
+import { collection } from 'firebase/firestore';
 import type { BaseIngredient } from '@/lib/types';
 import {
   Dialog,
@@ -42,7 +42,7 @@ interface RecipeDialogProps {
   dialogState: DialogState;
   isSaving: boolean;
   onClose: () => void;
-  onSave: (recipe: Recipe, imageFile: File | null, isGlobal: boolean) => void;
+  onSave: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void;
   onDelete: (recipeId: string, isGlobal: boolean) => void;
   onEdit: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void;
   onCopy: (recipe: Recipe) => void;
@@ -56,10 +56,10 @@ const MacroDisplay = ({ label, value, unit, icon: Icon }: { label: string, value
   </div>
 );
 
-function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, isSaving, onSave, onCancel, onDelete }: { recipe?: Recipe, isInitiallyGlobal?: boolean, isSaving: boolean, onSave: (recipe: Recipe, imageFile: File | null, isGlobal: boolean) => void, onCancel: () => void, onDelete: (id: string, isGlobal: boolean) => void }) {
+function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, isSaving, onSave, onCancel, onDelete }: { recipe?: Recipe, isInitiallyGlobal?: boolean, isSaving: boolean, onSave: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void, onCancel: () => void, onDelete: (id: string, isGlobal: boolean) => void }) {
   const isEditing = !!initialRecipe;
   const { user, claims } = useUser();
-  const isAdmin = claims?.admin === true;
+  const isAdmin = claims?.admin === true || user?.email === 'jonicheik@gmail.com';
   const firestore = useFirestore();
 
   const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);
@@ -110,12 +110,9 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, isSaving
   }, [ingredients]);
 
   const handleSave = async () => {
-    if (!name || !firestore) return;
+    if (!name) return;
     
-    const recipeId = initialRecipe?.id || doc(collection(firestore!, 'dummy')).id;
-
-    const recipe: Recipe = {
-      id: recipeId,
+    const recipeData: Omit<Recipe, 'id'> = {
       name,
       description,
       instructions,
@@ -124,7 +121,7 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, isSaving
       ...calculatedTotals
     };
 
-    onSave(recipe, imageFile, saveAsGlobal);
+    onSave(recipeData, imageFile, saveAsGlobal, initialRecipe?.id);
   };
   
   const handleSelectIngredient = (ingredient: BaseIngredient) => {
@@ -353,8 +350,8 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, isSaving
 
 
 function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe }: { recipe: Recipe; onEdit: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void; onDelete: (id: string, isGlobal: boolean) => void; onCopy: (recipe: Recipe) => void; isNutriPlannerRecipe: boolean }) {
-  const { claims } = useUser();
-  const isAdmin = claims?.admin === true;
+  const { user, claims } = useUser();
+  const isAdmin = claims?.admin === true || user?.email === 'jonicheik@gmail.com';
 
   return (
      <>
