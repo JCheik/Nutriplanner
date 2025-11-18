@@ -40,6 +40,14 @@
           "items": {
             "type": "string"
           }
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL of an image for the recipe."
+        },
+        "imageHint": {
+          "type": "string",
+          "description": "A hint for AI image generation based on the recipe."
         }
       },
       "required": [

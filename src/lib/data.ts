@@ -1,4 +1,7 @@
 import type { Recipe, WeekPlan } from './types';
+import { PlaceHolderImages } from './placeholder-images';
+
+const findImage = (hint: string) => PlaceHolderImages.find(img => img.imageHint.includes(hint));
 
 export const INITIAL_RECIPES: Recipe[] = [
     {
@@ -15,6 +18,8 @@ export const INITIAL_RECIPES: Recipe[] = [
       { id: 'i2', name: 'Tomate', quantity: 150, unit: 'g', calories: 27, protein: 1.3, carbs: 5.8, fat: 0.3 },
       { id: 'i3', name: 'Queso Feta', quantity: 50, unit: 'g', calories: 132, protein: 7.1, carbs: 2.1, fat: 10.6 },
     ],
+    imageUrl: findImage('greek salad')?.imageUrl,
+    imageHint: findImage('greek salad')?.imageHint,
   },
   {
     id: '2',
@@ -29,6 +34,8 @@ export const INITIAL_RECIPES: Recipe[] = [
       { id: 'i4', name: 'Pechuga de Pollo', quantity: 200, unit: 'g', calories: 260, protein: 50, carbs: 0, fat: 6 },
       { id: 'i5', name: 'Aceite de Oliva', quantity: 5, unit: 'ml', calories: 44, protein: 0, carbs: 0, fat: 5 },
     ],
+    imageUrl: findImage('grilled chicken')?.imageUrl,
+    imageHint: findImage('grilled chicken')?.imageHint,
   },
 ];
 
