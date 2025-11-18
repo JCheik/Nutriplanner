@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import type { DialogState, Recipe, Ingredient } from '@/lib/types';
 import { useUser, useFirestore, useMemoFirebase } from '@/firebase/index';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { collection, doc } from 'firebase/firestore';
 import type { BaseIngredient } from '@/lib/types';
 import {
@@ -35,14 +35,14 @@ import {
 import { NewIngredientDialog } from './new-ingredient-dialog';
 import { Card, CardContent } from '../ui/card';
 import Image from 'next/image';
-import { uploadImageAndGetUrl } from '@/firebase/storage/image-upload';
 import { Switch } from '../ui/switch';
 
 
 interface RecipeDialogProps {
   dialogState: DialogState;
+  isSaving: boolean;
   onClose: () => void;
-  onSave: (recipe: Recipe, isGlobal: boolean) => void;
+  onSave: (recipe: Recipe, imageFile: File | null, isGlobal: boolean) => void;
   onDelete: (recipeId: string, isGlobal: boolean) => void;
   onEdit: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void;
   onCopy: (recipe: Recipe) => void;
@@ -56,7 +56,7 @@ const MacroDisplay = ({ label, value, unit, icon: Icon }: { label: string, value
   </div>
 );
 
-function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, onSave, onCancel, onDelete }: { recipe?: Recipe, isInitiallyGlobal?: boolean, onSave: (recipe: Recipe, isGlobal: boolean) => void, onCancel: () => void, onDelete: (id: string, isGlobal: boolean) => void }) {
+function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, isSaving, onSave, onCancel, onDelete }: { recipe?: Recipe, isInitiallyGlobal?: boolean, isSaving: boolean, onSave: (recipe: Recipe, imageFile: File | null, isGlobal: boolean) => void, onCancel: () => void, onDelete: (id: string, isGlobal: boolean) => void }) {
   const isEditing = !!initialRecipe;
   const { user, claims } = useUser();
   const isAdmin = claims?.admin === true;
@@ -71,7 +71,6 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, onSave, 
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [imageUrl, setImageUrl] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
   const [saveAsGlobal, setSaveAsGlobal] = useState(isInitiallyGlobal);
   
   const [isNewIngredientOpen, setIsNewIngredientOpen] = useState(false);
@@ -113,32 +112,19 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, onSave, 
   const handleSave = async () => {
     if (!name || !firestore) return;
     
-    setIsUploading(true);
     const recipeId = initialRecipe?.id || doc(collection(firestore!, 'dummy')).id;
-    let finalImageUrl = imageUrl || '';
 
-    try {
-        if (imageFile) {
-            finalImageUrl = await uploadImageAndGetUrl(imageFile, recipeId);
-        }
+    const recipe: Recipe = {
+      id: recipeId,
+      name,
+      description,
+      instructions,
+      ingredients,
+      imageUrl: imageUrl, // Keep current image url unless a new one is uploaded
+      ...calculatedTotals
+    };
 
-        const recipe: Recipe = {
-          id: recipeId,
-          name,
-          description,
-          instructions,
-          ingredients,
-          imageUrl: finalImageUrl,
-          ...calculatedTotals
-        };
-
-        await onSave(recipe, saveAsGlobal);
-
-    } catch (error) {
-        console.error("Error during save process:", error);
-    } finally {
-        setIsUploading(false);
-    }
+    onSave(recipe, imageFile, saveAsGlobal);
   };
   
   const handleSelectIngredient = (ingredient: BaseIngredient) => {
@@ -172,7 +158,7 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, onSave, 
   const handleNewIngredientSave = (newIngredient: Omit<BaseIngredient, 'id' | 'createdBy'> & { createdBy: string }) => {
     if (!ingredientsCollectionRef) return;
     
-    const newId = addDocumentNonBlocking(ingredientsCollectionRef, newIngredient).then(docRef => docRef.id);
+    addDocumentNonBlocking(ingredientsCollectionRef, newIngredient);
 
     const optimisticIngredient: BaseIngredient = {
       ...newIngredient,
@@ -351,8 +337,8 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, onSave, 
         ) : <div></div> }
         <div className="flex gap-2">
             <Button variant="outline" onClick={onCancel}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={isUploading}>
-              {isUploading ? 'Guardando...' : 'Guardar Receta'}
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? 'Guardando...' : 'Guardar Receta'}
             </Button>
         </div>
       </DialogFooter>
@@ -419,7 +405,7 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe }: 
         </ScrollArea>
       </div>
       <DialogFooter className="mt-6 justify-between">
-         {!isNutriPlannerRecipe && isAdmin ? (
+         {isAdmin && !isNutriPlannerRecipe ? (
           <AlertDialog>
               <AlertDialogTrigger asChild>
               <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
@@ -456,7 +442,7 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe }: 
 }
 
 
-export function RecipeDialog({ dialogState, onClose, onSave, onDelete, onEdit, onCopy }: RecipeDialogProps) {
+export function RecipeDialog({ dialogState, isSaving, onClose, onSave, onDelete, onEdit, onCopy }: RecipeDialogProps) {
   if (!dialogState.open) return null;
 
   const isViewMode = dialogState.mode === 'view';
@@ -481,6 +467,7 @@ export function RecipeDialog({ dialogState, onClose, onSave, onDelete, onEdit, o
           <RecipeForm
             recipe={dialogState.mode === 'edit' ? dialogState.recipe : undefined}
             isInitiallyGlobal={dialogState.mode === 'edit' ? dialogState.isNutriPlannerRecipe : false}
+            isSaving={isSaving}
             onSave={onSave}
             onCancel={onClose}
             onDelete={onDelete}
@@ -490,3 +477,5 @@ export function RecipeDialog({ dialogState, onClose, onSave, onDelete, onEdit, o
     </Dialog>
   );
 }
+
+    

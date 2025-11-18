@@ -16,15 +16,15 @@ import { useCollection } from '@/firebase/firestore/use-collection';
 import { useDoc } from '@/firebase/firestore/use-doc';
 import { useFirestore } from '@/firebase/provider';
 import { useMemoFirebase } from '@/firebase/index';
-import { collection, doc, writeBatch, deleteDoc, setDoc } from 'firebase/firestore';
+import { collection, doc, writeBatch } from 'firebase/firestore';
 import { Logo } from '@/components/icons/logo';
 import {
   setDocumentNonBlocking,
   updateDocumentNonBlocking,
-  addDocumentNonBlocking
+  addDocumentNonBlocking,
+  deleteDocumentNonBlocking
 } from '@/firebase/non-blocking-updates';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { uploadImageAndGetUrl } from '@/firebase/storage/image-upload';
 
 
 const DAY_ORDER = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -48,6 +48,7 @@ export default function Dashboard() {
 
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
   const [activeFloatingMenu, setActiveFloatingMenu] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const currentUserRecipes = useMemo(() => userRecipes || [], [userRecipes]);
   const currentNutriplannerRecipes = useMemo(() => nutriplannerRecipes || [], [nutriplannerRecipes]);
@@ -194,39 +195,45 @@ export default function Dashboard() {
     setDialogState({ open: false });
   }, []);
 
-  const handleSaveRecipe = useCallback(async (recipe: Recipe, isGlobal: boolean) => {
+  const handleSaveRecipe = useCallback(async (recipe: Recipe, imageFile: File | null, isGlobal: boolean) => {
     if (!user || !firestore) return;
-    
-    const targetCollectionRef = isGlobal ? nutriplannerRecipesCollectionRef : userRecipesCollectionRef;
-    if (!targetCollectionRef) return;
+
+    setIsSaving(true);
 
     try {
-        const recipeRef = doc(targetCollectionRef, recipe.id);
-        await setDoc(recipeRef, recipe, { merge: true });
-        
-        const isExistingRecipe = (isGlobal ? currentNutriplannerRecipes : currentUserRecipes).some(r => r.id === recipe.id);
+        let finalImageUrl = recipe.imageUrl || '';
+        if (imageFile) {
+            finalImageUrl = await uploadImageAndGetUrl(imageFile, recipe.id);
+        }
+
+        const finalRecipe = { ...recipe, imageUrl: finalImageUrl };
+
+        const targetCollectionRef = isGlobal ? nutriplannerRecipesCollectionRef : userRecipesCollectionRef;
+        if (!targetCollectionRef) throw new Error("Target collection not found.");
+
+        const recipeRef = doc(targetCollectionRef, finalRecipe.id);
+        setDocumentNonBlocking(recipeRef, finalRecipe, { merge: true });
+
+        const isExistingRecipe = (isGlobal ? currentNutriplannerRecipes : currentUserRecipes).some(r => r.id === finalRecipe.id);
 
         toast({
             title: isExistingRecipe ? '¡Receta actualizada!' : '¡Receta guardada!',
-            description: `${recipe.name} se ha ${isExistingRecipe ? 'actualizado' : 'guardado'}.`,
+            description: `${finalRecipe.name} se ha ${isExistingRecipe ? 'actualizado' : 'guardado'}.`,
         });
-        
-        handleDialogClose();
 
+        handleDialogClose();
     } catch (error) {
         console.error("Error saving recipe:", error);
         toast({
             variant: "destructive",
             title: "¡Oh no! Algo salió mal.",
-            description: "No se pudo guardar la receta. Revisa los permisos.",
+            description: "No se pudo guardar la receta. Revisa los permisos e inténtalo de nuevo.",
         });
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: `${isGlobal ? 'nutriplanner_recipes' : `users/${user.uid}/recipes`}/${recipe.id}`,
-            operation: 'write',
-            requestResourceData: recipe,
-        }));
+    } finally {
+        setIsSaving(false);
     }
-  }, [handleDialogClose, toast, user, firestore, userRecipesCollectionRef, nutriplannerRecipesCollectionRef, currentUserRecipes, currentNutriplannerRecipes]);
+  }, [user, firestore, nutriplannerRecipesCollectionRef, userRecipesCollectionRef, currentNutriplannerRecipes, currentUserRecipes, toast, handleDialogClose]);
+
 
 
   const handleDeleteRecipe = useCallback(async (recipeId: string, isGlobal: boolean) => {
@@ -235,12 +242,11 @@ export default function Dashboard() {
     const targetCollectionRef = isGlobal ? nutriplannerRecipesCollectionRef : userRecipesCollectionRef;
     if (!targetCollectionRef) return;
 
-    try {
-        const recipeRef = doc(targetCollectionRef, recipeId);
-        await deleteDoc(recipeRef);
+    const recipeRef = doc(targetCollectionRef, recipeId);
+    deleteDocumentNonBlocking(recipeRef);
 
-        if (!isGlobal) {
-            // If it's a user recipe, also remove it from any meal plans
+    if (!isGlobal) {
+        try {
             const batch = writeBatch(firestore);
             (currentWeekPlan || []).forEach(dayPlan => {
                 let dayWasUpdated = false;
@@ -259,20 +265,15 @@ export default function Dashboard() {
                 }
             });
             await batch.commit();
+        } catch (error) {
+            console.error("Error removing recipe from week plan:", error);
         }
-
-        toast({
-            title: 'Receta eliminada',
-            description: 'La receta ha sido eliminada permanentemente.',
-        });
-
-    } catch (error) {
-        console.error("Error deleting recipe:", error);
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: `${isGlobal ? 'nutriplanner_recipes' : `users/${user.uid}/recipes`}/${recipeId}`,
-            operation: 'delete',
-        }));
     }
+
+    toast({
+        title: 'Receta eliminada',
+        description: 'La receta ha sido eliminada permanentemente.',
+    });
     
     handleDialogClose();
   }, [handleDialogClose, user, firestore, userRecipesCollectionRef, nutriplannerRecipesCollectionRef, currentWeekPlan, toast]);
@@ -364,6 +365,7 @@ export default function Dashboard() {
       </main>
       <RecipeDialog
         dialogState={dialogState}
+        isSaving={isSaving}
         onClose={handleDialogClose}
         onSave={handleSaveRecipe}
         onDelete={handleDeleteRecipe}
@@ -391,3 +393,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
+    
