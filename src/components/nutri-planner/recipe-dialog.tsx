@@ -152,7 +152,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
     const lowercasedQuery = newIngredientName.toLowerCase();
     const db = ingredientDBState || [];
     if (!lowercasedQuery) {
-        return db.slice().sort((a, b) => a.name.localeCompare(b.name));
+        return db.slice(0, 5).sort((a, b) => a.name.localeCompare(b.name));
     }
     
     return db
@@ -209,11 +209,10 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
                  <div className="flex gap-1">
                     <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
                         <PopoverTrigger asChild>
-                            <Input value={newIngredientName} onChange={(e) => setNewIngredientName(e.target.value)} onFocus={() => setPopoverOpen(true)} placeholder="Buscar ingrediente..." />
+                            <Input value={newIngredientName} onChange={(e) => { setNewIngredientName(e.target.value); if(!popoverOpen) {setPopoverOpen(true)}}} onFocus={() => setPopoverOpen(true)} placeholder="Buscar ingrediente..." />
                         </PopoverTrigger>
                         <PopoverContent className="w-[--radix-popover-trigger-width] p-0 rounded-xl shadow-lg">
                             <Command>
-                                <CommandInput placeholder="Buscar ingrediente..." />
                                 <CommandList>
                                     <CommandEmpty>
                                       <div className="p-4 text-sm text-center">
@@ -237,7 +236,7 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
                 </div>
               </div>
               <div className="w-24">
-                <Label className="text-xs">Cantidad (g/ml)</Label>
+                <Label className="text-xs">Cantidad (g)</Label>
                 <Input type="number" value={newIngredientQty} onChange={e => setNewIngredientQty(parseFloat(e.target.value) || 0)} />
               </div>
               <Button size="icon" onClick={addIngredient} disabled={!newIngredientName}><PlusCircle className="h-4 w-4" /></Button>
