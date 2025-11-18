@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -8,6 +9,8 @@ import { useFirestore, useMemoFirebase } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import type { BaseIngredient } from '@/lib/types';
 import { collection } from 'firebase/firestore';
+import { Input } from '@/components/ui/input';
+import { Search } from 'lucide-react';
 
 interface IngredientsDialogProps {
   isOpen: boolean;
@@ -18,37 +21,64 @@ function IngredientDatabaseViewer() {
     const firestore = useFirestore();
     const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);
     const { data: ingredients, isLoading } = useCollection<BaseIngredient>(ingredientsCollectionRef);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    const filteredIngredients = useMemo(() => {
+        if (!ingredients) return [];
+        if (!searchQuery) return ingredients;
+        
+        return ingredients.filter(ingredient => 
+            ingredient.name.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }, [ingredients, searchQuery]);
 
     return (
-        <ScrollArea className="max-h-[60vh]">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead className="text-right">Calorías</TableHead>
-                <TableHead className="text-right">Proteína (g)</TableHead>
-                <TableHead className="text-right">Carbs (g)</TableHead>
-                <TableHead className="text-right">Grasa (g)</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading && (
+        <div className="space-y-4">
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                    placeholder="Buscar por nombre..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                />
+            </div>
+            <ScrollArea className="h-[60vh] border rounded-md">
+            <Table>
+                <TableHeader>
                 <TableRow>
-                    <TableCell colSpan={5} className="text-center">Cargando ingredientes...</TableCell>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead className="text-right">Calorías</TableHead>
+                    <TableHead className="text-right">Proteína (g)</TableHead>
+                    <TableHead className="text-right">Carbs (g)</TableHead>
+                    <TableHead className="text-right">Grasa (g)</TableHead>
                 </TableRow>
-              )}
-              {ingredients?.map((ingredient) => (
-                <TableRow key={ingredient.id}>
-                  <TableCell className="font-medium">{ingredient.name}</TableCell>
-                  <TableCell className="text-right">{ingredient.calories}</TableCell>
-                  <TableCell className="text-right">{ingredient.protein}</TableCell>
-                  <TableCell className="text-right">{ingredient.carbs}</TableCell>
-                  <TableCell className="text-right">{ingredient.fat}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </ScrollArea>
+                </TableHeader>
+                <TableBody>
+                {isLoading && (
+                    <TableRow>
+                        <TableCell colSpan={5} className="text-center">Cargando ingredientes...</TableCell>
+                    </TableRow>
+                )}
+                {filteredIngredients.length > 0 ? (
+                    filteredIngredients.map((ingredient) => (
+                        <TableRow key={ingredient.id}>
+                        <TableCell className="font-medium">{ingredient.name}</TableCell>
+                        <TableCell className="text-right">{ingredient.calories}</TableCell>
+                        <TableCell className="text-right">{ingredient.protein}</TableCell>
+                        <TableCell className="text-right">{ingredient.carbs}</TableCell>
+                        <TableCell className="text-right">{ingredient.fat}</TableCell>
+                        </TableRow>
+                    ))
+                ) : !isLoading && (
+                     <TableRow>
+                        <TableCell colSpan={5} className="text-center">No se encontraron ingredientes.</TableCell>
+                    </TableRow>
+                )}
+                </TableBody>
+            </Table>
+            </ScrollArea>
+        </div>
     )
 }
 
