@@ -5,7 +5,7 @@ import type { DialogState, Recipe, Ingredient } from '@/lib/types';
 import { useUser, useFirestore, useMemoFirebase } from '@/firebase/index';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 import type { BaseIngredient } from '@/lib/types';
 import {
   Dialog,
@@ -111,7 +111,7 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, onSave, 
   }, [ingredients]);
 
   const handleSave = async () => {
-    if (!name) return;
+    if (!name || !firestore) return;
     
     // An ID is required for image upload path. For new recipes, create one.
     const recipeId = initialRecipe?.id || doc(collection(firestore!, 'dummy')).id;
