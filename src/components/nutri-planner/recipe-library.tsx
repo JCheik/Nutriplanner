@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { RecipeCard } from './recipe-card';
-import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy } from 'lucide-react';
+import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Database } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { IngredientsDialog } from './ingredients-dialog';
 
 interface RecipeListProps {
   recipes: Recipe[];
@@ -141,49 +142,59 @@ export function RecipeLibrary({
   onRecipeAction,
   onCopyRecipe,
 }: RecipeLibraryProps) {
+  const [isIngredientsOpen, setIsIngredientsOpen] = useState(false);
   return (
-    <Card className="flex flex-col h-[500px]">
-      <CardHeader>
-        <div className="flex justify-between items-start gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <BookHeart className="h-6 w-6 text-primary" />
-              <CardTitle>Biblioteca de Recetas</CardTitle>
-            </div>
-            <CardDescription>Tu colección de recetas y las sugerencias de NutriPlanner.</CardDescription>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="flex-1 overflow-hidden">
-        <Tabs defaultValue="user-recipes" className="flex flex-col h-full">
-          <div className="flex justify-between items-center pr-1">
-            <TabsList>
-              <TabsTrigger value="user-recipes">Mis Recetas</TabsTrigger>
-              <TabsTrigger value="nutriplanner-recipes">Recetas NutriPlanner</TabsTrigger>
-            </TabsList>
-            <div className="flex gap-2">
-              <Button onClick={() => onRecipeAction('create')}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Nueva Receta
-              </Button>
+    <>
+      <Card className="flex flex-col h-[500px]">
+        <CardHeader>
+          <div className="flex justify-between items-start gap-4">
+            <div>
+              <div className="flex items-center gap-3">
+                <BookHeart className="h-6 w-6 text-primary" />
+                <CardTitle>Biblioteca de Recetas</CardTitle>
+              </div>
+              <CardDescription>Tu colección de recetas y las sugerencias de NutriPlanner.</CardDescription>
             </div>
           </div>
-          <TabsContent value="user-recipes" className="flex-1 mt-2 overflow-hidden">
-            <RecipeList 
-              recipes={userRecipes}
-              onRecipeClick={(recipe) => onRecipeAction('view', recipe, false)}
-            />
-          </TabsContent>
-          <TabsContent value="nutriplanner-recipes" className="flex-1 mt-2 overflow-hidden">
-            <RecipeList 
-              recipes={nutriplannerRecipes}
-              onRecipeClick={(recipe) => onRecipeAction('view', recipe, true)}
-              onCopyClick={onCopyRecipe}
-              isNutriPlanner
-            />
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+        </CardHeader>
+        <CardContent className="flex-1 overflow-hidden">
+          <Tabs defaultValue="user-recipes" className="flex flex-col h-full">
+            <div className="flex justify-between items-center pr-1">
+              <TabsList>
+                <TabsTrigger value="user-recipes">Mis Recetas</TabsTrigger>
+                <TabsTrigger value="nutriplanner-recipes">Recetas NutriPlanner</TabsTrigger>
+              </TabsList>
+              <div className="flex gap-2">
+                <Button variant="outline" size="icon" onClick={() => setIsIngredientsOpen(true)}>
+                  <Database className="h-4 w-4" />
+                </Button>
+                <Button onClick={() => onRecipeAction('create')}>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Nueva Receta
+                </Button>
+              </div>
+            </div>
+            <TabsContent value="user-recipes" className="flex-1 mt-2 overflow-hidden">
+              <RecipeList 
+                recipes={userRecipes}
+                onRecipeClick={(recipe) => onRecipeAction('view', recipe, false)}
+              />
+            </TabsContent>
+            <TabsContent value="nutriplanner-recipes" className="flex-1 mt-2 overflow-hidden">
+              <RecipeList 
+                recipes={nutriplannerRecipes}
+                onRecipeClick={(recipe) => onRecipeAction('view', recipe, true)}
+                onCopyClick={onCopyRecipe}
+                isNutriPlanner
+              />
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+      <IngredientsDialog 
+        isOpen={isIngredientsOpen}
+        onClose={() => setIsIngredientsOpen(false)}
+      />
+    </>
   );
 }
