@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, Plus, Copy, Search, Image as ImageIcon } from 'lucide-react';
+import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, Plus, Copy, Search, Image as ImageIcon, UploadCloud } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +35,7 @@ import {
 import { NewIngredientDialog } from './new-ingredient-dialog';
 import { Card, CardContent } from '../ui/card';
 import Image from 'next/image';
+import { uploadImageAndGetUrl } from '@/firebase/storage/image-upload';
 
 
 interface RecipeDialogProps {
@@ -56,17 +57,20 @@ const MacroDisplay = ({ label, value, unit, icon: Icon }: { label: string, value
 
 function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { recipe?: Recipe, onSave: (recipe: Recipe) => void, onCancel: () => void, onDelete: (id: string) => void }) {
   const isEditing = !!initialRecipe;
-  const { user } = useUser();
+  const { user, claims } = useUser();
   const firestore = useFirestore();
+  const isAdmin = claims?.admin === true;
 
   const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);
   const { data: ingredientDB, isLoading: ingredientsLoading } = useCollection<BaseIngredient>(ingredientsCollectionRef);
 
-  const [name, setName] = useState(initialRecipe?.name || '');
-  const [description, setDescription] = useState(initialRecipe?.description || '');
-  const [instructions, setInstructions] = useState(initialRecipe?.instructions || '');
-  const [ingredients, setIngredients] = useState<Ingredient[]>(initialRecipe?.ingredients || []);
-  const [imageUrl, setImageUrl] = useState(initialRecipe?.imageUrl || '');
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [instructions, setInstructions] = useState('');
+  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [imageUrl, setImageUrl] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   
   const [isNewIngredientOpen, setIsNewIngredientOpen] = useState(false);
 
@@ -77,9 +81,9 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
   useEffect(() => {
     if (initialRecipe) {
         setName(initialRecipe.name);
-        setDescription(initialRecipe.description);
-        setInstructions(initialRecipe.instructions);
-        setIngredients(initialRecipe.ingredients);
+        setDescription(initialRecipe.description || '');
+        setInstructions(initialRecipe.instructions || '');
+        setIngredients(initialRecipe.ingredients || []);
         setImageUrl(initialRecipe.imageUrl || '');
     } else {
         setName('');
@@ -88,6 +92,8 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
         setIngredients([]);
         setImageUrl('');
     }
+     // Reset file input on recipe change
+    setImageFile(null);
   }, [initialRecipe]);
 
   const calculatedTotals = useMemo(() => {
@@ -102,18 +108,35 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
     }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
   }, [ingredients]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name) return;
+    setIsUploading(true);
+
+    let finalImageUrl = initialRecipe?.imageUrl || '';
+
+    if (imageFile && initialRecipe?.id) {
+        try {
+            finalImageUrl = await uploadImageAndGetUrl(imageFile, initialRecipe.id);
+        } catch (error) {
+            console.error("Error al subir la imagen:", error);
+            // Opcional: mostrar un toast de error al usuario
+            setIsUploading(false);
+            return;
+        }
+    }
+
+
     const recipe: Recipe = {
-      id: initialRecipe?.id || '',
+      id: initialRecipe?.id || '', // El ID se necesita para la subida de imagen
       name,
       description,
       instructions,
       ingredients,
-      imageUrl,
+      imageUrl: finalImageUrl,
       ...calculatedTotals
     };
     onSave(recipe);
+    setIsUploading(false);
   };
   
   const handleSelectIngredient = (ingredient: BaseIngredient) => {
@@ -180,10 +203,22 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
             <Label htmlFor="name">Nombre de la Receta</Label>
             <Input id="name" value={name} onChange={e => setName(e.target.value)} />
           </div>
-           <div>
-            <Label htmlFor="imageUrl">URL de la Imagen</Label>
-            <Input id="imageUrl" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://..."/>
-          </div>
+            {isAdmin && isEditing && (
+             <div>
+                <Label htmlFor="imageFile">Subir o cambiar imagen</Label>
+                <div className="flex items-center gap-2 mt-1">
+                    <Input 
+                        id="imageFile" 
+                        type="file"
+                        accept="image/png, image/jpeg, image/webp"
+                        onChange={e => e.target.files && setImageFile(e.target.files[0])}
+                        className="flex-1"
+                    />
+                    <UploadCloud className="h-5 w-5 text-muted-foreground" />
+                </div>
+                {imageFile && <p className="text-xs text-muted-foreground mt-1">Nuevo archivo: {imageFile.name}</p>}
+             </div>
+            )}
           <div>
             <Label htmlFor="description">Descripción</Label>
             <Textarea id="description" value={description} onChange={e => setDescription(e.target.value)} />
@@ -300,7 +335,9 @@ function RecipeForm({ recipe: initialRecipe, onSave, onCancel, onDelete }: { rec
         ) : <div></div> }
         <div className="flex gap-2">
             <Button variant="outline" onClick={onCancel}>Cancelar</Button>
-            <Button onClick={handleSave}>Guardar Receta</Button>
+            <Button onClick={handleSave} disabled={isUploading}>
+              {isUploading ? 'Guardando...' : 'Guardar Receta'}
+            </Button>
         </div>
       </DialogFooter>
       <NewIngredientDialog
