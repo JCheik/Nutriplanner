@@ -92,13 +92,13 @@ function IngredientDatabaseViewer() {
                         <TableHead className="text-right">Carbs (g)</TableHead>
                         <TableHead className="text-right">Grasa (g)</TableHead>
                         <TableHead className="text-right">Fibra (g)</TableHead>
-                        {claims?.admin && <TableHead className="text-right">Acciones</TableHead>}
+                        <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                     </TableHeader>
                     <TableBody>
                     {isLoading && (
                         <TableRow>
-                            <TableCell colSpan={claims?.admin ? 7 : 6} className="text-center">Cargando ingredientes...</TableCell>
+                            <TableCell colSpan={7} className="text-center">Cargando ingredientes...</TableCell>
                         </TableRow>
                     )}
                     {filteredIngredients.length > 0 ? (
@@ -110,39 +110,37 @@ function IngredientDatabaseViewer() {
                             <TableCell className="text-right">{ingredient.carbs}</TableCell>
                             <TableCell className="text-right">{ingredient.fat}</TableCell>
                             <TableCell className="text-right">{ingredient.fiber || 0}</TableCell>
-                            {claims?.admin && (
-                                <TableCell className="text-right">
-                                    <div className="flex justify-end gap-2">
-                                        <Button variant="ghost" size="icon" onClick={() => handleEditClick(ingredient)}>
-                                            <Edit className="h-4 w-4" />
-                                        </Button>
-                                         <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    Esta acción eliminará permanentemente el ingrediente "{ingredient.name}" de la base de datos.
-                                                </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDeleteIngredient(ingredient.id)}>Borrar</AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    </div>
-                                </TableCell>
-                            )}
+                            <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                    <Button variant="ghost" size="icon" onClick={() => handleEditClick(ingredient)} disabled={!claims?.admin}>
+                                        <Edit className="h-4 w-4" />
+                                    </Button>
+                                     <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={!claims?.admin}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Esta acción eliminará permanentemente el ingrediente "{ingredient.name}" de la base de datos.
+                                            </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleDeleteIngredient(ingredient.id)}>Borrar</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </div>
+                            </TableCell>
                             </TableRow>
                         ))
                     ) : !isLoading && (
                         <TableRow>
-                            <TableCell colSpan={claims?.admin ? 7 : 6} className="text-center">No se encontraron ingredientes.</TableCell>
+                            <TableCell colSpan={7} className="text-center">No se encontraron ingredientes.</TableCell>
                         </TableRow>
                     )}
                     </TableBody>
