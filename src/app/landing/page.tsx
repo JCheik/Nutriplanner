@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
-import type { Recipe, WeekPlan, MealType, DialogState } from '@/lib/types';
+import type { Recipe, WeekPlan, DialogState } from '@/lib/types';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
 import { PageHeader } from '@/components/layout/page-header';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
@@ -37,51 +37,51 @@ export default function LandingPage() {
     }
   };
 
-  const handleDrop = useCallback((day: string, mealType: MealType, droppedRecipe: Recipe) => {
+  const handleDrop = useCallback((day: string, mealId: string, droppedRecipe: Recipe) => {
     setWeekPlan(prevPlan =>
       prevPlan.map(dayPlan =>
         dayPlan.day === day
           ? {
               ...dayPlan,
-              meals: {
-                ...dayPlan.meals,
-                [mealType]: { ...dayPlan.meals[mealType], recipes: [...dayPlan.meals[mealType].recipes, droppedRecipe] },
-              },
+              meals: dayPlan.meals.map(meal => 
+                meal.id === mealId 
+                  ? { ...meal, recipes: [...meal.recipes, droppedRecipe] }
+                  : meal
+              )
             }
           : dayPlan
       )
     );
   }, []);
 
-  const handleClearMeal = useCallback((day: string, mealType: MealType) => {
+  const handleClearMeal = useCallback((day: string, mealId: string) => {
     setWeekPlan(prevPlan =>
       prevPlan.map(dayPlan =>
         dayPlan.day === day
           ? {
               ...dayPlan,
-              meals: {
-                ...dayPlan.meals,
-                [mealType]: { ...dayPlan.meals[mealType], recipes: [] },
-              },
+              meals: dayPlan.meals.map(meal => 
+                meal.id === mealId
+                  ? { ...meal, recipes: [] }
+                  : meal
+              )
             }
           : dayPlan
       )
     );
   }, []);
 
-  const handleRemoveRecipeFromMeal = useCallback((day: string, mealType: MealType, recipeId: string) => {
+  const handleRemoveRecipeFromMeal = useCallback((day: string, mealId: string, recipeId: string) => {
     setWeekPlan(prevPlan =>
       prevPlan.map(dayPlan =>
         dayPlan.day === day
           ? {
               ...dayPlan,
-              meals: {
-                ...dayPlan.meals,
-                [mealType]: {
-                  ...dayPlan.meals[mealType],
-                  recipes: dayPlan.meals[mealType].recipes.filter((r, i) => `${r.id}-${i}` !== `${recipeId}-${i}`)
-                },
-              },
+              meals: dayPlan.meals.map(meal => 
+                meal.id === mealId
+                  ? { ...meal, recipes: meal.recipes.filter((r, i) => `${r.id}-${i}` !== `${recipeId}-${i}`) }
+                  : meal
+              )
             }
           : dayPlan
       )
@@ -121,7 +121,7 @@ export default function LandingPage() {
   const dailyTotals = useMemo(() => {
     return weekPlan.map(dayPlan => {
       const totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
-      Object.values(dayPlan.meals).forEach(meal => {
+      dayPlan.meals.forEach(meal => {
         meal.recipes.forEach(recipe => {
           totals.calories += recipe.calories;
           totals.protein += recipe.protein;
@@ -147,6 +147,9 @@ export default function LandingPage() {
               onClearMeal={handleClearMeal}
               onRecipeClick={(recipe) => handleRecipeAction('view', recipe)}
               onRemoveRecipeFromMeal={handleRemoveRecipeFromMeal}
+              onUpdateMealTitle={() => setIsLoginDialogOpen(true)}
+              onAddMeal={() => setIsLoginDialogOpen(true)}
+              onDeleteMeal={() => setIsLoginDialogOpen(true)}
             />
           </div>
           <div className="grid grid-cols-1 gap-6">

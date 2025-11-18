@@ -46,7 +46,7 @@ export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListDi
       const aggregated: Record<string, { name: string; quantity: number; unit: string }> = {};
 
       weekPlan.forEach(dayPlan => {
-        Object.values(dayPlan.meals).forEach(meal => {
+        dayPlan.meals.forEach(meal => {
           meal.recipes.forEach(recipe => {
             recipe.ingredients.forEach(ingredient => {
               const key = `${ingredient.name.toLowerCase().trim()}-${ingredient.unit}`;

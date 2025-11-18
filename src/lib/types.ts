@@ -29,16 +29,15 @@ export interface Recipe extends Macros {
   ingredients: Ingredient[];
 }
 
-export type MealType = 'breakfast' | 'lunch' | 'snack' | 'dinner';
-
 export interface Meal {
   id: string;
+  title: string;
   recipes: Recipe[];
 }
 
 export interface DayPlan {
   day: 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' | 'Sábado' | 'Domingo';
-  meals: Record<MealType, Meal>;
+  meals: Meal[];
 }
 
 export type WeekPlan = DayPlan[];

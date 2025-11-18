@@ -33,11 +33,11 @@ export const INITIAL_RECIPES: Recipe[] = [
 ];
 
 export const INITIAL_WEEK_PLAN: WeekPlan = [
-  { day: 'Lunes', meals: { breakfast: { id: 'm1', recipes: [] }, lunch: { id: 'm2', recipes: [INITIAL_RECIPES[0]] }, snack: { id: 'm22', recipes: [] }, dinner: { id: 'm3', recipes: [] } } },
-  { day: 'Martes', meals: { breakfast: { id: 'm4', recipes: [] }, lunch: { id: 'm5', recipes: [] }, snack: { id: 'm23', recipes: [] }, dinner: { id: 'm6', recipes: [INITIAL_RECIPES[1]] } } },
-  { day: 'Miércoles', meals: { breakfast: { id: 'm7', recipes: [] }, lunch: { id: 'm8', recipes: [] }, snack: { id: 'm24', recipes: [] }, dinner: { id: 'm9', recipes: [] } } },
-  { day: 'Jueves', meals: { breakfast: { id: 'm10', recipes: [] }, lunch: { id: 'm11', recipes: [] }, snack: { id: 'm25', recipes: [] }, dinner: { id: 'm12', recipes: [] } } },
-  { day: 'Viernes', meals: { breakfast: { id: 'm13', recipes: [] }, lunch: { id: 'm14', recipes: [] }, snack: { id: 'm26', recipes: [] }, dinner: { id: 'm15', recipes: [] } } },
-  { day: 'Sábado', meals: { breakfast: { id: 'm16', recipes: [] }, lunch: { id: 'm17', recipes: [] }, snack: { id: 'm27', recipes: [] }, dinner: { id: 'm18', recipes: [] } } },
-  { day: 'Domingo', meals: { breakfast: { id: 'm19', recipes: [] }, lunch: { id: 'm20', recipes: [] }, snack: { id: 'm28', recipes: [] }, dinner: { id: 'm21', recipes: [] } } },
+  { day: 'Lunes', meals: [ { id: 'm1', title: 'Desayuno', recipes: [] }, { id: 'm2', title: 'Almuerzo', recipes: [INITIAL_RECIPES[0]] }, { id: 'm22', title: 'Merienda', recipes: [] }, { id: 'm3', title: 'Cena', recipes: [] } ] },
+  { day: 'Martes', meals: [ { id: 'm4', title: 'Desayuno', recipes: [] }, { id: 'm5', title: 'Almuerzo', recipes: [] }, { id: 'm23', title: 'Merienda', recipes: [] }, { id: 'm6', title: 'Cena', recipes: [INITIAL_RECIPES[1]] } ] },
+  { day: 'Miércoles', meals: [ { id: 'm7', title: 'Desayuno', recipes: [] }, { id: 'm8', title: 'Almuerzo', recipes: [] }, { id: 'm24', title: 'Merienda', recipes: [] }, { id: 'm9', title: 'Cena', recipes: [] } ] },
+  { day: 'Jueves', meals: [ { id: 'm10', title: 'Desayuno', recipes: [] }, { id: 'm11', title: 'Almuerzo', recipes: [] }, { id: 'm25', title: 'Merienda', recipes: [] }, { id: 'm12', title: 'Cena', recipes: [] } ] },
+  { day: 'Viernes', meals: [ { id: 'm13', title: 'Desayuno', recipes: [] }, { id: 'm14', title: 'Almuerzo', recipes: [] }, { id: 'm26', title: 'Merienda', recipes: [] }, { id: 'm15', title: 'Cena', recipes: [] } ] },
+  { day: 'Sábado', meals: [ { id: 'm16', title: 'Desayuno', recipes: [] }, { id: 'm17', title: 'Almuerzo', recipes: [] }, { id: 'm27', title: 'Merienda', recipes: [] }, { id: 'm18', title: 'Cena', recipes: [] } ] },
+  { day: 'Domingo', meals: [ { id: 'm19', title: 'Desayuno', recipes: [] }, { id: 'm20', title: 'Almuerzo', recipes: [] }, { id: 'm28', title: 'Merienda', recipes: [] }, { id: 'm21', title: 'Cena', recipes: [] } ] },
 ];
