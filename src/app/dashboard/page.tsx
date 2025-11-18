@@ -210,17 +210,22 @@ export default function Dashboard() {
             title: isExistingRecipe ? '¡Receta actualizada!' : '¡Receta guardada!',
             description: `${recipe.name} se ha ${isExistingRecipe ? 'actualizado' : 'guardado'}.`,
         });
+        
+        handleDialogClose();
 
     } catch (error) {
         console.error("Error saving recipe:", error);
+        toast({
+            variant: "destructive",
+            title: "¡Oh no! Algo salió mal.",
+            description: "No se pudo guardar la receta. Revisa los permisos.",
+        });
         errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: `${isGlobal ? 'nutriplanner_recipes' : `users/${user.uid}/recipes`}/${recipe.id}`,
             operation: 'write',
             requestResourceData: recipe,
         }));
     }
-    
-    handleDialogClose();
   }, [handleDialogClose, toast, user, firestore, userRecipesCollectionRef, nutriplannerRecipesCollectionRef, currentUserRecipes, currentNutriplannerRecipes]);
 
 
