@@ -18,12 +18,10 @@ interface RecipeCardProps {
 
 const RecipePlaceholder = ({ recipeName, colorVariant = 'primary' }: { recipeName: string, colorVariant?: 'primary' | 'secondary' }) => (
   <div className={cn(
-    "w-full h-full flex items-center justify-center p-2 rounded-md",
-    colorVariant === 'primary' ? 'bg-accent/80' : 'bg-chart-1/80'
+    "w-full h-full flex items-center justify-center p-2 rounded-md bg-secondary/50"
   )}>
     <span className={cn(
-      "text-center font-semibold text-sm leading-tight line-clamp-3",
-       colorVariant === 'primary' ? 'text-accent-foreground' : 'text-white'
+      "text-center font-semibold text-secondary-foreground text-sm leading-tight line-clamp-3",
     )}>
       {recipeName}
     </span>
@@ -50,16 +48,16 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
         draggable={isDraggable}
         onDragStart={handleDragStart}
         onClick={onClick}
-        className="group relative w-full overflow-hidden transition-shadow hover:shadow-md cursor-pointer bg-glass"
+        className="group relative w-full overflow-hidden transition-shadow hover:shadow-lg cursor-pointer bg-background border"
       >
         <div className="flex items-center">
           {isDraggable && (
-             <div className="flex items-center justify-center self-stretch px-2 cursor-grab active:cursor-grabbing text-muted-foreground bg-black/10">
+             <div className="flex items-center justify-center self-stretch px-2 cursor-grab active:cursor-grabbing text-muted-foreground bg-secondary/50">
               <GripVertical className="h-5 w-5" />
             </div>
           )}
           <div className="flex-1 p-3">
-            <h3 className="font-bold text-sm line-clamp-1">{recipe.name}</h3>
+            <h3 className="font-bold text-sm line-clamp-1 font-headline">{recipe.name}</h3>
             <p className="text-xs text-muted-foreground line-clamp-1 mb-2">{recipe.description}</p>
             <div className="flex flex-wrap gap-x-3 gap-y-1 items-center text-muted-foreground">
                 <MacroItem icon={Flame} value={recipe.calories} unit="kcal" colorClass="text-orange-400" />
@@ -90,7 +88,7 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
       onDragStart={handleDragStart}
       onClick={onClick}
       className={cn(
-        "group relative w-full h-full overflow-hidden transition-shadow hover:shadow-md flex flex-col bg-glass",
+        "group relative w-full h-full overflow-hidden transition-shadow hover:shadow-lg flex flex-col bg-card",
         isDraggable && "cursor-grab active:cursor-grabbing",
         !isDraggable && !isCompact && "cursor-pointer"
       )}
@@ -111,15 +109,15 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
                     data-ai-hint={recipe.imageHint}
                 />
             ) : (
-                <div className="w-full h-full flex items-center justify-center p-2 bg-accent/80">
-                    <span className="text-center font-semibold text-sm leading-tight line-clamp-3 text-accent-foreground">
+                <div className="w-full h-full flex items-center justify-center p-2 bg-secondary">
+                    <span className="text-center font-headline text-lg leading-tight line-clamp-3 text-secondary-foreground">
                         {recipe.name}
                     </span>
                 </div>
             )}
         </div>
         <div className="p-2 flex-1 flex flex-col justify-center">
-             <h3 className="font-bold text-sm line-clamp-1 leading-tight text-foreground">{recipe.name}</h3>
+             <h3 className="font-headline text-base line-clamp-1 leading-tight text-foreground">{recipe.name}</h3>
             <div className="mt-2 flex justify-around text-muted-foreground">
                 <div className="flex items-center gap-1">
                     <Flame className="h-3 w-3 text-orange-400" />

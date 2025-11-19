@@ -28,7 +28,7 @@
     --chart-3: 35 80% 70%;
     --chart-4: 25 60% 60%;
     --chart-5: 40 40% 70%;
-    --radius: 0.75rem;
+    --radius: 0.5rem;
   }
 
   .dark {
@@ -63,10 +63,16 @@
   * {
     @apply border-border;
   }
+  body {
+    @apply bg-background text-foreground;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-headline;
+  }
 }
 
 @layer components {
     .bg-glass {
-        @apply bg-card/70 backdrop-blur-lg border border-white/20;
+        @apply bg-card/95 backdrop-blur-sm border;
     }
 }
