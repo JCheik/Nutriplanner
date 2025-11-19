@@ -5,7 +5,7 @@ import type { WeekPlan, Recipe, DailyTotal, Macros, GoalMacros, Meal } from '@/l
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RecipeCard } from './recipe-card';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, X, Flame, Plus, Edit, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarDays, X, Flame, Plus, Edit, Check, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '../ui/input';
 
