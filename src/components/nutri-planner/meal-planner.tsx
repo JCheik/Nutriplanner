@@ -153,9 +153,9 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
         hasRecipes ? 'bg-secondary/50 border-2 border-transparent' : 'border-2 border-dashed border-border/50 bg-secondary/30'
       )}>
         {hasRecipes ? (
-           <div className="w-full h-full flex flex-col gap-1">
+           <div className="w-full h-full flex flex-col gap-1 flex-1">
                 {meal.recipes.map((recipe: Recipe, index: number) => (
-                    <div key={`${recipe.id}-${index}`} className="w-full relative group/item">
+                    <div key={`${recipe.id}-${index}`} className="w-full relative group/item flex-1">
                       <div 
                           className="h-full w-full"
                           onClick={() => onRecipeClick(recipe)}
