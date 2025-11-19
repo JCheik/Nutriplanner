@@ -21,7 +21,13 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Kalam:wght@400;700&display=swap" rel="stylesheet" />
       </head>
       <body 
-        className="font-body antialiased kitchen-bg"
+        className="font-body antialiased"
+        style={{
+          backgroundImage: `url('https://images.unsplash.com/photo-1556911220-e15b29be8c9f?q=80&w=2070&auto=format&fit=crop')`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed',
+        }}
       >
         <FirebaseClientProvider>
           {children}
