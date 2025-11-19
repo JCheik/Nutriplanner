@@ -15,7 +15,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
-import { Dialog } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 const GoalCard = ({ title, icon: Icon, goal, isActive = false }: { title: string, icon: React.ElementType, goal: GoalMacros, isActive?: boolean }) => {
     return (
@@ -63,118 +63,95 @@ const TargetGoalsDisplay = ({ result, onCalculate, onGoalSelect }: { result: Cal
     if (!result) {
         return (
             <>
-                <Card className="w-full border-0 shadow-none bg-transparent">
-                     <CardHeader className="px-0">
-                        <CardTitle>Tus Objetivos Nutricionales</CardTitle>
-                        <CardDescription>Aún no has calculado tus objetivos. ¡Pruébalo!</CardDescription>
-                    </CardHeader>
-                    <CardContent className="px-0 flex flex-col items-center justify-center text-center h-60">
-                        <div className="text-center text-muted-foreground">
-                            <Target className="h-12 w-12 mx-auto mb-2" />
-                            <p className="mb-4">Usa la calculadora para establecer tus metas de calorías y macros.</p>
-                            <Button onClick={handleOpenCalculator}>
-                                <Calculator className="mr-2 h-4 w-4" />
-                                Abrir Calculadora
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
+                    <div className="text-center text-muted-foreground">
+                        <Target className="h-12 w-12 mx-auto mb-2" />
+                        <h3 className="text-lg font-semibold mb-2">Calcula tus Metas</h3>
+                        <p className="mb-4 text-sm">Usa la calculadora para establecer tus metas de calorías y macros.</p>
+                        <Button onClick={handleOpenCalculator}>
+                            <Calculator className="mr-2 h-4 w-4" />
+                            Abrir Calculadora
+                        </Button>
+                    </div>
+                </div>
                 <CalculatorDialog isOpen={isCalculatorOpen} onClose={() => setIsCalculatorOpen(false)} onCalculate={onCalculate} />
             </>
         );
     }
 
     return (
-        <Card className="w-full border-0 shadow-none bg-transparent">
-            <CardHeader className="px-0 flex-row items-center justify-between">
-              <div>
-                <CardTitle>Tus Objetivos</CardTitle>
-                <CardDescription>Tus objetivos diarios calculados.</CardDescription>
-              </div>
-              <Button variant="outline" size="sm" onClick={handleOpenCalculator}>Editar</Button>
-            </CardHeader>
-            <CardContent className="px-0">
-                <Tabs defaultValue="maintenance" className="w-full" onValueChange={(value) => onGoalSelect(value as GoalType)}>
-                    <TabsList className="grid w-full grid-cols-3">
-                        <TabsTrigger value="loss">Perder</TabsTrigger>
-                        <TabsTrigger value="maintenance">Mantener</TabsTrigger>
-                        <TabsTrigger value="gain">Ganar</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="loss">
-                        <GoalCard title="Objetivo: Perder Peso" icon={TrendingDown} goal={result.loss} isActive />
-                    </TabsContent>
-                    <TabsContent value="maintenance">
-                        <GoalCard title="Objetivo: Mantenimiento" icon={Weight} goal={result.maintenance} isActive />
-                    </TabsContent>
-                    <TabsContent value="gain">
-                        <GoalCard title="Objetivo: Ganar Músculo" icon={TrendingUp} goal={result.gain} isActive />
-                    </TabsContent>
-                </Tabs>
-                 <CalculatorDialog isOpen={isCalculatorOpen} onClose={() => setIsCalculatorOpen(false)} onCalculate={onCalculate} initialResult={result} />
-            </CardContent>
-        </Card>
+        <div className="p-4 h-full flex flex-col">
+            <div className='flex justify-between items-center mb-4'>
+                <h3 className="text-lg font-semibold">Tus Objetivos</h3>
+                <Button variant="outline" size="sm" onClick={handleOpenCalculator}>Editar</Button>
+            </div>
+            
+            <Tabs defaultValue="maintenance" className="w-full" onValueChange={(value) => onGoalSelect(value as GoalType)}>
+                <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="loss">Perder</TabsTrigger>
+                    <TabsTrigger value="maintenance">Mantener</TabsTrigger>
+                    <TabsTrigger value="gain">Ganar</TabsTrigger>
+                </TabsList>
+                <TabsContent value="loss" className="mt-4">
+                    <GoalCard title="Objetivo: Perder Peso" icon={TrendingDown} goal={result.loss} isActive />
+                </TabsContent>
+                <TabsContent value="maintenance" className="mt-4">
+                    <GoalCard title="Objetivo: Mantenimiento" icon={Weight} goal={result.maintenance} isActive />
+                </TabsContent>
+                <TabsContent value="gain" className="mt-4">
+                    <GoalCard title="Objetivo: Ganar Músculo" icon={TrendingUp} goal={result.gain} isActive />
+                </TabsContent>
+            </Tabs>
+            <CalculatorDialog isOpen={isCalculatorOpen} onClose={() => setIsCalculatorOpen(false)} onCalculate={onCalculate} initialResult={result} />
+        </div>
     );
 }
 
 interface FloatingGoalsProps {
   isOpen: boolean;
-  onToggle: () => void;
+  onOpenChange: (isOpen: boolean) => void;
   calorieResult: CalculationResult | null;
   onCalorieResultSave: (result: CalculationResult) => void;
   onGoalSelect: (goal: GoalType) => void;
 }
 
-export function FloatingGoals({ isOpen, onToggle, calorieResult, onCalorieResultSave, onGoalSelect }: FloatingGoalsProps) {
+export function FloatingGoals({ isOpen, onOpenChange, calorieResult, onCalorieResultSave, onGoalSelect }: FloatingGoalsProps) {
   return (
     <>
-      <div className="fixed bottom-28 right-8 z-40 lg:hidden">
-        <Button
-          onClick={onToggle}
-          className="h-16 w-16 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
-          size="icon"
-        >
-          <Target className="h-8 w-8" />
-        </Button>
-      </div>
-
+      {/* Desktop uses a Dialog-like pop-up */}
       <div className="hidden lg:block">
-        <div className="fixed bottom-28 right-8 z-40">
-            <Button
-            onClick={onToggle}
-            className="h-16 w-16 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
-            size="icon"
-            >
-            <Target className="h-8 w-8" />
-            </Button>
-        </div>
-        <Dialog open={isOpen} onOpenChange={onToggle}>
-            <div
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent 
                 className={cn(
-                'fixed bottom-28 right-28 w-96 bg-card rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right',
-                isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'
+                'fixed bottom-24 right-8 w-96 rounded-lg shadow-2xl p-0 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right bg-glass border-0',
+                isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
                 )}
+                hideCloseButton
             >
                 <Button
                     variant="ghost"
                     size="icon"
                     className="absolute top-2 right-2 h-7 w-7"
-                    onClick={onToggle}
+                    onClick={() => onOpenChange(false)}
                 >
                     <X className="h-5 w-5" />
                 </Button>
                 <TargetGoalsDisplay result={calorieResult} onCalculate={onCalorieResultSave} onGoalSelect={onGoalSelect} />
-            </div>
+            </DialogContent>
         </Dialog>
       </div>
 
+      {/* Mobile uses a Sheet */}
       <div className="lg:hidden">
-        <Sheet open={isOpen} onOpenChange={onToggle}>
-            <SheetContent side="bottom" className="h-[80vh] flex flex-col">
-              <SheetHeader>
-                <SheetTitle>Tus Objetivos Nutricionales</SheetTitle>
-                <SheetDescription>Calcula y selecciona tus metas diarias de calorías y macronutrientes.</SheetDescription>
-              </SheetHeader>
-                <TargetGoalsDisplay result={calorieResult} onCalculate={onCalorieResultSave} onGoalSelect={onGoalSelect} />
+        <Sheet open={isOpen} onOpenChange={onOpenChange}>
+            <SheetContent side="bottom" className="h-[85vh] flex flex-col p-0">
+                <SheetHeader className="p-4 border-b">
+                    <SheetTitle>Tus Objetivos Nutricionales</SheetTitle>
+                    <SheetDescription>Calcula y selecciona tus metas diarias de calorías y macronutrientes.</SheetDescription>
+                </SheetHeader>
+                <div className="flex-1 overflow-y-auto">
+                    <TargetGoalsDisplay result={calorieResult} onCalculate={onCalorieResultSave} onGoalSelect={onGoalSelect} />
+                </div>
             </SheetContent>
         </Sheet>
       </div>

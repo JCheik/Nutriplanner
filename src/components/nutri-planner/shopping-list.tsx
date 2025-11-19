@@ -32,16 +32,49 @@ interface ShoppingListItem {
   checked: boolean;
 }
 
-interface ShoppingListDialogProps {
+interface ShoppingListProps {
   weekPlan: WeekPlan;
   isOpen: boolean;
-  onToggle: () => void;
+  onOpenChange: (isOpen: boolean) => void;
 }
 
-const ShoppingListContent = ({ shoppingList, setShoppingList }: { shoppingList: ShoppingListItem[], setShoppingList: React.Dispatch<React.SetStateAction<ShoppingListItem[]>> }) => {
+const ShoppingListContent = ({ weekPlan, className }: { weekPlan: WeekPlan; className?: string; }) => {
+  const [isQrOpen, setIsQrOpen] = useState(false);
+  const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
   const [newItemName, setNewItemName] = useState('');
   const [newItemQty, setNewItemQty] = useState('');
   const [editingItem, setEditingItem] = useState<ShoppingListItem | null>(null);
+
+  useEffect(() => {
+    const aggregated: Record<string, { name: string; quantity: number; unit: string }> = {};
+
+    weekPlan.forEach(dayPlan => {
+      dayPlan.meals.forEach(meal => {
+        meal.recipes.forEach(recipe => {
+          (recipe.ingredients || []).forEach(ingredient => {
+            const key = `${ingredient.name.toLowerCase().trim()}-${ingredient.unit}`;
+            if (aggregated[key]) {
+              aggregated[key].quantity += ingredient.quantity;
+            } else {
+              aggregated[key] = { ...ingredient };
+            }
+          });
+        });
+      });
+    });
+
+    const generatedList = Object.values(aggregated).map((item, index) => ({
+      ...item,
+      id: `gen-${index}`,
+      checked: false,
+    })).sort((a, b) => a.name.localeCompare(b.name));
+    
+    setShoppingList(generatedList);
+  }, [weekPlan]);
+
+  const shoppingListString = useMemo(() => {
+    return shoppingList.map(item => `- ${item.quantity.toFixed(0)}${item.unit} ${item.name}`).join('\n');
+  }, [shoppingList]);
 
   const handleToggleCheck = (id: string) => {
     setShoppingList(prev => prev.map(item => item.id === id ? { ...item, checked: !item.checked } : item));
@@ -79,200 +112,90 @@ const ShoppingListContent = ({ shoppingList, setShoppingList }: { shoppingList: 
 
   return (
     <>
-        <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              <ShoppingCart className="h-6 w-6" />
-              Lista de la Compra
-            </SheetTitle>
-            <SheetDescription>
-              Añade, edita y gestiona los ingredientes para tu plan semanal.
-            </SheetDescription>
-        </SheetHeader>
+      <div className={cn("flex flex-col h-full", className)}>
         <div className="flex gap-2 items-end border-b border-border pb-4 mt-4">
-            <div className="flex-grow">
-                <Label htmlFor="new-item-name" className="text-xs">Añadir artículo</Label>
-                <Input
-                id="new-item-name"
-                value={newItemName}
-                onChange={(e) => setNewItemName(e.target.value)}
-                placeholder="Nombre del artículo"
-                />
-            </div>
-            <div className="w-24">
-                <Label htmlFor="new-item-qty" className="text-xs">Cantidad</Label>
-                <Input
-                id="new-item-qty"
-                type="text"
-                value={newItemQty}
-                onChange={(e) => setNewItemQty(e.target.value)}
-                placeholder="ej. 1, 200"
-                />
-            </div>
-            <Button size="icon" onClick={handleAddItem} disabled={!newItemName.trim()}>
-                <PlusCircle />
-            </Button>
+          <div className="flex-grow">
+            <Label htmlFor="new-item-name" className="text-xs">Añadir artículo</Label>
+            <Input
+              id="new-item-name"
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              placeholder="Nombre del artículo"
+            />
+          </div>
+          <div className="w-24">
+            <Label htmlFor="new-item-qty" className="text-xs">Cantidad</Label>
+            <Input
+              id="new-item-qty"
+              type="text"
+              value={newItemQty}
+              onChange={(e) => setNewItemQty(e.target.value)}
+              placeholder="ej. 1, 200"
+            />
+          </div>
+          <Button size="icon" onClick={handleAddItem} disabled={!newItemName.trim()}>
+            <PlusCircle />
+          </Button>
         </div>
         <ScrollArea className="flex-1 my-4 -mx-6 px-6">
-            {shoppingList.length > 0 ? (
-                <div className="space-y-2 pr-4">
-                {shoppingList.map(item => (
-                    <div key={item.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-secondary">
-                    <Checkbox
-                        id={item.id}
-                        checked={item.checked}
-                        onCheckedChange={() => handleToggleCheck(item.id)}
-                    />
-                    <div className="flex-1">
-                        {editingItem?.id === item.id ? (
-                        <div className="flex gap-2">
-                            <Input
-                            value={editingItem.quantity}
-                            type="number"
-                            onChange={(e) => setEditingItem({ ...editingItem, quantity: parseFloat(e.target.value) || 0 })}
-                            className="h-8 w-20"
-                            />
-                            <Input
-                            value={editingItem.name}
-                            onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
-                            className="h-8"
-                            />
-                            <Button size="sm" onClick={handleUpdateItem}>Guardar</Button>
-                        </div>
-                        ) : (
-                        <Label
-                            htmlFor={item.id}
-                            className={`text-base ${item.checked ? 'line-through text-muted-foreground' : ''}`}
-                        >
-                            <span className="font-bold">{item.quantity.toFixed(0)}{item.unit}</span> - {item.name}
-                        </Label>
-                        )}
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditClick(item)}>
-                        <Pencil className="h-4 w-4" />
-                    </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(item.id)}>
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
-                    </div>
-                ))}
-                </div>
-            ) : (
-                <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
-                    <ShoppingCart className="h-12 w-12 mb-4" />
-                    <p className="font-semibold">Tu lista está vacía.</p>
-                    <p className="text-sm">Los ingredientes del planificador aparecerán aquí.</p>
-                </div>
-            )}
-        </ScrollArea>
-    </>
-  );
-};
-
-
-export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListDialogProps) {
-  const [isQrOpen, setIsQrOpen] = useState(false);
-  const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
-
-  useEffect(() => {
-    if (isOpen) {
-      const aggregated: Record<string, { name: string; quantity: number; unit: string }> = {};
-
-      weekPlan.forEach(dayPlan => {
-        dayPlan.meals.forEach(meal => {
-          meal.recipes.forEach(recipe => {
-            (recipe.ingredients || []).forEach(ingredient => {
-              const key = `${ingredient.name.toLowerCase().trim()}-${ingredient.unit}`;
-              if (aggregated[key]) {
-                aggregated[key].quantity += ingredient.quantity;
-              } else {
-                aggregated[key] = { ...ingredient };
-              }
-            });
-          });
-        });
-      });
-
-      const generatedList = Object.values(aggregated).map((item, index) => ({
-        ...item,
-        id: `gen-${index}`,
-        checked: false,
-      })).sort((a, b) => a.name.localeCompare(b.name));
-      
-      setShoppingList(generatedList);
-    }
-  }, [weekPlan, isOpen]);
-
-
-  const shoppingListString = useMemo(() => {
-    return shoppingList.map(item => `- ${item.quantity.toFixed(0)}${item.unit} ${item.name}`).join('\n');
-  }, [shoppingList]);
-  
-  return (
-    <>
-      <div className="fixed bottom-8 right-8 z-40 lg:hidden">
-        <Button
-          onClick={onToggle}
-          className="h-16 w-16 rounded-full shadow-lg bg-accent text-accent-foreground hover:bg-accent/90"
-          size="icon"
-        >
-          <ShoppingCart className="h-8 w-8" />
-        </Button>
-      </div>
-
-       <div className="hidden lg:block">
-        <Dialog open={isOpen} onOpenChange={onToggle}>
-            <DialogContent 
-            className={cn(
-                'fixed bottom-8 right-28 w-96 rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right flex flex-col h-[70vh] bg-glass',
-                isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'
-            )}
-            hideCloseButton
-            >
-              <ShoppingListContent shoppingList={shoppingList} setShoppingList={setShoppingList} />
-              <SheetFooter className="mt-auto pt-4 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <Button variant="secondary" onClick={() => setIsQrOpen(true)} disabled={shoppingList.length === 0}>
-                      <Smartphone className="mr-2 h-4 w-4" />
-                      Generar QR
+          {shoppingList.length > 0 ? (
+            <div className="space-y-2 pr-4">
+              {shoppingList.map(item => (
+                <div key={item.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-secondary">
+                  <Checkbox
+                    id={item.id}
+                    checked={item.checked}
+                    onCheckedChange={() => handleToggleCheck(item.id)}
+                  />
+                  <div className="flex-1">
+                    {editingItem?.id === item.id ? (
+                      <div className="flex gap-2">
+                        <Input
+                          value={editingItem.quantity}
+                          type="number"
+                          onChange={(e) => setEditingItem({ ...editingItem, quantity: parseFloat(e.target.value) || 0 })}
+                          className="h-8 w-20"
+                        />
+                        <Input
+                          value={editingItem.name}
+                          onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
+                          className="h-8"
+                        />
+                        <Button size="sm" onClick={handleUpdateItem}>Guardar</Button>
+                      </div>
+                    ) : (
+                      <Label
+                        htmlFor={item.id}
+                        className={`text-base ${item.checked ? 'line-through text-muted-foreground' : ''}`}
+                      >
+                        <span className="font-bold">{item.quantity > 0 ? item.quantity.toFixed(0) : ''}{item.unit}</span> - {item.name}
+                      </Label>
+                    )}
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditClick(item)}>
+                    <Pencil className="h-4 w-4" />
                   </Button>
-                  <Button onClick={onToggle}>Cerrar</Button>
-              </SheetFooter>
-              <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute top-2 right-2 h-7 w-7"
-                  onClick={onToggle}
-              >
-                  <X className="h-5 w-5" />
-              </Button>
-            </DialogContent>
-        </Dialog>
-        <div className="fixed bottom-8 right-8 z-40">
-             <Button
-                onClick={onToggle}
-                className="h-16 w-16 rounded-full shadow-lg bg-accent text-accent-foreground hover:bg-accent/90"
-                size="icon"
-                >
-                <ShoppingCart className="h-8 w-8" />
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(item.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+              <ShoppingCart className="h-12 w-12 mb-4" />
+              <p className="font-semibold">Tu lista está vacía.</p>
+              <p className="text-sm">Los ingredientes del planificador aparecerán aquí.</p>
+            </div>
+          )}
+        </ScrollArea>
+        <SheetFooter className="mt-auto pt-4 border-t border-border">
+            <Button className="w-full" variant="secondary" onClick={() => setIsQrOpen(true)} disabled={shoppingList.length === 0}>
+                <Smartphone className="mr-2 h-4 w-4" />
+                Generar QR para el Móvil
             </Button>
-        </div>
+        </SheetFooter>
       </div>
-      
-      <div className="lg:hidden">
-        <Sheet open={isOpen} onOpenChange={onToggle}>
-            <SheetContent side="right" className="flex flex-col">
-              <ShoppingListContent shoppingList={shoppingList} setShoppingList={setShoppingList} />
-              <SheetFooter className="mt-auto pt-4 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <Button variant="secondary" onClick={() => setIsQrOpen(true)} disabled={shoppingList.length === 0}>
-                    <Smartphone className="mr-2 h-4 w-4" />
-                    Generar QR
-                </Button>
-                <Button onClick={onToggle}>Cerrar</Button>
-            </SheetFooter>
-            </SheetContent>
-        </Sheet>
-      </div>
-
-
       <QRCodeDialog
         isOpen={isQrOpen}
         onClose={() => setIsQrOpen(false)}
@@ -282,6 +205,59 @@ export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListDi
       />
     </>
   );
-}
+};
 
-    
+
+export function ShoppingListSheet({ weekPlan, isOpen, onOpenChange }: ShoppingListProps) {
+  
+  return (
+    <>
+      {/* Desktop uses a Dialog-like pop-up */}
+      <div className="hidden lg:block">
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent 
+            className={cn(
+                'fixed bottom-24 right-8 w-96 rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right flex flex-col h-[70vh] bg-glass border-0',
+                isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
+            )}
+            hideCloseButton
+            >
+              <SheetHeader>
+                <SheetTitle className="flex items-center gap-2">
+                  <ShoppingCart className="h-6 w-6" />
+                  Lista de la Compra
+                </SheetTitle>
+              </SheetHeader>
+              <ShoppingListContent weekPlan={weekPlan} className="-mt-4" />
+              <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-2 right-2 h-7 w-7"
+                  onClick={() => onOpenChange(false)}
+              >
+                  <X className="h-5 w-5" />
+              </Button>
+            </DialogContent>
+        </Dialog>
+      </div>
+      
+      {/* Mobile uses a Sheet */}
+      <div className="lg:hidden">
+        <Sheet open={isOpen} onOpenChange={onOpenChange}>
+            <SheetContent side="right" className="flex flex-col p-4">
+              <SheetHeader>
+                <SheetTitle className="flex items-center gap-2">
+                  <ShoppingCart className="h-6 w-6" />
+                  Lista de la Compra
+                </SheetTitle>
+                <SheetDescription>
+                  Ingredientes de tu plan semanal y artículos manuales.
+                </SheetDescription>
+              </SheetHeader>
+              <ShoppingListContent weekPlan={weekPlan} />
+            </SheetContent>
+        </Sheet>
+      </div>
+    </>
+  );
+}

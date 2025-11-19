@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { StickyNote } from '@/components/nutri-planner/sticky-note';
 import { FloatingGoals } from '@/components/nutri-planner/floating-goals';
 import { ShoppingListSheet } from '@/components/nutri-planner/shopping-list';
+import { FloatingMenu } from '@/components/nutri-planner/floating-menu';
 import { useUser } from '@/firebase/auth/use-user';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useDoc } from '@/firebase/firestore/use-doc';
@@ -69,7 +70,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
   
   // Dialog and UI state
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
-  const [activeFloatingMenu, setActiveFloatingMenu] = useState<string | null>(null);
+  const [activePanel, setActivePanel] = useState<'goals' | 'shopping-list' | 'sticky-note' | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isGuestPromptOpen, setIsGuestPromptOpen] = useState(false);
   const [activeGoal, setActiveGoal] = useState<GoalType>('maintenance');
@@ -114,11 +115,6 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     }
     return false; // Indicates that the user is logged in
   };
-  
-  const handleToggleFloatingMenu = (menu: string) => {
-    setActiveFloatingMenu(prev => (prev === menu ? null : menu));
-  };
-
 
   const handleDrop = useCallback((day: string, mealId: string, droppedRecipe: Recipe) => {
     const updateLogic = (plan: WeekPlan) => plan.map(dayPlan =>
@@ -383,6 +379,18 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     }
   }, [user, userProfileRef, isGuestMode]);
 
+  const handlePanelOpen = (panel: 'goals' | 'shopping-list' | 'sticky-note') => {
+    setActivePanel(panel);
+  }
+  
+  const handlePanelChange = (panel: 'goals' | 'shopping-list' | 'sticky-note', isOpen: boolean) => {
+    if (!isOpen) {
+      setActivePanel(null);
+    } else {
+      setActivePanel(panel);
+    }
+  }
+
   const isLoading = !isGuestMode && (userLoading || userRecipesLoading || nutriplannerRecipesLoading || weekPlanLoading || profileLoading);
 
   if (isLoading) {
@@ -435,23 +443,25 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
         onCopy={handleCopyRecipe}
       />
       
+      <FloatingMenu onPanelOpen={handlePanelOpen} />
+
       <ShoppingListSheet
         weekPlan={currentWeekPlan}
-        isOpen={activeFloatingMenu === 'shopping-list'}
-        onToggle={() => handleToggleFloatingMenu('shopping-list')}
+        isOpen={activePanel === 'shopping-list'}
+        onOpenChange={(isOpen) => handlePanelChange('shopping-list', isOpen)}
       />
       <FloatingGoals
         calorieResult={currentCalorieResult}
         onCalorieResultSave={handleCalorieResultSave}
-        isOpen={activeFloatingMenu === 'goals'}
-        onToggle={() => handleToggleFloatingMenu('goals')}
+        isOpen={activePanel === 'goals'}
+        onOpenChange={(isOpen) => handlePanelChange('goals', isOpen)}
         onGoalSelect={setActiveGoal}
       />
       <StickyNote
         initialContent={currentStickyNote}
         onSave={handleNoteSave}
-        isOpen={activeFloatingMenu === 'sticky-note'}
-        onToggle={() => handleToggleFloatingMenu('sticky-note')}
+        isOpen={activePanel === 'sticky-note'}
+        onOpenChange={(isOpen) => handlePanelChange('sticky-note', isOpen)}
       />
 
        <AlertDialog open={isGuestPromptOpen} onOpenChange={setIsGuestPromptOpen}>
