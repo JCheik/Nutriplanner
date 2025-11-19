@@ -1,4 +1,4 @@
-import type { Recipe, WeekPlan } from './types';
+import type { Recipe, WeekPlan, Meal, DayPlan } from './types';
 import { PlaceHolderImages } from './placeholder-images';
 
 const findImage = (hint: string) => PlaceHolderImages.find(img => img.imageHint.includes(hint));
@@ -39,12 +39,34 @@ export const INITIAL_RECIPES: Recipe[] = [
   },
 ];
 
+const defaultMeals: Meal[] = [
+  { id: 'm-breakfast', title: 'Desayuno', recipes: [] },
+  { id: 'm-lunch', title: 'Almuerzo', recipes: [] },
+  { id: 'm-snack', title: 'Merienda', recipes: [] },
+  { id: 'm-dinner', title: 'Cena', recipes: [] },
+];
+
+const createDayPlan = (day: DayPlan['day'], meals: Meal[]): DayPlan => ({
+    day,
+    meals: meals.map(meal => ({ ...meal, id: `${meal.id}-${day.toLowerCase()}`, recipes: [...meal.recipes] })),
+});
+
 export const INITIAL_WEEK_PLAN: WeekPlan = [
-  { day: 'Lunes', meals: [ { id: 'm1', title: 'Desayuno', recipes: [] }, { id: 'm2', title: 'Almuerzo', recipes: [INITIAL_RECIPES[0]] }, { id: 'm22', title: 'Merienda', recipes: [] }, { id: 'm3', title: 'Cena', recipes: [] } ] },
-  { day: 'Martes', meals: [ { id: 'm4', title: 'Desayuno', recipes: [] }, { id: 'm5', title: 'Almuerzo', recipes: [] }, { id: 'm23', title: 'Merienda', recipes: [] }, { id: 'm6', title: 'Cena', recipes: [INITIAL_RECIPES[1]] } ] },
-  { day: 'Miércoles', meals: [ { id: 'm7', title: 'Desayuno', recipes: [] }, { id: 'm8', title: 'Almuerzo', recipes: [] }, { id: 'm24', title: 'Merienda', recipes: [] }, { id: 'm9', title: 'Cena', recipes: [] } ] },
-  { day: 'Jueves', meals: [ { id: 'm10', title: 'Desayuno', recipes: [] }, { id: 'm11', title: 'Almuerzo', recipes: [] }, { id: 'm25', title: 'Merienda', recipes: [] }, { id: 'm12', title: 'Cena', recipes: [] } ] },
-  { day: 'Viernes', meals: [ { id: 'm13', title: 'Desayuno', recipes: [] }, { id: 'm14', title: 'Almuerzo', recipes: [] }, { id: 'm26', title: 'Merienda', recipes: [] }, { id: 'm15', title: 'Cena', recipes: [] } ] },
-  { day: 'Sábado', meals: [ { id: 'm16', title: 'Desayuno', recipes: [] }, { id: 'm17', title: 'Almuerzo', recipes: [] }, { id: 'm27', title: 'Merienda', recipes: [] }, { id: 'm18', title: 'Cena', recipes: [] } ] },
-  { day: 'Domingo', meals: [ { id: 'm19', title: 'Desayuno', recipes: [] }, { id: 'm20', title: 'Almuerzo', recipes: [] }, { id: 'm28', title: 'Merienda', recipes: [] }, { id: 'm21', title: 'Cena', recipes: [] } ] },
+  createDayPlan('Lunes', [
+    { ...defaultMeals[0] },
+    { ...defaultMeals[1], recipes: [INITIAL_RECIPES[0]] },
+    { ...defaultMeals[2] },
+    { ...defaultMeals[3] },
+  ]),
+  createDayPlan('Martes', [
+    { ...defaultMeals[0] },
+    { ...defaultMeals[1] },
+    { ...defaultMeals[2] },
+    { ...defaultMeals[3], recipes: [INITIAL_RECIPES[1]] },
+  ]),
+  createDayPlan('Miércoles', defaultMeals),
+  createDayPlan('Jueves', defaultMeals),
+  createDayPlan('Viernes', defaultMeals),
+  createDayPlan('Sábado', defaultMeals),
+  createDayPlan('Domingo', defaultMeals),
 ];

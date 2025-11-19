@@ -59,7 +59,7 @@ const MacroDisplay = ({ label, value, unit, icon: Icon }: { label: string, value
 function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, isSaving, onSave, onCancel, onDelete }: { recipe?: Recipe, isInitiallyGlobal?: boolean, isSaving: boolean, onSave: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void, onCancel: () => void, onDelete: (id: string, isGlobal: boolean) => void }) {
   const isEditing = !!initialRecipe;
   const { user, claims } = useUser();
-  const isAdmin = claims?.admin === true || user?.email === 'jonicheik@gmail.com';
+  const isAdmin = claims?.admin === true;
   const firestore = useFirestore();
 
   const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);
@@ -351,7 +351,7 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, isSaving
 
 function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe }: { recipe: Recipe; onEdit: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void; onDelete: (id: string, isGlobal: boolean) => void; onCopy: (recipe: Recipe) => void; isNutriPlannerRecipe: boolean }) {
   const { user, claims } = useUser();
-  const isAdmin = claims?.admin === true || user?.email === 'jonicheik@gmail.com';
+  const isAdmin = claims?.admin === true;
 
   return (
      <>
@@ -429,7 +429,7 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe }: 
           {isAdmin && (
             <Button variant="outline" onClick={() => onEdit(recipe, isNutriPlannerRecipe)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
           )}
-          {!isNutriPlannerRecipe && !isAdmin && (
+          {!isNutriPlannerRecipe && (
             <Button variant="outline" onClick={() => onEdit(recipe, false)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
           )}
         </div>
@@ -474,5 +474,3 @@ export function RecipeDialog({ dialogState, isSaving, onClose, onSave, onDelete,
     </Dialog>
   );
 }
-
-    

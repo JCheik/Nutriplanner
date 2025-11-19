@@ -53,21 +53,24 @@ export default function Dashboard() {
   const currentNutriplannerRecipes = useMemo(() => nutriplannerRecipes || [], [nutriplannerRecipes]);
   
   const currentWeekPlan = useMemo(() => {
-    if (!weekPlanData || weekPlanData.length === 0) {
-       return INITIAL_WEEK_PLAN;
-    }
+    if (!weekPlanData) return INITIAL_WEEK_PLAN;
     
     const planMap = new Map(weekPlanData.map(day => [day.day, day]));
 
-    const fullWeek = INITIAL_WEEK_PLAN.map(defaultDay => {
-      const savedDay = planMap.get(defaultDay.day);
-      if (savedDay) {
-        return { ...defaultDay, ...savedDay, meals: Array.isArray(savedDay.meals) ? savedDay.meals : defaultDay.meals };
-      }
-      return defaultDay;
-    });
+    // If the saved data is empty or incomplete, use the initial plan as a fallback for missing days.
+    if (planMap.size === 0) return INITIAL_WEEK_PLAN;
 
-    return fullWeek.sort((a, b) => DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day));
+    // Build the full week, ensuring all days are present and in order.
+    return DAY_ORDER.map(dayName => {
+        const savedDay = planMap.get(dayName as DayPlan['day']);
+        if (savedDay) {
+          // Ensure meals array is always valid
+          const meals = Array.isArray(savedDay.meals) ? savedDay.meals : [];
+          return { ...savedDay, day: dayName as DayPlan['day'], meals };
+        }
+        // Fallback to a default structure for a day if it's missing from the database
+        return INITIAL_WEEK_PLAN.find(d => d.day === dayName)!;
+    });
 
   }, [weekPlanData]);
 

@@ -90,7 +90,7 @@ export default function LandingPage() {
               meals: dayPlan.meals.map(meal => 
                 meal.id === mealId
                   ? { ...meal, recipes: meal.recipes.filter((r, i) => `${r.id}-${i}` !== `${recipeId}-${i}`) }
-                  : meal
+                                    : meal
               )
             }
           : dayPlan
@@ -174,9 +174,10 @@ export default function LandingPage() {
       </main>
       <RecipeDialog
         dialogState={dialogState}
+        isSaving={false}
         onClose={handleDialogClose}
-        onSave={handleSaveRecipe}
-        onDelete={handleDeleteRecipe}
+        onSave={() => setIsLoginDialogOpen(true)}
+        onDelete={() => setIsLoginDialogOpen(true)}
         onEdit={(recipe) => handleRecipeAction('edit', recipe)}
         onCopy={handleCopyRecipe}
       />

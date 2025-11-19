@@ -22,7 +22,7 @@ export function PageHeader() {
   const auth = useAuth();
   const firestore = useFirestore();
   const firebaseApp = useFirebaseApp();
-  const isAdmin = claims?.admin === true || user?.email === 'jonicheik@gmail.com';
+  const isAdmin = claims?.admin === true;
   
   const handleSignIn = async () => {
     if (auth && firestore) {
