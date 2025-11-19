@@ -31,6 +31,7 @@ interface MealSlotProps {
   onRecipeClick: (recipe: Recipe) => void;
   onRemoveRecipeFromMeal: (day: string, mealId: string, recipeId: string) => void;
   onUpdateMealTitle: (day: string, mealId: string, newTitle: string) => void;
+  onAddMeal: (day: string) => void;
   onDeleteMeal: (day: string, mealId: string) => void;
 }
 
@@ -50,8 +51,8 @@ const getMacroColorClass = (current: number, target: number | undefined): string
     return 'text-foreground'; // Default color
 };
 
-const DailyTotalsRow = ({ totals, goal }: { totals: Macros, goal: GoalMacros | null }) => (
-  <div className="mt-auto pt-2 border-t">
+const DailyTotalsRow = ({ totals, goal, className }: { totals: Macros, goal: GoalMacros | null, className?: string }) => (
+  <div className={cn("mt-auto pt-2 border-t", className)}>
     <div className="flex flex-col items-center">
       <div className="flex items-center gap-1">
         <Flame className="h-5 w-5 text-primary" />
@@ -247,6 +248,7 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                         onRecipeClick={onRecipeClick} 
                         onRemoveRecipeFromMeal={onRemoveRecipeFromMeal}
                         onUpdateMealTitle={onUpdateMealTitle}
+                        onAddMeal={onAddMeal}
                         onDeleteMeal={onDeleteMeal}
                     />
                 ))}
@@ -255,63 +257,70 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                         <Plus className="h-4 w-4 mr-2"/> Añadir Comida
                     </Button>
                 )}
-                 <div className="flex flex-col gap-3 p-3 rounded-xl bg-background/80 border mt-4 sm:col-span-2">
-                    <DailyTotalsRow totals={dailyTotals.find(d => d.day === weekPlan[activeDayIndex].day)!.totals} goal={activeGoal} />
-                </div>
+                 <DailyTotalsRow 
+                    totals={dailyTotals.find(d => d.day === weekPlan[activeDayIndex].day)!.totals} 
+                    goal={activeGoal}
+                    className="flex flex-col gap-3 p-3 rounded-xl bg-background/80 border mt-4 sm:col-span-2"
+                  />
             </div>
         </div>
 
         {/* Desktop View - Full Week */}
-        <div className="hidden lg:block">
-            <div className="grid grid-cols-7 gap-x-4">
-                {/* Day Titles */}
-                {weekPlan.map(({ day }) => (
-                    <h3 key={`${day}-header`} className="font-semibold text-center text-lg text-card-foreground mb-4">{day}</h3>
-                ))}
+        <div className="hidden lg:grid grid-cols-7 gap-x-4">
+            {/* Day Titles */}
+            {weekPlan.map(({ day }) => (
+                <h3 key={`${day}-header`} className="font-semibold text-center text-lg text-card-foreground mb-4">{day}</h3>
+            ))}
 
-                {/* Meal Rows */}
-                {mealTypes.map(mealTitle => (
-                    <div key={mealTitle} className="grid grid-cols-subgrid col-span-7 auto-rows-fr">
-                        {weekPlan.map(dayPlan => {
-                            const meal = dayPlan.meals.find(m => m.title === mealTitle);
-                            return meal ? (
-                                <MealSlot 
-                                    key={meal.id}
-                                    day={dayPlan.day} 
-                                    meal={meal}
-                                    isEditing={isEditing}
-                                    onDrop={onDrop} 
-                                    onClearMeal={onClearMeal} 
-                                    onRecipeClick={onRecipeClick} 
-                                    onRemoveRecipeFromMeal={onRemoveRecipeFromMeal}
-                                    onUpdateMealTitle={onUpdateMealTitle}
-                                    onDeleteMeal={onDeleteMeal}
-                                />
-                            ) : (
-                                <div key={`${dayPlan.day}-${mealTitle}`} className="p-2 border rounded-xl bg-background/80 border-transparent min-h-[10rem]">
-                                    {isEditing && (
-                                        <div className="h-full flex items-center justify-center">
-                                            <Button variant="outline" size="sm" className="w-full" onClick={() => onAddMeal(dayPlan.day)}>
-                                                <Plus className="h-4 w-4 mr-2"/> Añadir Comida
-                                            </Button>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                ))}
-                
-                {/* Daily Totals */}
-                {weekPlan.map(({ day }) => {
-                    const dayTotalsData = dailyTotals.find(d => d.day === day)?.totals;
-                    return (
-                    <div key={`${day}-footer`} className="flex flex-col gap-3 p-3 rounded-xl bg-background/80 border mt-4">
-                        {dayTotalsData && <DailyTotalsRow totals={dayTotalsData} goal={activeGoal} />}
-                    </div>
-                    )
-                })}
-            </div>
+            {/* Meal Rows */}
+            {mealTypes.map(mealTitle => (
+                <React.Fragment key={mealTitle}>
+                    {weekPlan.map(dayPlan => {
+                        const meal = dayPlan.meals.find(m => m.title === mealTitle);
+                        return meal ? (
+                            <MealSlot 
+                                key={meal.id}
+                                day={dayPlan.day} 
+                                meal={meal}
+                                isEditing={isEditing}
+                                onDrop={onDrop} 
+                                onClearMeal={onClearMeal} 
+                                onRecipeClick={onRecipeClick} 
+                                onRemoveRecipeFromMeal={onRemoveRecipeFromMeal}
+                                onUpdateMealTitle={onUpdateMealTitle}
+                                onAddMeal={onAddMeal}
+                                onDeleteMeal={onDeleteMeal}
+                            />
+                        ) : (
+                            <div key={`${dayPlan.day}-${mealTitle}`} className="p-2 border rounded-xl bg-background/80 border-transparent min-h-[10rem]">
+                                {isEditing && (
+                                    <div className="h-full flex items-center justify-center">
+                                        <Button variant="outline" size="sm" className="w-full" onClick={() => onAddMeal(dayPlan.day)}>
+                                            <Plus className="h-4 w-4 mr-2"/> Añadir Comida
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </React.Fragment>
+            ))}
+            
+            {/* Daily Totals */}
+            {weekPlan.map(({ day }) => {
+                const dayTotalsData = dailyTotals.find(d => d.day === day)?.totals;
+                return (
+                  <React.Fragment key={`${day}-footer`}>
+                      {dayTotalsData && 
+                        <DailyTotalsRow 
+                          totals={dayTotalsData} 
+                          goal={activeGoal} 
+                          className="flex flex-col gap-3 p-3 rounded-xl bg-background/80 border mt-4" 
+                        />
+                      }
+                  </React.Fragment>
+                )
+            })}
         </div>
       </CardContent>
     </Card>
