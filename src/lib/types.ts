@@ -67,6 +67,8 @@ export interface GoalMacros extends Macros {
   // Protein, Carbs, Fat in grams are already in Macros
 }
 
+export type GoalType = 'loss' | 'maintenance' | 'gain';
+
 export interface CalculationResult {
   bmr: number;
   maintenance: GoalMacros;

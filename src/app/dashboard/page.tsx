@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
-import type { DayPlan, Recipe, Meal, WeekPlan, DialogState, UserProfile, CalculationResult } from '@/lib/types';
+import type { DayPlan, Recipe, Meal, WeekPlan, DialogState, UserProfile, CalculationResult, GoalType } from '@/lib/types';
 import { INITIAL_WEEK_PLAN, INITIAL_RECIPES } from '@/lib/data';
 import { PageHeader } from '@/components/layout/page-header';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
@@ -72,6 +72,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
   const [activeFloatingMenu, setActiveFloatingMenu] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isGuestPromptOpen, setIsGuestPromptOpen] = useState(false);
+  const [activeGoal, setActiveGoal] = useState<GoalType>('maintenance');
 
 
   // Memoized data sources based on auth state
@@ -404,6 +405,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
             <MealPlanner
               weekPlan={currentWeekPlan}
               dailyTotals={dailyTotals}
+              activeGoal={currentCalorieResult ? currentCalorieResult[activeGoal] : null}
               onDrop={handleDrop}
               onClearMeal={handleClearMeal}
               onRecipeClick={(recipe) => handleRecipeAction('view', recipe)}
@@ -443,6 +445,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
         onCalorieResultSave={handleCalorieResultSave}
         isOpen={activeFloatingMenu === 'goals'}
         onToggle={() => handleToggleFloatingMenu('goals')}
+        onGoalSelect={setActiveGoal}
       />
       <StickyNote
         initialContent={currentStickyNote}

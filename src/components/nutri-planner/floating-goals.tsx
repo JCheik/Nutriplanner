@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Target, X, TrendingDown, Weight, TrendingUp, EggFried, Wheat, Droplets, Calculator } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { CalculationResult, GoalMacros } from "@/lib/types";
+import type { CalculationResult, GoalMacros, GoalType } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalculatorDialog } from './calculator-dialog';
@@ -45,7 +45,7 @@ const GoalCard = ({ title, icon: Icon, goal, isActive = false }: { title: string
     )
 }
 
-const TargetGoalsDisplay = ({ result, onCalculate }: { result: CalculationResult | null, onCalculate: (result: CalculationResult) => void }) => {
+const TargetGoalsDisplay = ({ result, onCalculate, onGoalSelect }: { result: CalculationResult | null, onCalculate: (result: CalculationResult) => void, onGoalSelect: (goal: GoalType) => void }) => {
     const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
 
     const handleOpenCalculator = () => {
@@ -86,7 +86,7 @@ const TargetGoalsDisplay = ({ result, onCalculate }: { result: CalculationResult
               <Button variant="outline" size="sm" onClick={handleOpenCalculator}>Editar</Button>
             </CardHeader>
             <CardContent className="px-0">
-                <Tabs defaultValue="maintenance" className="w-full">
+                <Tabs defaultValue="maintenance" className="w-full" onValueChange={(value) => onGoalSelect(value as GoalType)}>
                     <TabsList className="grid w-full grid-cols-3">
                         <TabsTrigger value="loss">Perder</TabsTrigger>
                         <TabsTrigger value="maintenance">Mantener</TabsTrigger>
@@ -113,9 +113,10 @@ interface FloatingGoalsProps {
   onToggle: () => void;
   calorieResult: CalculationResult | null;
   onCalorieResultSave: (result: CalculationResult) => void;
+  onGoalSelect: (goal: GoalType) => void;
 }
 
-export function FloatingGoals({ isOpen, onToggle, calorieResult, onCalorieResultSave }: FloatingGoalsProps) {
+export function FloatingGoals({ isOpen, onToggle, calorieResult, onCalorieResultSave, onGoalSelect }: FloatingGoalsProps) {
   return (
     <>
       <div className="fixed bottom-28 right-8 z-40">
@@ -141,10 +142,8 @@ export function FloatingGoals({ isOpen, onToggle, calorieResult, onCalorieResult
         >
             <X className="h-5 w-5" />
         </Button>
-        <TargetGoalsDisplay result={calorieResult} onCalculate={onCalorieResultSave} />
+        <TargetGoalsDisplay result={calorieResult} onCalculate={onCalorieResultSave} onGoalSelect={onGoalSelect} />
       </div>
     </>
   );
 }
-
-    

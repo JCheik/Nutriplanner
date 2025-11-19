@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type DragEvent, type KeyboardEvent } from 'react';
-import type { WeekPlan, Recipe, DailyTotal, Macros, Meal } from '@/lib/types';
+import type { WeekPlan, Recipe, DailyTotal, Macros, GoalMacros } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RecipeCard } from './recipe-card';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { Input } from '../ui/input';
 interface MealPlannerProps {
   weekPlan: WeekPlan;
   dailyTotals: DailyTotal[];
+  activeGoal: GoalMacros | null;
   onDrop: (day: string, mealId: string, recipe: Recipe) => void;
   onClearMeal: (day: string, mealId: string) => void;
   onRecipeClick: (recipe: Recipe) => void;
@@ -23,7 +24,7 @@ interface MealPlannerProps {
 
 interface MealSlotProps {
   day: string;
-  meal: Meal;
+  meal: any;
   isEditing: boolean;
   onDrop: (day: string, mealId: string, recipe: Recipe) => void;
   onClearMeal: (day: string, mealId: string) => void;
@@ -33,26 +34,44 @@ interface MealSlotProps {
   onDeleteMeal: (day: string, mealId: string) => void;
 }
 
-const DailyTotalsRow = ({ totals }: { totals: Macros }) => (
+const getMacroColorClass = (current: number, target: number | undefined): string => {
+    if (target === undefined || target === 0) return 'text-foreground';
+    
+    const ratio = current / target;
+    if (ratio >= 0.9 && ratio <= 1.1) {
+        return 'text-green-600 dark:text-green-500'; // Green for "good" range
+    }
+    if ((ratio >= 0.75 && ratio < 0.9) || (ratio > 1.1 && ratio <= 1.25)) {
+        return 'text-orange-500 dark:text-orange-400'; // Orange for "close" range
+    }
+    if (ratio < 0.75 || ratio > 1.25) {
+        return 'text-destructive'; // Red for "far" range
+    }
+    return 'text-foreground'; // Default color
+};
+
+const DailyTotalsRow = ({ totals, goal }: { totals: Macros, goal: GoalMacros | null }) => (
   <div className="mt-2 pt-2 border-t">
     <div className="flex flex-col items-center">
       <div className="flex items-center gap-1">
         <Flame className="h-5 w-5 text-primary" />
-        <span className="font-bold text-lg">{Math.round(totals.calories)}</span>
+        <span className={cn("font-bold text-lg", getMacroColorClass(totals.calories, goal?.calories))}>
+          {Math.round(totals.calories)}
+        </span>
         <span className="text-muted-foreground text-sm">kcal</span>
       </div>
     </div>
     <div className="grid grid-cols-3 gap-1 text-center text-xs mt-1">
       <div className="flex flex-col items-center p-1 rounded-md bg-secondary">
-        <span className="font-bold">{Math.round(totals.protein)}g</span>
+        <span className={cn("font-bold", getMacroColorClass(totals.protein, goal?.protein))}>{Math.round(totals.protein)}g</span>
         <span className="text-muted-foreground text-[10px]">Prot.</span>
       </div>
       <div className="flex flex-col items-center p-1 rounded-md bg-secondary">
-        <span className="font-bold">{Math.round(totals.carbs)}g</span>
+        <span className={cn("font-bold", getMacroColorClass(totals.carbs, goal?.carbs))}>{Math.round(totals.carbs)}g</span>
         <span className="text-muted-foreground text-[10px]">Carbs</span>
       </div>
       <div className="flex flex-col items-center p-1 rounded-md bg-secondary">
-        <span className="font-bold">{Math.round(totals.fat)}g</span>
+        <span className={cn("font-bold", getMacroColorClass(totals.fat, goal?.fat))}>{Math.round(totals.fat)}g</span>
         <span className="text-muted-foreground text-[10px]">Grasa</span>
       </div>
     </div>
@@ -135,7 +154,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
       )}>
         {hasRecipes ? (
            <div className="w-full h-full flex flex-col gap-1">
-                {meal.recipes.map((recipe, index) => (
+                {meal.recipes.map((recipe: Recipe, index: number) => (
                     <div key={`${recipe.id}-${index}`} className="w-full relative group/item flex-1">
                       <div 
                           className="h-full w-full"
@@ -165,7 +184,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
   );
 }
 
-export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onAddMeal, onDeleteMeal }: MealPlannerProps) {
+export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onAddMeal, onDeleteMeal }: MealPlannerProps) {
   const [isEditing, setIsEditing] = useState(false);
   
   return (
@@ -211,7 +230,7 @@ export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onReci
                         </Button>
                     )}
                   </div>
-                  {dayTotals && <DailyTotalsRow totals={dayTotals} />}
+                  {dayTotals && <DailyTotalsRow totals={dayTotals} goal={activeGoal} />}
               </div>
               );
           })}
