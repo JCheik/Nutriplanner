@@ -53,18 +53,23 @@ export default function Dashboard() {
   const currentNutriplannerRecipes = useMemo(() => nutriplannerRecipes || [], [nutriplannerRecipes]);
   
   const currentWeekPlan = useMemo(() => {
-    if (!weekPlanData) return INITIAL_WEEK_PLAN;
+    // Critical fix: If weekPlanData is null (during loading) or empty, return the initial plan immediately.
+    if (!weekPlanData) {
+      return INITIAL_WEEK_PLAN;
+    }
     
     const planMap = new Map(weekPlanData.map(day => [day.day, day]));
 
-    // If the saved data is empty or incomplete, use the initial plan as a fallback for missing days.
-    if (planMap.size === 0) return INITIAL_WEEK_PLAN;
+    // If the saved data from the DB is empty, fall back to the initial plan.
+    if (planMap.size === 0) {
+      return INITIAL_WEEK_PLAN;
+    }
 
     // Build the full week, ensuring all days are present and in order.
     return DAY_ORDER.map(dayName => {
         const savedDay = planMap.get(dayName as DayPlan['day']);
         if (savedDay) {
-          // Ensure meals array is always valid
+          // Ensure meals array is always valid to prevent downstream errors.
           const meals = Array.isArray(savedDay.meals) ? savedDay.meals : [];
           return { ...savedDay, day: dayName as DayPlan['day'], meals };
         }
