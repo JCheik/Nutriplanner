@@ -89,7 +89,7 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, isNutriPlanner = fals
               Ordenar
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="bg-glass">
             <DropdownMenuRadioGroup value={sortCriteria} onValueChange={(value) => setSortCriteria(value as SortCriteria)}>
               {sortOptions.map((option) => (
                 <DropdownMenuRadioItem key={option.value} value={option.value} className="cursor-pointer">
@@ -157,7 +157,7 @@ export function RecipeLibrary({
   const [isIngredientsOpen, setIsIngredientsOpen] = useState(false);
   return (
     <>
-      <Card className="flex flex-col h-[500px] bg-card">
+      <Card className="flex flex-col h-[500px] bg-glass">
         <CardHeader>
           <div className="flex justify-between items-start gap-4">
             <div>
