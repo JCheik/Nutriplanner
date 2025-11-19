@@ -39,19 +39,19 @@ export const INITIAL_RECIPES: Recipe[] = [
   },
 ];
 
-const defaultMeals: Meal[] = [
-  { id: 'm-breakfast', title: 'Desayuno', recipes: [] },
-  { id: 'm-lunch', title: 'Almuerzo', recipes: [] },
-  { id: 'm-snack', title: 'Merienda', recipes: [] },
-  { id: 'm-dinner', title: 'Cena', recipes: [] },
+const defaultMeals: Omit<Meal, 'id'>[] = [
+  { title: 'Desayuno', recipes: [] },
+  { title: 'Almuerzo', recipes: [] },
+  { title: 'Merienda', recipes: [] },
+  { title: 'Cena', recipes: [] },
 ];
 
 const createDayPlan = (day: DayPlan['day']): DayPlan => ({
     day,
-    meals: defaultMeals.map(meal => ({ 
+    meals: defaultMeals.map((meal, index) => ({ 
         ...meal, 
-        id: `${meal.id}-${day.toLowerCase()}`, 
-        recipes: [...meal.recipes] 
+        id: `m-${index}-${day.toLowerCase()}`, // Ensure unique ID for each meal slot
+        recipes: [] 
     })),
 });
 
