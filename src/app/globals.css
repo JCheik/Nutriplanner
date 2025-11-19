@@ -67,7 +67,7 @@
     @apply bg-background text-foreground;
   }
   body.kitchen-bg {
-    background-image: url('/kitchen-bg.jpg');
+    background-image: url('/kitchen-bg.png');
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
