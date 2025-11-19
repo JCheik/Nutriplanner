@@ -8,6 +8,14 @@ import type { CalculationResult, GoalMacros, GoalType } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalculatorDialog } from './calculator-dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
+import { Dialog } from '@/components/ui/dialog';
 
 const GoalCard = ({ title, icon: Icon, goal, isActive = false }: { title: string, icon: React.ElementType, goal: GoalMacros, isActive?: boolean }) => {
     return (
@@ -119,7 +127,7 @@ interface FloatingGoalsProps {
 export function FloatingGoals({ isOpen, onToggle, calorieResult, onCalorieResultSave, onGoalSelect }: FloatingGoalsProps) {
   return (
     <>
-      <div className="fixed bottom-28 right-8 z-40">
+      <div className="fixed bottom-28 right-8 z-40 lg:hidden">
         <Button
           onClick={onToggle}
           className="h-16 w-16 rounded-full shadow-lg"
@@ -128,21 +136,43 @@ export function FloatingGoals({ isOpen, onToggle, calorieResult, onCalorieResult
           <Target className="h-8 w-8" />
         </Button>
       </div>
-      <div
-        className={cn(
-          'fixed bottom-28 right-28 w-96 bg-card rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right',
-          isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'
-        )}
-      >
-        <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-2 right-2 h-7 w-7"
+
+      <div className="hidden lg:block">
+        <div className="fixed bottom-28 right-8 z-40">
+            <Button
             onClick={onToggle}
-        >
-            <X className="h-5 w-5" />
-        </Button>
-        <TargetGoalsDisplay result={calorieResult} onCalculate={onCalorieResultSave} onGoalSelect={onGoalSelect} />
+            className="h-16 w-16 rounded-full shadow-lg"
+            size="icon"
+            >
+            <Target className="h-8 w-8" />
+            </Button>
+        </div>
+        <Dialog open={isOpen} onOpenChange={onToggle}>
+            <div
+                className={cn(
+                'fixed bottom-28 right-28 w-96 bg-card rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right',
+                isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'
+                )}
+            >
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-2 right-2 h-7 w-7"
+                    onClick={onToggle}
+                >
+                    <X className="h-5 w-5" />
+                </Button>
+                <TargetGoalsDisplay result={calorieResult} onCalculate={onCalorieResultSave} onGoalSelect={onGoalSelect} />
+            </div>
+        </Dialog>
+      </div>
+
+      <div className="lg:hidden">
+        <Sheet open={isOpen} onOpenChange={onToggle}>
+            <SheetContent side="bottom" className="h-[80vh] flex flex-col">
+                <TargetGoalsDisplay result={calorieResult} onCalculate={onCalorieResultSave} onGoalSelect={onGoalSelect} />
+            </SheetContent>
+        </Sheet>
       </div>
     </>
   );

@@ -72,7 +72,7 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, isNutriPlanner = fals
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex gap-2 p-1">
+      <div className="flex flex-col sm:flex-row gap-2 p-1">
         <div className="relative flex-grow">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
@@ -84,7 +84,7 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, isNutriPlanner = fals
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="shrink-0">
+            <Button variant="outline" className="shrink-0 w-full sm:w-auto">
               <ArrowUpDown className="mr-2 h-4 w-4" />
               Ordenar
             </Button>
@@ -101,7 +101,7 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, isNutriPlanner = fals
         </DropdownMenu>
       </div>
       <ScrollArea className="flex-1 mt-2">
-        <div className={isNutriPlanner ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 pr-4" : "flex flex-col gap-3 pr-4"}>
+        <div className={isNutriPlanner ? "grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3 pr-4" : "flex flex-col gap-3 pr-4"}>
           {filteredAndSortedRecipes.length > 0 ? (
             filteredAndSortedRecipes.map(recipe => (
               <div key={recipe.id} className="group flex items-center gap-2">

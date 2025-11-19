@@ -19,6 +19,15 @@ import { Input } from '@/components/ui/input';
 import { ShoppingCart, Smartphone, PlusCircle, Trash2, Pencil, X } from 'lucide-react';
 import { QRCodeDialog } from './qr-code-dialog';
 import { cn } from '@/lib/utils';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from '@/components/ui/sheet';
+
 
 interface ShoppingListItem {
   id: string;
@@ -113,9 +122,106 @@ export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListDi
     setEditingItem({...item});
   };
 
+  const ShoppingListContent = () => (
+    <>
+        <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <ShoppingCart className="h-6 w-6" />
+              Lista de la Compra
+            </SheetTitle>
+            <SheetDescription>
+              Añade, edita y gestiona los ingredientes para tu plan semanal.
+            </SheetDescription>
+        </SheetHeader>
+        <div className="flex gap-2 items-end border-b border-border pb-4 mt-4">
+            <div className="flex-grow">
+                <Label htmlFor="new-item-name" className="text-xs">Añadir artículo</Label>
+                <Input
+                id="new-item-name"
+                value={newItemName}
+                onChange={(e) => setNewItemName(e.target.value)}
+                placeholder="Nombre del artículo"
+                />
+            </div>
+            <div className="w-24">
+                <Label htmlFor="new-item-qty" className="text-xs">Cantidad</Label>
+                <Input
+                id="new-item-qty"
+                type="text"
+                value={newItemQty}
+                onChange={(e) => setNewItemQty(e.target.value)}
+                placeholder="ej. 1, 200"
+                />
+            </div>
+            <Button size="icon" onClick={handleAddItem} disabled={!newItemName.trim()}>
+                <PlusCircle />
+            </Button>
+        </div>
+        <ScrollArea className="flex-1 my-4 -mx-6 px-6">
+            {shoppingList.length > 0 ? (
+                <div className="space-y-2 pr-4">
+                {shoppingList.map(item => (
+                    <div key={item.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-secondary">
+                    <Checkbox
+                        id={item.id}
+                        checked={item.checked}
+                        onCheckedChange={() => handleToggleCheck(item.id)}
+                    />
+                    <div className="flex-1">
+                        {editingItem?.id === item.id ? (
+                        <div className="flex gap-2">
+                            <Input
+                            value={editingItem.quantity}
+                            type="number"
+                            onChange={(e) => setEditingItem({ ...editingItem, quantity: parseFloat(e.target.value) || 0 })}
+                            className="h-8 w-20"
+                            />
+                            <Input
+                            value={editingItem.name}
+                            onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
+                            className="h-8"
+                            />
+                            <Button size="sm" onClick={handleUpdateItem}>Guardar</Button>
+                        </div>
+                        ) : (
+                        <Label
+                            htmlFor={item.id}
+                            className={`text-base ${item.checked ? 'line-through text-muted-foreground' : ''}`}
+                        >
+                            <span className="font-bold">{item.quantity.toFixed(0)}{item.unit}</span> - {item.name}
+                        </Label>
+                        )}
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditClick(item)}>
+                        <Pencil className="h-4 w-4" />
+                    </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(item.id)}>
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                    </div>
+                ))}
+                </div>
+            ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+                    <ShoppingCart className="h-12 w-12 mb-4" />
+                    <p className="font-semibold">Tu lista está vacía.</p>
+                    <p className="text-sm">Los ingredientes del planificador aparecerán aquí.</p>
+                </div>
+            )}
+        </ScrollArea>
+        <SheetFooter className="mt-auto pt-4 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Button variant="secondary" onClick={() => setIsQrOpen(true)} disabled={shoppingList.length === 0}>
+                <Smartphone className="mr-2 h-4 w-4" />
+                Generar QR
+            </Button>
+            <Button onClick={onToggle}>Cerrar</Button>
+        </SheetFooter>
+    </>
+  );
+
   return (
     <>
-      <div className="fixed bottom-8 right-8 z-40">
+      <div className="fixed bottom-8 right-8 z-40 lg:hidden">
         <Button
           onClick={onToggle}
           className="h-16 w-16 rounded-full shadow-lg bg-accent text-accent-foreground hover:bg-accent/90"
@@ -125,118 +231,46 @@ export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListDi
         </Button>
       </div>
 
-       <Dialog open={isOpen} onOpenChange={onToggle}>
-        <DialogContent 
-          className={cn(
-            'fixed bottom-8 right-28 w-96 rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right flex flex-col h-[70vh] bg-glass',
-            isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'
-          )}
-          hideCloseButton
-        >
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-2 right-2 h-7 w-7"
-            onClick={onToggle}
-          >
-            <X className="h-5 w-5" />
-          </Button>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ShoppingCart className="h-6 w-6" />
-              Lista de la Compra
-            </DialogTitle>
-            <DialogDescription>
-              Añade, edita y gestiona los ingredientes para tu plan semanal.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex gap-2 items-end border-b border-white/10 pb-4 mt-4">
-              <div className="flex-grow">
-                <Label htmlFor="new-item-name" className="text-xs">Añadir artículo</Label>
-                <Input
-                  id="new-item-name"
-                  value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
-                  placeholder="Nombre del artículo"
-                />
-              </div>
-              <div className="w-24">
-                <Label htmlFor="new-item-qty" className="text-xs">Cantidad</Label>
-                <Input
-                  id="new-item-qty"
-                  type="text"
-                  value={newItemQty}
-                  onChange={(e) => setNewItemQty(e.target.value)}
-                  placeholder="ej. 1, 200"
-                />
-              </div>
-              <Button size="icon" onClick={handleAddItem} disabled={!newItemName.trim()}>
-                <PlusCircle />
-              </Button>
-            </div>
-            
-          <ScrollArea className="flex-1 my-4">
-            {shoppingList.length > 0 ? (
-              <div className="space-y-2 pr-4">
-                {shoppingList.map(item => (
-                  <div key={item.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-black/10">
-                    <Checkbox
-                      id={item.id}
-                      checked={item.checked}
-                      onCheckedChange={() => handleToggleCheck(item.id)}
-                    />
-                    <div className="flex-1">
-                      {editingItem?.id === item.id ? (
-                        <div className="flex gap-2">
-                          <Input
-                            value={editingItem.quantity}
-                            type="number"
-                            onChange={(e) => setEditingItem({ ...editingItem, quantity: parseFloat(e.target.value) || 0 })}
-                            className="h-8 w-20"
-                          />
-                           <Input
-                            value={editingItem.name}
-                            onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
-                            className="h-8"
-                          />
-                          <Button size="sm" onClick={handleUpdateItem}>Guardar</Button>
-                        </div>
-                      ) : (
-                        <Label
-                          htmlFor={item.id}
-                          className={`text-base ${item.checked ? 'line-through text-muted-foreground' : ''}`}
-                        >
-                          <span className="font-bold">{item.quantity.toFixed(0)}{item.unit}</span> - {item.name}
-                        </Label>
-                      )}
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditClick(item)}>
-                        <Pencil className="h-4 w-4" />
-                    </Button>
-                     <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(item.id)}>
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
-                  <ShoppingCart className="h-12 w-12 mb-4" />
-                  <p className="font-semibold">Tu lista está vacía.</p>
-                  <p className="text-sm">Los ingredientes del planificador aparecerán aquí.</p>
-              </div>
+       <div className="hidden lg:block">
+        <Dialog open={isOpen} onOpenChange={onToggle}>
+            <DialogContent 
+            className={cn(
+                'fixed bottom-8 right-28 w-96 rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right flex flex-col h-[70vh] bg-glass',
+                isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'
             )}
-          </ScrollArea>
-          <DialogFooter className="mt-auto pt-4 border-t border-white/10 grid grid-cols-2 gap-2">
-             <Button variant="secondary" onClick={() => setIsQrOpen(true)} disabled={shoppingList.length === 0} className="col-span-1">
-                <Smartphone className="mr-2 h-4 w-4" />
-                Generar QR
+            hideCloseButton
+            >
+            <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-2 right-2 h-7 w-7"
+                onClick={onToggle}
+            >
+                <X className="h-5 w-5" />
             </Button>
-            <Button onClick={onToggle} className="col-span-1">Cerrar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <ShoppingListContent />
+            </DialogContent>
+        </Dialog>
+        <div className="fixed bottom-8 right-8 z-40">
+             <Button
+                onClick={onToggle}
+                className="h-16 w-16 rounded-full shadow-lg bg-accent text-accent-foreground hover:bg-accent/90"
+                size="icon"
+                >
+                <ShoppingCart className="h-8 w-8" />
+            </Button>
+        </div>
+      </div>
+      
+      <div className="lg:hidden">
+        <Sheet open={isOpen} onOpenChange={onToggle}>
+            <SheetContent side="right" className="flex flex-col">
+              <ShoppingListContent />
+            </SheetContent>
+        </Sheet>
+      </div>
+
+
       <QRCodeDialog
         isOpen={isQrOpen}
         onClose={() => setIsQrOpen(false)}
