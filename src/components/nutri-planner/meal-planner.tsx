@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, type DragEvent, type KeyboardEvent } from 'react';
-import type { WeekPlan, Recipe, DailyTotal, Macros, GoalMacros } from '@/lib/types';
+import type { WeekPlan, Recipe, DailyTotal, Macros, GoalMacros, Meal } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RecipeCard } from './recipe-card';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, X, Flame, EggFried, Wheat, Droplets, Plus, Edit, Trash2, Check } from 'lucide-react';
+import { CalendarDays, X, Flame, Plus, Edit, Trash2, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '../ui/input';
 
@@ -112,7 +112,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
   const hasRecipes = meal.recipes.length > 0;
 
   return (
-    <div onDragOver={handleDragOver} onDrop={handleDrop} className="relative flex flex-col p-2">
+    <div onDragOver={handleDragOver} onDrop={handleDrop} className="relative flex flex-col p-2 bg-background/80 border rounded-xl">
       <div className="flex justify-between items-center mb-1 pl-1 group">
         {isEditingTitle ? (
            <Input 
@@ -180,12 +180,23 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
           <p className="text-xs text-center text-muted-foreground px-2">Arrastra una receta aquí</p>
         )}
       </div>
+       {isEditing && (
+          <Button variant="outline" size="sm" className="w-full mt-2" onClick={() => onAddMeal(day)}>
+              <Plus className="h-4 w-4 mr-2"/> Añadir Comida
+          </Button>
+      )}
     </div>
   );
 }
 
 export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onAddMeal, onDeleteMeal }: MealPlannerProps) {
   const [isEditing, setIsEditing] = useState(false);
+
+  // Find the maximum number of meals in any day to determine grid rows
+  const maxMeals = Math.max(0, ...weekPlan.map(day => day.meals.length));
+  
+  // Create an array of meal titles from the first day as a reference
+  const mealTitles = weekPlan[0]?.meals.map(meal => meal.title) || [];
   
   return (
     <Card className="h-full bg-glass">
@@ -203,36 +214,46 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
         </Button>
       </CardHeader>
       <CardContent className="pb-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
-          {weekPlan.map(({ day, meals }) => {
-              const dayTotals = dailyTotals.find(d => d.day === day)?.totals;
-              return (
-              <div key={day} className="flex flex-col gap-3 p-3 rounded-xl bg-background/80 border min-w-[200px]">
-                  <h3 className="font-semibold text-center text-lg text-card-foreground">{day}</h3>
-                  <div className="space-y-2 flex-1 flex flex-col">
-                    {meals.map(meal => (
-                       <MealSlot 
-                        key={meal.id}
-                        day={day} 
-                        meal={meal}
-                        isEditing={isEditing}
-                        onDrop={onDrop} 
-                        onClearMeal={onClearMeal} 
-                        onRecipeClick={onRecipeClick} 
-                        onRemoveRecipeFromMeal={onRemoveRecipeFromMeal}
-                        onUpdateMealTitle={onUpdateMealTitle}
-                        onDeleteMeal={onDeleteMeal}
-                       />
-                    ))}
-                    {isEditing && (
-                        <Button variant="outline" size="sm" className="w-full mt-auto" onClick={() => onAddMeal(day)}>
-                           <Plus className="h-4 w-4 mr-2"/> Añadir Comida
-                        </Button>
-                    )}
-                  </div>
-                  {dayTotals && <DailyTotalsRow totals={dayTotals} goal={activeGoal} />}
-              </div>
+        <div className="grid grid-cols-7 gap-4">
+          {/* Day Titles Header */}
+          {weekPlan.map(({ day }) => (
+            <h3 key={`${day}-header`} className="font-semibold text-center text-lg text-card-foreground">{day}</h3>
+          ))}
+          
+          {/* Meals Grid */}
+          {Array.from({ length: maxMeals }).map((_, mealIndex) => (
+            weekPlan.map(dayPlan => {
+              const meal = dayPlan.meals[mealIndex];
+              return meal ? (
+                <MealSlot 
+                  key={meal.id}
+                  day={dayPlan.day} 
+                  meal={meal}
+                  isEditing={isEditing}
+                  onDrop={onDrop} 
+                  onClearMeal={onClearMeal} 
+                  onRecipeClick={onRecipeClick} 
+                  onRemoveRecipeFromMeal={onRemoveRecipeFromMeal}
+                  onUpdateMealTitle={onUpdateMealTitle}
+                  onDeleteMeal={onDeleteMeal}
+                  onAddMeal={onAddMeal}
+                />
+              ) : (
+                <div key={`${dayPlan.day}-${mealIndex}`} className="p-2 border rounded-xl bg-background/80 border-transparent">
+                  {/* Empty placeholder to keep grid structure */}
+                </div>
               );
+            })
+          ))}
+
+          {/* Daily Totals Footer */}
+          {weekPlan.map(({ day }) => {
+             const dayTotalsData = dailyTotals.find(d => d.day === day)?.totals;
+             return (
+               <div key={`${day}-footer`} className="flex flex-col gap-3 p-3 rounded-xl bg-background/80 border mt-4">
+                 {dayTotalsData && <DailyTotalsRow totals={dayTotalsData} goal={activeGoal} />}
+               </div>
+             )
           })}
         </div>
       </CardContent>
