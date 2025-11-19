@@ -112,7 +112,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
   const hasRecipes = meal.recipes.length > 0;
 
   return (
-    <div onDragOver={handleDragOver} onDrop={handleDrop} className="relative flex flex-col h-full">
+    <div onDragOver={handleDragOver} onDrop={handleDrop} className="relative flex flex-col h-full flex-1">
       <div className="flex justify-between items-center mb-1 pl-1 group">
         {isEditingTitle ? (
            <Input 
