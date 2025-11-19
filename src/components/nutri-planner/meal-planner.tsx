@@ -112,7 +112,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
   const hasRecipes = meal.recipes.length > 0;
 
   return (
-    <div onDragOver={handleDragOver} onDrop={handleDrop} className="relative flex flex-col flex-1">
+    <div onDragOver={handleDragOver} onDrop={handleDrop} className="relative flex flex-col">
       <div className="flex justify-between items-center mb-1 pl-1 group">
         {isEditingTitle ? (
            <Input 
@@ -149,13 +149,13 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
         </div>
       </div>
       <div className={cn(
-        "flex-1 min-h-[5rem] rounded-lg p-1 flex flex-col items-center justify-center gap-1 relative group overflow-hidden transition-colors",
+        "h-20 rounded-lg p-1 flex flex-col items-center justify-center gap-1 relative group overflow-y-auto transition-colors",
         hasRecipes ? 'bg-secondary/50 border-2 border-transparent' : 'border-2 border-dashed border-border/50 bg-secondary/30'
       )}>
         {hasRecipes ? (
-           <div className="w-full h-full flex flex-col gap-1 flex-1">
+           <div className="w-full h-full flex flex-col gap-1">
                 {meal.recipes.map((recipe: Recipe, index: number) => (
-                    <div key={`${recipe.id}-${index}`} className="w-full relative group/item flex-1">
+                    <div key={`${recipe.id}-${index}`} className="w-full relative group/item">
                       <div 
                           className="h-full w-full"
                           onClick={() => onRecipeClick(recipe)}
@@ -209,7 +209,7 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
               return (
               <div key={day} className="flex flex-col gap-3 p-3 rounded-xl bg-background/80 border min-w-[200px]">
                   <h3 className="font-semibold text-center text-lg text-card-foreground">{day}</h3>
-                  <div className="space-y-2 flex-1 flex flex-col min-h-[400px]">
+                  <div className="space-y-2 flex-1 flex flex-col">
                     {meals.map(meal => (
                        <MealSlot 
                         key={meal.id}
