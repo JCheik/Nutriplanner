@@ -31,6 +31,7 @@ interface MealSlotProps {
   onRecipeClick: (recipe: Recipe) => void;
   onRemoveRecipeFromMeal: (day: string, mealId: string, recipeId: string) => void;
   onUpdateMealTitle: (day: string, mealId: string, newTitle: string) => void;
+  onAddMeal: (day: string) => void;
   onDeleteMeal: (day: string, mealId: string) => void;
 }
 
@@ -79,7 +80,7 @@ const DailyTotalsRow = ({ totals, goal }: { totals: Macros, goal: GoalMacros | n
 );
 
 
-function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onDeleteMeal }: MealSlotProps) {
+function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onAddMeal, onDeleteMeal }: MealSlotProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(meal.title);
 
@@ -112,7 +113,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
   const hasRecipes = meal.recipes.length > 0;
 
   return (
-    <div onDragOver={handleDragOver} onDrop={handleDrop} className="relative flex flex-col p-2 bg-background/80 border rounded-xl">
+    <div onDragOver={handleDragOver} onDrop={handleDrop} className="relative flex flex-col p-2 bg-background/80 border rounded-xl h-full">
       <div className="flex justify-between items-center mb-1 pl-1 group">
         {isEditingTitle ? (
            <Input 
@@ -150,7 +151,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
       </div>
       <div className={cn(
         "rounded-lg p-1 flex-1 flex flex-col items-center justify-center gap-1 relative group transition-colors",
-        hasRecipes ? 'bg-secondary/50 border-2 border-transparent' : 'border-2 border-dashed border-border/50 bg-secondary/30 min-h-[5rem]'
+        hasRecipes ? 'bg-secondary/50 border-2 border-transparent' : 'border-2 border-dashed border-border/50 bg-secondary/30'
       )}>
         {hasRecipes ? (
            <div className="w-full h-full flex flex-col gap-1 flex-1">
@@ -240,7 +241,14 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                 />
               ) : (
                 <div key={`${dayPlan.day}-${mealIndex}`} className="p-2 border rounded-xl bg-background/80 border-transparent">
-                  {/* Empty placeholder to keep grid structure */}
+                  {/* Empty placeholder to keep grid structure and maintain height */}
+                   {isEditing && (
+                      <div className="h-full flex items-center justify-center">
+                          <Button variant="outline" size="sm" className="w-full" onClick={() => onAddMeal(dayPlan.day)}>
+                              <Plus className="h-4 w-4 mr-2"/> Añadir Comida
+                          </Button>
+                      </div>
+                  )}
                 </div>
               );
             })
