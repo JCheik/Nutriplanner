@@ -153,7 +153,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
         hasRecipes ? 'bg-secondary/50 border-2 border-transparent' : 'border-2 border-dashed border-border/50 bg-secondary/30'
       )}>
         {hasRecipes ? (
-           <div className="w-full h-full flex flex-col gap-1">
+           <div className="w-full h-full flex flex-col gap-1 flex-1">
                 {meal.recipes.map((recipe: Recipe, index: number) => (
                     <div key={`${recipe.id}-${index}`} className="w-full relative group/item flex-1">
                       <div 
@@ -207,7 +207,7 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
           {weekPlan.map(({ day, meals }) => {
               const dayTotals = dailyTotals.find(d => d.day === day)?.totals;
               return (
-              <div key={day} className="flex flex-col gap-3 p-3 rounded-xl bg-background/80 border min-w-[200px] min-h-[400px]">
+              <div key={day} className="flex flex-col gap-3 p-3 rounded-xl bg-background/80 border min-w-[200px]">
                   <h3 className="font-semibold text-center text-lg text-card-foreground">{day}</h3>
                   <div className="space-y-2 flex-1 flex flex-col min-h-[400px]">
                     {meals.map(meal => (
