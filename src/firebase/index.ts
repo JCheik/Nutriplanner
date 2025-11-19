@@ -1,6 +1,6 @@
 'use client';
 
-import { firebaseConfig as devFirebaseConfig } from '@/firebase/config';
+import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp, FirebaseOptions } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
@@ -8,20 +8,13 @@ import { getStorage } from 'firebase/storage';
 import {type DependencyList, useMemo} from "react";
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
-export function initializeFirebase(firebaseConfig: FirebaseOptions) {
-  if (getApps().length === 0) {
-    // @ts-ignore
-    if (typeof __FIREBASE_DEFAULTS__ !== 'undefined') {
-        // @ts-ignore
-        return getSdks(initializeApp(__FIREBASE_DEFAULTS__));
-    }
-    
-    // Fallback for local development
-    return getSdks(initializeApp(firebaseConfig));
+export function initializeFirebase(config: FirebaseOptions) {
+  if (getApps().length > 0) {
+    return getSdks(getApp());
   }
-  
-  // If already initialized, return the SDKs with the existing App
-  return getSdks(getApp());
+
+  // In this environment, we explicitly initialize with the provided config.
+  return getSdks(initializeApp(config));
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
