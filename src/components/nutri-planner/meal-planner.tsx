@@ -90,6 +90,8 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
     onDrop(day, meal.id, recipe);
   };
 
+  const hasRecipes = meal.recipes.length > 0;
+
   return (
     <div onDragOver={handleDragOver} onDrop={handleDrop} className="relative flex flex-col h-full">
       <div className="flex justify-between items-center mb-1 pl-1 group">
@@ -115,7 +117,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
           {isEditing && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsEditingTitle(true)}><Edit className="h-3 w-3"/></Button>}
           {isEditing && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onDeleteMeal(day, meal.id)}><Trash2 className="h-3 w-3 text-destructive"/></Button>}
           
-          {!isEditing && meal.recipes.length > 0 && (
+          {!isEditing && hasRecipes && (
             <Button
               variant="ghost"
               size="icon"
@@ -127,29 +129,31 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
           )}
         </div>
       </div>
-      <div className="flex-1 min-h-[5rem] rounded-lg border-2 border-dashed border-border/50 bg-secondary/30 p-1 flex flex-col items-center justify-center gap-1 relative group overflow-hidden">
-        {meal.recipes.length > 0 ? (
+      <div className={cn(
+        "flex-1 min-h-[5rem] rounded-lg p-1 flex flex-col items-center justify-center gap-1 relative group overflow-hidden transition-colors",
+        hasRecipes ? 'bg-secondary/50 border-2 border-transparent' : 'border-2 border-dashed border-border/50 bg-secondary/30'
+      )}>
+        {hasRecipes ? (
            <div className="w-full h-full flex flex-col gap-1">
                 {meal.recipes.map((recipe, index) => (
                     <div key={`${recipe.id}-${index}`} className="w-full relative group/item flex-1">
-                    <div 
-                        className="h-full w-full"
-                        onClick={() => onRecipeClick(recipe)}
-                    >
-                        <RecipeCard 
-                          recipe={recipe} 
-                          isCompact 
-                          colorVariant={index % 2 === 0 ? 'primary' : 'secondary'}
-                        />
-                    </div>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute top-1/2 -translate-y-1/2 right-0 h-6 w-6 opacity-0 group-hover/item:opacity-100 transition-opacity z-10 bg-card/70 hover:bg-card"
-                        onClick={(e) => { e.stopPropagation(); onRemoveRecipeFromMeal(day, meal.id, recipe.id); }}
-                    >
-                        <X className="h-3 w-3" />
-                    </Button>
+                      <div 
+                          className="h-full w-full"
+                          onClick={() => onRecipeClick(recipe)}
+                      >
+                          <RecipeCard 
+                            recipe={recipe} 
+                            isCompact 
+                          />
+                      </div>
+                      <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute top-1/2 -translate-y-1/2 right-0 h-6 w-6 opacity-0 group-hover/item:opacity-100 transition-opacity z-10 bg-card/70 hover:bg-card"
+                          onClick={(e) => { e.stopPropagation(); onRemoveRecipeFromMeal(day, meal.id, recipe.id); }}
+                      >
+                          <X className="h-3 w-3" />
+                      </Button>
                     </div>
                 ))}
             </div>

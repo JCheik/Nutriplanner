@@ -13,10 +13,9 @@ interface RecipeCardProps {
   isCompact?: boolean;
   isListView?: boolean;
   onClick?: () => void;
-  colorVariant?: 'primary' | 'secondary';
 }
 
-const RecipePlaceholder = ({ recipeName, colorVariant = 'primary' }: { recipeName: string, colorVariant?: 'primary' | 'secondary' }) => (
+const RecipePlaceholder = ({ recipeName }: { recipeName: string }) => (
   <div className={cn(
     "w-full h-full flex items-center justify-center p-2 rounded-md bg-secondary/50"
   )}>
@@ -36,7 +35,7 @@ const MacroItem = ({ icon: Icon, value, unit, colorClass }: { icon: React.Elemen
 );
 
 
-export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isListView = false, onClick, colorVariant = 'primary' }: RecipeCardProps) {
+export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isListView = false, onClick }: RecipeCardProps) {
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
     if (!isDraggable) return;
     e.dataTransfer.setData('application/json', JSON.stringify(recipe));
@@ -77,7 +76,7 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
           className="w-full h-full cursor-pointer"
           onClick={onClick}
         >
-           <RecipePlaceholder recipeName={recipe.name} colorVariant={colorVariant} />
+           <RecipePlaceholder recipeName={recipe.name} />
         </div>
     );
   }
