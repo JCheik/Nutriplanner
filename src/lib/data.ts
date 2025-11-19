@@ -46,27 +46,34 @@ const defaultMeals: Meal[] = [
   { id: 'm-dinner', title: 'Cena', recipes: [] },
 ];
 
-const createDayPlan = (day: DayPlan['day'], meals: Meal[]): DayPlan => ({
+const createDayPlan = (day: DayPlan['day']): DayPlan => ({
     day,
-    meals: meals.map(meal => ({ ...meal, id: `${meal.id}-${day.toLowerCase()}`, recipes: [...meal.recipes] })),
+    meals: defaultMeals.map(meal => ({ 
+        ...meal, 
+        id: `${meal.id}-${day.toLowerCase()}`, 
+        recipes: [...meal.recipes] 
+    })),
 });
 
 export const INITIAL_WEEK_PLAN: WeekPlan = [
-  createDayPlan('Lunes', [
-    { ...defaultMeals[0] },
-    { ...defaultMeals[1], recipes: [INITIAL_RECIPES[0]] },
-    { ...defaultMeals[2] },
-    { ...defaultMeals[3] },
-  ]),
-  createDayPlan('Martes', [
-    { ...defaultMeals[0] },
-    { ...defaultMeals[1] },
-    { ...defaultMeals[2] },
-    { ...defaultMeals[3], recipes: [INITIAL_RECIPES[1]] },
-  ]),
-  createDayPlan('Miércoles', defaultMeals),
-  createDayPlan('Jueves', defaultMeals),
-  createDayPlan('Viernes', defaultMeals),
-  createDayPlan('Sábado', defaultMeals),
-  createDayPlan('Domingo', defaultMeals),
+  createDayPlan('Lunes'),
+  createDayPlan('Martes'),
+  createDayPlan('Miércoles'),
+  createDayPlan('Jueves'),
+  createDayPlan('Viernes'),
+  createDayPlan('Sábado'),
+  createDayPlan('Domingo'),
 ];
+
+// Pre-populate some meals for demonstration
+const lunesPlan = INITIAL_WEEK_PLAN.find(d => d.day === 'Lunes');
+if (lunesPlan) {
+    const lunch = lunesPlan.meals.find(m => m.title === 'Almuerzo');
+    if (lunch) lunch.recipes.push(INITIAL_RECIPES[0]);
+}
+
+const martesPlan = INITIAL_WEEK_PLAN.find(d => d.day === 'Martes');
+if (martesPlan) {
+    const dinner = martesPlan.meals.find(m => m.title === 'Cena');
+    if (dinner) dinner.recipes.push(INITIAL_RECIPES[1]);
+}
