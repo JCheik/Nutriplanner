@@ -121,9 +121,9 @@ function IngredientDatabaseViewer() {
                         className="pl-10"
                     />
                 </div>
-                <ScrollArea className="h-[60vh] border rounded-md">
+                <ScrollArea className="h-[60vh] border border-white/10 rounded-md">
                 <Table>
-                    <TableHeader>
+                    <TableHeader className="[&_tr]:border-b-white/10">
                     <TableRow>
                         <TableHead>Nombre</TableHead>
                         <TableHead className="text-right">Calorías</TableHead>
@@ -134,7 +134,7 @@ function IngredientDatabaseViewer() {
                         <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                     </TableHeader>
-                    <TableBody>
+                    <TableBody className="[&_tr:last-child]:border-0">
                     {isLoading && (
                         <TableRow>
                             <TableCell colSpan={7} className="text-center">Cargando ingredientes...</TableCell>
@@ -144,7 +144,7 @@ function IngredientDatabaseViewer() {
                         filteredIngredients.map((ingredient) => {
                             const canManage = user && (ingredient.createdBy === user.uid || isAdmin);
                             return (
-                                <TableRow key={ingredient.id}>
+                                <TableRow key={ingredient.id} className="[&_td]:py-2 border-b-white/10">
                                 <TableCell className="font-medium">{ingredient.name}</TableCell>
                                 <TableCell className="text-right">{ingredient.calories}</TableCell>
                                 <TableCell className="text-right">{ingredient.protein}</TableCell>
@@ -163,7 +163,7 @@ function IngredientDatabaseViewer() {
                                                 </Button>
                                             </AlertDialogTrigger>
                                             {ingredientToDelete?.id === ingredient.id && canManage && (
-                                                <AlertDialogContent>
+                                                <AlertDialogContent className="bg-glass">
                                                     <AlertDialogHeader>
                                                     <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                                                     <AlertDialogDescription>
@@ -204,11 +204,11 @@ function IngredientDatabaseViewer() {
 export function IngredientsDialog({ isOpen, onClose }: IngredientsDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-4xl bg-glass">
         <DialogHeader>
           <DialogTitle>Base de Datos de Ingredientes</DialogTitle>
           <DialogDescription>
-             Esta tabla muestra los datos actuales de la colección <code className="relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold">/ingredients</code> en Firestore.
+             Esta tabla muestra los datos actuales de la colección <code className="relative rounded bg-black/20 px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold">/ingredients</code> en Firestore.
           </DialogDescription>
         </DialogHeader>
         <div className="mt-4">

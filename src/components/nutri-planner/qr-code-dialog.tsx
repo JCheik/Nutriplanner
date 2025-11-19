@@ -14,7 +14,7 @@ interface QRCodeDialogProps {
 export function QRCodeDialog({ isOpen, onClose, qrValue, title, description }: QRCodeDialogProps) {
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-md bg-glass">
                 <DialogHeader>
                     <DialogTitle>{title}</DialogTitle>
                     <DialogDescription>

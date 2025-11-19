@@ -86,7 +86,7 @@ export function NewIngredientDialog({ isOpen, onClose, onSave, ingredientToEdit 
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent>
+      <DialogContent className="bg-glass">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar Alimento' : 'Añadir Nuevo Alimento'}</DialogTitle>
           <DialogDescription>

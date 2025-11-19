@@ -79,7 +79,7 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, isNutriPlanner = fals
             placeholder="Filtrar por nombre o ingrediente..."
             value={filterQuery}
             onChange={(e) => setFilterQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 bg-white/20"
           />
         </div>
         <DropdownMenu>
@@ -89,10 +89,10 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, isNutriPlanner = fals
               Ordenar
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="bg-glass">
             <DropdownMenuRadioGroup value={sortCriteria} onValueChange={(value) => setSortCriteria(value as SortCriteria)}>
               {sortOptions.map((option) => (
-                <DropdownMenuRadioItem key={option.value} value={option.value}>
+                <DropdownMenuRadioItem key={option.value} value={option.value} className="cursor-pointer">
                   {option.label}
                 </DropdownMenuRadioItem>
               ))}
@@ -137,7 +137,7 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, isNutriPlanner = fals
               </div>
             ))
           ) : (
-            <div className="col-span-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg h-[250px]">
+            <div className="col-span-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-white/20 rounded-lg h-[250px]">
               <p className="font-semibold">No se encontraron recetas</p>
               <p className="text-sm text-muted-foreground">Prueba a cambiar el filtro o crea una nueva receta.</p>
             </div>
@@ -157,7 +157,7 @@ export function RecipeLibrary({
   const [isIngredientsOpen, setIsIngredientsOpen] = useState(false);
   return (
     <>
-      <Card className="flex flex-col h-[500px]">
+      <Card className="flex flex-col h-[500px] bg-glass">
         <CardHeader>
           <div className="flex justify-between items-start gap-4">
             <div>
@@ -172,7 +172,7 @@ export function RecipeLibrary({
         <CardContent className="flex-1 overflow-hidden">
           <Tabs defaultValue="user-recipes" className="flex flex-col h-full">
             <div className="flex justify-between items-center pr-1">
-              <TabsList>
+              <TabsList className="bg-black/10">
                 <TabsTrigger value="user-recipes">Mis Recetas</TabsTrigger>
                 <TabsTrigger value="nutriplanner-recipes">Recetas NutriPlanner</TabsTrigger>
               </TabsList>

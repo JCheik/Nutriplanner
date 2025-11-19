@@ -49,7 +49,7 @@ interface RecipeDialogProps {
 }
 
 const MacroDisplay = ({ label, value, unit, icon: Icon }: { label: string, value: number, unit: string, icon: React.ElementType }) => (
-  <div className="flex flex-col items-center p-2 rounded-lg bg-secondary">
+  <div className="flex flex-col items-center p-2 rounded-lg bg-black/10">
     <Icon className="h-6 w-6 mb-1 text-primary" />
     <span className="text-xs text-muted-foreground">{label}</span>
     <span className="font-bold">{Math.round(value)}{unit}</span>
@@ -216,7 +216,7 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, isSaving
         <div className="space-y-4">
             <div className="space-y-3">
                 <Label>Ingredientes</Label>
-                <Card>
+                <Card className="bg-transparent">
                     <CardContent className="p-4 space-y-4">
                         <div className="space-y-2">
                              <Label>1. Buscar y añadir ingrediente</Label>
@@ -230,10 +230,10 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, isSaving
                                 />
                              </div>
                             {searchQuery && (
-                                <Card className="p-2">
+                                <Card className="p-2 bg-glass">
                                     {filteredIngredients.length > 0 ? (
                                         filteredIngredients.map((ing) => (
-                                            <div key={ing.id} onClick={() => handleSelectIngredient(ing)} className="p-2 hover:bg-secondary rounded-md cursor-pointer text-sm">
+                                            <div key={ing.id} onClick={() => handleSelectIngredient(ing)} className="p-2 hover:bg-black/10 rounded-md cursor-pointer text-sm">
                                                 {ing.name}
                                             </div>
                                         ))
@@ -250,7 +250,7 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, isSaving
                         </div>
 
                         {selectedIngredient && (
-                            <div className="flex gap-2 items-end bg-secondary/50 p-2 rounded-md">
+                            <div className="flex gap-2 items-end bg-black/10 p-2 rounded-md">
                                 <div className="flex-grow">
                                     <Label className="text-xs">Ingrediente seleccionado</Label>
                                     <p className="font-semibold">{selectedIngredient.name}</p>
@@ -265,10 +265,10 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, isSaving
                         
                         <div className='space-y-2'>
                             <Label>2. Ingredientes de la Receta</Label>
-                            <ScrollArea className="h-36 border rounded-lg p-2">
+                            <ScrollArea className="h-36 border border-white/10 rounded-lg p-2">
                                 <div className="space-y-2 pr-2">
                                     {ingredients.map(ing => (
-                                    <div key={ing.id} className="flex items-center justify-between bg-secondary p-2 rounded-md text-sm">
+                                    <div key={ing.id} className="flex items-center justify-between bg-black/10 p-2 rounded-md text-sm">
                                         <span>{ing.quantity}{ing.unit} <strong>{ing.name}</strong></span>
                                         <div className='flex items-center gap-2'>
                                             <span className='text-xs text-muted-foreground'>{Math.round(ing.calories * (ing.quantity/100))} kcal</span>
@@ -296,7 +296,7 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, isSaving
                 </div>
             </div>
              {isAdmin && (
-                <div className="flex items-center space-x-2 rounded-lg border p-3">
+                <div className="flex items-center space-x-2 rounded-lg border border-white/10 p-3">
                     <Globe className="h-5 w-5 text-primary" />
                     <div className="flex-1">
                         <Label htmlFor="global-recipe-switch">Guardar como receta global de NutriPlanner</Label>
@@ -318,7 +318,7 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, isSaving
               <AlertDialogTrigger asChild>
                 <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
               </AlertDialogTrigger>
-              <AlertDialogContent>
+              <AlertDialogContent className="bg-glass">
                 <AlertDialogHeader>
                   <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                   <AlertDialogDescription>
@@ -361,7 +361,7 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe }: 
       </DialogHeader>
       <div className="grid md:grid-cols-2 gap-6">
         <div>
-          <div className="relative aspect-video rounded-lg overflow-hidden mb-4 bg-secondary flex items-center justify-center text-muted-foreground">
+          <div className="relative aspect-video rounded-lg overflow-hidden mb-4 bg-black/10 flex items-center justify-center text-muted-foreground">
              {recipe.imageUrl ? (
               <Image 
                 src={recipe.imageUrl}
@@ -407,7 +407,7 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe }: 
               <AlertDialogTrigger asChild>
               <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
               </AlertDialogTrigger>
-              <AlertDialogContent>
+              <AlertDialogContent className="bg-glass">
               <AlertDialogHeader>
                   <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                   <AlertDialogDescription>
@@ -451,7 +451,7 @@ export function RecipeDialog({ dialogState, isSaving, onClose, onSave, onDelete,
   
   return (
     <Dialog open={dialogState.open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-4xl bg-glass">
         {isViewMode && dialogState.recipe ? (
           <RecipeView 
             recipe={dialogState.recipe} 

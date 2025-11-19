@@ -128,7 +128,7 @@ export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListDi
        <Dialog open={isOpen} onOpenChange={onToggle}>
         <DialogContent 
           className={cn(
-            'fixed bottom-8 right-28 w-96 bg-card rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right flex flex-col h-[70vh]',
+            'fixed bottom-8 right-28 w-96 rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right flex flex-col h-[70vh] bg-glass',
             isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'
           )}
           hideCloseButton
@@ -151,7 +151,7 @@ export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListDi
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex gap-2 items-end border-b pb-4 mt-4">
+          <div className="flex gap-2 items-end border-b border-white/10 pb-4 mt-4">
               <div className="flex-grow">
                 <Label htmlFor="new-item-name" className="text-xs">Añadir artículo</Label>
                 <Input
@@ -180,7 +180,7 @@ export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListDi
             {shoppingList.length > 0 ? (
               <div className="space-y-2 pr-4">
                 {shoppingList.map(item => (
-                  <div key={item.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-secondary/50">
+                  <div key={item.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-black/10">
                     <Checkbox
                       id={item.id}
                       checked={item.checked}
@@ -228,7 +228,7 @@ export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListDi
               </div>
             )}
           </ScrollArea>
-          <DialogFooter className="mt-auto pt-4 border-t grid grid-cols-2 gap-2">
+          <DialogFooter className="mt-auto pt-4 border-t border-white/10 grid grid-cols-2 gap-2">
              <Button variant="secondary" onClick={() => setIsQrOpen(true)} disabled={shoppingList.length === 0} className="col-span-1">
                 <Smartphone className="mr-2 h-4 w-4" />
                 Generar QR

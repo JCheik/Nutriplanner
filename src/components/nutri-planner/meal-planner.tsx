@@ -34,27 +34,27 @@ interface MealSlotProps {
 }
 
 const DailyTotalsRow = ({ totals }: { totals: Macros }) => (
-  <div className="mt-2 pt-2 border-t">
+  <div className="mt-2 pt-2 border-t border-white/10">
     <div className="flex flex-col items-center">
       <div className="flex items-center gap-1">
-        <Flame className="h-5 w-5 text-orange-500" />
+        <Flame className="h-5 w-5 text-orange-400" />
         <span className="font-bold text-lg">{Math.round(totals.calories)}</span>
         <span className="text-muted-foreground text-sm">kcal</span>
       </div>
     </div>
     <div className="grid grid-cols-3 gap-1 text-center text-xs mt-1">
       <div className="flex flex-col items-center p-1">
-        <EggFried className="h-4 w-4 text-amber-600" />
+        <EggFried className="h-4 w-4 text-amber-400" />
         <span className="font-bold">{Math.round(totals.protein)}</span>
         <span className="text-muted-foreground text-[10px]">g</span>
       </div>
       <div className="flex flex-col items-center p-1">
-        <Wheat className="h-4 w-4 text-yellow-500" />
+        <Wheat className="h-4 w-4 text-yellow-400" />
         <span className="font-bold">{Math.round(totals.carbs)}</span>
         <span className="text-muted-foreground text-[10px]">g</span>
       </div>
       <div className="flex flex-col items-center p-1">
-        <Droplets className="h-4 w-4 text-sky-500" />
+        <Droplets className="h-4 w-4 text-sky-400" />
         <span className="font-bold">{Math.round(totals.fat)}</span>
         <span className="text-muted-foreground text-[10px]">g</span>
       </div>
@@ -103,7 +103,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
              onBlur={handleTitleSave}
              onKeyDown={handleTitleKeyDown}
              autoFocus
-             className="h-7 text-xs font-medium border-primary"
+             className="h-7 text-xs font-medium border-primary bg-white/20"
            />
         ) : (
             <h4
@@ -130,7 +130,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
           )}
         </div>
       </div>
-      <div className="flex-1 min-h-[5rem] rounded-lg border-2 border-dashed bg-muted/50 p-1 flex flex-col items-center justify-center gap-1 relative group overflow-hidden">
+      <div className="flex-1 min-h-[5rem] rounded-lg border-2 border-dashed border-white/20 bg-black/10 p-1 flex flex-col items-center justify-center gap-1 relative group overflow-hidden">
         {meal.recipes.length > 0 ? (
            <div className="w-full h-full flex flex-col gap-1">
                 {meal.recipes.map((recipe, index) => (
@@ -168,7 +168,7 @@ export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onReci
   const [isEditing, setIsEditing] = useState(false);
   
   return (
-    <Card className="h-full">
+    <Card className="h-full bg-glass">
       <CardHeader className="flex-row items-center justify-between">
         <div>
             <div className="flex items-center gap-3">
@@ -187,7 +187,7 @@ export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onReci
           {weekPlan.map(({ day, meals }) => {
               const dayTotals = dailyTotals.find(d => d.day === day)?.totals;
               return (
-              <div key={day} className="flex flex-col gap-3 p-3 rounded-xl bg-secondary/50 min-w-[200px]">
+              <div key={day} className="flex flex-col gap-3 p-3 rounded-xl bg-black/10 min-w-[200px]">
                   <h3 className="font-semibold text-center text-lg text-card-foreground">{day}</h3>
                   <div className="space-y-2 flex-1 flex flex-col min-h-[400px]">
                     {meals.map(meal => (
@@ -205,7 +205,7 @@ export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onReci
                        />
                     ))}
                     {isEditing && (
-                        <Button variant="outline" size="sm" className="w-full mt-2" onClick={() => onAddMeal(day)}>
+                        <Button variant="outline" size="sm" className="w-full mt-2">
                         <Plus className="h-4 w-4 mr-2"/> Añadir Comida
                         </Button>
                     )}

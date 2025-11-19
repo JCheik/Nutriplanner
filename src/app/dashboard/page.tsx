@@ -356,8 +356,8 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="flex flex-col items-center gap-4">
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center gap-4 p-8 rounded-lg bg-glass">
           <Logo className="h-12 w-12 text-primary animate-pulse" />
           <p className="text-lg text-muted-foreground">Cargando tu planificador...</p>
         </div>
@@ -366,7 +366,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground font-body">
+    <div className="flex flex-col min-h-screen text-foreground font-body">
       <PageHeader />
       <main className="flex-1 p-4 sm:p-6 lg:p-8">
         <div className="max-w-screen-2xl mx-auto flex flex-col gap-6">

@@ -18,8 +18,8 @@ interface RecipeCardProps {
 
 const RecipePlaceholder = ({ recipeName, colorVariant = 'primary' }: { recipeName: string, colorVariant?: 'primary' | 'secondary' }) => (
   <div className={cn(
-    "w-full h-full flex items-center justify-center p-2",
-    colorVariant === 'primary' ? 'bg-accent' : 'bg-chart-1'
+    "w-full h-full flex items-center justify-center p-2 rounded-md",
+    colorVariant === 'primary' ? 'bg-accent/80' : 'bg-chart-1/80'
   )}>
     <span className={cn(
       "text-center font-semibold text-sm leading-tight line-clamp-3",
@@ -50,11 +50,11 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
         draggable={isDraggable}
         onDragStart={handleDragStart}
         onClick={onClick}
-        className="group relative w-full overflow-hidden transition-shadow hover:shadow-md cursor-pointer"
+        className="group relative w-full overflow-hidden transition-shadow hover:shadow-md cursor-pointer bg-glass"
       >
         <div className="flex items-center">
           {isDraggable && (
-             <div className="flex items-center justify-center self-stretch px-2 cursor-grab active:cursor-grabbing text-muted-foreground bg-secondary/30">
+             <div className="flex items-center justify-center self-stretch px-2 cursor-grab active:cursor-grabbing text-muted-foreground bg-black/10">
               <GripVertical className="h-5 w-5" />
             </div>
           )}
@@ -62,10 +62,10 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
             <h3 className="font-bold text-sm line-clamp-1">{recipe.name}</h3>
             <p className="text-xs text-muted-foreground line-clamp-1 mb-2">{recipe.description}</p>
             <div className="flex flex-wrap gap-x-3 gap-y-1 items-center text-muted-foreground">
-                <MacroItem icon={Flame} value={recipe.calories} unit="kcal" colorClass="text-orange-500" />
-                <MacroItem icon={EggFried} value={recipe.protein} unit="g" colorClass="text-amber-600" />
-                <MacroItem icon={Wheat} value={recipe.carbs} unit="g" colorClass="text-yellow-500" />
-                <MacroItem icon={Droplets} value={recipe.fat} unit="g" colorClass="text-sky-500" />
+                <MacroItem icon={Flame} value={recipe.calories} unit="kcal" colorClass="text-orange-400" />
+                <MacroItem icon={EggFried} value={recipe.protein} unit="g" colorClass="text-amber-400" />
+                <MacroItem icon={Wheat} value={recipe.carbs} unit="g" colorClass="text-yellow-400" />
+                <MacroItem icon={Droplets} value={recipe.fat} unit="g" colorClass="text-sky-400" />
             </div>
           </div>
         </div>
@@ -90,7 +90,7 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
       onDragStart={handleDragStart}
       onClick={onClick}
       className={cn(
-        "group relative w-full h-full overflow-hidden transition-shadow hover:shadow-md flex flex-col",
+        "group relative w-full h-full overflow-hidden transition-shadow hover:shadow-md flex flex-col bg-glass",
         isDraggable && "cursor-grab active:cursor-grabbing",
         !isDraggable && !isCompact && "cursor-pointer"
       )}
@@ -111,26 +111,30 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
                     data-ai-hint={recipe.imageHint}
                 />
             ) : (
-                <RecipePlaceholder recipeName={recipe.name} />
+                <div className="w-full h-full flex items-center justify-center p-2 bg-accent/80">
+                    <span className="text-center font-semibold text-sm leading-tight line-clamp-3 text-accent-foreground">
+                        {recipe.name}
+                    </span>
+                </div>
             )}
         </div>
         <div className="p-2 flex-1 flex flex-col justify-center">
              <h3 className="font-bold text-sm line-clamp-1 leading-tight text-foreground">{recipe.name}</h3>
             <div className="mt-2 flex justify-around text-muted-foreground">
                 <div className="flex items-center gap-1">
-                    <Flame className="h-3 w-3 text-orange-500" />
+                    <Flame className="h-3 w-3 text-orange-400" />
                     <span className="text-xs font-medium">{Math.round(recipe.calories)}<span className="text-muted-foreground text-[10px]">kcal</span></span>
                 </div>
                 <div className="flex items-center gap-1">
-                    <EggFried className="h-3 w-3 text-amber-600" />
+                    <EggFried className="h-3 w-3 text-amber-400" />
                     <span className="text-xs font-medium">{Math.round(recipe.protein)}<span className="text-muted-foreground text-[10px]">g</span></span>
                 </div>
                  <div className="flex items-center gap-1">
-                    <Wheat className="h-3 w-3 text-yellow-500" />
+                    <Wheat className="h-3 w-3 text-yellow-400" />
                     <span className="text-xs font-medium">{Math.round(recipe.carbs)}<span className="text-muted-foreground text-[10px]">g</span></span>
                 </div>
                  <div className="flex items-center gap-1">
-                    <Droplets className="h-3 w-3 text-sky-500" />
+                    <Droplets className="h-3 w-3 text-sky-400" />
                     <span className="text-xs font-medium">{Math.round(recipe.fat)}<span className="text-muted-foreground text-[10px]">g</span></span>
                 </div>
             </div>

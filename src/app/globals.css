@@ -63,7 +63,13 @@
   * {
     @apply border-border;
   }
-  body {
-    @apply bg-background text-foreground;
+  body.kitchen-bg {
+    @apply bg-cover bg-fixed bg-center;
   }
+}
+
+@layer components {
+    .bg-glass {
+        @apply bg-card/70 backdrop-blur-lg border border-white/20;
+    }
 }

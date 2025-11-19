@@ -20,7 +20,10 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Kalam:wght@400;700&display=swap" rel="stylesheet" />
       </head>
-      <body className="font-body antialiased">
+      <body 
+        className="font-body antialiased kitchen-bg"
+        style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1600565193348-f74d3c2723a4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80)' }}
+      >
         <FirebaseClientProvider>
           {children}
           <Toaster />
