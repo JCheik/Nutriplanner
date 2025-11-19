@@ -58,7 +58,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
   const userRecipesCollectionRef = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'users', user.uid, 'recipes') : null, [firestore, user]);
   const { data: userRecipes, isLoading: userRecipesLoading } = useCollection<Recipe>(userRecipesCollectionRef);
 
-  const nutriplannerRecipesCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'nutriplanner_recipes') : null, [firestore]);
+  const nutriplannerRecipesCollectionRef = useMemoFirebase(() => (firestore && !isGuestMode) ? collection(firestore, 'nutriplanner_recipes') : null, [firestore, isGuestMode]);
   const { data: nutriplannerRecipes, isLoading: nutriplannerRecipesLoading } = useCollection<Recipe>(nutriplannerRecipesCollectionRef);
 
   const weekPlanCollectionRef = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'users', user.uid, 'weekPlan') : null, [firestore, user]);
