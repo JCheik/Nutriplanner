@@ -188,18 +188,14 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
   const [isEditing, setIsEditing] = useState(false);
   const [activeDayIndex, setActiveDayIndex] = useState(new Date().getDay() -1); // Monday is 0
 
-  // Find the maximum number of meals in any day to determine grid rows
-  const mealTypes = useMemo(() => {
-    const allMealTitles = new Set<string>();
-    weekPlan.forEach(day => day.meals.forEach(meal => allMealTitles.add(meal.title)));
-    
-    // Define a default order, then add any other dynamic titles
-    const orderedTitles = ['Desayuno', 'Almuerzo', 'Merienda', 'Cena'];
-    const orderedSet = new Set(orderedTitles);
-    allMealTitles.forEach(title => orderedSet.add(title));
-    
-    return Array.from(orderedSet);
+  const maxMealsPerDay = useMemo(() => {
+    if (!weekPlan || weekPlan.length === 0) return 0;
+    return Math.max(...weekPlan.map(day => day.meals.length));
   }, [weekPlan]);
+
+  const mealRows = useMemo(() => {
+    return Array.from({ length: maxMealsPerDay }, (_, i) => i);
+  }, [maxMealsPerDay]);
 
   const handleNextDay = () => {
     setActiveDayIndex((prev) => (prev + 1) % 7);
@@ -265,17 +261,17 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
         </div>
 
         {/* Desktop View - Full Week */}
-        <div className="hidden lg:grid grid-cols-7 gap-x-4">
+        <div className="hidden lg:grid grid-cols-7 gap-x-4 gap-y-2">
             {/* Day Titles */}
             {weekPlan.map(({ day }) => (
-                <h3 key={`${day}-header`} className="font-semibold text-center text-lg text-card-foreground mb-4">{day}</h3>
+                <h3 key={`${day}-header`} className="font-semibold text-center text-lg text-card-foreground mb-2">{day}</h3>
             ))}
 
             {/* Meal Rows */}
-            {mealTypes.map(mealTitle => (
-                <React.Fragment key={mealTitle}>
+            {mealRows.map(mealIndex => (
+                <React.Fragment key={`meal-row-${mealIndex}`}>
                     {weekPlan.map(dayPlan => {
-                        const meal = dayPlan.meals.find(m => m.title === mealTitle);
+                        const meal = dayPlan.meals[mealIndex];
                         return meal ? (
                             <MealSlot 
                                 key={meal.id}
@@ -290,9 +286,9 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                                 onDeleteMeal={onDeleteMeal}
                             />
                         ) : (
-                            <div key={`${dayPlan.day}-${mealTitle}`} className="p-2 border rounded-xl bg-background/80 border-transparent h-full">
+                            <div key={`${dayPlan.day}-meal-${mealIndex}`} className="p-2 border rounded-xl bg-background/80 border-transparent h-full min-h-[5rem]">
                                 {isEditing && (
-                                    <div className="h-full flex items-center justify-center">
+                                     <div className="h-full flex items-center justify-center">
                                         <Button variant="outline" size="sm" className="w-full" onClick={() => onAddMeal(dayPlan.day)}>
                                             <Plus className="h-4 w-4 mr-2"/> Añadir Comida
                                         </Button>
@@ -304,16 +300,22 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                 </React.Fragment>
             ))}
             
-            {/* Daily Totals */}
-            {weekPlan.map(({ day }) => {
+            {/* Daily Totals and Add Meal Button */}
+            {weekPlan.map(({ day, meals }) => {
                 const dayTotalsData = dailyTotals.find(d => d.day === day)?.totals;
                 return (
-                  <DailyTotalsRow 
-                    key={`${day}-footer`}
-                    totals={dayTotalsData || { calories: 0, protein: 0, carbs: 0, fat: 0 }} 
-                    goal={activeGoal} 
-                    className="p-3 rounded-xl bg-background/80 border mt-4 print:hidden" 
-                  />
+                  <div key={`${day}-footer`} className="flex flex-col gap-2">
+                    <DailyTotalsRow 
+                      totals={dayTotalsData || { calories: 0, protein: 0, carbs: 0, fat: 0 }} 
+                      goal={activeGoal} 
+                      className="p-3 rounded-xl bg-background/80 border mt-2 print:hidden" 
+                    />
+                    {isEditing && (
+                         <Button variant="outline" size="sm" className="w-full" onClick={() => onAddMeal(day)}>
+                            <Plus className="h-4 w-4 mr-2"/> Añadir Comida
+                        </Button>
+                    )}
+                  </div>
                 )
             })}
         </div>
