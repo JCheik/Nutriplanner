@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
-import type { DayPlan, Recipe, Meal, WeekPlan, DialogState, UserProfile, CalculationResult, GoalType } from '@/lib/types';
+import type { DayPlan, Recipe, Meal, WeekPlan, DialogState, UserProfile, CalculationResult, GoalType, ActiveDropTarget } from '@/lib/types';
 import { INITIAL_WEEK_PLAN, INITIAL_RECIPES } from '@/lib/data';
 import { PageHeader } from '@/components/layout/page-header';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
@@ -74,6 +74,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
   const [isSaving, setIsSaving] = useState(false);
   const [isGuestPromptOpen, setIsGuestPromptOpen] = useState(false);
   const [activeGoal, setActiveGoal] = useState<GoalType>('maintenance');
+  const [activeDropTarget, setActiveDropTarget] = useState<ActiveDropTarget | null>(null);
 
 
   // Memoized data sources based on auth state
@@ -140,6 +141,8 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
         setDocumentNonBlocking(dayDocRef, { ...targetDay, meals: updatedMeals }, { merge: true });
        }
     }
+    // After adding recipe, clear the target selection
+    setActiveDropTarget(null);
   }, [user, firestore, currentWeekPlan, isGuestMode]);
   
   const handleClearMeal = useCallback((day: string, mealId: string) => {
@@ -213,7 +216,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
 
       if (targetDay) {
           const newMeal: Meal = {
-              id: `meal-${Date.now()}`,
+              id: `meal-${Date.now()}-${day}`,
               title: 'Nueva Comida',
               recipes: [],
           };
@@ -248,6 +251,18 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
       isNutriPlannerRecipe,
     });
   }, [isGuestMode]);
+  
+  const handleAddToPlan = (recipe: Recipe) => {
+    if (activeDropTarget) {
+      handleDrop(activeDropTarget.day, activeDropTarget.mealId, recipe);
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Selecciona un destino",
+        description: "Toca una casilla de comida en el planificador antes de añadir una receta.",
+      });
+    }
+  };
 
   const handleDialogClose = useCallback(() => {
     setDialogState({ open: false });
@@ -421,6 +436,8 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
               onUpdateMealTitle={handleUpdateMealTitle}
               onAddMeal={handleAddMeal}
               onDeleteMeal={handleDeleteMeal}
+              activeDropTarget={activeDropTarget}
+              onSetDropTarget={setActiveDropTarget}
             />
           </div>
           <div className="grid grid-cols-1 gap-6">
@@ -429,6 +446,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
               nutriplannerRecipes={currentNutriplannerRecipes}
               onRecipeAction={handleRecipeAction}
               onCopyRecipe={handleCopyRecipe}
+              onAddToPlan={handleAddToPlan}
             />
           </div>
         </div>

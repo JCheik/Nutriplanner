@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, type DragEvent, type KeyboardEvent } from 'react';
-import type { WeekPlan, Recipe, DailyTotal, Macros, GoalMacros, Meal } from '@/lib/types';
+import type { WeekPlan, Recipe, DailyTotal, Macros, GoalMacros, Meal, ActiveDropTarget } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RecipeCard } from './recipe-card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,8 @@ interface MealPlannerProps {
   onUpdateMealTitle: (day: string, mealId: string, newTitle: string) => void;
   onAddMeal: (day: string) => void;
   onDeleteMeal: (day: string, mealId: string) => void;
+  activeDropTarget: ActiveDropTarget | null;
+  onSetDropTarget: (target: ActiveDropTarget | null) => void;
 }
 
 interface MealSlotProps {
@@ -32,6 +34,8 @@ interface MealSlotProps {
   onRemoveRecipeFromMeal: (day: string, mealId: string, recipeId: string) => void;
   onUpdateMealTitle: (day: string, mealId: string, newTitle: string) => void;
   onDeleteMeal: (day: string, mealId: string) => void;
+  isActiveDropTarget: boolean;
+  onSetDropTarget: (target: ActiveDropTarget | null) => void;
 }
 
 const getMacroColorClass = (current: number, target: number | undefined): string => {
@@ -79,7 +83,7 @@ const DailyTotalsRow = ({ totals, goal, className }: { totals: Macros, goal: Goa
 );
 
 
-function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onDeleteMeal }: MealSlotProps) {
+function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onDeleteMeal, isActiveDropTarget, onSetDropTarget }: MealSlotProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(meal.title);
 
@@ -109,10 +113,26 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
     onDrop(day, meal.id, recipe);
   };
 
+  const handleSlotClick = () => {
+    // In mobile view, set this slot as the active target for adding recipes
+    // The `lg:pointer-events-none` class ensures this only works on small screens
+    onSetDropTarget({ day, mealId: meal.id });
+  };
+
   const hasRecipes = meal.recipes.length > 0;
 
   return (
-    <div onDragOver={handleDragOver} onDrop={handleDrop} className="relative flex flex-col p-2 bg-background/80 border rounded-xl h-full">
+    <div 
+      onDragOver={handleDragOver} 
+      onDrop={handleDrop} 
+      onClick={handleSlotClick}
+      className={cn(
+        "relative flex flex-col p-2 bg-background/80 border rounded-xl h-full lg:pointer-events-auto",
+        "lg:pointer-events-auto", // Enable clicks on desktop
+        "cursor-pointer lg:cursor-default", // Pointer on mobile, default on desktop
+        isActiveDropTarget && "ring-2 ring-primary" // Highlight if it's the active target
+      )}
+    >
       <div className="flex justify-between items-center mb-1 pl-1 group">
         {isEditingTitle ? (
            <Input 
@@ -126,15 +146,15 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
         ) : (
             <h4
               className={cn("text-xs font-medium text-muted-foreground uppercase tracking-widest", isEditing && 'cursor-pointer hover:underline')}
-              onClick={() => isEditing && setIsEditingTitle(true)}
+              onClick={(e) => { e.stopPropagation(); if(isEditing) setIsEditingTitle(true); }}
             >
               {meal.title}
             </h4>
         )}
 
         <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-          {isEditing && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsEditingTitle(true)}><Edit className="h-3 w-3"/></Button>}
-          {isEditing && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onDeleteMeal(day, meal.id)}><Trash2 className="h-3 w-3 text-destructive"/></Button>}
+          {isEditing && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); setIsEditingTitle(true); }}><Edit className="h-3 w-3"/></Button>}
+          {isEditing && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); onDeleteMeal(day, meal.id); }}><Trash2 className="h-3 w-3 text-destructive"/></Button>}
           
           {!isEditing && hasRecipes && (
             <Button
@@ -158,7 +178,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
                     <div key={`${recipe.id}-${index}`} className="w-full relative group/item flex-1">
                       <div 
                           className="h-full w-full"
-                          onClick={() => onRecipeClick(recipe)}
+                          onClick={(e) => { e.stopPropagation(); onRecipeClick(recipe); }}
                       >
                           <RecipeCard 
                             recipe={recipe} 
@@ -184,7 +204,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
   );
 }
 
-export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onAddMeal, onDeleteMeal }: MealPlannerProps) {
+export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget }: MealPlannerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [activeDayIndex, setActiveDayIndex] = useState(new Date().getDay() -1); // Monday is 0
 
@@ -245,6 +265,8 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                         onRemoveRecipeFromMeal={onRemoveRecipeFromMeal}
                         onUpdateMealTitle={onUpdateMealTitle}
                         onDeleteMeal={onDeleteMeal}
+                        isActiveDropTarget={activeDropTarget?.mealId === meal.id}
+                        onSetDropTarget={onSetDropTarget}
                     />
                 ))}
                  {isEditing && (
@@ -284,10 +306,12 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                                 onRemoveRecipeFromMeal={onRemoveRecipeFromMeal}
                                 onUpdateMealTitle={onUpdateMealTitle}
                                 onDeleteMeal={onDeleteMeal}
+                                isActiveDropTarget={activeDropTarget?.mealId === meal.id}
+                                onSetDropTarget={onSetDropTarget}
                             />
                         ) : (
                             <div key={`${dayPlan.day}-meal-${mealIndex}`} className="p-2 border rounded-xl bg-background/80 border-transparent h-full min-h-[5rem]">
-                                {isEditing && (
+                                {isEditing && mealIndex < dayPlan.meals.length + 1 && (
                                      <div className="h-full flex items-center justify-center">
                                         <Button variant="outline" size="sm" className="w-full" onClick={() => onAddMeal(dayPlan.day)}>
                                             <Plus className="h-4 w-4 mr-2"/> Añadir Comida
@@ -300,22 +324,16 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                 </React.Fragment>
             ))}
             
-            {/* Daily Totals and Add Meal Button */}
-            {weekPlan.map(({ day, meals }) => {
+            {/* Daily Totals */}
+            {weekPlan.map(({ day }) => {
                 const dayTotalsData = dailyTotals.find(d => d.day === day)?.totals;
                 return (
-                  <div key={`${day}-footer`} className="flex flex-col gap-2">
                     <DailyTotalsRow 
+                      key={`${day}-totals`}
                       totals={dayTotalsData || { calories: 0, protein: 0, carbs: 0, fat: 0 }} 
                       goal={activeGoal} 
                       className="p-3 rounded-xl bg-background/80 border mt-2 print:hidden" 
                     />
-                    {isEditing && (
-                         <Button variant="outline" size="sm" className="w-full" onClick={() => onAddMeal(day)}>
-                            <Plus className="h-4 w-4 mr-2"/> Añadir Comida
-                        </Button>
-                    )}
-                  </div>
                 )
             })}
         </div>

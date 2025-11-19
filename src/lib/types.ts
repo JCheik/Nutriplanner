@@ -89,3 +89,8 @@ export interface UserClaims {
   admin?: boolean;
   // Add other custom claims here
 }
+
+export interface ActiveDropTarget {
+  day: string;
+  mealId: string;
+}

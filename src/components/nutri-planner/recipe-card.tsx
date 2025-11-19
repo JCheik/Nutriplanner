@@ -47,11 +47,14 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
         draggable={isDraggable}
         onDragStart={handleDragStart}
         onClick={onClick}
-        className="group relative w-full overflow-hidden transition-shadow hover:shadow-lg cursor-pointer bg-background border"
+        className={cn(
+            "group relative w-full overflow-hidden transition-shadow hover:shadow-lg bg-background border",
+            isDraggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
+        )}
       >
         <div className="flex items-center">
           {isDraggable && (
-             <div className="flex items-center justify-center self-stretch px-2 cursor-grab active:cursor-grabbing text-muted-foreground bg-secondary/50">
+             <div className="hidden lg:flex items-center justify-center self-stretch px-2 cursor-grab active:cursor-grabbing text-muted-foreground bg-secondary/50">
               <GripVertical className="h-5 w-5" />
             </div>
           )}
@@ -93,7 +96,7 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
       )}
     >
         {isDraggable && (
-          <div className="absolute top-2 left-2 z-10 p-1 bg-card/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="absolute top-2 left-2 z-10 p-1 bg-card/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hidden lg:block">
             <GripVertical className="h-5 w-5 text-muted-foreground" />
           </div>
         )}

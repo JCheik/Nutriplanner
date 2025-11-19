@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Recipe, SortCriteria } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,7 @@ interface RecipeListProps {
   recipes: Recipe[];
   onRecipeClick: (recipe: Recipe) => void;
   onCopyClick?: (recipe: Recipe) => void;
+  onAddToPlanClick?: (recipe: Recipe) => void;
   isNutriPlanner?: boolean;
 }
 
@@ -30,6 +31,7 @@ interface RecipeLibraryProps {
   nutriplannerRecipes: Recipe[];
   onRecipeAction: (action: 'view' | 'create', recipe?: Recipe, isNutriPlannerRecipe?: boolean) => void;
   onCopyRecipe: (recipe: Recipe) => void;
+  onAddToPlan: (recipe: Recipe) => void;
 }
 
 const sortOptions: { value: SortCriteria; label: string }[] = [
@@ -45,9 +47,17 @@ const sortOptions: { value: SortCriteria; label: string }[] = [
     { value: 'fat-desc', label: 'Grasa (Alta a Baja)' },
 ];
 
-function RecipeList({ recipes, onRecipeClick, onCopyClick, isNutriPlanner = false }: RecipeListProps) {
+function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isNutriPlanner = false }: RecipeListProps) {
   const [filterQuery, setFilterQuery] = useState('');
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const filteredAndSortedRecipes = (recipes || []).filter(recipe => {
     const query = filterQuery.toLowerCase();
@@ -69,6 +79,14 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, isNutriPlanner = fals
     if (valA > valB) return order === 'asc' ? 1 : -1;
     return 0;
   });
+  
+  const handleCardClick = (recipe: Recipe) => {
+    if (isMobile && onAddToPlanClick) {
+      onAddToPlanClick(recipe);
+    } else {
+      onRecipeClick(recipe);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -109,8 +127,8 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, isNutriPlanner = fals
                    <div className="aspect-square w-full relative">
                       <RecipeCard 
                         recipe={recipe} 
-                        isDraggable={false}
-                        onClick={() => onRecipeClick(recipe)}
+                        isDraggable={!isMobile}
+                        onClick={() => handleCardClick(recipe)}
                       />
                       {onCopyClick && (
                         <Button
@@ -128,9 +146,9 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, isNutriPlanner = fals
                     <>
                       <RecipeCard 
                         recipe={recipe} 
-                        isDraggable={true}
+                        isDraggable={!isMobile}
                         isListView
-                        onClick={() => onRecipeClick(recipe)}
+                        onClick={() => handleCardClick(recipe)}
                       />
                     </>
                  )}
@@ -153,6 +171,7 @@ export function RecipeLibrary({
   nutriplannerRecipes,
   onRecipeAction,
   onCopyRecipe,
+  onAddToPlan
 }: RecipeLibraryProps) {
   const [isIngredientsOpen, setIsIngredientsOpen] = useState(false);
   return (
@@ -190,6 +209,7 @@ export function RecipeLibrary({
               <RecipeList 
                 recipes={userRecipes}
                 onRecipeClick={(recipe) => onRecipeAction('view', recipe, false)}
+                onAddToPlanClick={onAddToPlan}
               />
             </TabsContent>
             <TabsContent value="nutriplanner-recipes" className="flex-1 mt-2 overflow-hidden">
@@ -197,6 +217,7 @@ export function RecipeLibrary({
                 recipes={nutriplannerRecipes}
                 onRecipeClick={(recipe) => onRecipeAction('view', recipe, true)}
                 onCopyClick={onCopyRecipe}
+                onAddToPlanClick={onAddToPlan}
                 isNutriPlanner
               />
             </TabsContent>
