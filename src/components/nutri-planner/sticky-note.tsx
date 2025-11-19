@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { StickyNote as StickyNoteIcon, X } from 'lucide-react';
+import { StickyNoteIcon, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface StickyNoteProps {
@@ -44,6 +44,9 @@ export function StickyNote({ isOpen, onToggle, initialContent, onSave }: StickyN
           'fixed bottom-48 right-28 w-80 h-80 bg-yellow-200 rounded-md shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right rotate-3 flex flex-col',
           isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'
         )}
+        style={{
+            backgroundImage: 'linear-gradient(rgba(255,255,255,0.5), rgba(255,255,255,0.5)), url("data:image/svg+xml,%3Csvg width=\'40\' height=\'40\' viewBox=\'0 0 40 40\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'%23eab308\' fill-opacity=\'0.1\' fill-rule=\'evenodd\'%3E%3Cpath d=\'M0 40L40 0H20L0 20M40 40V20L20 40\'/%3E%3C/g%3E%3C/svg%3E")',
+        }}
       >
         <div className="flex justify-between items-center mb-2">
           <h3 className="font-handwriting text-xl font-bold text-yellow-800">Notas</h3>
