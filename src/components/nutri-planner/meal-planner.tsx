@@ -51,7 +51,7 @@ const getMacroColorClass = (current: number, target: number | undefined): string
 };
 
 const DailyTotalsRow = ({ totals, goal }: { totals: Macros, goal: GoalMacros | null }) => (
-  <div className="mt-2 pt-2 border-t">
+  <div className="mt-auto pt-2 border-t">
     <div className="flex flex-col items-center">
       <div className="flex items-center gap-1">
         <Flame className="h-5 w-5 text-primary" />
@@ -112,7 +112,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
   const hasRecipes = meal.recipes.length > 0;
 
   return (
-    <div onDragOver={handleDragOver} onDrop={handleDrop} className="relative flex flex-col">
+    <div onDragOver={handleDragOver} onDrop={handleDrop} className="relative flex flex-col p-2">
       <div className="flex justify-between items-center mb-1 pl-1 group">
         {isEditingTitle ? (
            <Input 
@@ -149,8 +149,8 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
         </div>
       </div>
       <div className={cn(
-        "h-20 rounded-lg p-1 flex flex-col items-center justify-center gap-1 relative group overflow-y-auto transition-colors",
-        hasRecipes ? 'bg-secondary/50 border-2 border-transparent' : 'border-2 border-dashed border-border/50 bg-secondary/30'
+        "rounded-lg p-1 flex-1 flex flex-col items-center justify-center gap-1 relative group transition-colors",
+        hasRecipes ? 'bg-secondary/50 border-2 border-transparent' : 'border-2 border-dashed border-border/50 bg-secondary/30 min-h-[5rem]'
       )}>
         {hasRecipes ? (
            <div className="w-full h-full flex flex-col gap-1 flex-1">
