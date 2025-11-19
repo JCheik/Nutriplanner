@@ -54,7 +54,7 @@ export default function Dashboard() {
   
   const currentWeekPlan = useMemo(() => {
     // Critical fix: If weekPlanData is null (during loading) or empty, return the initial plan immediately.
-    if (!weekPlanData) {
+    if (!weekPlanData || weekPlanData.length === 0) {
       return INITIAL_WEEK_PLAN;
     }
     
@@ -423,3 +423,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
+    

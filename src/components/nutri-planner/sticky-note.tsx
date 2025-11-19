@@ -70,3 +70,5 @@ export function StickyNote({ isOpen, onToggle, initialContent, onSave }: StickyN
     </>
   );
 }
+
+    

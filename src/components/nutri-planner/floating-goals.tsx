@@ -146,3 +146,5 @@ export function FloatingGoals({ isOpen, onToggle, calorieResult, onCalorieResult
     </>
   );
 }
+
+    

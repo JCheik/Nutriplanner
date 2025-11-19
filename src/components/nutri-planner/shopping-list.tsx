@@ -247,3 +247,5 @@ export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListDi
     </>
   );
 }
+
+    

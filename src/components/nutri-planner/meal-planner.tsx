@@ -205,8 +205,8 @@ export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onReci
                        />
                     ))}
                     {isEditing && (
-                        <Button variant="outline" size="sm" className="w-full mt-2">
-                        <Plus className="h-4 w-4 mr-2"/> Añadir Comida
+                        <Button variant="outline" size="sm" className="w-full mt-2" onClick={() => onAddMeal(day)}>
+                           <Plus className="h-4 w-4 mr-2"/> Añadir Comida
                         </Button>
                     )}
                   </div>
@@ -219,3 +219,5 @@ export function MealPlanner({ weekPlan, dailyTotals, onDrop, onClearMeal, onReci
     </Card>
   );
 }
+
+    
