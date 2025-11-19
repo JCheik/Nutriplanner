@@ -112,7 +112,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
   const hasRecipes = meal.recipes.length > 0;
 
   return (
-    <div onDragOver={handleDragOver} onDrop={handleDrop} className="relative flex flex-col h-full flex-1">
+    <div onDragOver={handleDragOver} onDrop={handleDrop} className="relative flex flex-col flex-1">
       <div className="flex justify-between items-center mb-1 pl-1 group">
         {isEditingTitle ? (
            <Input 
@@ -207,7 +207,7 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
           {weekPlan.map(({ day, meals }) => {
               const dayTotals = dailyTotals.find(d => d.day === day)?.totals;
               return (
-              <div key={day} className="flex flex-col gap-3 p-3 rounded-xl bg-background/80 border min-w-[200px]">
+              <div key={day} className="flex flex-col gap-3 p-3 rounded-xl bg-background/80 border min-w-[200px] min-h-[400px]">
                   <h3 className="font-semibold text-center text-lg text-card-foreground">{day}</h3>
                   <div className="space-y-2 flex-1 flex flex-col min-h-[400px]">
                     {meals.map(meal => (
@@ -225,7 +225,7 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                        />
                     ))}
                     {isEditing && (
-                        <Button variant="outline" size="sm" className="w-full mt-2" onClick={() => onAddMeal(day)}>
+                        <Button variant="outline" size="sm" className="w-full mt-auto" onClick={() => onAddMeal(day)}>
                            <Plus className="h-4 w-4 mr-2"/> Añadir Comida
                         </Button>
                     )}
