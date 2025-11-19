@@ -5,11 +5,6 @@ import type { WeekPlan } from '@/lib/types';
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -43,46 +38,10 @@ interface ShoppingListDialogProps {
   onToggle: () => void;
 }
 
-export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListDialogProps) {
-  const [isQrOpen, setIsQrOpen] = useState(false);
-  const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
+const ShoppingListContent = ({ shoppingList, setShoppingList }: { shoppingList: ShoppingListItem[], setShoppingList: React.Dispatch<React.SetStateAction<ShoppingListItem[]>> }) => {
   const [newItemName, setNewItemName] = useState('');
   const [newItemQty, setNewItemQty] = useState('');
   const [editingItem, setEditingItem] = useState<ShoppingListItem | null>(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      const aggregated: Record<string, { name: string; quantity: number; unit: string }> = {};
-
-      weekPlan.forEach(dayPlan => {
-        dayPlan.meals.forEach(meal => {
-          meal.recipes.forEach(recipe => {
-            recipe.ingredients.forEach(ingredient => {
-              const key = `${ingredient.name.toLowerCase().trim()}-${ingredient.unit}`;
-              if (aggregated[key]) {
-                aggregated[key].quantity += ingredient.quantity;
-              } else {
-                aggregated[key] = { ...ingredient };
-              }
-            });
-          });
-        });
-      });
-
-      const generatedList = Object.values(aggregated).map((item, index) => ({
-        ...item,
-        id: `gen-${index}`,
-        checked: false,
-      })).sort((a, b) => a.name.localeCompare(b.name));
-      
-      setShoppingList(generatedList);
-    }
-  }, [weekPlan, isOpen]);
-
-
-  const shoppingListString = useMemo(() => {
-    return shoppingList.map(item => `- ${item.quantity.toFixed(0)}${item.unit} ${item.name}`).join('\n');
-  }, [shoppingList]);
 
   const handleToggleCheck = (id: string) => {
     setShoppingList(prev => prev.map(item => item.id === id ? { ...item, checked: !item.checked } : item));
@@ -114,15 +73,11 @@ export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListDi
     setShoppingList(prev => prev.filter(item => item.id !== id));
   };
   
-  const handleClearList = () => {
-    setShoppingList([]);
-  };
-
   const handleEditClick = (item: ShoppingListItem) => {
     setEditingItem({...item});
   };
 
-  const ShoppingListContent = () => (
+  return (
     <>
         <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
@@ -209,16 +164,49 @@ export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListDi
                 </div>
             )}
         </ScrollArea>
-        <SheetFooter className="mt-auto pt-4 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <Button variant="secondary" onClick={() => setIsQrOpen(true)} disabled={shoppingList.length === 0}>
-                <Smartphone className="mr-2 h-4 w-4" />
-                Generar QR
-            </Button>
-            <Button onClick={onToggle}>Cerrar</Button>
-        </SheetFooter>
     </>
   );
+};
 
+
+export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListDialogProps) {
+  const [isQrOpen, setIsQrOpen] = useState(false);
+  const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      const aggregated: Record<string, { name: string; quantity: number; unit: string }> = {};
+
+      weekPlan.forEach(dayPlan => {
+        dayPlan.meals.forEach(meal => {
+          meal.recipes.forEach(recipe => {
+            (recipe.ingredients || []).forEach(ingredient => {
+              const key = `${ingredient.name.toLowerCase().trim()}-${ingredient.unit}`;
+              if (aggregated[key]) {
+                aggregated[key].quantity += ingredient.quantity;
+              } else {
+                aggregated[key] = { ...ingredient };
+              }
+            });
+          });
+        });
+      });
+
+      const generatedList = Object.values(aggregated).map((item, index) => ({
+        ...item,
+        id: `gen-${index}`,
+        checked: false,
+      })).sort((a, b) => a.name.localeCompare(b.name));
+      
+      setShoppingList(generatedList);
+    }
+  }, [weekPlan, isOpen]);
+
+
+  const shoppingListString = useMemo(() => {
+    return shoppingList.map(item => `- ${item.quantity.toFixed(0)}${item.unit} ${item.name}`).join('\n');
+  }, [shoppingList]);
+  
   return (
     <>
       <div className="fixed bottom-8 right-8 z-40 lg:hidden">
@@ -240,15 +228,22 @@ export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListDi
             )}
             hideCloseButton
             >
-            <Button
-                variant="ghost"
-                size="icon"
-                className="absolute top-2 right-2 h-7 w-7"
-                onClick={onToggle}
-            >
-                <X className="h-5 w-5" />
-            </Button>
-            <ShoppingListContent />
+              <ShoppingListContent shoppingList={shoppingList} setShoppingList={setShoppingList} />
+              <SheetFooter className="mt-auto pt-4 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Button variant="secondary" onClick={() => setIsQrOpen(true)} disabled={shoppingList.length === 0}>
+                      <Smartphone className="mr-2 h-4 w-4" />
+                      Generar QR
+                  </Button>
+                  <Button onClick={onToggle}>Cerrar</Button>
+              </SheetFooter>
+              <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-2 right-2 h-7 w-7"
+                  onClick={onToggle}
+              >
+                  <X className="h-5 w-5" />
+              </Button>
             </DialogContent>
         </Dialog>
         <div className="fixed bottom-8 right-8 z-40">
@@ -265,7 +260,14 @@ export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListDi
       <div className="lg:hidden">
         <Sheet open={isOpen} onOpenChange={onToggle}>
             <SheetContent side="right" className="flex flex-col">
-              <ShoppingListContent />
+              <ShoppingListContent shoppingList={shoppingList} setShoppingList={setShoppingList} />
+              <SheetFooter className="mt-auto pt-4 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Button variant="secondary" onClick={() => setIsQrOpen(true)} disabled={shoppingList.length === 0}>
+                    <Smartphone className="mr-2 h-4 w-4" />
+                    Generar QR
+                </Button>
+                <Button onClick={onToggle}>Cerrar</Button>
+            </SheetFooter>
             </SheetContent>
         </Sheet>
       </div>

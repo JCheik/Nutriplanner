@@ -7,6 +7,9 @@ import { cn } from '@/lib/utils';
 import {
   Sheet,
   SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
 } from '@/components/ui/sheet';
 import { Dialog } from '@/components/ui/dialog';
 
@@ -39,17 +42,20 @@ const NoteContent = ({ initialContent, onSave, onToggle }: Pick<StickyNoteProps,
                 backgroundImage: 'linear-gradient(rgba(255,255,255,0.5), rgba(255,255,255,0.5)), url("data:image/svg+xml,%3Csvg width=\'40\' height=\'40\' viewBox=\'0 0 40 40\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'%23eab308\' fill-opacity=\'0.1\' fill-rule=\'evenodd\'%3E%3Cpath d=\'M0 40L40 0H20L0 20M40 40V20L20 40\'/%3E%3C/g%3E%3C/svg%3E")',
             }}
         >
-            <div className="flex justify-between items-center mb-2">
-                <h3 className="font-handwriting text-xl font-bold text-yellow-800">Notas</h3>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-yellow-700 hover:bg-yellow-300/50"
-                    onClick={onToggle}
-                >
-                    <X className="h-5 w-5" />
-                </Button>
-            </div>
+            <SheetHeader className="mb-2 text-left">
+                <SheetTitle className="font-handwriting text-xl font-bold text-yellow-800 flex justify-between items-center">
+                    Notas Rápidas
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-yellow-700 hover:bg-yellow-300/50 lg:hidden"
+                        onClick={onToggle}
+                    >
+                        <X className="h-5 w-5" />
+                    </Button>
+                </SheetTitle>
+                <SheetDescription className="sr-only">Un bloc de notas para apuntes rápidos.</SheetDescription>
+            </SheetHeader>
             <textarea
             value={noteContent}
             onChange={handleNoteChange}
@@ -69,7 +75,7 @@ export function StickyNote({ isOpen, onToggle, initialContent, onSave }: StickyN
          <Button
           onClick={onToggle}
           variant="secondary"
-          className="h-16 w-16 rounded-full shadow-lg"
+          className="h-16 w-16 rounded-full shadow-lg bg-secondary text-secondary-foreground hover:bg-secondary/80"
           size="icon"
         >
           <StickyNoteIcon className="h-8 w-8" />
@@ -81,7 +87,7 @@ export function StickyNote({ isOpen, onToggle, initialContent, onSave }: StickyN
             <Button
                 onClick={onToggle}
                 variant="secondary"
-                className="h-16 w-16 rounded-full shadow-lg"
+                className="h-16 w-16 rounded-full shadow-lg bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 size="icon"
             >
                 <StickyNoteIcon className="h-8 w-8" />
@@ -95,6 +101,14 @@ export function StickyNote({ isOpen, onToggle, initialContent, onSave }: StickyN
                 )}
             >
                <NoteContent initialContent={initialContent} onSave={onSave} onToggle={onToggle} />
+                 <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-2 right-2 h-7 w-7 text-yellow-700 hover:bg-yellow-300/50"
+                    onClick={onToggle}
+                >
+                    <X className="h-5 w-5" />
+                </Button>
             </div>
         </Dialog>
       </div>
@@ -109,5 +123,3 @@ export function StickyNote({ isOpen, onToggle, initialContent, onSave }: StickyN
     </>
   );
 }
-
-    

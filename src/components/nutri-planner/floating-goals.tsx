@@ -130,7 +130,7 @@ export function FloatingGoals({ isOpen, onToggle, calorieResult, onCalorieResult
       <div className="fixed bottom-28 right-8 z-40 lg:hidden">
         <Button
           onClick={onToggle}
-          className="h-16 w-16 rounded-full shadow-lg"
+          className="h-16 w-16 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
           size="icon"
         >
           <Target className="h-8 w-8" />
@@ -141,7 +141,7 @@ export function FloatingGoals({ isOpen, onToggle, calorieResult, onCalorieResult
         <div className="fixed bottom-28 right-8 z-40">
             <Button
             onClick={onToggle}
-            className="h-16 w-16 rounded-full shadow-lg"
+            className="h-16 w-16 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
             size="icon"
             >
             <Target className="h-8 w-8" />
@@ -170,6 +170,10 @@ export function FloatingGoals({ isOpen, onToggle, calorieResult, onCalorieResult
       <div className="lg:hidden">
         <Sheet open={isOpen} onOpenChange={onToggle}>
             <SheetContent side="bottom" className="h-[80vh] flex flex-col">
+              <SheetHeader>
+                <SheetTitle>Tus Objetivos Nutricionales</SheetTitle>
+                <SheetDescription>Calcula y selecciona tus metas diarias de calorías y macronutrientes.</SheetDescription>
+              </SheetHeader>
                 <TargetGoalsDisplay result={calorieResult} onCalculate={onCalorieResultSave} onGoalSelect={onGoalSelect} />
             </SheetContent>
         </Sheet>
