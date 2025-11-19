@@ -236,9 +236,9 @@ export function CalculatorDialog({ isOpen, onClose, onCalculate, initialResult }
                       name="age"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Edad</FormLabel>
+                          <FormLabel htmlFor="age">Edad</FormLabel>
                           <FormControl>
-                            <Input type="number" placeholder="años" {...field} className="bg-input" />
+                            <Input type="number" placeholder="años" {...field} id="age" name="age" className="bg-input" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -249,9 +249,9 @@ export function CalculatorDialog({ isOpen, onClose, onCalculate, initialResult }
                       name="weight"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Peso</FormLabel>
+                          <FormLabel htmlFor="weight">Peso</FormLabel>
                           <FormControl>
-                            <Input type="number" placeholder="kg" {...field} className="bg-input" />
+                            <Input type="number" placeholder="kg" {...field} id="weight" name="weight" className="bg-input" />
                           </FormControl>
                            <FormMessage />
                         </FormItem>
@@ -262,9 +262,9 @@ export function CalculatorDialog({ isOpen, onClose, onCalculate, initialResult }
                       name="height"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Altura</FormLabel>
+                          <FormLabel htmlFor="height">Altura</FormLabel>
                           <FormControl>
-                            <Input type="number" placeholder="cm" {...field} className="bg-input" />
+                            <Input type="number" placeholder="cm" {...field} id="height" name="height" className="bg-input" />
                           </FormControl>
                            <FormMessage />
                         </FormItem>

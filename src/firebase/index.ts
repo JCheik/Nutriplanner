@@ -7,13 +7,13 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import {type DependencyList, useMemo} from "react";
 
-// IMPORTANT: DO NOT MODIFY THIS FUNCTION
+// This function is intended for client-side use ONLY.
 export function initializeFirebase(config: FirebaseOptions) {
+  // On the client, we want to ensure we are reusing the same app instance.
   if (getApps().length > 0) {
     return getSdks(getApp());
   }
-
-  // In this environment, we explicitly initialize with the provided config.
+  // If no app is initialized, initialize one with the provided config.
   return getSdks(initializeApp(config));
 }
 

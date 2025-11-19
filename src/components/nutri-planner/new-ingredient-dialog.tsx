@@ -98,37 +98,37 @@ export function NewIngredientDialog({ isOpen, onClose, onSave, ingredientToEdit 
             <Label htmlFor="name" className="text-right">
               Nombre
             </Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" />
+            <Input id="name" name="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="calories" className="text-right">
               Calorías (kcal)
             </Label>
-            <Input id="calories" type="number" value={calories} onChange={(e) => setCalories(parseFloat(e.target.value) || 0)} className="col-span-3" />
+            <Input id="calories" name="calories" type="number" value={calories} onChange={(e) => setCalories(parseFloat(e.target.value) || 0)} className="col-span-3" />
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="protein" className="text-right">
               Proteínas (g)
             </Label>
-            <Input id="protein" type="number" value={protein} onChange={(e) => setProtein(parseFloat(e.target.value) || 0)} className="col-span-3" />
+            <Input id="protein" name="protein" type="number" value={protein} onChange={(e) => setProtein(parseFloat(e.target.value) || 0)} className="col-span-3" />
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="carbs" className="text-right">
               Carbohidratos (g)
             </Label>
-            <Input id="carbs" type="number" value={carbs} onChange={(e) => setCarbs(parseFloat(e.target.value) || 0)} className="col-span-3" />
+            <Input id="carbs" name="carbs" type="number" value={carbs} onChange={(e) => setCarbs(parseFloat(e.target.value) || 0)} className="col-span-3" />
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="fat" className="text-right">
               Grasas (g)
             </Label>
-            <Input id="fat" type="number" value={fat} onChange={(e) => setFat(parseFloat(e.target.value) || 0)} className="col-span-3" />
+            <Input id="fat" name="fat" type="number" value={fat} onChange={(e) => setFat(parseFloat(e.target.value) || 0)} className="col-span-3" />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="fiber" className="text-right">
               Fibra (g)
             </Label>
-            <Input id="fiber" type="number" value={fiber} onChange={(e) => setFiber(parseFloat(e.target.value) || 0)} className="col-span-3" />
+            <Input id="fiber" name="fiber" type="number" value={fiber} onChange={(e) => setFiber(parseFloat(e.target.value) || 0)} className="col-span-3" />
           </div>
         </div>
         <DialogFooter>

@@ -1,5 +1,7 @@
 import { FirebaseOptions } from 'firebase/app';
 
+// This configuration is used for BOTH client and server-side initialization.
+// Do not place any client-side-only configuration in this file.
 export const firebaseConfig: FirebaseOptions = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
