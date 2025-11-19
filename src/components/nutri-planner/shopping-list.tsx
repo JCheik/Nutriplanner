@@ -118,7 +118,7 @@ export function ShoppingListSheet({ weekPlan, isOpen, onToggle }: ShoppingListDi
       <div className="fixed bottom-8 right-8 z-40">
         <Button
           onClick={onToggle}
-          className="h-16 w-16 rounded-full shadow-lg bg-blue-500 hover:bg-blue-600 text-white"
+          className="h-16 w-16 rounded-full shadow-lg bg-accent text-accent-foreground hover:bg-accent/90"
           size="icon"
         >
           <ShoppingCart className="h-8 w-8" />

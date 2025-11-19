@@ -32,7 +32,8 @@ export function StickyNote({ isOpen, onToggle, initialContent, onSave }: StickyN
       <div className="fixed bottom-48 right-8 z-40">
          <Button
           onClick={onToggle}
-          className="h-16 w-16 rounded-full shadow-lg bg-yellow-300 text-yellow-800 hover:bg-yellow-400"
+          variant="secondary"
+          className="h-16 w-16 rounded-full shadow-lg"
           size="icon"
         >
           <StickyNoteIcon className="h-8 w-8" />
