@@ -75,6 +75,24 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline;
   }
+  
+  @media print {
+    body {
+        background-image: none !important;
+    }
+    .print\:hidden {
+        display: none !important;
+    }
+    .print\:shadow-none {
+        box-shadow: none !important;
+    }
+    .print\:border-none {
+        border: none !important;
+    }
+    .print\:bg-transparent {
+      background-color: transparent !important;
+    }
+  }
 }
 
 @layer components {

@@ -5,7 +5,7 @@ import type { WeekPlan, Recipe, DailyTotal, Macros, GoalMacros, Meal, ActiveDrop
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RecipeCard } from './recipe-card';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, X, Flame, Plus, Edit, Check } from 'lucide-react';
+import { CalendarDays, X, Flame, Plus, Edit, Check, Printer } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '../ui/input';
 
@@ -240,10 +240,15 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
             </div>
             <CardDescription>Arrastra y suelta recetas de tu biblioteca para planificar tu semana.</CardDescription>
         </div>
-        <Button variant="outline" onClick={() => setIsEditing(!isEditing)}>
-            {isEditing ? <Check className="mr-2 h-4 w-4" /> : <Edit className="mr-2 h-4 w-4" />}
-            {isEditing ? 'Finalizar Edición' : 'Editar Plan'}
-        </Button>
+        <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => window.print()}>
+              <Printer className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" onClick={() => setIsEditing(!isEditing)}>
+                {isEditing ? <Check className="mr-2 h-4 w-4" /> : <Edit className="mr-2 h-4 w-4" />}
+                {isEditing ? 'Finalizar Edición' : 'Editar Plan'}
+            </Button>
+        </div>
       </CardHeader>
       <CardContent className="pb-4">
         <div className="grid grid-cols-7 gap-2">
