@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { RecipeCard } from './recipe-card';
-import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Database, Folder as FolderIcon, Plus, Trash2 } from 'lucide-react';
+import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Database, Folder as FolderIcon, Plus, Trash2, Folders } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -243,10 +243,13 @@ export function RecipeLibrary({
   onAssignRecipeToFolder,
 }: RecipeLibraryProps) {
   const [isIngredientsOpen, setIsIngredientsOpen] = useState(false);
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>('all');
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
 
   const recipesInSelectedFolder = useMemo(() => {
+    if (selectedFolderId === 'all') {
+        return userRecipes;
+    }
     if (selectedFolderId === null) {
       return userRecipes.filter(r => !r.folderId);
     }
@@ -276,11 +279,11 @@ export function RecipeLibrary({
     setDragOverFolderId(null);
   };
 
-  const FolderButton = ({ folderId, name, icon: Icon, children }: { folderId: string | null, name: string, icon: React.ElementType, children?: React.ReactNode }) => (
+  const FolderButton = ({ folderId, name, icon: Icon, children, isDroppable = true }: { folderId: string | null, name: string, icon: React.ElementType, children?: React.ReactNode, isDroppable?: boolean }) => (
     <div
-      onDragOver={(e) => handleDragOver(e, folderId)}
-      onDragLeave={handleDragLeave}
-      onDrop={(e) => handleDrop(e, folderId)}
+      onDragOver={isDroppable ? (e) => handleDragOver(e, folderId) : undefined}
+      onDragLeave={isDroppable ? handleDragLeave : undefined}
+      onDrop={isDroppable ? (e) => handleDrop(e, folderId) : undefined}
       className={cn(
         'rounded-md transition-colors',
         dragOverFolderId === folderId && 'bg-accent/80'
@@ -340,6 +343,7 @@ export function RecipeLibrary({
                   <h3 className="font-semibold text-sm mb-2 px-2">Carpetas</h3>
                   <ScrollArea className="h-full">
                     <div className="space-y-1">
+                      <FolderButton folderId={"all"} name="Todas mis Recetas" icon={Folders} isDroppable={false} />
                       <FolderButton folderId={null} name="Sin Carpeta" icon={FolderIcon} />
                       {folders.map(folder => (
                         <FolderButton key={folder.id} folderId={folder.id} name={folder.name} icon={FolderIcon}>
@@ -398,5 +402,3 @@ export function RecipeLibrary({
     </>
   );
 }
-
-    
