@@ -411,6 +411,13 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     toast({ title: 'Carpeta eliminada' });
   }, [user, firestore, userRecipes, isGuestMode]);
 
+  const handleAssignRecipeToFolder = useCallback((recipeId: string, folderId: string | null) => {
+    if (promptToRegister() || !user || !firestore) return;
+    const recipeRef = doc(firestore, 'users', user.uid, 'recipes', recipeId);
+    updateDocumentNonBlocking(recipeRef, { folderId });
+    toast({ title: 'Receta movida' });
+  }, [user, firestore, isGuestMode]);
+
 
   const dailyTotals = useMemo(() => {
     return currentWeekPlan.map(dayPlan => {
@@ -501,6 +508,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
               onAddToPlan={handleAddToPlan}
               onFolderCreate={handleFolderCreate}
               onFolderDelete={handleFolderDelete}
+              onAssignRecipeToFolder={handleAssignRecipeToFolder}
             />
           </div>
         </div>
@@ -556,3 +564,5 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     </div>
   );
 }
+
+    

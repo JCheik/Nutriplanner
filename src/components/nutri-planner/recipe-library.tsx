@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type DragEvent } from 'react';
 import type { Recipe, SortCriteria, Folder } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,7 @@ interface RecipeListProps {
   onRecipeClick: (recipe: Recipe) => void;
   onCopyClick?: (recipe: Recipe) => void;
   onAddToPlanClick?: (recipe: Recipe) => void;
+  isDraggable: boolean;
   isNutriPlanner?: boolean;
 }
 
@@ -49,6 +50,7 @@ interface RecipeLibraryProps {
   onAddToPlan: (recipe: Recipe) => void;
   onFolderCreate: (name: string) => void;
   onFolderDelete: (id: string) => void;
+  onAssignRecipeToFolder: (recipeId: string, folderId: string | null) => void;
 }
 
 const sortOptions: { value: SortCriteria; label: string }[] = [
@@ -110,7 +112,7 @@ function NewFolderPopover({ onFolderCreate }: { onFolderCreate: (name: string) =
   );
 }
 
-function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isNutriPlanner = false }: RecipeListProps) {
+function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isDraggable, isNutriPlanner = false }: RecipeListProps) {
   const [filterQuery, setFilterQuery] = useState('');
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
   const [isMobile, setIsMobile] = useState(false);
@@ -190,7 +192,7 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isN
                    <div className="aspect-square w-full relative">
                       <RecipeCard 
                         recipe={recipe} 
-                        isDraggable={!isMobile}
+                        isDraggable={isDraggable && !isMobile}
                         onClick={() => handleCardClick(recipe)}
                       />
                       {onCopyClick && (
@@ -209,7 +211,7 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isN
                     <>
                       <RecipeCard 
                         recipe={recipe} 
-                        isDraggable={!isMobile}
+                        isDraggable={isDraggable && !isMobile}
                         isListView
                         onClick={() => handleCardClick(recipe)}
                       />
@@ -237,17 +239,69 @@ export function RecipeLibrary({
   onCopyRecipe,
   onAddToPlan,
   onFolderCreate,
-  onFolderDelete
+  onFolderDelete,
+  onAssignRecipeToFolder,
 }: RecipeLibraryProps) {
   const [isIngredientsOpen, setIsIngredientsOpen] = useState(false);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
 
   const recipesInSelectedFolder = useMemo(() => {
     if (selectedFolderId === null) {
-      return userRecipes;
+      return userRecipes.filter(r => !r.folderId);
     }
     return userRecipes.filter(recipe => recipe.folderId === selectedFolderId);
   }, [userRecipes, selectedFolderId]);
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>, folderId: string | null) => {
+    e.preventDefault();
+    setDragOverFolderId(folderId);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragOverFolderId(null);
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>, folderId: string | null) => {
+    e.preventDefault();
+    const recipeData = e.dataTransfer.getData('application/json');
+    if (recipeData) {
+      const recipe = JSON.parse(recipeData) as Recipe;
+      // Only allow assigning user's own recipes
+      if (userRecipes.some(r => r.id === recipe.id)) {
+        onAssignRecipeToFolder(recipe.id, folderId);
+      }
+    }
+    setDragOverFolderId(null);
+  };
+
+  const FolderButton = ({ folderId, name, icon: Icon, children }: { folderId: string | null, name: string, icon: React.ElementType, children?: React.ReactNode }) => (
+    <div
+      onDragOver={(e) => handleDragOver(e, folderId)}
+      onDragLeave={handleDragLeave}
+      onDrop={(e) => handleDrop(e, folderId)}
+      className={cn(
+        'rounded-md transition-colors',
+        dragOverFolderId === folderId && 'bg-accent/80'
+      )}
+    >
+      <div className="flex items-center justify-between group hover:bg-accent/50 rounded-md">
+        <Button
+          variant="ghost"
+          onClick={() => setSelectedFolderId(folderId)}
+          className={cn(
+            "w-full justify-start text-left flex-1 h-9",
+            selectedFolderId === folderId && "bg-accent text-accent-foreground"
+          )}
+        >
+          <Icon className="mr-2 h-4 w-4 flex-shrink-0" />
+          <span className="truncate flex-1">{name}</span>
+        </Button>
+        {children}
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -286,24 +340,10 @@ export function RecipeLibrary({
                   <h3 className="font-semibold text-sm mb-2 px-2">Carpetas</h3>
                   <ScrollArea className="h-full">
                     <div className="space-y-1">
-                      <Button
-                        variant="ghost"
-                        onClick={() => setSelectedFolderId(null)}
-                        className={cn("w-full justify-start", !selectedFolderId && "bg-accent text-accent-foreground")}
-                      >
-                        <FolderIcon className="mr-2 h-4 w-4" /> Todas las Recetas
-                      </Button>
+                      <FolderButton folderId={null} name="Sin Carpeta" icon={FolderIcon} />
                       {folders.map(folder => (
-                        <div key={folder.id} className="flex items-center justify-between group rounded-md hover:bg-accent/50">
-                          <Button
-                            variant="ghost"
-                            onClick={() => setSelectedFolderId(folder.id)}
-                            className={cn("w-full justify-start text-left flex-1 h-9", selectedFolderId === folder.id && "bg-accent text-accent-foreground")}
-                          >
-                            <FolderIcon className="mr-2 h-4 w-4 flex-shrink-0" />
-                            <span className="truncate flex-1">{folder.name}</span>
-                          </Button>
-                           <AlertDialog>
+                        <FolderButton key={folder.id} folderId={folder.id} name={folder.name} icon={FolderIcon}>
+                          <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0">
                                 <Trash2 className="h-4 w-4 text-destructive" />
@@ -322,7 +362,7 @@ export function RecipeLibrary({
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
-                        </div>
+                        </FolderButton>
                       ))}
                       <NewFolderPopover onFolderCreate={onFolderCreate} />
                     </div>
@@ -333,6 +373,7 @@ export function RecipeLibrary({
                     recipes={recipesInSelectedFolder}
                     onRecipeClick={(recipe) => onRecipeAction('view', recipe, false)}
                     onAddToPlanClick={onAddToPlan}
+                    isDraggable={true}
                   />
                 </div>
               </div>
@@ -343,6 +384,7 @@ export function RecipeLibrary({
                 onRecipeClick={(recipe) => onRecipeAction('view', recipe, true)}
                 onCopyClick={onCopyRecipe}
                 onAddToPlanClick={onAddToPlan}
+                isDraggable={true}
                 isNutriPlanner
               />
             </TabsContent>
@@ -356,3 +398,5 @@ export function RecipeLibrary({
     </>
   );
 }
+
+    
