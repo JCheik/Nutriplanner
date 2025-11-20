@@ -15,7 +15,6 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 const GoalCard = ({ title, icon: Icon, goal, isActive = false }: { title: string, icon: React.ElementType, goal: GoalMacros, isActive?: boolean }) => {
     return (
@@ -120,25 +119,22 @@ export function FloatingGoals({ isOpen, onOpenChange, calorieResult, onCalorieRe
     <>
       {/* Desktop uses a Dialog-like pop-up */}
       <div className="hidden lg:block">
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent 
-                className={cn(
-                'fixed bottom-24 right-8 w-96 rounded-lg shadow-2xl p-0 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right bg-glass border-0',
-                isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
-                )}
-                hideCloseButton
+         <div 
+            className={cn(
+               'fixed bottom-24 right-8 w-96 rounded-lg shadow-2xl transform transition-all duration-300 ease-in-out z-50 origin-bottom-right bg-glass border',
+               isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
+            )}
+        >
+            <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-2 right-2 h-7 w-7 z-10"
+                onClick={() => onOpenChange(false)}
             >
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute top-2 right-2 h-7 w-7"
-                    onClick={() => onOpenChange(false)}
-                >
-                    <X className="h-5 w-5" />
-                </Button>
-                <TargetGoalsDisplay result={calorieResult} onCalculate={onCalorieResultSave} onGoalSelect={onGoalSelect} />
-            </DialogContent>
-        </Dialog>
+                <X className="h-5 w-5" />
+            </Button>
+            <TargetGoalsDisplay result={calorieResult} onCalculate={onCalorieResultSave} onGoalSelect={onGoalSelect} />
+        </div>
       </div>
 
       {/* Mobile uses a Sheet */}

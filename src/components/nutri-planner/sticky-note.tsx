@@ -11,7 +11,6 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 interface StickyNoteProps {
   isOpen: boolean;
@@ -59,25 +58,22 @@ export function StickyNote({ isOpen, onOpenChange, initialContent, onSave }: Sti
     <>
       {/* Desktop uses a Dialog-like pop-up */}
       <div className="hidden lg:block">
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent
-                className={cn(
-                'fixed bottom-24 right-8 w-80 h-80 rounded-md transform transition-all duration-300 ease-in-out z-50 origin-bottom-right rotate-3 p-0 border-0 bg-transparent shadow-none',
-                isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
-                )}
-                hideCloseButton
+        <div
+            className={cn(
+            'fixed bottom-24 right-8 w-80 h-80 rounded-md transform transition-all duration-300 ease-in-out z-50 origin-bottom-right rotate-3 p-0 border-0 bg-transparent shadow-none',
+            isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
+            )}
+        >
+            <NoteContent initialContent={initialContent} onSave={onSave} />
+            <Button
+                variant="ghost"
+                size="icon"
+                className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-card shadow-lg text-card-foreground hover:bg-card/80"
+                onClick={() => onOpenChange(false)}
             >
-                <NoteContent initialContent={initialContent} onSave={onSave} />
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-card shadow-lg text-card-foreground hover:bg-card/80"
-                    onClick={() => onOpenChange(false)}
-                >
-                    <X className="h-5 w-5" />
-                </Button>
-            </DialogContent>
-        </Dialog>
+                <X className="h-5 w-5" />
+            </Button>
+        </div>
       </div>
 
       {/* Mobile uses a Sheet */}
