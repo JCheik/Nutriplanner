@@ -2,15 +2,20 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow read access on all files to anyone.
-    // Allow write access only on files in the 'recipes' folder
-    // for authenticated users, for files that are images and less than 5MB.
+    // Match any file in the bucket
     match /{allPaths=**} {
+      // Allow anyone to read any file
       allow read;
+
+      // Allow write only if all the following conditions are met:
+      // 1. The user is authenticated.
+      // 2. The path of the file being uploaded matches the 'recipes/**' pattern.
+      // 3. The file is an image.
+      // 4. The file size is less than 5MB.
       allow write: if request.auth != null &&
-                    allPaths.matches('recipes/.*') &&
-                    request.resource.contentType.matches('image/.*') &&
-                    request.resource.size < 5 * 1024 * 1024;
+                      allPaths.matches('recipes/.*') &&
+                      request.resource.contentType.matches('image/.*') &&
+                      request.resource.size < 5 * 1024 * 1024;
     }
   }
 }

@@ -314,7 +314,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     setDialogState({ open: false });
   }, []);
 
-  const handleSaveRecipe = (recipeData: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
+ const handleSaveRecipe = async (recipeData: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
     if (promptToRegister() || !user || !firestore || !storage) {
         toast({ variant: "destructive", title: "Error de configuración", description: "Faltan servicios de Firebase." });
         return;
@@ -322,54 +322,50 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
 
     setIsSaving(true);
     
-    const targetCollectionRef = isGlobal ? nutriplannerRecipesCollectionRef : userRecipesCollectionRef;
-    if (!targetCollectionRef) {
-        toast({ variant: "destructive", title: "Error", description: "La colección de recetas no está disponible." });
-        setIsSaving(false);
-        return;
-    }
+    const targetCollection = isGlobal ? 'nutriplanner_recipes' : `users/${user.uid}/recipes`;
+    const targetCollectionRef = collection(firestore, targetCollection);
     
+    // Step 1: Determine the recipe ID upfront
     const recipeId = existingId || doc(targetCollectionRef).id;
     const recipeRef = doc(targetCollectionRef, recipeId);
 
-    const saveRecipeData = (imageUrl: string | null) => {
+    let finalImageUrl = recipeData.imageUrl || '';
+
+    try {
+        // Step 2: Upload image if it exists
+        if (imageFile) {
+            const imagePath = `recipes/${recipeId}.${imageFile.name.split('.').pop()}`;
+            const imageStorageRef = ref(storage, imagePath);
+            const snapshot = await uploadBytes(imageStorageRef, imageFile);
+            finalImageUrl = await getDownloadURL(snapshot.ref);
+        }
+
+        // Step 3: Prepare the final recipe data
         const recipeToSave: Recipe = {
             ...recipeData,
             id: recipeId,
-            imageUrl: imageUrl || recipeData.imageUrl || '',
+            imageUrl: finalImageUrl,
         };
 
-        const savePromise = existingId 
-            ? updateDoc(recipeRef, recipeToSave)
-            : setDoc(recipeRef, recipeToSave);
+        // Step 4: Save the recipe data to Firestore
+        if (existingId) {
+            await updateDoc(recipeRef, recipeToSave);
+        } else {
+            await setDoc(recipeRef, recipeToSave);
+        }
 
-        savePromise.then(() => {
-            toast({ title: '¡Receta guardada!', description: `${recipeToSave.name} se ha guardado correctamente.` });
-            handleDialogClose();
-        }).catch((error) => {
-            console.error("ERROR EN FIRESTORE:", error);
-            toast({ variant: "destructive", title: "Error de guardado en base de datos", description: `No se pudo guardar la receta. ${error.message}` });
-        }).finally(() => {
-            setIsSaving(false);
+        toast({ title: '¡Receta guardada!', description: `${recipeToSave.name} se ha guardado correctamente.` });
+        handleDialogClose();
+
+    } catch (error: any) {
+        console.error("Error al guardar la receta:", error);
+        toast({
+            variant: "destructive",
+            title: "Error al guardar",
+            description: `No se pudo guardar la receta. ${error.message}`
         });
-    };
-
-    if (imageFile) {
-        const imagePath = `recipes/${recipeId}.${imageFile.name.split('.').pop()}`;
-        const imageStorageRef = ref(storage, imagePath);
-
-        uploadBytes(imageStorageRef, imageFile)
-            .then(snapshot => getDownloadURL(snapshot.ref))
-            .then(downloadURL => {
-                saveRecipeData(downloadURL);
-            })
-            .catch(error => {
-                console.error("ERROR EN STORAGE:", error);
-                toast({ variant: "destructive", title: "Error de imagen", description: `No se pudo subir la imagen. ${error.message}.` });
-                setIsSaving(false);
-            });
-    } else {
-        saveRecipeData(recipeData.imageUrl || null);
+    } finally {
+        setIsSaving(false);
     }
 };
 
@@ -657,7 +653,3 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     </div>
   );
 }
-
-    
-
-    
