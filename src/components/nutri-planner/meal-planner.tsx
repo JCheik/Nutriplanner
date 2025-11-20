@@ -232,13 +232,11 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
   const plannerRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
-    document.body.classList.add('is-printing');
     window.print();
-    document.body.classList.remove('is-printing');
   };
 
   return (
-    <Card className="h-full bg-glass print-container">
+    <Card className="h-full bg-glass print-shadow-none print-border-none print-bg-transparent">
       <CardHeader className="flex-row items-center justify-between print:hidden">
         <div>
             <div className="flex items-center gap-3">
@@ -258,7 +256,7 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
         </div>
       </CardHeader>
       <CardContent className="pb-4">
-        <div ref={plannerRef} className="flex gap-2 printable-area">
+        <div ref={plannerRef} className="printable-area flex gap-2">
           {weekPlan.map((dayPlan) => (
             <div key={dayPlan.day} className="flex-1 flex flex-col gap-2">
                 <h3 className="font-semibold text-center text-lg text-card-foreground mb-2">{dayPlan.day}</h3>

@@ -76,12 +76,12 @@
     @apply font-headline;
   }
   
-  @media print {
+ @media print {
     body {
-        background-image: none !important;
+      background-image: none !important;
     }
     .print\:hidden {
-        display: none !important;
+      display: none !important;
     }
     .print\:shadow-none {
         box-shadow: none !important;
@@ -91,31 +91,6 @@
     }
     .print\:bg-transparent {
       background-color: transparent !important;
-    }
-    
-    body.is-printing > * {
-        display: none;
-    }
-
-    body.is-printing .print-container,
-    body.is-printing .print-container * {
-        display: block !important;
-        visibility: visible !important;
-    }
-
-    body.is-printing .print-container {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: auto;
-        box-shadow: none;
-        border: none;
-        background-color: transparent;
-    }
-    
-    body.is-printing .printable-area {
-        display: flex !important;
     }
   }
 }
