@@ -21,6 +21,12 @@ export interface Ingredient extends Macros {
   unit: string;
 }
 
+export interface Folder {
+  id: string;
+  name: string;
+  userId: string;
+}
+
 export interface Recipe extends Macros {
   id: string;
   name: string;
@@ -29,6 +35,7 @@ export interface Recipe extends Macros {
   ingredients: Ingredient[];
   imageUrl?: string;
   imageHint?: string;
+  folderId?: string;
 }
 
 export interface RecipeInstance extends Recipe {

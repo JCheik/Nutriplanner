@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import type { Recipe, SortCriteria } from '@/lib/types';
+import { useState, useEffect, useMemo } from 'react';
+import type { Recipe, SortCriteria, Folder } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { RecipeCard } from './recipe-card';
-import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Database } from 'lucide-react';
+import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Database, Folder as FolderIcon, Plus, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -15,8 +15,22 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IngredientsDialog } from './ingredients-dialog';
+import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Label } from '../ui/label';
 
 interface RecipeListProps {
   recipes: Recipe[];
@@ -29,9 +43,12 @@ interface RecipeListProps {
 interface RecipeLibraryProps {
   userRecipes: Recipe[];
   nutriplannerRecipes: Recipe[];
+  folders: Folder[];
   onRecipeAction: (action: 'view' | 'create', recipe?: Recipe, isNutriPlannerRecipe?: boolean) => void;
   onCopyRecipe: (recipe: Recipe) => void;
   onAddToPlan: (recipe: Recipe) => void;
+  onFolderCreate: (name: string) => void;
+  onFolderDelete: (id: string) => void;
 }
 
 const sortOptions: { value: SortCriteria; label: string }[] = [
@@ -46,6 +63,52 @@ const sortOptions: { value: SortCriteria; label: string }[] = [
     { value: 'fat-asc', label: 'Grasa (Baja a Alta)' },
     { value: 'fat-desc', label: 'Grasa (Alta a Baja)' },
 ];
+
+function NewFolderPopover({ onFolderCreate }: { onFolderCreate: (name: string) => void }) {
+  const [folderName, setFolderName] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleCreate = () => {
+    if (folderName.trim()) {
+      onFolderCreate(folderName.trim());
+      setFolderName('');
+      setIsOpen(false);
+    }
+  };
+
+  return (
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground hover:text-foreground">
+          <Plus className="mr-2 h-4 w-4" />
+          Crear Carpeta
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-60 bg-glass">
+        <div className="grid gap-4">
+          <div className="space-y-2">
+            <h4 className="font-medium leading-none">Nueva Carpeta</h4>
+            <p className="text-sm text-muted-foreground">
+              Dale un nombre a tu nueva carpeta.
+            </p>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="folder-name" className="sr-only">Nombre</Label>
+            <Input
+              id="folder-name"
+              value={folderName}
+              onChange={(e) => setFolderName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+              placeholder="Ej: Desayunos"
+              className="h-9"
+            />
+            <Button onClick={handleCreate} disabled={!folderName.trim()}>Crear</Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isNutriPlanner = false }: RecipeListProps) {
   const [filterQuery, setFilterQuery] = useState('');
@@ -169,11 +232,23 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isN
 export function RecipeLibrary({ 
   userRecipes, 
   nutriplannerRecipes,
+  folders,
   onRecipeAction,
   onCopyRecipe,
-  onAddToPlan
+  onAddToPlan,
+  onFolderCreate,
+  onFolderDelete
 }: RecipeLibraryProps) {
   const [isIngredientsOpen, setIsIngredientsOpen] = useState(false);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+
+  const recipesInSelectedFolder = useMemo(() => {
+    if (selectedFolderId === null) {
+      return userRecipes;
+    }
+    return userRecipes.filter(recipe => recipe.folderId === selectedFolderId);
+  }, [userRecipes, selectedFolderId]);
+
   return (
     <>
       <Card className="flex flex-col h-[500px] bg-glass">
@@ -206,11 +281,61 @@ export function RecipeLibrary({
               </div>
             </div>
             <TabsContent value="user-recipes" className="flex-1 mt-2 overflow-hidden">
-              <RecipeList 
-                recipes={userRecipes}
-                onRecipeClick={(recipe) => onRecipeAction('view', recipe, false)}
-                onAddToPlanClick={onAddToPlan}
-              />
+              <div className="grid lg:grid-cols-5 h-full">
+                <div className="col-span-1 border-r pr-4 hidden lg:block">
+                  <h3 className="font-semibold text-sm mb-2 px-2">Carpetas</h3>
+                  <ScrollArea className="h-full">
+                    <div className="space-y-1">
+                      <Button
+                        variant="ghost"
+                        onClick={() => setSelectedFolderId(null)}
+                        className={cn("w-full justify-start", !selectedFolderId && "bg-accent text-accent-foreground")}
+                      >
+                        <FolderIcon className="mr-2 h-4 w-4" /> Todas las Recetas
+                      </Button>
+                      {folders.map(folder => (
+                        <div key={folder.id} className="flex items-center justify-between group rounded-md hover:bg-accent/50">
+                          <Button
+                            variant="ghost"
+                            onClick={() => setSelectedFolderId(folder.id)}
+                            className={cn("w-full justify-start text-left flex-1 h-9", selectedFolderId === folder.id && "bg-accent text-accent-foreground")}
+                          >
+                            <FolderIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+                            <span className="truncate flex-1">{folder.name}</span>
+                          </Button>
+                           <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent className="bg-glass">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>¿Borrar carpeta?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Esto no borrará las recetas. Las recetas de esta carpeta se quedarán sin carpeta. ¿Estás seguro?
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => onFolderDelete(folder.id)}>Sí, borrar</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      ))}
+                      <NewFolderPopover onFolderCreate={onFolderCreate} />
+                    </div>
+                  </ScrollArea>
+                </div>
+                <div className="lg:col-span-4 lg:pl-4 h-full">
+                  <RecipeList 
+                    recipes={recipesInSelectedFolder}
+                    onRecipeClick={(recipe) => onRecipeAction('view', recipe, false)}
+                    onAddToPlanClick={onAddToPlan}
+                  />
+                </div>
+              </div>
             </TabsContent>
             <TabsContent value="nutriplanner-recipes" className="flex-1 mt-2 overflow-hidden">
               <RecipeList 

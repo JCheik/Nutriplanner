@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import type { DialogState, Recipe, Ingredient } from '@/lib/types';
+import type { DialogState, Recipe, Ingredient, Folder } from '@/lib/types';
 import { useUser, useFirestore, useMemoFirebase } from '@/firebase/index';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, Plus, Copy, Search, Image as ImageIcon, UploadCloud, Globe } from 'lucide-react';
+import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, Plus, Copy, Search, Image as ImageIcon, UploadCloud, Globe, Folder as FolderIcon } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,11 +36,13 @@ import { NewIngredientDialog } from './new-ingredient-dialog';
 import { Card, CardContent } from '../ui/card';
 import Image from 'next/image';
 import { Switch } from '../ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 
 interface RecipeDialogProps {
   dialogState: DialogState;
   isSaving: boolean;
+  folders: Folder[];
   onClose: () => void;
   onSave: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void;
   onDelete: (recipeId: string, isGlobal: boolean) => void;
@@ -56,7 +58,7 @@ const MacroDisplay = ({ label, value, unit, icon: Icon }: { label: string, value
   </div>
 );
 
-function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, isSaving, onSave, onCancel, onDelete }: { recipe?: Recipe, isInitiallyGlobal?: boolean, isSaving: boolean, onSave: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void, onCancel: () => void, onDelete: (id: string, isGlobal: boolean) => void }) {
+function RecipeForm({ recipe: initialRecipe, folders, isInitiallyGlobal = false, isSaving, onSave, onCancel, onDelete }: { recipe?: Recipe, folders: Folder[], isInitiallyGlobal?: boolean, isSaving: boolean, onSave: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void, onCancel: () => void, onDelete: (id: string, isGlobal: boolean) => void }) {
   const isEditing = !!initialRecipe;
   const { user, claims } = useUser();
   const isAdmin = claims?.admin === true;
@@ -72,6 +74,7 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, isSaving
   const [imageUrl, setImageUrl] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [saveAsGlobal, setSaveAsGlobal] = useState(isInitiallyGlobal);
+  const [folderId, setFolderId] = useState<string | undefined>(undefined);
   
   const [isNewIngredientOpen, setIsNewIngredientOpen] = useState(false);
 
@@ -86,12 +89,14 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, isSaving
         setInstructions(initialRecipe.instructions || '');
         setIngredients(initialRecipe.ingredients || []);
         setImageUrl(initialRecipe.imageUrl || '');
+        setFolderId(initialRecipe.folderId);
     } else {
         setName('');
         setDescription('');
         setInstructions('');
         setIngredients([]);
         setImageUrl('');
+        setFolderId(undefined);
     }
     setSaveAsGlobal(isInitiallyGlobal);
     setImageFile(null);
@@ -118,6 +123,7 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, isSaving
       instructions,
       ingredients,
       imageUrl: imageUrl, // Keep current image url unless a new one is uploaded
+      folderId: folderId === 'none' ? undefined : folderId,
       ...calculatedTotals
     };
 
@@ -204,6 +210,24 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, isSaving
                 {imageFile && <p className="text-xs text-muted-foreground mt-1">Nuevo archivo: {imageFile.name}</p>}
              </div>
             )}
+           {!saveAsGlobal && (
+              <div>
+                <Label htmlFor="folder">Carpeta</Label>
+                <Select value={folderId || 'none'} onValueChange={setFolderId}>
+                  <SelectTrigger id="folder">
+                    <SelectValue placeholder="Seleccionar carpeta..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-glass">
+                    <SelectItem value="none">Sin carpeta</SelectItem>
+                    {folders.map((folder) => (
+                      <SelectItem key={folder.id} value={folder.id}>
+                        {folder.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+           )}
           <div>
             <Label htmlFor="description">Descripción</Label>
             <Textarea id="description" value={description} onChange={e => setDescription(e.target.value)} />
@@ -349,15 +373,29 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, isSaving
 }
 
 
-function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe }: { recipe: Recipe; onEdit: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void; onDelete: (id: string, isGlobal: boolean) => void; onCopy: (recipe: Recipe) => void; isNutriPlannerRecipe: boolean }) {
+function RecipeView({ recipe, folders, onEdit, onDelete, onCopy, isNutriPlannerRecipe }: { recipe: Recipe; folders: Folder[], onEdit: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void; onDelete: (id: string, isGlobal: boolean) => void; onCopy: (recipe: Recipe) => void; isNutriPlannerRecipe: boolean }) {
   const { user, claims } = useUser();
   const isAdmin = claims?.admin === true;
+
+  const folderName = useMemo(() => {
+    if (!recipe.folderId) return null;
+    return folders.find(f => f.id === recipe.folderId)?.name;
+  }, [recipe, folders]);
+
 
   return (
      <>
       <DialogHeader className="mb-4">
         <DialogTitle className="text-2xl">{recipe.name}</DialogTitle>
-        <DialogDescription>{recipe.description}</DialogDescription>
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <DialogDescription>{recipe.description}</DialogDescription>
+          {folderName && (
+              <div className="flex items-center gap-1 bg-accent/20 text-accent-foreground/80 px-2 py-1 rounded-md text-xs">
+                <FolderIcon className="h-3 w-3" />
+                <span>{folderName}</span>
+              </div>
+            )}
+        </div>
       </DialogHeader>
       <div className="grid md:grid-cols-2 gap-6">
         <div>
@@ -439,7 +477,7 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe }: 
 }
 
 
-export function RecipeDialog({ dialogState, isSaving, onClose, onSave, onDelete, onEdit, onCopy }: RecipeDialogProps) {
+export function RecipeDialog({ dialogState, isSaving, folders, onClose, onSave, onDelete, onEdit, onCopy }: RecipeDialogProps) {
   if (!dialogState.open) return null;
 
   const isViewMode = dialogState.mode === 'view';
@@ -455,6 +493,7 @@ export function RecipeDialog({ dialogState, isSaving, onClose, onSave, onDelete,
         {isViewMode && dialogState.recipe ? (
           <RecipeView 
             recipe={dialogState.recipe} 
+            folders={folders}
             onEdit={handleEdit}
             onDelete={onDelete}
             onCopy={onCopy}
@@ -463,6 +502,7 @@ export function RecipeDialog({ dialogState, isSaving, onClose, onSave, onDelete,
         ) : (
           <RecipeForm
             recipe={dialogState.mode === 'edit' ? dialogState.recipe : undefined}
+            folders={folders}
             isInitiallyGlobal={dialogState.mode === 'edit' ? dialogState.isNutriPlannerRecipe : false}
             isSaving={isSaving}
             onSave={onSave}
@@ -474,5 +514,3 @@ export function RecipeDialog({ dialogState, isSaving, onClose, onSave, onDelete,
     </Dialog>
   );
 }
-
-    

@@ -48,6 +48,10 @@
         "imageHint": {
           "type": "string",
           "description": "A hint for AI image generation based on the recipe."
+        },
+        "folderId": {
+          "type": "string",
+          "description": "The ID of the folder this recipe belongs to. (Optional)"
         }
       },
       "required": [
@@ -153,6 +157,27 @@
         "id",
         "date"
       ]
+    },
+    "Folder": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Folder",
+      "type": "object",
+      "description": "A folder to organize user-created recipes.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Folder entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the folder."
+        },
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user who owns this folder."
+        }
+      },
+      "required": ["id", "name", "userId"]
     }
   },
   "auth": {
@@ -224,6 +249,26 @@
           ]
         }
       },
+       {
+        "path": "/users/{userId}/folders/{folderId}",
+        "definition": {
+          "entityName": "Folder",
+          "schema": {
+            "$ref": "#/backend/entities/Folder"
+          },
+          "description": "Folders created by a user to organize their recipes.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user who owns the folder."
+            },
+            {
+              "name": "folderId",
+              "description": "The ID of the folder."
+            }
+          ]
+        }
+      },
       {
         "path": "/nutriplanner_recipes/{recipeId}",
         "definition": {
@@ -257,6 +302,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, DBAC, and QAPs. User-owned data (Recipes, MealPlans) are stored under `/users/{userId}` for secure, path-based ownership. A global `nutriplanner_recipes` collection holds admin-managed recipes. A new global `ingredients` collection is added to serve as a shared, user-contributed database of food items, readable and writable by all authenticated users to foster a collaborative platform."
+    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, DBAC, and QAPs. User-owned data (Recipes, MealPlans, and now Folders) are stored under `/users/{userId}` for secure, path-based ownership. A global `nutriplanner_recipes` collection holds admin-managed recipes. A global `ingredients` collection serves as a shared, user-contributed database of food items."
   }
 }

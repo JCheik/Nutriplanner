@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
-import type { DayPlan, Recipe, Meal, WeekPlan, DialogState, UserProfile, CalculationResult, GoalType, ActiveDropTarget, RecipeInstance } from '@/lib/types';
+import type { DayPlan, Recipe, Meal, WeekPlan, DialogState, UserProfile, CalculationResult, GoalType, ActiveDropTarget, RecipeInstance, Folder } from '@/lib/types';
 import { INITIAL_WEEK_PLAN, INITIAL_RECIPES } from '@/lib/data';
 import { PageHeader } from '@/components/layout/page-header';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
@@ -59,6 +59,9 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
   const userRecipesCollectionRef = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'users', user.uid, 'recipes') : null, [firestore, user]);
   const { data: userRecipes, isLoading: userRecipesLoading } = useCollection<Recipe>(userRecipesCollectionRef);
 
+  const foldersCollectionRef = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'users', user.uid, 'folders') : null, [firestore, user]);
+  const { data: folders, isLoading: foldersLoading } = useCollection<Folder>(foldersCollectionRef);
+
   const nutriplannerRecipesCollectionRef = useMemoFirebase(() => (firestore && !isGuestMode) ? collection(firestore, 'nutriplanner_recipes') : null, [firestore, isGuestMode]);
   const { data: nutriplannerRecipes, isLoading: nutriplannerRecipesLoading } = useCollection<Recipe>(nutriplannerRecipesCollectionRef);
 
@@ -79,6 +82,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
 
   // Memoized data sources based on auth state
   const currentUserRecipes = useMemo(() => isGuestMode ? guestRecipes : (userRecipes || []), [isGuestMode, guestRecipes, userRecipes]);
+  const currentFolders = useMemo(() => isGuestMode ? [] : (folders || []), [isGuestMode, folders]);
   const currentNutriplannerRecipes = useMemo(() => nutriplannerRecipes || [], [nutriplannerRecipes]);
   
   const currentWeekPlan = useMemo(() => {
@@ -381,6 +385,32 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     toast({ title: '¡Receta Copiada!', description: `${recipe.name} ha sido añadida a "Mis Recetas".` });
   }, [user, userRecipesCollectionRef, toast, isGuestMode]);
 
+  const handleFolderCreate = useCallback((name: string) => {
+    if (promptToRegister() || !user || !foldersCollectionRef) return;
+    const newFolder: Omit<Folder, 'id'> = { name, userId: user.uid };
+    addDocumentNonBlocking(foldersCollectionRef, newFolder);
+    toast({ title: 'Carpeta creada', description: `La carpeta "${name}" ha sido creada.` });
+  }, [user, foldersCollectionRef, isGuestMode]);
+
+  const handleFolderDelete = useCallback(async (id: string) => {
+    if (promptToRegister() || !user || !firestore) return;
+    
+    // 1. Delete the folder document
+    const folderRef = doc(firestore, 'users', user.uid, 'folders', id);
+    deleteDocumentNonBlocking(folderRef);
+
+    // 2. Unassign recipes from this folder
+    const batch = writeBatch(firestore);
+    const recipesToUpdate = userRecipes?.filter(r => r.folderId === id) || [];
+    recipesToUpdate.forEach(recipe => {
+      const recipeRef = doc(firestore, 'users', user.uid, 'recipes', recipe.id);
+      batch.update(recipeRef, { folderId: null });
+    });
+    
+    await batch.commit();
+    toast({ title: 'Carpeta eliminada' });
+  }, [user, firestore, userRecipes, isGuestMode]);
+
 
   const dailyTotals = useMemo(() => {
     return currentWeekPlan.map(dayPlan => {
@@ -427,7 +457,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     }
   }
 
-  const isLoading = !isGuestMode && (userLoading || userRecipesLoading || nutriplannerRecipesLoading || weekPlanLoading || profileLoading);
+  const isLoading = !isGuestMode && (userLoading || userRecipesLoading || nutriplannerRecipesLoading || weekPlanLoading || profileLoading || foldersLoading);
 
   if (isLoading) {
     return (
@@ -465,9 +495,12 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
             <RecipeLibrary 
               userRecipes={currentUserRecipes}
               nutriplannerRecipes={currentNutriplannerRecipes}
+              folders={currentFolders}
               onRecipeAction={handleRecipeAction}
               onCopyRecipe={handleCopyRecipe}
               onAddToPlan={handleAddToPlan}
+              onFolderCreate={handleFolderCreate}
+              onFolderDelete={handleFolderDelete}
             />
           </div>
         </div>
@@ -475,6 +508,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
       <RecipeDialog
         dialogState={dialogState}
         isSaving={isSaving}
+        folders={currentFolders}
         onClose={handleDialogClose}
         onSave={handleSaveRecipe}
         onDelete={handleDeleteRecipe}

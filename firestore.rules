@@ -8,12 +8,6 @@
  * - User-specific data is nested under /users/{userId}.
  * - Global NutriPlanner recipes are in /nutriplanner_recipes/{recipeId}.
  * - A global, shared ingredient database is in /ingredients/{ingredientId}.
- *
- * Key Security Decisions:
- * - Users can only access data under their own user ID.
- * - Global recipes are read-only for all signed-in users, writable only by admins.
- * - The shared ingredient database is readable and appendable by all signed-in users.
- *   Modification/deletion of ingredients is restricted to the user who created them or an admin.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -36,6 +30,15 @@ service cloud.firestore {
      * @path /users/{userId}/recipes/{recipeId}
      */
     match /users/{userId}/recipes/{recipeId} {
+      allow read, list, create: if isSignedIn() && isOwner(userId);
+      allow update, delete: if isSignedIn() && isExistingOwner(userId);
+    }
+
+     /**
+     * @description Folders for organizing recipes, owned by a specific user.
+     * @path /users/{userId}/folders/{folderId}
+     */
+    match /users/{userId}/folders/{folderId} {
       allow read, list, create: if isSignedIn() && isOwner(userId);
       allow update, delete: if isSignedIn() && isExistingOwner(userId);
     }
