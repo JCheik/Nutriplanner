@@ -81,4 +81,15 @@
     .bg-glass {
         @apply bg-card/95 backdrop-blur-sm border;
     }
+    .bg-notebook-paper {
+        background-color: hsl(45 50% 95%);
+        background-image: repeating-linear-gradient(
+            to bottom,
+            transparent,
+            transparent 2rem,
+            hsl(var(--primary) / 0.2) 2rem,
+            hsl(var(--primary) / 0.2) 2.05rem
+        );
+        line-height: 2.05rem;
+    }
 }
