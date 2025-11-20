@@ -214,7 +214,7 @@ export function ShoppingListSheet({ weekPlan, isOpen, onOpenChange }: ShoppingLi
     <>
         <div 
             className={cn(
-                'fixed bottom-24 right-8 w-96 rounded-lg shadow-2xl p-6 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right flex flex-col h-[70vh] border border-primary/20 bg-notebook-paper',
+                'fixed bottom-24 right-8 w-[420px] rounded-lg shadow-2xl p-6 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right flex flex-col h-[75vh] border border-primary/20 bg-notebook-paper',
                 isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
             )}
         >
