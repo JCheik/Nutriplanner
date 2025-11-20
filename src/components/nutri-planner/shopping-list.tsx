@@ -2,10 +2,6 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import type { WeekPlan } from '@/lib/types';
-import {
-  Dialog,
-  DialogContent,
-} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -214,14 +210,12 @@ export function ShoppingListSheet({ weekPlan, isOpen, onOpenChange }: ShoppingLi
     <>
       {/* Desktop uses a Dialog-like pop-up */}
       <div className="hidden lg:block">
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent 
+         <div 
             className={cn(
-                'fixed bottom-24 right-8 w-96 rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right flex flex-col h-[70vh] bg-glass border-0',
-                isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
+               'fixed bottom-24 right-8 w-96 rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right flex flex-col h-[70vh] bg-glass border',
+               isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
             )}
-            hideCloseButton
-            >
+        >
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2">
                   <ShoppingCart className="h-6 w-6" />
@@ -237,8 +231,7 @@ export function ShoppingListSheet({ weekPlan, isOpen, onOpenChange }: ShoppingLi
               >
                   <X className="h-5 w-5" />
               </Button>
-            </DialogContent>
-        </Dialog>
+        </div>
       </div>
       
       {/* Mobile uses a Sheet */}
