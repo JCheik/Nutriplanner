@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Target, X, TrendingDown, Weight, TrendingUp, EggFried, Wheat, Droplets, Calculator, Edit, User } from 'lucide-react';
+import { Target, X, TrendingDown, Weight, TrendingUp, EggFried, Wheat, Droplets, Calculator, Edit } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CalculationResult, GoalMacros, GoalType } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -214,7 +214,7 @@ export function FloatingGoals({ isOpen, onOpenChange, calorieResult, onCalorieRe
                 <X className="h-5 w-5" />
             </Button>
         </div>
-        <div className="flex-1">
+        <div className="flex-1 overflow-y-auto">
             <TargetGoalsDisplay 
                 result={calorieResult} 
                 onCalculate={onCalorieResultSave} 

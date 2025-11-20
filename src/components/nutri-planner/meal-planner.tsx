@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useMemo, useRef, type DragEvent, type KeyboardEvent } from 'react';
+import React, { useState, useRef, type DragEvent, type KeyboardEvent } from 'react';
 import type { WeekPlan, Recipe, DailyTotal, Macros, GoalMacros, Meal, ActiveDropTarget, RecipeInstance } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RecipeCard } from './recipe-card';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, X, Flame, Plus, Edit, Check, Printer, Download } from 'lucide-react';
+import { CalendarDays, X, Flame, Plus, Edit, Check, Printer } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '../ui/input';
 import html2canvas from 'html2canvas';
@@ -27,7 +27,7 @@ interface MealPlannerProps {
 
 interface MealSlotProps {
   day: string;
-  meal: any;
+  meal: Meal;
   isEditing: boolean;
   onDrop: (day: string, mealId: string, recipe: Recipe) => void;
   onClearMeal: (day: string, mealId: string) => void;
@@ -230,59 +230,11 @@ function AddMealButton({ onClick }: { onClick: () => void }) {
 
 export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget }: MealPlannerProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
   const plannerRef = useRef<HTMLDivElement>(null);
 
-  const handleDownload = async () => {
-    if (!plannerRef.current) return;
-    setIsDownloading(true);
-    
-    const plannerElement = plannerRef.current;
-    
-    // Temporarily remove line-clamp classes before capturing
-    const clampedElements = Array.from(plannerElement.querySelectorAll('.line-clamp-1, .line-clamp-2, .line-clamp-3'));
-    clampedElements.forEach(el => {
-      el.classList.add('printable-text-fix');
-      if (el.classList.contains('line-clamp-1')) {
-        el.classList.remove('line-clamp-1');
-      }
-      if (el.classList.contains('line-clamp-2')) {
-        el.classList.remove('line-clamp-2');
-      }
-       if (el.classList.contains('line-clamp-3')) {
-        el.classList.remove('line-clamp-3');
-      }
-    });
-
-    try {
-      const canvas = await html2canvas(plannerElement, {
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: `hsl(${getComputedStyle(document.body).getPropertyValue('--background').trim()})`,
-      });
-      
-      const link = document.createElement('a');
-      link.download = 'plan-de-comidas.png';
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-    } catch (error) {
-      console.error("Error downloading image:", error);
-    } finally {
-       // Restore line-clamp classes
-       const fixedElements = Array.from(plannerElement.querySelectorAll('.printable-text-fix'));
-       fixedElements.forEach(el => {
-          el.classList.remove('printable-text-fix');
-          // This is a bit of a hack, assuming we only use these clamps.
-          // A more robust solution might store original classes.
-          el.classList.add('line-clamp-1');
-       });
-       // A more specific re-add for recipe cards that might use clamp-3
-       const recipePlaceholders = Array.from(plannerElement.querySelectorAll('[data-recipe-placeholder]'));
-       recipePlaceholders.forEach(el => el.classList.add('line-clamp-3'));
-      setIsDownloading(false);
-    }
+  const handlePrint = () => {
+    window.print();
   };
-
 
   return (
     <Card className="h-full bg-glass print:shadow-none print:border-none print:bg-transparent">
@@ -295,12 +247,8 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
             <CardDescription>Arrastra y suelta recetas de tu biblioteca para planificar tu semana.</CardDescription>
         </div>
         <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={handleDownload} disabled={isDownloading}>
-              {isDownloading ? (
-                <Download className="h-4 w-4 animate-pulse" />
-              ) : (
-                <Printer className="h-4 w-4" />
-              )}
+            <Button variant="outline" size="icon" onClick={handlePrint}>
+              <Printer className="h-4 w-4" />
             </Button>
             <Button variant="outline" onClick={() => setIsEditing(!isEditing)}>
                 {isEditing ? <Check className="mr-2 h-4 w-4" /> : <Edit className="mr-2 h-4 w-4" />}

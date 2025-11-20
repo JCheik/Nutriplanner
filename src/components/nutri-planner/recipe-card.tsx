@@ -2,7 +2,7 @@
 
 import type { DragEvent } from 'react';
 import type { Recipe } from '@/lib/types';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { GripVertical, Flame, EggFried, Wheat, Droplets } from 'lucide-react';
 import Image from 'next/image';
@@ -18,7 +18,8 @@ interface RecipeCardProps {
 
 const RecipePlaceholder = ({ recipeName, className }: { recipeName: string, className?: string }) => (
   <div className={cn(
-    "w-full h-full flex items-center justify-center p-2 rounded-md bg-secondary/50"
+    "w-full h-full flex items-center justify-center p-2 rounded-md bg-secondary/50",
+    "cursor-pointer"
   )}>
     <span className={cn(
       "text-center font-semibold text-secondary-foreground text-sm leading-tight break-words",
@@ -77,12 +78,9 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
 
   if (isCompact) {
     return (
-        <div 
-          className="w-full h-full cursor-pointer"
-          onClick={onClick}
-        >
-           <RecipePlaceholder recipeName={recipe.name} className={className} />
-        </div>
+      <div className="w-full h-full" onClick={onClick}>
+        <RecipePlaceholder recipeName={recipe.name} className={className} />
+      </div>
     );
   }
   

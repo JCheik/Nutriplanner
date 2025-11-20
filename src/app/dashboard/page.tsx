@@ -44,6 +44,56 @@ interface DashboardProps {
   onExitGuestMode?: () => void;
 }
 
+// --- Helper functions to update week plan state ---
+
+const addRecipeToMeal = (plan: WeekPlan, day: string, mealId: string, recipe: Recipe): WeekPlan => {
+    const newRecipeInstance: RecipeInstance = {
+        ...recipe,
+        instanceId: self.crypto.randomUUID()
+    };
+    return plan.map(dayPlan =>
+        dayPlan.day === day
+            ? {
+                ...dayPlan,
+                meals: dayPlan.meals.map(meal =>
+                    meal.id === mealId
+                        ? { ...meal, recipes: [...meal.recipes, newRecipeInstance] }
+                        : meal
+                )
+            }
+            : dayPlan
+    );
+};
+
+const clearMealRecipes = (plan: WeekPlan, day: string, mealId: string): WeekPlan => {
+    return plan.map(dayPlan =>
+        dayPlan.day === day
+            ? {
+                ...dayPlan,
+                meals: dayPlan.meals.map(meal =>
+                    meal.id === mealId ? { ...meal, recipes: [] } : meal
+                )
+            }
+            : dayPlan
+    );
+};
+
+const removeRecipeFromMeal = (plan: WeekPlan, day: string, mealId: string, recipeInstanceId: string): WeekPlan => {
+    return plan.map(dayPlan =>
+        dayPlan.day === day
+            ? {
+                ...dayPlan,
+                meals: dayPlan.meals.map(meal => {
+                    if (meal.id !== mealId) return meal;
+                    const updatedRecipes = meal.recipes.filter(r => r.instanceId !== recipeInstanceId);
+                    return { ...meal, recipes: updatedRecipes };
+                })
+            }
+            : dayPlan
+    );
+};
+
+
 export default function Dashboard({ isGuestMode = false, onExitGuestMode }: DashboardProps) {
   const { toast } = useToast();
   const { user, loading: userLoading } = useUser();
@@ -139,98 +189,49 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     return false; // Indicates that the user is logged in
   };
 
-  const handleDrop = useCallback((day: string, mealId: string, droppedRecipe: Recipe) => {
-    const newRecipeInstance: RecipeInstance = {
-      ...droppedRecipe,
-      instanceId: self.crypto.randomUUID()
-    };
-    
-    const updateLogic = (plan: WeekPlan) => plan.map(dayPlan =>
-      dayPlan.day === day
-        ? { ...dayPlan, meals: dayPlan.meals.map(meal => 
-            meal.id === mealId 
-              ? { ...meal, recipes: [...meal.recipes, newRecipeInstance] } 
-              : meal
-          )}
-        : dayPlan
-    );
-
-    if (isGuestMode) {
-      setGuestWeekPlan(updateLogic);
-    } else {
-       if (!user || !firestore) return;
-       const targetDay = currentWeekPlan.find(d => d.day === day);
-       if (targetDay) {
+  const updateDayPlanInFirestore = (day: string, updatedMeals: Meal[]) => {
+    if (!user || !firestore) return;
+    const targetDay = currentWeekPlan.find(d => d.day === day);
+    if (targetDay) {
         const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
-        const updatedMeals = targetDay.meals.map(meal => 
-          meal.id === mealId ? { ...meal, recipes: [...meal.recipes, newRecipeInstance] } : meal
-        );
         setDocumentNonBlocking(dayDocRef, { ...targetDay, meals: updatedMeals }, { merge: true });
-       }
     }
-    // After adding recipe, clear the target selection
+  };
+
+  const handleDrop = useCallback((day: string, mealId: string, droppedRecipe: Recipe) => {
+    if (isGuestMode) {
+        setGuestWeekPlan(plan => addRecipeToMeal(plan, day, mealId, droppedRecipe));
+    } else {
+        const updatedPlan = addRecipeToMeal(currentWeekPlan, day, mealId, droppedRecipe);
+        const updatedDay = updatedPlan.find(d => d.day === day);
+        if (updatedDay) {
+            updateDayPlanInFirestore(day, updatedDay.meals);
+        }
+    }
     setActiveDropTarget(null);
   }, [user, firestore, currentWeekPlan, isGuestMode]);
   
   const handleClearMeal = useCallback((day: string, mealId: string) => {
-    const updateLogic = (plan: WeekPlan) => plan.map(dayPlan =>
-      dayPlan.day === day
-        ? { ...dayPlan, meals: dayPlan.meals.map(meal => 
-            meal.id === mealId ? { ...meal, recipes: [] } : meal
-          )}
-        : dayPlan
-    );
-
     if (isGuestMode) {
-      setGuestWeekPlan(updateLogic);
+        setGuestWeekPlan(plan => clearMealRecipes(plan, day, mealId));
     } else {
-        if (!user || !firestore) return;
-        const targetDay = currentWeekPlan.find(d => d.day === day);
-        if (targetDay) {
-          const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
-          const updatedMeals = targetDay.meals.map(meal => meal.id === mealId ? { ...meal, recipes: [] } : meal);
-          setDocumentNonBlocking(dayDocRef, { ...targetDay, meals: updatedMeals }, { merge: true });
+        const updatedPlan = clearMealRecipes(currentWeekPlan, day, mealId);
+        const updatedDay = updatedPlan.find(d => d.day === day);
+        if (updatedDay) {
+            updateDayPlanInFirestore(day, updatedDay.meals);
         }
     }
   }, [user, firestore, currentWeekPlan, isGuestMode]);
   
   const handleRemoveRecipeFromMeal = useCallback((day: string, mealId: string, recipeInstanceId: string) => {
-     const updateLogic = (plan: WeekPlan) => plan.map(dayPlan =>
-      dayPlan.day === day
-        ? { ...dayPlan, meals: dayPlan.meals.map(meal => {
-            if (meal.id !== mealId) return meal;
-            
-            const recipeIndex = meal.recipes.findIndex(r => r.instanceId === recipeInstanceId);
-            if (recipeIndex > -1) {
-              const newRecipes = [...meal.recipes];
-              newRecipes.splice(recipeIndex, 1);
-              return { ...meal, recipes: newRecipes };
-            }
-            return meal;
-          })}
-        : dayPlan
-    );
-
     if (isGuestMode) {
-      setGuestWeekPlan(updateLogic);
+        setGuestWeekPlan(plan => removeRecipeFromMeal(plan, day, mealId, recipeInstanceId));
     } else {
-      if (!user || !firestore) return;
-      const targetDay = currentWeekPlan.find(d => d.day === day);
-      if (targetDay) {
-        const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
-        const updatedMeals = targetDay.meals.map(meal => {
-            if (meal.id !== mealId) return meal;
-
-            const recipeIndex = meal.recipes.findIndex(r => r.instanceId === recipeInstanceId);
-            if (recipeIndex > -1) {
-                const newRecipes = [...meal.recipes];
-                newRecipes.splice(recipeIndex, 1);
-                return { ...meal, recipes: newRecipes };
-            }
-            return meal;
-        });
-        setDocumentNonBlocking(dayDocRef, { ...targetDay, meals: updatedMeals }, { merge: true });
-      }
+        const updatedPlan = removeRecipeFromMeal(currentWeekPlan, day, mealId, recipeInstanceId);
+        const updatedDay = updatedPlan.find(d => d.day === day);
+        if (updatedDay) {
+            updateDayPlanInFirestore(day, updatedDay.meals);
+        }
     }
   }, [user, firestore, currentWeekPlan, isGuestMode]);
 
@@ -337,14 +338,15 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
           }
         }
         
-        const recipeData: Omit<Recipe, 'id'> & { id: string } = {
+        const recipeData: Recipe = {
           ...recipe,
           id: recipeId,
           imageUrl: finalImageUrl
         };
         
+        // Firestore doesn't allow 'undefined' values.
         if (!recipeData.folderId) {
-            delete (recipeData as Partial<typeof recipeData>).folderId;
+            delete (recipeData as Partial<Recipe>).folderId;
         }
 
         const recipeRef = doc(targetCollectionRef, recipeId);
@@ -373,6 +375,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     const recipeRef = doc(targetCollectionRef, recipeId);
     deleteDocumentNonBlocking(recipeRef);
 
+    // If a user recipe is deleted, also remove all its instances from the week plan
     if (!isGlobal) {
         try {
             const batch = writeBatch(firestore);
@@ -428,6 +431,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     const folderRef = doc(firestore, 'users', user.uid, 'folders', id);
     deleteDocumentNonBlocking(folderRef);
 
+    // Unassign recipes from the deleted folder
     const batch = writeBatch(firestore);
     const recipesToUpdate = userRecipes?.filter(r => r.folderId === id) || [];
     recipesToUpdate.forEach(recipe => {
@@ -452,7 +456,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     toast({ title: 'Receta movida' });
   }, [user, firestore, isGuestMode]);
 
-  // --- Global Folder Actions ---
+  // --- Global Folder Actions (Admin only) ---
   const handleGlobalFolderCreate = useCallback((name: string) => {
     if (!globalFoldersCollectionRef) return;
     const newFolder: Omit<GlobalFolder, 'id'> = { name };

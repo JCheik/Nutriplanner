@@ -339,6 +339,9 @@ export function RecipeLibrary({
         valB = valB.toLowerCase();
       }
 
+      if (valA === undefined || valA === null) return 1;
+      if (valB === undefined || valB === null) return -1;
+
       if (valA < valB) return order === 'asc' ? -1 : 1;
       if (valA > valB) return order === 'asc' ? 1 : -1;
       return 0;
@@ -370,6 +373,7 @@ export function RecipeLibrary({
       const handler = activeTab === 'user-recipes' ? onAssignRecipeToFolder : onAssignRecipeToGlobalFolder;
       const recipeSource = activeTab === 'user-recipes' ? userRecipes : nutriplannerRecipes;
 
+      // Ensure the recipe being dropped belongs to the active tab's source
       if (recipeSource.some(r => r.id === recipe.id)) {
         handler(recipe.id, folderId);
       }
@@ -529,6 +533,3 @@ export function RecipeLibrary({
     </>
   );
 }
-
-    
-

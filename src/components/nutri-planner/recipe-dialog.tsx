@@ -75,7 +75,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
   const [imageUrl, setImageUrl] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [saveAsGlobal, setSaveAsGlobal] = useState(isInitiallyGlobal);
-  const [folderId, setFolderId] = useState<string | undefined>(undefined);
+  const [folderId, setFolderId] = useState<string>('none');
   
   const [isNewIngredientOpen, setIsNewIngredientOpen] = useState(false);
 
@@ -90,14 +90,14 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
         setInstructions(initialRecipe.instructions || '');
         setIngredients(initialRecipe.ingredients || []);
         setImageUrl(initialRecipe.imageUrl || '');
-        setFolderId(initialRecipe.folderId);
+        setFolderId(initialRecipe.folderId || 'none');
     } else {
         setName('');
         setDescription('');
         setInstructions('');
         setIngredients([]);
         setImageUrl('');
-        setFolderId(undefined);
+        setFolderId('none');
     }
     setSaveAsGlobal(isInitiallyGlobal);
     setImageFile(null);
@@ -118,7 +118,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
   const handleSave = async () => {
     if (!name) return;
     
-    const recipeData: Omit<Recipe, 'id' | 'imageUrl'> & { imageUrl?: string } = {
+    const recipeData: Omit<Recipe, 'id' | 'imageUrl'> & { imageUrl?: string; folderId?: string } = {
       name,
       description,
       instructions,
@@ -126,11 +126,6 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
       folderId: folderId === 'none' ? undefined : folderId,
       ...calculatedTotals
     };
-
-    // Explicitly remove folderId if it's undefined to prevent Firestore error
-    if (recipeData.folderId === undefined) {
-      delete (recipeData as Partial<typeof recipeData>).folderId;
-    }
 
     onSave(recipeData, imageFile, saveAsGlobal, initialRecipe?.id);
   };
@@ -217,7 +212,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
             )}
            <div>
               <Label htmlFor="folder">Carpeta</Label>
-              <Select value={folderId || 'none'} onValueChange={setFolderId}>
+              <Select value={folderId} onValueChange={setFolderId}>
                 <SelectTrigger id="folder">
                   <SelectValue placeholder="Seleccionar carpeta..." />
                 </SelectTrigger>
