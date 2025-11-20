@@ -153,6 +153,8 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isD
     }
   };
 
+  const recipeViewMode = isNutriPlanner ? 'grid' : 'list';
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex flex-col sm:flex-row gap-2 p-1">
@@ -184,11 +186,14 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isD
         </DropdownMenu>
       </div>
       <ScrollArea className="flex-1 mt-2">
-        <div className={isNutriPlanner ? "grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3 pr-4" : "flex flex-col gap-3 pr-4"}>
+        <div className={cn(
+          "pr-4",
+          recipeViewMode === 'grid' ? "grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3" : "flex flex-col gap-3"
+        )}>
           {filteredAndSortedRecipes.length > 0 ? (
             filteredAndSortedRecipes.map(recipe => (
               <div key={recipe.id} className="group flex items-center gap-2">
-                 {isNutriPlanner ? (
+                 {recipeViewMode === 'grid' ? (
                    <div className="aspect-square w-full relative">
                       <RecipeCard 
                         recipe={recipe} 
@@ -402,3 +407,5 @@ export function RecipeLibrary({
     </>
   );
 }
+
+    
