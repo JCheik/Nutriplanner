@@ -326,11 +326,9 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
         const targetCollectionPath = isGlobal ? 'nutriplanner_recipes' : `users/${user.uid}/recipes`;
         const targetCollectionRef = collection(firestore, targetCollectionPath);
         
-        // Step 1: Determine Recipe ID
         const recipeId = existingId || doc(targetCollectionRef).id;
         let finalImageUrl = recipeData.imageUrl || '';
 
-        // Step 2: Upload image if it exists
         if (imageFile) {
             const imagePath = `recipes/${recipeId}.${imageFile.name.split('.').pop()}`;
             const imageStorageRef = ref(storage, imagePath);
@@ -338,14 +336,12 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
             finalImageUrl = await getDownloadURL(snapshot.ref);
         }
 
-        // Step 3: Prepare the final recipe object
         const recipeToSave: Recipe = {
             ...recipeData,
             id: recipeId,
             imageUrl: finalImageUrl,
         };
         
-        // Step 4: Save recipe document to Firestore
         const recipeRef = doc(targetCollectionRef, recipeId);
         await setDoc(recipeRef, recipeToSave, { merge: true });
 
@@ -353,10 +349,11 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
         handleDialogClose();
 
     } catch (error: any) {
+        console.error("Error saving recipe:", error);
         toast({
             variant: "destructive",
             title: "Error al guardar la receta",
-            description: `No se pudo guardar la receta. ${error.message}`
+            description: `No se pudo guardar la receta. ${error.message || 'Error desconocido.'}`
         });
     } finally {
         setIsSaving(false);
