@@ -215,38 +215,29 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
   const [isDownloading, setIsDownloading] = useState(false);
   const plannerRef = useRef<HTMLDivElement>(null);
 
-  const mealRows = useMemo(() => {
-    if (!weekPlan || weekPlan.length === 0) return [];
-    
-    const maxMealsPerDay = Math.max(...weekPlan.map(day => day.meals.length), 0);
-    const rows: (Meal | null)[][] = Array.from({ length: maxMealsPerDay }, () => Array(weekPlan.length).fill(null));
-
-    weekPlan.forEach((dayPlan, dayIndex) => {
-      dayPlan.meals.forEach((meal, mealIndex) => {
-        if (mealIndex < maxMealsPerDay) {
-          rows[mealIndex][dayIndex] = meal;
-        }
-      });
-    });
-
-    return rows;
-  }, [weekPlan]);
-
   const handleDownload = async () => {
     if (!plannerRef.current) return;
     setIsDownloading(true);
     try {
-      const canvas = await html2canvas(plannerRef.current, { 
+      // Temporarily add a class to the body to remove background image for capture
+      document.body.classList.add('print:bg-transparent');
+      
+      const canvas = await html2canvas(plannerRef.current, {
         useCORS: true,
         allowTaint: true,
-        backgroundColor: '#fdfaf7' // A background to avoid transparency issues
+        backgroundColor: getComputedStyle(document.body).getPropertyValue('--background').trim() || '#fdfaf7',
       });
+      
+      // Remove class after capture
+      document.body.classList.remove('print:bg-transparent');
+
       const link = document.createElement('a');
       link.download = 'plan-de-comidas.png';
       link.href = canvas.toDataURL('image/png');
       link.click();
     } catch (error) {
       console.error("Error downloading image:", error);
+      document.body.classList.remove('print:bg-transparent');
     } finally {
       setIsDownloading(false);
     }
@@ -278,19 +269,13 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
         </div>
       </CardHeader>
       <CardContent className="pb-4">
-        <div ref={plannerRef} className="grid grid-cols-7 gap-2">
+        <div ref={plannerRef} className="flex gap-2">
           {weekPlan.map((dayPlan) => (
-            <h3 key={dayPlan.day} className="font-semibold text-center text-lg text-card-foreground mb-2">{dayPlan.day}</h3>
-          ))}
-          
-          {mealRows.map((row, rowIndex) => (
-            <React.Fragment key={`row-${rowIndex}`}>
-              {row.map((meal, dayIndex) => {
-                 const dayPlan = weekPlan[dayIndex];
-                 if (meal) {
-                   return (
-                     <MealSlot
-                       key={`${meal.id}-${rowIndex}-${dayIndex}`}
+            <div key={dayPlan.day} className="flex-1 flex flex-col gap-2">
+                <h3 className="font-semibold text-center text-lg text-card-foreground mb-2">{dayPlan.day}</h3>
+                {dayPlan.meals.map(meal => (
+                    <MealSlot
+                       key={meal.id}
                        day={dayPlan.day}
                        meal={meal}
                        isEditing={isEditing}
@@ -303,36 +288,22 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                        isActiveDropTarget={activeDropTarget?.day === dayPlan.day && activeDropTarget?.mealId === meal.id}
                        onSetDropTarget={onSetDropTarget}
                      />
-                   );
-                 }
-                 // Render a placeholder that maintains grid alignment
-                 return <div key={`empty-${dayIndex}-${rowIndex}`} className="h-full min-h-[160px]" />;
-              })}
-            </React.Fragment>
-          ))}
-          
-          {isEditing && (
-             <div className="col-span-7 grid grid-cols-7 gap-2 mt-2">
-              {weekPlan.map(dayPlan => (
-                <div key={`add-meal-${dayPlan.day}`}>
-                  <Button variant="outline" size="sm" className="w-full" onClick={() => onAddMeal(dayPlan.day)}>
-                      <Plus className="h-4 w-4 mr-2"/> Añadir Comida
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="col-span-7 grid grid-cols-7 gap-2 mt-2">
-            {weekPlan.map((dayPlan) => (
-              <DailyTotalsRow
-                  key={`totals-${dayPlan.day}`}
+                ))}
+                
+                {isEditing && (
+                    <div className="mt-2">
+                      <Button variant="outline" size="sm" className="w-full" onClick={() => onAddMeal(dayPlan.day)}>
+                          <Plus className="h-4 w-4 mr-2"/> Añadir Comida
+                      </Button>
+                    </div>
+                )}
+                <DailyTotalsRow
                   totals={dailyTotals.find(d => d.day === dayPlan.day)?.totals || { calories: 0, protein: 0, carbs: 0, fat: 0 }}
                   goal={activeGoal}
-                  className="p-3 rounded-xl bg-background/80 border print:hidden"
+                  className="p-3 mt-auto rounded-xl bg-background/80 border print:hidden"
                 />
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </CardContent>
     </Card>
