@@ -322,17 +322,15 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
 
     setIsSaving(true);
     
-    const targetCollection = isGlobal ? 'nutriplanner_recipes' : `users/${user.uid}/recipes`;
-    const targetCollectionRef = collection(firestore, targetCollection);
+    const targetCollectionPath = isGlobal ? 'nutriplanner_recipes' : `users/${user.uid}/recipes`;
+    const targetCollectionRef = collection(firestore, targetCollectionPath);
     
-    // Step 1: Determine the recipe ID upfront
     const recipeId = existingId || doc(targetCollectionRef).id;
     const recipeRef = doc(targetCollectionRef, recipeId);
 
     let finalImageUrl = recipeData.imageUrl || '';
 
     try {
-        // Step 2: Upload image if it exists
         if (imageFile) {
             const imagePath = `recipes/${recipeId}.${imageFile.name.split('.').pop()}`;
             const imageStorageRef = ref(storage, imagePath);
@@ -340,14 +338,12 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
             finalImageUrl = await getDownloadURL(snapshot.ref);
         }
 
-        // Step 3: Prepare the final recipe data
         const recipeToSave: Recipe = {
             ...recipeData,
             id: recipeId,
             imageUrl: finalImageUrl,
         };
 
-        // Step 4: Save the recipe data to Firestore
         if (existingId) {
             await updateDoc(recipeRef, recipeToSave);
         } else {
