@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { CalendarDays, X, Flame, Plus, Edit, Check, Printer } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '../ui/input';
-import html2canvas from 'html2canvas';
 
 interface MealPlannerProps {
   weekPlan: WeekPlan;
@@ -233,11 +232,13 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
   const plannerRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
+    document.body.classList.add('is-printing');
     window.print();
+    document.body.classList.remove('is-printing');
   };
 
   return (
-    <Card className="h-full bg-glass print:shadow-none print:border-none print:bg-transparent">
+    <Card className="h-full bg-glass print-container">
       <CardHeader className="flex-row items-center justify-between print:hidden">
         <div>
             <div className="flex items-center gap-3">

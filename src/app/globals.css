@@ -92,6 +92,31 @@
     .print\:bg-transparent {
       background-color: transparent !important;
     }
+    
+    body.is-printing > * {
+        display: none;
+    }
+
+    body.is-printing .print-container,
+    body.is-printing .print-container * {
+        display: block !important;
+        visibility: visible !important;
+    }
+
+    body.is-printing .print-container {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: auto;
+        box-shadow: none;
+        border: none;
+        background-color: transparent;
+    }
+    
+    body.is-printing .printable-area {
+        display: flex !important;
+    }
   }
 }
 
