@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useRef, type DragEvent, type KeyboardEvent } from 'react';
+import html2canvas from 'html2canvas';
 import type { WeekPlan, Recipe, DailyTotal, Macros, GoalMacros, Meal, ActiveDropTarget, RecipeInstance } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RecipeCard } from './recipe-card';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, X, Flame, Plus, Edit, Check, Printer } from 'lucide-react';
+import { CalendarDays, X, Flame, Plus, Edit, Check, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '../ui/input';
 
@@ -231,9 +232,20 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
   const [isEditing, setIsEditing] = useState(false);
   const plannerRef = useRef<HTMLDivElement>(null);
 
-  const handlePrint = () => {
-    window.print();
+  const handleDownloadImage = async () => {
+    if (!plannerRef.current) return;
+
+    const canvas = await html2canvas(plannerRef.current, {
+      useCORS: true,
+      backgroundColor: null, // Use transparent background
+      scale: 2, // Increase resolution
+    });
+    const link = document.createElement('a');
+    link.download = 'plan-de-comidas.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
   };
+
 
   return (
     <Card className="h-full bg-glass print-shadow-none print-border-none print-bg-transparent">
@@ -246,8 +258,8 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
             <CardDescription>Arrastra y suelta recetas de tu biblioteca para planificar tu semana.</CardDescription>
         </div>
         <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={handlePrint}>
-              <Printer className="h-4 w-4" />
+            <Button variant="outline" size="icon" onClick={handleDownloadImage}>
+              <Download className="h-4 w-4" />
             </Button>
             <Button variant="outline" onClick={() => setIsEditing(!isEditing)}>
                 {isEditing ? <Check className="mr-2 h-4 w-4" /> : <Edit className="mr-2 h-4 w-4" />}
