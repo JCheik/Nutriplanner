@@ -315,8 +315,8 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
   }, []);
 
   const handleSaveRecipe = (recipeData: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
-    if (promptToRegister()) return;
-    if (!user || !firestore || !storage) {
+    console.log("1. Iniciando guardado de receta...");
+    if (promptToRegister() || !user || !firestore || !storage) {
         toast({ variant: "destructive", title: "Error de configuración", description: "Faltan servicios de Firebase." });
         return;
     }
@@ -330,13 +330,11 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
         return;
     }
     
-    // Step 1: Determine the recipe ID. If it's a new recipe, generate a new ID.
     const recipeId = existingId || doc(targetCollectionRef).id;
     const recipeRef = doc(targetCollectionRef, recipeId);
 
-    // This function will save the recipe data to Firestore.
-    // It's called after the image is uploaded, or immediately if there's no image.
     const saveRecipeData = (imageUrl: string | null) => {
+        console.log("4. URL obtenida. Guardando datos en Firestore...");
         const recipeToSave: Recipe = {
             ...recipeData,
             id: recipeId,
@@ -348,34 +346,37 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
             : setDoc(recipeRef, recipeToSave);
 
         savePromise.then(() => {
+            console.log("5. Receta guardada con éxito.");
             toast({ title: '¡Receta guardada!', description: `${recipeToSave.name} se ha guardado correctamente.` });
             handleDialogClose();
         }).catch((error) => {
-            console.error("Error guardando la receta en Firestore:", error);
-            toast({ variant: "destructive", title: "Error de guardado", description: `No se pudo guardar la receta. ${error.message}` });
+            console.error("ERROR EN FIRESTORE:", error);
+            toast({ variant: "destructive", title: "Error de guardado en base de datos", description: `No se pudo guardar la receta. ${error.message}` });
         }).finally(() => {
             setIsSaving(false);
         });
     };
 
-    // Step 2: If there's an image file, upload it first.
     if (imageFile) {
+        console.log("2. Hay un archivo, intentando subir...", { recipeId });
         const imagePath = `recipes/${recipeId}.${imageFile.name.split('.').pop()}`;
         const imageStorageRef = ref(storage, imagePath);
 
         uploadBytes(imageStorageRef, imageFile)
-            .then(snapshot => getDownloadURL(snapshot.ref))
+            .then(snapshot => {
+                console.log("3. Imagen subida, obteniendo URL...");
+                return getDownloadURL(snapshot.ref);
+            })
             .then(downloadURL => {
-                // Step 3 (Success): Save recipe with the new image URL.
                 saveRecipeData(downloadURL);
             })
             .catch(error => {
-                console.error("Error en la subida de imagen:", error);
+                console.error("ERROR EN STORAGE:", error);
                 toast({ variant: "destructive", title: "Error de imagen", description: `No se pudo subir la imagen. ${error.message}.` });
-                setIsSaving(false); // Stop the process if image upload fails
+                setIsSaving(false);
             });
     } else {
-        // Step 3 (No Image): Save recipe data directly.
+        console.log("2. No hay archivo, guardando datos directamente.");
         saveRecipeData(recipeData.imageUrl || null);
     }
 };
@@ -664,5 +665,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     </div>
   );
 }
+
+    
 
     
