@@ -188,7 +188,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
                             isCompact 
                           />
                       </div>
-                      {isEditing && (
+                      
                         <Button
                             variant="ghost"
                             size="icon"
@@ -197,7 +197,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
                         >
                             <X className="h-3 w-3" />
                         </Button>
-                      )}
+                      
                     </div>
                 ))}
             </div>
