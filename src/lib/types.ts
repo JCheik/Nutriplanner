@@ -27,6 +27,11 @@ export interface Folder {
   userId: string;
 }
 
+export interface GlobalFolder {
+  id: string;
+  name: string;
+}
+
 export interface Recipe extends Macros {
   id: string;
   name: string;

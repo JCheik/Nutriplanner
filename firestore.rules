@@ -67,10 +67,16 @@ service cloud.firestore {
      */
     match /nutriplanner_recipes/{recipeId} {
         allow get, list: if isSignedIn();
-        // Allow initial creation if the document does not exist, or if the user is an admin.
-        allow create: if isSignedIn() && (!exists(/databases/$(database)/documents/nutriplanner_recipes/$(recipeId)) || request.auth.token.admin == true || request.auth.token.email == 'jonicheik@gmail.com');
-        // Only allow updates and deletes if the user is an admin or the designated developer.
-        allow update, delete: if isSignedIn() && (request.auth.token.admin == true || request.auth.token.email == 'jonicheik@gmail.com');
+        allow create, update, delete: if isAdmin();
+    }
+    
+    /**
+     * @description Global folders for NutriPlanner recipes, managed by administrators.
+     * @path /nutriplanner_folders/{folderId}
+     */
+    match /nutriplanner_folders/{folderId} {
+        allow get, list: if isSignedIn();
+        allow create, update, delete: if isAdmin();
     }
 
     /**
@@ -83,7 +89,7 @@ service cloud.firestore {
       // Any authenticated user can add a new ingredient, if they set themselves as the creator.
       allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
       // Only the user who created the ingredient or an admin can update or delete it.
-      allow update, delete: if isSignedIn() && (resource.data.createdBy == request.auth.uid || request.auth.token.admin == true || request.auth.token.email == 'jonicheik@gmail.com');
+      allow update, delete: if isSignedIn() && (resource.data.createdBy == request.auth.uid || isAdmin());
     }
 
     //----------------------------------------------------------------------------------------------
@@ -96,6 +102,14 @@ service cloud.firestore {
      */
     function isSignedIn() {
       return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the user is an administrator.
+     * @return {boolean} True if the user has admin claims or is the designated developer.
+     */
+    function isAdmin() {
+      return isSignedIn() && (request.auth.token.admin == true || request.auth.token.email == 'jonicheik@gmail.com');
     }
 
     /**

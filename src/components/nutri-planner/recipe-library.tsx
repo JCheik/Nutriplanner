@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, type DragEvent } from 'react';
-import type { Recipe, SortCriteria, Folder } from '@/lib/types';
+import type { Recipe, SortCriteria, Folder, GlobalFolder } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -31,6 +31,7 @@ import { IngredientsDialog } from './ingredients-dialog';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Label } from '../ui/label';
+import { useUser } from '@/firebase';
 
 interface RecipeListProps {
   recipes: Recipe[];
@@ -45,12 +46,16 @@ interface RecipeLibraryProps {
   userRecipes: Recipe[];
   nutriplannerRecipes: Recipe[];
   folders: Folder[];
+  globalFolders: GlobalFolder[];
   onRecipeAction: (action: 'view' | 'create', recipe?: Recipe, isNutriPlannerRecipe?: boolean) => void;
   onCopyRecipe: (recipe: Recipe) => void;
   onAddToPlan: (recipe: Recipe) => void;
   onFolderCreate: (name: string) => void;
   onFolderDelete: (id: string) => void;
   onAssignRecipeToFolder: (recipeId: string, folderId: string | null) => void;
+  onGlobalFolderCreate: (name: string) => void;
+  onGlobalFolderDelete: (id: string) => void;
+  onAssignRecipeToGlobalFolder: (recipeId: string, folderId: string | null) => void;
 }
 
 const sortOptions: { value: SortCriteria; label: string }[] = [
@@ -153,7 +158,7 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isD
     }
   };
 
-  const recipeViewMode = isNutriPlanner ? 'grid' : 'list';
+  const recipeViewMode = 'grid';
 
   return (
     <div className="flex flex-col h-full">
@@ -188,7 +193,7 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isD
       <ScrollArea className="flex-1 mt-2">
         <div className={cn(
           "pr-4",
-          recipeViewMode === 'grid' ? "grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3" : "flex flex-col gap-3"
+          recipeViewMode === 'grid' ? "grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3" : "flex flex-col gap-3"
         )}>
           {filteredAndSortedRecipes.length > 0 ? (
             filteredAndSortedRecipes.map(recipe => (
@@ -240,16 +245,26 @@ export function RecipeLibrary({
   userRecipes, 
   nutriplannerRecipes,
   folders,
+  globalFolders,
   onRecipeAction,
   onCopyRecipe,
   onAddToPlan,
   onFolderCreate,
   onFolderDelete,
   onAssignRecipeToFolder,
+  onGlobalFolderCreate,
+  onGlobalFolderDelete,
+  onAssignRecipeToGlobalFolder,
 }: RecipeLibraryProps) {
+  const { claims } = useUser();
+  const isAdmin = claims?.admin === true;
   const [isIngredientsOpen, setIsIngredientsOpen] = useState(false);
+  
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>('all');
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  
+  const [selectedGlobalFolderId, setSelectedGlobalFolderId] = useState<string | null>('all');
+  const [dragOverGlobalFolderId, setDragOverGlobalFolderId] = useState<string | null>(null);
 
   const recipesInSelectedFolder = useMemo(() => {
     if (selectedFolderId === 'all') {
@@ -260,6 +275,16 @@ export function RecipeLibrary({
     }
     return userRecipes.filter(recipe => recipe.folderId === selectedFolderId);
   }, [userRecipes, selectedFolderId]);
+
+  const recipesInSelectedGlobalFolder = useMemo(() => {
+    if (selectedGlobalFolderId === 'all') {
+        return nutriplannerRecipes;
+    }
+    if (selectedGlobalFolderId === null) {
+      return nutriplannerRecipes.filter(r => !r.folderId);
+    }
+    return nutriplannerRecipes.filter(recipe => recipe.folderId === selectedGlobalFolderId);
+  }, [nutriplannerRecipes, selectedGlobalFolderId]);
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>, folderId: string | null) => {
     e.preventDefault();
@@ -284,23 +309,46 @@ export function RecipeLibrary({
     setDragOverFolderId(null);
   };
 
-  const FolderButton = ({ folderId, name, icon: Icon, children, isDroppable = true }: { folderId: string | null, name: string, icon: React.ElementType, children?: React.ReactNode, isDroppable?: boolean }) => (
+  const handleGlobalDragOver = (e: DragEvent<HTMLDivElement>, folderId: string | null) => {
+    e.preventDefault();
+    setDragOverGlobalFolderId(folderId);
+  };
+
+  const handleGlobalDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragOverGlobalFolderId(null);
+  };
+
+  const handleGlobalDrop = (e: DragEvent<HTMLDivElement>, folderId: string | null) => {
+    e.preventDefault();
+    const recipeData = e.dataTransfer.getData('application/json');
+    if (recipeData) {
+      const recipe = JSON.parse(recipeData) as Recipe;
+      if (nutriplannerRecipes.some(r => r.id === recipe.id)) {
+        onAssignRecipeToGlobalFolder(recipe.id, folderId);
+      }
+    }
+    setDragOverGlobalFolderId(null);
+  };
+
+
+  const FolderButton = ({ folderId, name, icon: Icon, onClick, children, isDroppable = true, onDragOver, onDragLeave, onDrop, dragOverId, className }: { folderId: string | null; name: string; icon: React.ElementType; onClick: () => void; children?: React.ReactNode; isDroppable?: boolean; onDragOver?: (e: DragEvent<HTMLDivElement>) => void; onDragLeave?: (e: DragEvent<HTMLDivElement>) => void; onDrop?: (e: DragEvent<HTMLDivElement>) => void; dragOverId?: string | null; className?: string; }) => (
     <div
-      onDragOver={isDroppable ? (e) => handleDragOver(e, folderId) : undefined}
-      onDragLeave={isDroppable ? handleDragLeave : undefined}
-      onDrop={isDroppable ? (e) => handleDrop(e, folderId) : undefined}
+      onDragOver={isDroppable ? onDragOver : undefined}
+      onDragLeave={isDroppable ? onDragLeave : undefined}
+      onDrop={isDroppable ? onDrop : undefined}
       className={cn(
         'rounded-md transition-colors',
-        dragOverFolderId === folderId && 'bg-accent/80'
+        dragOverId === folderId && 'bg-accent/80'
       )}
     >
       <div className="flex items-center justify-between group hover:bg-accent/50 rounded-md">
         <Button
           variant="ghost"
-          onClick={() => setSelectedFolderId(folderId)}
+          onClick={onClick}
           className={cn(
             "w-full justify-start text-left flex-1 h-9",
-            selectedFolderId === folderId && "bg-accent text-accent-foreground"
+            className
           )}
         >
           <Icon className="mr-2 h-4 w-4 flex-shrink-0" />
@@ -348,10 +396,10 @@ export function RecipeLibrary({
                   <h3 className="font-semibold text-sm mb-2 px-2">Carpetas</h3>
                   <ScrollArea className="h-full">
                     <div className="space-y-1">
-                      <FolderButton folderId={"all"} name="Todas mis Recetas" icon={Folders} isDroppable={false} />
-                      <FolderButton folderId={null} name="Sin Carpeta" icon={FolderIcon} />
+                      <FolderButton folderId={"all"} name="Todas mis Recetas" icon={Folders} isDroppable={false} onClick={() => setSelectedFolderId('all')} className={selectedFolderId === 'all' ? "bg-accent text-accent-foreground" : ""} />
+                      <FolderButton folderId={null} name="Sin Carpeta" icon={FolderIcon} onClick={() => setSelectedFolderId(null)} onDragOver={(e) => handleDragOver(e, null)} onDragLeave={handleDragLeave} onDrop={(e) => handleDrop(e, null)} dragOverId={dragOverFolderId} className={selectedFolderId === null ? "bg-accent text-accent-foreground" : ""} />
                       {folders.map(folder => (
-                        <FolderButton key={folder.id} folderId={folder.id} name={folder.name} icon={FolderIcon}>
+                        <FolderButton key={folder.id} folderId={folder.id} name={folder.name} icon={FolderIcon} onClick={() => setSelectedFolderId(folder.id)} onDragOver={(e) => handleDragOver(e, folder.id)} onDragLeave={handleDragLeave} onDrop={(e) => handleDrop(e, folder.id)} dragOverId={dragOverFolderId} className={selectedFolderId === folder.id ? "bg-accent text-accent-foreground" : ""}>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0">
@@ -388,14 +436,53 @@ export function RecipeLibrary({
               </div>
             </TabsContent>
             <TabsContent value="nutriplanner-recipes" className="flex-1 mt-2 overflow-hidden">
-              <RecipeList 
-                recipes={nutriplannerRecipes}
-                onRecipeClick={(recipe) => onRecipeAction('view', recipe, true)}
-                onCopyClick={onCopyRecipe}
-                onAddToPlanClick={onAddToPlan}
-                isDraggable={true}
-                isNutriPlanner
-              />
+             <div className="grid lg:grid-cols-5 h-full">
+                {isAdmin && (
+                  <div className="col-span-1 border-r pr-4 hidden lg:block">
+                    <h3 className="font-semibold text-sm mb-2 px-2">Carpetas Globales</h3>
+                    <ScrollArea className="h-full">
+                      <div className="space-y-1">
+                        <FolderButton folderId={"all"} name="Todas" icon={Folders} isDroppable={false} onClick={() => setSelectedGlobalFolderId('all')} className={selectedGlobalFolderId === 'all' ? "bg-accent text-accent-foreground" : ""} />
+                        <FolderButton folderId={null} name="Sin Carpeta" icon={FolderIcon} onClick={() => setSelectedGlobalFolderId(null)} onDragOver={(e) => handleGlobalDragOver(e, null)} onDragLeave={handleGlobalDragLeave} onDrop={(e) => handleGlobalDrop(e, null)} dragOverId={dragOverGlobalFolderId} className={selectedGlobalFolderId === null ? "bg-accent text-accent-foreground" : ""} />
+                        {globalFolders.map(folder => (
+                          <FolderButton key={folder.id} folderId={folder.id} name={folder.name} icon={FolderIcon} onClick={() => setSelectedGlobalFolderId(folder.id)} onDragOver={(e) => handleGlobalDragOver(e, folder.id)} onDragLeave={handleGlobalDragLeave} onDrop={(e) => handleGlobalDrop(e, folder.id)} dragOverId={dragOverGlobalFolderId} className={selectedGlobalFolderId === folder.id ? "bg-accent text-accent-foreground" : ""}>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0">
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent className="bg-glass">
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>¿Borrar carpeta global?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Las recetas de esta carpeta se quedarán sin carpeta. ¿Estás seguro?
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => onGlobalFolderDelete(folder.id)}>Sí, borrar</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </FolderButton>
+                        ))}
+                        <NewFolderPopover onFolderCreate={onGlobalFolderCreate} />
+                      </div>
+                    </ScrollArea>
+                  </div>
+                )}
+                <div className={isAdmin ? "lg:col-span-4 lg:pl-4 h-full" : "lg:col-span-5 h-full"}>
+                  <RecipeList 
+                    recipes={recipesInSelectedGlobalFolder}
+                    onRecipeClick={(recipe) => onRecipeAction('view', recipe, true)}
+                    onCopyClick={onCopyRecipe}
+                    onAddToPlanClick={onAddToPlan}
+                    isDraggable={true}
+                    isNutriPlanner
+                  />
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
         </CardContent>
@@ -407,5 +494,3 @@ export function RecipeLibrary({
     </>
   );
 }
-
-    

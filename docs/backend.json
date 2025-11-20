@@ -178,6 +178,23 @@
         }
       },
       "required": ["id", "name", "userId"]
+    },
+    "GlobalFolder": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "GlobalFolder",
+      "type": "object",
+      "description": "A global folder to organize NutriPlanner recipes, manageable by admins.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the GlobalFolder entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the folder."
+        }
+      },
+      "required": ["id", "name"]
     }
   },
   "auth": {
@@ -281,6 +298,22 @@
             {
               "name": "recipeId",
               "description": "The ID of the NutriPlanner recipe."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/nutriplanner_folders/{folderId}",
+        "definition": {
+          "entityName": "GlobalFolder",
+          "schema": {
+            "$ref": "#/backend/entities/GlobalFolder"
+          },
+          "description": "Global folders for organizing NutriPlanner recipes. These are manageable only by administrators.",
+          "params": [
+            {
+              "name": "folderId",
+              "description": "The ID of the global folder."
             }
           ]
         }
