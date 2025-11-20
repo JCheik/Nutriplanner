@@ -389,6 +389,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     toast({ title: '¡Receta Copiada!', description: `${recipe.name} ha sido añadida a "Mis Recetas".` });
   }, [user, userRecipesCollectionRef, toast, isGuestMode]);
 
+  // --- Folder Actions ---
   const handleFolderCreate = useCallback((name: string) => {
     if (promptToRegister() || !user || !foldersCollectionRef) return;
     const newFolder: Omit<Folder, 'id'> = { name, userId: user.uid };
@@ -399,11 +400,9 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
   const handleFolderDelete = useCallback(async (id: string) => {
     if (promptToRegister() || !user || !firestore) return;
     
-    // 1. Delete the folder document
     const folderRef = doc(firestore, 'users', user.uid, 'folders', id);
     deleteDocumentNonBlocking(folderRef);
 
-    // 2. Unassign recipes from this folder
     const batch = writeBatch(firestore);
     const recipesToUpdate = userRecipes?.filter(r => r.folderId === id) || [];
     recipesToUpdate.forEach(recipe => {
@@ -414,6 +413,12 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     await batch.commit();
     toast({ title: 'Carpeta eliminada' });
   }, [user, firestore, userRecipes, isGuestMode]);
+  
+  const handleFolderUpdate = useCallback((id: string, name: string) => {
+    if (promptToRegister() || !user || !firestore) return;
+    const folderRef = doc(firestore, 'users', user.uid, 'folders', id);
+    updateDocumentNonBlocking(folderRef, { name });
+  }, [user, firestore, isGuestMode]);
 
   const handleAssignRecipeToFolder = useCallback((recipeId: string, folderId: string | null) => {
     if (promptToRegister() || !user || !firestore) return;
@@ -422,7 +427,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     toast({ title: 'Receta movida' });
   }, [user, firestore, isGuestMode]);
 
-  // Global folder actions
+  // --- Global Folder Actions ---
   const handleGlobalFolderCreate = useCallback((name: string) => {
     if (!globalFoldersCollectionRef) return;
     const newFolder: Omit<GlobalFolder, 'id'> = { name };
@@ -446,6 +451,12 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     await batch.commit();
     toast({ title: 'Carpeta global eliminada' });
   }, [firestore, nutriplannerRecipes]);
+
+  const handleGlobalFolderUpdate = useCallback((id: string, name: string) => {
+    if (!firestore) return;
+    const folderRef = doc(firestore, 'nutriplanner_folders', id);
+    updateDocumentNonBlocking(folderRef, { name });
+  }, [firestore]);
 
   const handleAssignRecipeToGlobalFolder = useCallback((recipeId: string, folderId: string | null) => {
     if (!firestore) return;
@@ -544,9 +555,11 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
               onCopyRecipe={handleCopyRecipe}
               onAddToPlan={handleAddToPlan}
               onFolderCreate={handleFolderCreate}
+              onFolderUpdate={handleFolderUpdate}
               onFolderDelete={handleFolderDelete}
               onAssignRecipeToFolder={handleAssignRecipeToFolder}
               onGlobalFolderCreate={handleGlobalFolderCreate}
+              onGlobalFolderUpdate={handleGlobalFolderUpdate}
               onGlobalFolderDelete={handleGlobalFolderDelete}
               onAssignRecipeToGlobalFolder={handleAssignRecipeToGlobalFolder}
             />
@@ -557,6 +570,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
         dialogState={dialogState}
         isSaving={isSaving}
         folders={currentFolders}
+        globalFolders={currentGlobalFolders}
         onClose={handleDialogClose}
         onSave={handleSaveRecipe}
         onDelete={handleDeleteRecipe}

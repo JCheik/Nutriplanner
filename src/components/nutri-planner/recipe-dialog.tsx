@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import type { DialogState, Recipe, Ingredient, Folder } from '@/lib/types';
+import type { DialogState, Recipe, Ingredient, Folder, GlobalFolder } from '@/lib/types';
 import { useUser, useFirestore, useMemoFirebase } from '@/firebase/index';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -43,6 +43,7 @@ interface RecipeDialogProps {
   dialogState: DialogState;
   isSaving: boolean;
   folders: Folder[];
+  globalFolders: GlobalFolder[];
   onClose: () => void;
   onSave: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void;
   onDelete: (recipeId: string, isGlobal: boolean) => void;
@@ -58,7 +59,7 @@ const MacroDisplay = ({ label, value, unit, icon: Icon }: { label: string, value
   </div>
 );
 
-function RecipeForm({ recipe: initialRecipe, folders, isInitiallyGlobal = false, isSaving, onSave, onCancel, onDelete }: { recipe?: Recipe, folders: Folder[], isInitiallyGlobal?: boolean, isSaving: boolean, onSave: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void, onCancel: () => void, onDelete: (id: string, isGlobal: boolean) => void }) {
+function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitiallyGlobal = false, isSaving, onSave, onCancel, onDelete }: { recipe?: Recipe, folders: Folder[], globalFolders: GlobalFolder[], isInitiallyGlobal?: boolean, isSaving: boolean, onSave: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void, onCancel: () => void, onDelete: (id: string, isGlobal: boolean) => void }) {
   const isEditing = !!initialRecipe;
   const { user, claims } = useUser();
   const isAdmin = claims?.admin === true;
@@ -210,24 +211,22 @@ function RecipeForm({ recipe: initialRecipe, folders, isInitiallyGlobal = false,
                 {imageFile && <p className="text-xs text-muted-foreground mt-1">Nuevo archivo: {imageFile.name}</p>}
              </div>
             )}
-           {!saveAsGlobal && (
-              <div>
-                <Label htmlFor="folder">Carpeta</Label>
-                <Select value={folderId || 'none'} onValueChange={setFolderId}>
-                  <SelectTrigger id="folder">
-                    <SelectValue placeholder="Seleccionar carpeta..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-glass">
-                    <SelectItem value="none">Sin carpeta</SelectItem>
-                    {folders.map((folder) => (
-                      <SelectItem key={folder.id} value={folder.id}>
-                        {folder.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-           )}
+           <div>
+              <Label htmlFor="folder">Carpeta</Label>
+              <Select value={folderId || 'none'} onValueChange={setFolderId}>
+                <SelectTrigger id="folder">
+                  <SelectValue placeholder="Seleccionar carpeta..." />
+                </SelectTrigger>
+                <SelectContent className="bg-glass">
+                  <SelectItem value="none">Sin carpeta</SelectItem>
+                  {(saveAsGlobal ? globalFolders : folders).map((folder) => (
+                    <SelectItem key={folder.id} value={folder.id}>
+                      {folder.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           <div>
             <Label htmlFor="description">Descripción</Label>
             <Textarea id="description" value={description} onChange={e => setDescription(e.target.value)} />
@@ -373,14 +372,15 @@ function RecipeForm({ recipe: initialRecipe, folders, isInitiallyGlobal = false,
 }
 
 
-function RecipeView({ recipe, folders, onEdit, onDelete, onCopy, isNutriPlannerRecipe }: { recipe: Recipe; folders: Folder[], onEdit: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void; onDelete: (id: string, isGlobal: boolean) => void; onCopy: (recipe: Recipe) => void; isNutriPlannerRecipe: boolean }) {
+function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, isNutriPlannerRecipe }: { recipe: Recipe; folders: Folder[], globalFolders: GlobalFolder[], onEdit: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void; onDelete: (id: string, isGlobal: boolean) => void; onCopy: (recipe: Recipe) => void; isNutriPlannerRecipe: boolean }) {
   const { user, claims } = useUser();
   const isAdmin = claims?.admin === true;
 
   const folderName = useMemo(() => {
     if (!recipe.folderId) return null;
-    return folders.find(f => f.id === recipe.folderId)?.name;
-  }, [recipe, folders]);
+    const allFolders = [...folders, ...globalFolders];
+    return allFolders.find(f => f.id === recipe.folderId)?.name;
+  }, [recipe, folders, globalFolders]);
 
 
   return (
@@ -467,7 +467,7 @@ function RecipeView({ recipe, folders, onEdit, onDelete, onCopy, isNutriPlannerR
           {isAdmin && (
             <Button variant="outline" onClick={() => onEdit(recipe, isNutriPlannerRecipe)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
           )}
-          {!isNutriPlannerRecipe && (
+          {!isNutriPlannerRecipe && !isAdmin && (
             <Button variant="outline" onClick={() => onEdit(recipe, false)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
           )}
         </div>
@@ -477,7 +477,7 @@ function RecipeView({ recipe, folders, onEdit, onDelete, onCopy, isNutriPlannerR
 }
 
 
-export function RecipeDialog({ dialogState, isSaving, folders, onClose, onSave, onDelete, onEdit, onCopy }: RecipeDialogProps) {
+export function RecipeDialog({ dialogState, isSaving, folders, globalFolders, onClose, onSave, onDelete, onEdit, onCopy }: RecipeDialogProps) {
   if (!dialogState.open) return null;
 
   const isViewMode = dialogState.mode === 'view';
@@ -494,6 +494,7 @@ export function RecipeDialog({ dialogState, isSaving, folders, onClose, onSave, 
           <RecipeView 
             recipe={dialogState.recipe} 
             folders={folders}
+            globalFolders={globalFolders}
             onEdit={handleEdit}
             onDelete={onDelete}
             onCopy={onCopy}
@@ -503,6 +504,7 @@ export function RecipeDialog({ dialogState, isSaving, folders, onClose, onSave, 
           <RecipeForm
             recipe={dialogState.mode === 'edit' ? dialogState.recipe : undefined}
             folders={folders}
+            globalFolders={globalFolders}
             isInitiallyGlobal={dialogState.mode === 'edit' ? dialogState.isNutriPlannerRecipe : false}
             isSaving={isSaving}
             onSave={onSave}
