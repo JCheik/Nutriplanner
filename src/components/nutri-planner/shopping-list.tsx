@@ -185,12 +185,12 @@ const ShoppingListContent = ({ weekPlan, className }: { weekPlan: WeekPlan; clas
             </div>
           )}
         </ScrollArea>
-        <SheetFooter className="mt-auto pt-4 border-t border-border">
+        <div className="mt-auto pt-4 border-t border-border">
             <Button className="w-full" variant="secondary" onClick={() => setIsQrOpen(true)} disabled={shoppingList.length === 0}>
                 <Smartphone className="mr-2 h-4 w-4" />
                 Generar QR para el Móvil
             </Button>
-        </SheetFooter>
+        </div>
       </div>
       <QRCodeDialog
         isOpen={isQrOpen}
@@ -216,12 +216,12 @@ export function ShoppingListSheet({ weekPlan, isOpen, onOpenChange }: ShoppingLi
                isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
             )}
         >
-              <SheetHeader>
-                <SheetTitle className="flex items-center gap-2">
+              <div className="flex flex-col space-y-2 text-center sm:text-left">
+                <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
                   <ShoppingCart className="h-6 w-6" />
                   Lista de la Compra
-                </SheetTitle>
-              </SheetHeader>
+                </h2>
+              </div>
               <ShoppingListContent weekPlan={weekPlan} className="-mt-4" />
               <Button
                   variant="ghost"
