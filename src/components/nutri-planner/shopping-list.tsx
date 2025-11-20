@@ -26,8 +26,7 @@ interface ShoppingListProps {
   onOpenChange: (isOpen: boolean) => void;
 }
 
-const ShoppingListContent = ({ weekPlan, className }: { weekPlan: WeekPlan; className?: string; }) => {
-  const [isQrOpen, setIsQrOpen] = useState(false);
+const ShoppingListContent = ({ weekPlan, className, onOpenQr }: { weekPlan: WeekPlan; className?: string; onOpenQr: () => void; }) => {
   const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
   const [newItemName, setNewItemName] = useState('');
   const [newItemQty, setNewItemQty] = useState('');
@@ -59,10 +58,6 @@ const ShoppingListContent = ({ weekPlan, className }: { weekPlan: WeekPlan; clas
     
     setShoppingList(generatedList);
   }, [weekPlan]);
-
-  const shoppingListString = useMemo(() => {
-    return shoppingList.map(item => `- ${item.quantity.toFixed(0)}${item.unit} ${item.name}`).join('\n');
-  }, [shoppingList]);
 
   const handleToggleCheck = (id: string) => {
     setShoppingList(prev => prev.map(item => item.id === id ? { ...item, checked: !item.checked } : item));
@@ -185,49 +180,78 @@ const ShoppingListContent = ({ weekPlan, className }: { weekPlan: WeekPlan; clas
             </div>
           )}
         </ScrollArea>
-        <div className="mt-auto pt-4 border-t-2 border-dashed border-primary/20">
-            <Button className="w-full" variant="outline" onClick={() => setIsQrOpen(true)} disabled={shoppingList.length === 0}>
-                <Smartphone className="mr-2 h-4 w-4" />
-                Generar QR para el Móvil
-            </Button>
-        </div>
       </div>
-      <QRCodeDialog
-        isOpen={isQrOpen}
-        onClose={() => setIsQrOpen(false)}
-        qrValue={shoppingListString}
-        title="Escanea para llevarte la lista"
-        description="Abre la cámara de tu móvil y apunta al código QR para ver la lista de la compra."
-      />
     </>
   );
 };
 
 
 export function ShoppingListSheet({ weekPlan, isOpen, onOpenChange }: ShoppingListProps) {
+  const [isQrOpen, setIsQrOpen] = useState(false);
   
+  const shoppingListString = useMemo(() => {
+    const aggregated: Record<string, { name: string; quantity: number; unit: string }> = {};
+    weekPlan.forEach(dayPlan => {
+      dayPlan.meals.forEach(meal => {
+        meal.recipes.forEach(recipe => {
+          (recipe.ingredients || []).forEach(ingredient => {
+            const key = `${ingredient.name.toLowerCase().trim()}-${ingredient.unit}`;
+            if (aggregated[key]) {
+              aggregated[key].quantity += ingredient.quantity;
+            } else {
+              aggregated[key] = { ...ingredient };
+            }
+          });
+        });
+      });
+    });
+    const list = Object.values(aggregated).sort((a, b) => a.name.localeCompare(b.name));
+    return list.map(item => `- ${item.quantity.toFixed(0)}${item.unit} ${item.name}`).join('\n');
+  }, [weekPlan]);
+
+
   return (
-    <div 
-        className={cn(
-            'fixed bottom-24 right-8 w-96 rounded-lg shadow-2xl p-6 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right flex flex-col h-[70vh] border border-primary/20 bg-notebook-paper',
-            isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
-        )}
-    >
-        <div className="flex justify-between items-center -mt-2 mb-2">
-            <h2 className="text-xl font-headline text-foreground/90 flex items-center gap-2">
-                <ShoppingCart className="h-6 w-6 text-primary"/>
-                Lista de la Compra
-            </h2>
-             <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => onOpenChange(false)}
-            >
-                <X className="h-5 w-5" />
-            </Button>
+    <>
+        <div 
+            className={cn(
+                'fixed bottom-24 right-8 w-96 rounded-lg shadow-2xl p-6 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right flex flex-col h-[70vh] border border-primary/20 bg-notebook-paper',
+                isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
+            )}
+        >
+            <div className="flex justify-between items-center -mt-2 mb-2">
+                <h2 className="text-xl font-headline text-foreground/90 flex items-center gap-2">
+                    <ShoppingCart className="h-6 w-6 text-primary"/>
+                    Lista de la Compra
+                </h2>
+                <div className="flex items-center">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => setIsQrOpen(true)}
+                        disabled={!shoppingListString}
+                    >
+                        <Smartphone className="h-5 w-5" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => onOpenChange(false)}
+                    >
+                        <X className="h-5 w-5" />
+                    </Button>
+                </div>
+            </div>
+            <ShoppingListContent weekPlan={weekPlan} onOpenQr={() => setIsQrOpen(true)} />
         </div>
-        <ShoppingListContent weekPlan={weekPlan} />
-    </div>
+        <QRCodeDialog
+            isOpen={isQrOpen}
+            onClose={() => setIsQrOpen(false)}
+            qrValue={shoppingListString}
+            title="Escanea para llevarte la lista"
+            description="Abre la cámara de tu móvil y apunta al código QR para ver la lista de la compra."
+        />
+    </>
   );
 }
