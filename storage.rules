@@ -1,15 +1,23 @@
 rules_version = '2';
+
 service firebase.storage {
   match /b/{bucket}/o {
-    // Rules for all files in storage
-    match /{allPaths=**} {
-      // Allow public read access to all files.
-      // This is useful for images that need to be displayed in the app.
+
+    // Allow authenticated users to write to the 'recipes' folder
+    match /recipes/{imageName} {
+      allow write: if request.auth != null &&
+                      request.resource.contentType.matches('image/.*') &&
+                      request.resource.size < 5 * 1024 * 1024;
+      // Allow anyone to read images from the 'recipes' folder
       allow read;
-      
-      // Allow write access (uploads) only to authenticated users.
-      // This prevents anonymous users from uploading files.
-      allow write: if request.auth != null;
+    }
+
+    // A good practice is to explicitly deny access to other paths
+    // while still allowing public read for any other existing files if needed.
+    // This rule will apply to any path that doesn't match the one above.
+    match /{allPaths=**} {
+        allow read;
+        allow write: if false;
     }
   }
 }
