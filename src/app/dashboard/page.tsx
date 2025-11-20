@@ -16,7 +16,7 @@ import { useUser } from '@/firebase/auth/use-user';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useDoc } from '@/firebase/firestore/use-doc';
 import { useFirebase, useFirestore, useMemoFirebase } from '@/firebase/index';
-import { collection, doc, writeBatch, setDoc } from 'firebase/firestore';
+import { collection, doc, writeBatch, setDoc, updateDoc } from 'firebase/firestore';
 import {
   setDocumentNonBlocking,
   updateDocumentNonBlocking,
@@ -329,11 +329,13 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
         setIsSaving(false);
         return;
     }
-
-    // Determine the recipe ID and reference
+    
+    // Step 1: Determine the recipe ID. If it's a new recipe, generate a new ID.
     const recipeId = existingId || doc(targetCollectionRef).id;
     const recipeRef = doc(targetCollectionRef, recipeId);
 
+    // This function will save the recipe data to Firestore.
+    // It's called after the image is uploaded, or immediately if there's no image.
     const saveRecipeData = (imageUrl: string | null) => {
         const recipeToSave: Recipe = {
             ...recipeData,
@@ -341,20 +343,22 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
             imageUrl: imageUrl || recipeData.imageUrl || '',
         };
 
-        setDoc(recipeRef, recipeToSave, { merge: true })
-            .then(() => {
-                toast({ title: '¡Receta guardada!', description: `${recipeToSave.name} se ha guardado correctamente.` });
-                handleDialogClose();
-            })
-            .catch((error) => {
-                console.error("Error guardando la receta en Firestore:", error);
-                toast({ variant: "destructive", title: "Error de guardado", description: `No se pudo guardar la receta. ${error.message}` });
-            })
-            .finally(() => {
-                setIsSaving(false);
-            });
+        const savePromise = existingId 
+            ? updateDoc(recipeRef, recipeToSave)
+            : setDoc(recipeRef, recipeToSave);
+
+        savePromise.then(() => {
+            toast({ title: '¡Receta guardada!', description: `${recipeToSave.name} se ha guardado correctamente.` });
+            handleDialogClose();
+        }).catch((error) => {
+            console.error("Error guardando la receta en Firestore:", error);
+            toast({ variant: "destructive", title: "Error de guardado", description: `No se pudo guardar la receta. ${error.message}` });
+        }).finally(() => {
+            setIsSaving(false);
+        });
     };
 
+    // Step 2: If there's an image file, upload it first.
     if (imageFile) {
         const imagePath = `recipes/${recipeId}.${imageFile.name.split('.').pop()}`;
         const imageStorageRef = ref(storage, imagePath);
@@ -362,16 +366,16 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
         uploadBytes(imageStorageRef, imageFile)
             .then(snapshot => getDownloadURL(snapshot.ref))
             .then(downloadURL => {
+                // Step 3 (Success): Save recipe with the new image URL.
                 saveRecipeData(downloadURL);
             })
             .catch(error => {
                 console.error("Error en la subida de imagen:", error);
-                toast({ variant: "destructive", title: "Error de imagen", description: `No se pudo subir la imagen. ${error.message}. Se intentará guardar la receta sin ella.` });
-                // Still try to save recipe data without the new image
-                saveRecipeData(recipeData.imageUrl || null);
+                toast({ variant: "destructive", title: "Error de imagen", description: `No se pudo subir la imagen. ${error.message}.` });
+                setIsSaving(false); // Stop the process if image upload fails
             });
     } else {
-        // No new image, just save the recipe data
+        // Step 3 (No Image): Save recipe data directly.
         saveRecipeData(recipeData.imageUrl || null);
     }
 };
@@ -660,3 +664,5 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     </div>
   );
 }
+
+    
