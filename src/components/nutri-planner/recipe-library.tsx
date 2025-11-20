@@ -24,6 +24,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IngredientsDialog } from './ingredients-dialog';
@@ -32,16 +33,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Label } from '../ui/label';
 import { useUser } from '@/firebase';
 
-interface RecipeListProps {
-  recipes: Recipe[];
-  onRecipeClick: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void;
-  onCopyClick?: (recipe: Recipe) => void;
-  onAddToPlanClick?: (recipe: Recipe) => void;
-  isDraggable: boolean;
-  isNutriPlanner?: boolean;
-  isMobile: boolean;
-  viewMode: 'grid' | 'list';
-}
 
 interface RecipeLibraryProps {
   userRecipes: Recipe[];
@@ -83,6 +74,8 @@ function FolderButton({
   isSelected,
   isEditing,
   onSetEditing,
+  tempName,
+  onSetTempName,
   isDroppable,
   onDragOver,
   onDragLeave,
@@ -96,18 +89,13 @@ function FolderButton({
   isSelected: boolean;
   isEditing: boolean;
   onSetEditing: (isEditing: boolean) => void;
+  tempName: string;
+  onSetTempName: (name: string) => void;
   isDroppable: boolean;
   onDragOver?: (e: DragEvent<HTMLDivElement>) => void;
   onDragLeave?: (e: DragEvent<HTMLDivElement>) => void;
   onDrop?: (e: DragEvent<HTMLDivElement>) => void;
 }) {
-  const [tempName, setTempName] = useState(name);
-
-  useEffect(() => {
-    if (isEditing) {
-      setTempName(name);
-    }
-  }, [isEditing, name]);
 
   const handleUpdate = () => {
     if (tempName.trim() && tempName !== name && onUpdate) {
@@ -135,7 +123,7 @@ function FolderButton({
           <div className="flex items-center w-full p-1 gap-1">
              <Input 
                 value={tempName}
-                onChange={e => setTempName(e.target.value)}
+                onChange={e => onSetTempName(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onBlur={handleUpdate}
                 autoFocus
@@ -159,7 +147,7 @@ function FolderButton({
         
         {!isEditing && children && (
           <div className="opacity-0 group-hover:opacity-100 flex items-center">
-            {onUpdate && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onSetEditing(true)}><Edit className="h-4 w-4"/></Button>}
+            {onUpdate && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { onSetEditing(true); onSetTempName(name); }}><Edit className="h-4 w-4"/></Button>}
             {children}
           </div>
         )}
@@ -215,7 +203,7 @@ function NewFolderPopover({ onFolderCreate }: { onFolderCreate: (name: string) =
   );
 }
 
-function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isDraggable, isNutriPlanner = false, isMobile, viewMode }: RecipeListProps) {
+function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isDraggable, isNutriPlanner = false, isMobile, viewMode }: { recipes: Recipe[], onRecipeClick: (recipe: Recipe, isNutriPlanner?: boolean) => void, onCopyClick?: (recipe: Recipe) => void, onAddToPlanClick?: (recipe: Recipe) => void, isDraggable: boolean, isNutriPlanner?: boolean, isMobile: boolean, viewMode: 'grid' | 'list' }) {
   
   const handleCardClick = (recipe: Recipe) => {
     if (isMobile && onAddToPlanClick) {
@@ -300,6 +288,7 @@ export function RecipeLibrary({
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>('all');
   
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [editingFolderName, setEditingFolderName] = useState('');
 
   const [filterQuery, setFilterQuery] = useState('');
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
@@ -314,12 +303,11 @@ export function RecipeLibrary({
 
   const recipesInSelectedFolder = useMemo(() => {
     const sourceRecipes = activeTab === 'user-recipes' ? userRecipes : nutriplannerRecipes;
-    const sourceFolders = activeTab === 'user-recipes' ? folders : globalFolders;
 
     if (selectedFolderId === 'all') return sourceRecipes;
     if (selectedFolderId === null) return sourceRecipes.filter(r => !r.folderId);
     return sourceRecipes.filter(recipe => recipe.folderId === selectedFolderId);
-  }, [userRecipes, nutriplannerRecipes, selectedFolderId, activeTab, folders, globalFolders]);
+  }, [userRecipes, nutriplannerRecipes, selectedFolderId, activeTab]);
 
   const filteredAndSortedRecipes = useMemo(() => {
     return (recipesInSelectedFolder || []).filter(recipe => {
@@ -350,7 +338,7 @@ export function RecipeLibrary({
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    setSelectedFolderId('all'); // Reset folder selection on tab change
+    setSelectedFolderId('all');
   };
   
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
@@ -372,7 +360,6 @@ export function RecipeLibrary({
       const handler = activeTab === 'user-recipes' ? onAssignRecipeToFolder : onAssignRecipeToGlobalFolder;
       const recipeSource = activeTab === 'user-recipes' ? userRecipes : nutriplannerRecipes;
 
-      // Ensure the recipe being dropped belongs to the active tab's source
       if (recipeSource.some(r => r.id === recipe.id)) {
         handler(recipe.id, folderId);
       }
@@ -422,6 +409,8 @@ export function RecipeLibrary({
                       isSelected={selectedFolderId === 'all'}
                       isEditing={false}
                       onSetEditing={() => {}}
+                      tempName=""
+                      onSetTempName={() => {}}
                       isDroppable={false}
                     />
                     <FolderButton 
@@ -431,6 +420,8 @@ export function RecipeLibrary({
                       isSelected={selectedFolderId === null}
                       isEditing={false}
                       onSetEditing={() => {}}
+                      tempName=""
+                      onSetTempName={() => {}}
                       isDroppable={true}
                       onDragOver={(e) => handleDragOver(e)}
                       onDragLeave={handleDragLeave}
@@ -446,6 +437,8 @@ export function RecipeLibrary({
                         isSelected={selectedFolderId === folder.id}
                         isEditing={editingFolderId === folder.id}
                         onSetEditing={(isEditing) => setEditingFolderId(isEditing ? folder.id : null)}
+                        tempName={editingFolderName}
+                        onSetTempName={setEditingFolderName}
                         onUpdate={(newName) => activeTab === 'user-recipes' ? onFolderUpdate(folder.id, newName) : onGlobalFolderUpdate(folder.id, newName)}
                         isDroppable={true}
                         onDragOver={(e) => handleDragOver(e)}
@@ -480,7 +473,7 @@ export function RecipeLibrary({
                 </ScrollArea>
               </div>
               <div className="lg:col-span-4 h-full flex flex-col">
-                <div className="flex flex-col sm:flex-row gap-2 p-1">
+                 <div className="flex flex-col sm:flex-row gap-2 p-1">
                   <div className="relative flex-grow">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
@@ -508,18 +501,20 @@ export function RecipeLibrary({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-                 <ScrollArea className="flex-1 mt-2 min-h-0">
-                   <RecipeList 
-                      recipes={filteredAndSortedRecipes}
-                      onRecipeClick={(recipe, isNutri) => onRecipeAction('view', recipe, isNutri)}
-                      onCopyClick={activeTab === 'nutriplanner-recipes' ? onCopyRecipe : undefined}
-                      onAddToPlanClick={onAddToPlan}
-                      isDraggable={activeTab === 'user-recipes' || (activeTab === 'nutriplanner-recipes' && isAdmin)}
-                      isNutriPlanner={activeTab === 'nutriplanner-recipes'}
-                      isMobile={isMobile}
-                      viewMode='grid'
-                    />
-                 </ScrollArea>
+                <div className="flex-1 mt-2 min-h-0">
+                  <ScrollArea className="h-full">
+                    <RecipeList 
+                        recipes={filteredAndSortedRecipes}
+                        onRecipeClick={(recipe, isNutri) => onRecipeAction('view', recipe, isNutri)}
+                        onCopyClick={activeTab === 'nutriplanner-recipes' ? onCopyRecipe : undefined}
+                        onAddToPlanClick={onAddToPlan}
+                        isDraggable={activeTab === 'user-recipes' || (activeTab === 'nutriplanner-recipes' && isAdmin)}
+                        isNutriPlanner={activeTab === 'nutriplanner-recipes'}
+                        isMobile={isMobile}
+                        viewMode='grid'
+                      />
+                  </ScrollArea>
+                </div>
               </div>
             </div>
           </Tabs>
