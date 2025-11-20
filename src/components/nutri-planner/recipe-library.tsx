@@ -24,7 +24,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IngredientsDialog } from './ingredients-dialog';
@@ -411,7 +410,7 @@ export function RecipeLibrary({
                 </Button>
               </div>
             </div>
-            <div className="flex-1 grid lg:grid-cols-5 mt-2 overflow-hidden">
+            <div className="flex-1 grid lg:grid-cols-5 mt-2 overflow-hidden gap-4">
               <div className="col-span-1 border-r pr-2 hidden lg:block">
                   <h3 className="font-semibold text-sm mb-2 px-2">{activeTab === 'user-recipes' ? 'Mis Carpetas' : 'Carpetas Globales'}</h3>
                 <ScrollArea className="h-full pr-2">
@@ -480,7 +479,7 @@ export function RecipeLibrary({
                   </div>
                 </ScrollArea>
               </div>
-              <div className="lg:col-span-4 lg:pl-4 h-full flex flex-col">
+              <div className="lg:col-span-4 h-full flex flex-col">
                 <div className="flex flex-col sm:flex-row gap-2 p-1">
                   <div className="relative flex-grow">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
