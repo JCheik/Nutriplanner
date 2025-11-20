@@ -5,7 +5,7 @@ import type { WeekPlan, Recipe, DailyTotal, Macros, GoalMacros, Meal, ActiveDrop
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RecipeCard } from './recipe-card';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, X, Flame, Plus, Edit, Check, Printer, Download, Copy } from 'lucide-react';
+import { CalendarDays, X, Flame, Plus, Edit, Check, Printer, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '../ui/input';
 import html2canvas from 'html2canvas';
@@ -19,7 +19,6 @@ interface MealPlannerProps {
   onRecipeClick: (recipe: Recipe) => void;
   onRemoveRecipeFromMeal: (day: string, mealId:string, recipeInstanceId: string) => void;
   onUpdateMealTitle: (day: string, mealId: string, newTitle: string) => void;
-  onUpdateMealTitleAcrossWeek: (mealId: string, newTitle: string) => void;
   onAddMeal: (day: string, index: number) => void;
   onDeleteMeal: (day: string, mealId: string) => void;
   activeDropTarget: ActiveDropTarget | null;
@@ -35,7 +34,6 @@ interface MealSlotProps {
   onRecipeClick: (recipe: Recipe) => void;
   onRemoveRecipeFromMeal: (day: string, mealId: string, recipeInstanceId: string) => void;
   onUpdateMealTitle: (day: string, mealId: string, newTitle: string) => void;
-  onUpdateMealTitleAcrossWeek: (mealId: string, newTitle: string) => void;
   onDeleteMeal: (day: string, mealId: string) => void;
   isActiveDropTarget: boolean;
   onSetDropTarget: (target: ActiveDropTarget | null) => void;
@@ -86,7 +84,7 @@ const DailyTotalsRow = ({ totals, goal, className }: { totals: Macros, goal: Goa
 );
 
 
-function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onUpdateMealTitleAcrossWeek, onDeleteMeal, isActiveDropTarget, onSetDropTarget }: MealSlotProps) {
+function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onDeleteMeal, isActiveDropTarget, onSetDropTarget }: MealSlotProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(meal.title);
 
@@ -147,7 +145,6 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
               autoFocus
               className="h-7 text-xs font-medium border-primary bg-input"
             />
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onUpdateMealTitleAcrossWeek(meal.id, tempTitle)}><Copy className="h-3 w-3" /></Button>
            </div>
         ) : (
             <h4
@@ -231,7 +228,7 @@ function AddMealButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onUpdateMealTitleAcrossWeek, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget }: MealPlannerProps) {
+export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget }: MealPlannerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const plannerRef = useRef<HTMLDivElement>(null);
@@ -330,7 +327,6 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                        onRecipeClick={onRecipeClick}
                        onRemoveRecipeFromMeal={onRemoveRecipeFromMeal}
                        onUpdateMealTitle={onUpdateMealTitle}
-                       onUpdateMealTitleAcrossWeek={onUpdateMealTitleAcrossWeek}
                        onDeleteMeal={onDeleteMeal}
                        isActiveDropTarget={activeDropTarget?.day === dayPlan.day && activeDropTarget?.mealId === meal.id}
                        onSetDropTarget={onSetDropTarget}
