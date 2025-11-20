@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Target, X, TrendingDown, Weight, TrendingUp, EggFried, Wheat, Droplets, Calculator, Edit } from 'lucide-react';
+import { Target, X, TrendingDown, Weight, TrendingUp, EggFried, Wheat, Droplets, Calculator, Edit, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CalculationResult, GoalMacros, GoalType } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalculatorDialog } from './calculator-dialog';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
 
 const GoalCard = ({ title, icon: Icon, goal, isActive = false }: { title: string, icon: React.ElementType, goal: GoalMacros, isActive?: boolean }) => {
     return (
@@ -45,7 +47,59 @@ const GoalCard = ({ title, icon: Icon, goal, isActive = false }: { title: string
     )
 }
 
-const TargetGoalsDisplay = ({ result, onCalculate, onGoalSelect }: { result: CalculationResult | null, onCalculate: (result: CalculationResult) => void, onGoalSelect: (goal: GoalType) => void }) => {
+const CustomGoalEditor = ({ goal, onSave }: { goal?: GoalMacros, onSave: (macros: GoalMacros) => void }) => {
+    const [calories, setCalories] = useState(goal?.calories || 2000);
+    const [protein, setProtein] = useState(goal?.protein || 150);
+    const [carbs, setCarbs] = useState(goal?.carbs || 200);
+    const [fat, setFat] = useState(goal?.fat || 60);
+
+    const handleSave = () => {
+        onSave({
+            calories: Number(calories),
+            protein: Number(protein),
+            carbs: Number(carbs),
+            fat: Number(fat),
+        });
+    };
+    
+    return (
+        <Card className="border-primary">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                    <Edit className="h-5 w-5 text-primary" />
+                    Objetivo Personalizado
+                </CardTitle>
+                <CardDescription>
+                    Define tus propias metas diarias.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <Label htmlFor="custom-calories">Calorías (kcal)</Label>
+                        <Input id="custom-calories" type="number" value={calories} onChange={e => setCalories(Number(e.target.value))} />
+                    </div>
+                    <div>
+                        <Label htmlFor="custom-protein">Proteína (g)</Label>
+                        <Input id="custom-protein" type="number" value={protein} onChange={e => setProtein(Number(e.target.value))} />
+                    </div>
+                    <div>
+                        <Label htmlFor="custom-carbs">Carbs (g)</Label>
+                        <Input id="custom-carbs" type="number" value={carbs} onChange={e => setCarbs(Number(e.target.value))} />
+                    </div>
+                     <div>
+                        <Label htmlFor="custom-fat">Grasa (g)</Label>
+                        <Input id="custom-fat" type="number" value={fat} onChange={e => setFat(Number(e.target.value))} />
+                    </div>
+                </div>
+                 <Button onClick={handleSave} className="w-full">Guardar Objetivo Personalizado</Button>
+            </CardContent>
+        </Card>
+    )
+}
+
+
+const TargetGoalsDisplay = ({ result, onCalculate, onGoalSelect, activeGoal, onSaveCustomGoal }: { result: CalculationResult | null, onCalculate: (result: CalculationResult) => void, onGoalSelect: (goal: GoalType) => void, activeGoal: GoalType, onSaveCustomGoal: (macros: GoalMacros) => void }) => {
     const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
 
     const handleOpenCalculator = () => {
@@ -80,26 +134,35 @@ const TargetGoalsDisplay = ({ result, onCalculate, onGoalSelect }: { result: Cal
             </Button>
         </div>
     );
+    
+     const handleCustomSave = (macros: GoalMacros) => {
+        onSaveCustomGoal(macros);
+        onGoalSelect('custom');
+    };
 
     return (
         <div className="p-4 h-full flex flex-col">
-            <Tabs defaultValue="maintenance" className="w-full flex-1 flex flex-col" onValueChange={(value) => onGoalSelect(value as GoalType)}>
-                <TabsList className="grid w-full grid-cols-3">
+            <Tabs value={activeGoal} className="w-full flex-1 flex flex-col" onValueChange={(value) => onGoalSelect(value as GoalType)}>
+                <TabsList className="grid w-full grid-cols-4">
                     <TabsTrigger value="loss">Perder</TabsTrigger>
                     <TabsTrigger value="maintenance">Mantener</TabsTrigger>
                     <TabsTrigger value="gain">Ganar</TabsTrigger>
+                    <TabsTrigger value="custom">Personal</TabsTrigger>
                 </TabsList>
                 <TabsContent value="loss" className="mt-4 flex-1">
                      <GoalHeader title="Objetivo: Perder Peso" />
-                    <GoalCard icon={TrendingDown} goal={result.loss} isActive />
+                    <GoalCard icon={TrendingDown} goal={result.loss} isActive={activeGoal === 'loss'} />
                 </TabsContent>
                 <TabsContent value="maintenance" className="mt-4 flex-1">
                      <GoalHeader title="Objetivo: Mantenimiento" />
-                    <GoalCard icon={Weight} goal={result.maintenance} isActive />
+                    <GoalCard icon={Weight} goal={result.maintenance} isActive={activeGoal === 'maintenance'} />
                 </TabsContent>
                 <TabsContent value="gain" className="mt-4 flex-1">
                     <GoalHeader title="Objetivo: Ganar Músculo" />
-                    <GoalCard icon={TrendingUp} goal={result.gain} isActive />
+                    <GoalCard icon={TrendingUp} goal={result.gain} isActive={activeGoal === 'gain'} />
+                </TabsContent>
+                <TabsContent value="custom" className="mt-4 flex-1">
+                   <CustomGoalEditor goal={result.custom} onSave={handleCustomSave} />
                 </TabsContent>
             </Tabs>
             <CalculatorDialog isOpen={isCalculatorOpen} onClose={() => setIsCalculatorOpen(false)} onCalculate={onCalculate} initialResult={result} />
@@ -113,14 +176,27 @@ interface FloatingGoalsProps {
   calorieResult: CalculationResult | null;
   onCalorieResultSave: (result: CalculationResult) => void;
   onGoalSelect: (goal: GoalType) => void;
+  activeGoal: GoalType;
 }
 
-export function FloatingGoals({ isOpen, onOpenChange, calorieResult, onCalorieResultSave, onGoalSelect }: FloatingGoalsProps) {
+export function FloatingGoals({ isOpen, onOpenChange, calorieResult, onCalorieResultSave, onGoalSelect, activeGoal }: FloatingGoalsProps) {
+  
+  const handleSaveCustomGoal = (macros: GoalMacros) => {
+        const newResult: CalculationResult = {
+            bmr: calorieResult?.bmr || 0,
+            maintenance: calorieResult?.maintenance || { calories: 0, protein: 0, carbs: 0, fat: 0 },
+            loss: calorieResult?.loss || { calories: 0, protein: 0, carbs: 0, fat: 0 },
+            gain: calorieResult?.gain || { calories: 0, protein: 0, carbs: 0, fat: 0 },
+            custom: macros,
+        };
+        onCalorieResultSave(newResult);
+    };
+
   return (
     <div 
         className={cn(
-            'fixed bottom-24 right-8 w-96 rounded-lg shadow-2xl transform transition-all duration-300 ease-in-out z-50 origin-bottom-right bg-glass border flex flex-col',
-            'h-[450px]',
+            'fixed bottom-24 right-8 w-[420px] rounded-lg shadow-2xl transform transition-all duration-300 ease-in-out z-50 origin-bottom-right bg-glass border flex flex-col',
+            'h-[520px]',
             isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
         )}
     >
@@ -139,7 +215,13 @@ export function FloatingGoals({ isOpen, onOpenChange, calorieResult, onCalorieRe
             </Button>
         </div>
         <div className="flex-1">
-            <TargetGoalsDisplay result={calorieResult} onCalculate={onCalorieResultSave} onGoalSelect={onGoalSelect} />
+            <TargetGoalsDisplay 
+                result={calorieResult} 
+                onCalculate={onCalorieResultSave} 
+                onGoalSelect={onGoalSelect} 
+                activeGoal={activeGoal}
+                onSaveCustomGoal={handleSaveCustomGoal}
+            />
         </div>
     </div>
   );

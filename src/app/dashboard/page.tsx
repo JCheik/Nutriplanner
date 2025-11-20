@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { DayPlan, Recipe, Meal, WeekPlan, DialogState, UserProfile, CalculationResult, GoalType, ActiveDropTarget, RecipeInstance, Folder, GlobalFolder } from '@/lib/types';
 import { INITIAL_WEEK_PLAN, INITIAL_RECIPES } from '@/lib/data';
 import { PageHeader } from '@/components/layout/page-header';
@@ -82,6 +82,20 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
   const [activeGoal, setActiveGoal] = useState<GoalType>('maintenance');
   const [activeDropTarget, setActiveDropTarget] = useState<ActiveDropTarget | null>(null);
 
+  useEffect(() => {
+    if (userProfile?.activeGoalPreference) {
+      setActiveGoal(userProfile.activeGoalPreference);
+    } else {
+      setActiveGoal('maintenance');
+    }
+  }, [userProfile]);
+
+  const handleActiveGoalChange = (goal: GoalType) => {
+    setActiveGoal(goal);
+    if (userProfileRef) {
+      updateDocumentNonBlocking(userProfileRef, { activeGoalPreference: goal });
+    }
+  };
 
   // Memoized data sources based on auth state
   const currentUserRecipes = useMemo(() => isGuestMode ? guestRecipes : (userRecipes || []), [isGuestMode, guestRecipes, userRecipes]);
@@ -323,12 +337,21 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
           }
         }
         
-        const finalRecipe: Recipe = { ...recipe, id: recipeId, imageUrl: finalImageUrl };
+        const recipeData: Omit<Recipe, 'id'> & { id: string } = {
+          ...recipe,
+          id: recipeId,
+          imageUrl: finalImageUrl
+        };
+        
+        if (!recipeData.folderId) {
+            delete (recipeData as Partial<typeof recipeData>).folderId;
+        }
+
         const recipeRef = doc(targetCollectionRef, recipeId);
-        await setDocumentNonBlocking(recipeRef, finalRecipe, { merge: true });
+        await setDocumentNonBlocking(recipeRef, recipeData, { merge: true });
         
         const isExistingRecipe = !!existingId;
-        toast({ title: isExistingRecipe ? '¡Receta actualizada!' : '¡Receta guardada!', description: `${finalRecipe.name} se ha ${isExistingRecipe ? 'actualizado' : 'guardado'}.` });
+        toast({ title: isExistingRecipe ? '¡Receta actualizada!' : '¡Receta guardada!', description: `${recipeData.name} se ha ${isExistingRecipe ? 'actualizado' : 'guardado'}.` });
         handleDialogClose();
 
     } catch (error) {
@@ -535,7 +558,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
             <MealPlanner
               weekPlan={currentWeekPlan}
               dailyTotals={dailyTotals}
-              activeGoal={currentCalorieResult ? currentCalorieResult[activeGoal] : null}
+              activeGoal={currentCalorieResult && activeGoal ? currentCalorieResult[activeGoal] : null}
               onDrop={handleDrop}
               onClearMeal={handleClearMeal}
               onRecipeClick={(recipe) => handleRecipeAction('view', recipe)}
@@ -592,7 +615,8 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
         onCalorieResultSave={handleCalorieResultSave}
         isOpen={activePanel === 'goals'}
         onOpenChange={(isOpen) => handlePanelChange('goals', isOpen)}
-        onGoalSelect={setActiveGoal}
+        onGoalSelect={handleActiveGoalChange}
+        activeGoal={activeGoal}
       />
       <StickyNote
         initialContent={currentStickyNote}

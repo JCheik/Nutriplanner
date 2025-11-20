@@ -83,13 +83,14 @@ export interface GoalMacros extends Macros {
   // Protein, Carbs, Fat in grams are already in Macros
 }
 
-export type GoalType = 'loss' | 'maintenance' | 'gain';
+export type GoalType = 'loss' | 'maintenance' | 'gain' | 'custom';
 
 export interface CalculationResult {
   bmr: number;
   maintenance: GoalMacros;
   loss: GoalMacros;
   gain: GoalMacros;
+  custom?: GoalMacros;
 }
 
 export interface UserProfile {
@@ -98,6 +99,7 @@ export interface UserProfile {
   photoURL: string;
   stickyNote?: string;
   calorieResult?: CalculationResult;
+  activeGoalPreference?: GoalType;
 }
 
 
