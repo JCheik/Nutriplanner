@@ -38,7 +38,7 @@ export function FloatingMenu({ onPanelOpen }: FloatingMenuProps) {
                     )}
                     style={{ transitionDelay: isOpen ? `${(menuItems.length - 1 - index) * 50}ms` : `${index * 50}ms` }}
                 >
-                    <span className="hidden lg:block bg-card/80 backdrop-blur-sm text-card-foreground text-sm px-3 py-1 rounded-md shadow-lg">{item.label}</span>
+                    <span className="bg-card/80 backdrop-blur-sm text-card-foreground text-sm px-3 py-1 rounded-md shadow-lg">{item.label}</span>
                      <Button
                         onClick={() => handleItemClick(item.panel as any)}
                         className={cn("h-14 w-14 rounded-full shadow-lg", item.color)}
