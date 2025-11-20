@@ -31,10 +31,14 @@ export interface Recipe extends Macros {
   imageHint?: string;
 }
 
+export interface RecipeInstance extends Recipe {
+  instanceId: string;
+}
+
 export interface Meal {
   id: string;
   title: string;
-  recipes: Recipe[];
+  recipes: RecipeInstance[];
 }
 
 export interface DayPlan {

@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState, useMemo, type DragEvent, type KeyboardEvent } from 'react';
-import type { WeekPlan, Recipe, DailyTotal, Macros, GoalMacros, Meal, ActiveDropTarget } from '@/lib/types';
+import type { WeekPlan, Recipe, DailyTotal, Macros, GoalMacros, Meal, ActiveDropTarget, RecipeInstance } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RecipeCard } from './recipe-card';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, X, Flame, Plus, Edit, Check, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { CalendarDays, X, Flame, Plus, Edit, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '../ui/input';
 
@@ -16,7 +16,7 @@ interface MealPlannerProps {
   onDrop: (day: string, mealId: string, recipe: Recipe) => void;
   onClearMeal: (day: string, mealId: string) => void;
   onRecipeClick: (recipe: Recipe) => void;
-  onRemoveRecipeFromMeal: (day: string, mealId: string, recipeId: string) => void;
+  onRemoveRecipeFromMeal: (day: string, mealId:string, recipeInstanceId: string) => void;
   onUpdateMealTitle: (day: string, mealId: string, newTitle: string) => void;
   onAddMeal: (day: string) => void;
   onDeleteMeal: (day: string, mealId: string) => void;
@@ -31,7 +31,7 @@ interface MealSlotProps {
   onDrop: (day: string, mealId: string, recipe: Recipe) => void;
   onClearMeal: (day: string, mealId: string) => void;
   onRecipeClick: (recipe: Recipe) => void;
-  onRemoveRecipeFromMeal: (day: string, mealId: string, recipeId: string) => void;
+  onRemoveRecipeFromMeal: (day: string, mealId: string, recipeInstanceId: string) => void;
   onUpdateMealTitle: (day: string, mealId: string, newTitle: string) => void;
   onDeleteMeal: (day: string, mealId: string) => void;
   isActiveDropTarget: boolean;
@@ -153,9 +153,12 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
         )}
 
         <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-          {isEditing && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); setIsEditingTitle(true); }}><Edit className="h-3 w-3"/></Button>}
-          {isEditing && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); onDeleteMeal(day, meal.id); }}><Trash2 className="h-3 w-3 text-destructive"/></Button>}
-          
+          {isEditing && (
+              <>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); setIsEditingTitle(true); }}><Edit className="h-3 w-3"/></Button>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); onDeleteMeal(day, meal.id); }}><X className="h-3 w-3 text-destructive"/></Button>
+              </>
+            )}
           {!isEditing && hasRecipes && (
             <Button
               variant="ghost"
@@ -174,8 +177,8 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
       )}>
         {hasRecipes ? (
            <div className="w-full h-full flex flex-col gap-1 flex-1">
-                {meal.recipes.map((recipe: Recipe, index: number) => (
-                    <div key={`${recipe.id}-${index}`} className="w-full relative group/item flex-1">
+                {meal.recipes.map((recipe: RecipeInstance) => (
+                    <div key={recipe.instanceId} className="w-full relative group/item flex-1">
                       <div 
                           className="h-full w-full"
                           onClick={(e) => { e.stopPropagation(); onRecipeClick(recipe); }}
@@ -185,14 +188,16 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
                             isCompact 
                           />
                       </div>
-                      <Button
-                          variant="ghost"
-                          size="icon"
-                          className="absolute top-1/2 -translate-y-1/2 right-0 h-6 w-6 opacity-0 group-hover/item:opacity-100 transition-opacity z-10 bg-card/70 hover:bg-card"
-                          onClick={(e) => { e.stopPropagation(); onRemoveRecipeFromMeal(day, meal.id, recipe.id); }}
-                      >
-                          <X className="h-3 w-3" />
-                      </Button>
+                      {isEditing && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-1/2 -translate-y-1/2 right-0 h-6 w-6 opacity-0 group-hover/item:opacity-100 transition-opacity z-10 bg-card/70 hover:bg-card"
+                            onClick={(e) => { e.stopPropagation(); onRemoveRecipeFromMeal(day, meal.id, recipe.instanceId); }}
+                        >
+                            <X className="h-3 w-3" />
+                        </Button>
+                      )}
                     </div>
                 ))}
             </div>
@@ -210,13 +215,15 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
   const mealRows = useMemo(() => {
     if (!weekPlan || weekPlan.length === 0) return [];
     
-    const maxMeals = Math.max(...weekPlan.map(day => day.meals.length));
-    const rows: Meal[][] = Array.from({ length: maxMeals }, () => []);
+    const maxMealsPerDay = Math.max(...weekPlan.map(day => day.meals.length), 0);
+    const rows: (Meal | null)[][] = Array.from({ length: maxMealsPerDay }, () => Array(weekPlan.length).fill(null));
 
-    weekPlan.forEach(dayPlan => {
-      for (let i = 0; i < maxMeals; i++) {
-        rows[i].push(dayPlan.meals[i] || { id: `empty-${dayPlan.day}-${i}`, title: '', recipes: [] });
-      }
+    weekPlan.forEach((dayPlan, dayIndex) => {
+      dayPlan.meals.forEach((meal, mealIndex) => {
+        if (mealIndex < maxMealsPerDay) {
+          rows[mealIndex][dayIndex] = meal;
+        }
+      });
     });
 
     return rows;
@@ -248,7 +255,7 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
             <React.Fragment key={`row-${rowIndex}`}>
               {row.map((meal, dayIndex) => {
                  const dayPlan = weekPlan[dayIndex];
-                 if (!meal.id.startsWith('empty') && dayPlan) {
+                 if (meal) {
                    return (
                      <MealSlot
                        key={meal.id}
@@ -267,31 +274,33 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                    );
                  }
                  // Render an empty placeholder if the meal doesn't exist for that day
-                 return <div key={meal.id} className="p-2 border rounded-xl bg-background/80 border-transparent h-full min-h-[5rem]" />;
+                 return <div key={`empty-${dayIndex}-${rowIndex}`} className="p-2 border rounded-xl bg-background/80 border-transparent h-full min-h-[5rem]" />;
               })}
             </React.Fragment>
           ))}
           
           {isEditing && (
-             <React.Fragment>
+             <div className="col-span-7 grid grid-cols-7 gap-2 mt-2">
               {weekPlan.map(dayPlan => (
-                <div key={`add-meal-${dayPlan.day}`} className="mt-2">
+                <div key={`add-meal-${dayPlan.day}`}>
                   <Button variant="outline" size="sm" className="w-full" onClick={() => onAddMeal(dayPlan.day)}>
                       <Plus className="h-4 w-4 mr-2"/> Añadir Comida
                   </Button>
                 </div>
               ))}
-            </React.Fragment>
+            </div>
           )}
 
-          {weekPlan.map((dayPlan) => (
-             <DailyTotalsRow
-                key={`totals-${dayPlan.day}`}
-                totals={dailyTotals.find(d => d.day === dayPlan.day)?.totals || { calories: 0, protein: 0, carbs: 0, fat: 0 }}
-                goal={activeGoal}
-                className="p-3 rounded-xl bg-background/80 border mt-2 print:hidden"
-              />
-          ))}
+          <div className="col-span-7 grid grid-cols-7 gap-2 mt-2">
+            {weekPlan.map((dayPlan) => (
+              <DailyTotalsRow
+                  key={`totals-${dayPlan.day}`}
+                  totals={dailyTotals.find(d => d.day === dayPlan.day)?.totals || { calories: 0, protein: 0, carbs: 0, fat: 0 }}
+                  goal={activeGoal}
+                  className="p-3 rounded-xl bg-background/80 border print:hidden"
+                />
+            ))}
+          </div>
         </div>
       </CardContent>
     </Card>

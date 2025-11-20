@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
-import type { DayPlan, Recipe, Meal, WeekPlan, DialogState, UserProfile, CalculationResult, GoalType, ActiveDropTarget } from '@/lib/types';
+import type { DayPlan, Recipe, Meal, WeekPlan, DialogState, UserProfile, CalculationResult, GoalType, ActiveDropTarget, RecipeInstance } from '@/lib/types';
 import { INITIAL_WEEK_PLAN, INITIAL_RECIPES } from '@/lib/data';
 import { PageHeader } from '@/components/layout/page-header';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
@@ -118,11 +118,16 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
   };
 
   const handleDrop = useCallback((day: string, mealId: string, droppedRecipe: Recipe) => {
+    const newRecipeInstance: RecipeInstance = {
+      ...droppedRecipe,
+      instanceId: self.crypto.randomUUID()
+    };
+    
     const updateLogic = (plan: WeekPlan) => plan.map(dayPlan =>
       dayPlan.day === day
         ? { ...dayPlan, meals: dayPlan.meals.map(meal => 
             meal.id === mealId 
-              ? { ...meal, recipes: [...meal.recipes, droppedRecipe] } 
+              ? { ...meal, recipes: [...meal.recipes, newRecipeInstance] } 
               : meal
           )}
         : dayPlan
@@ -136,7 +141,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
        if (targetDay) {
         const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
         const updatedMeals = targetDay.meals.map(meal => 
-          meal.id === mealId ? { ...meal, recipes: [...meal.recipes, droppedRecipe] } : meal
+          meal.id === mealId ? { ...meal, recipes: [...meal.recipes, newRecipeInstance] } : meal
         );
         setDocumentNonBlocking(dayDocRef, { ...targetDay, meals: updatedMeals }, { merge: true });
        }
@@ -167,12 +172,20 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     }
   }, [user, firestore, currentWeekPlan, isGuestMode]);
   
-  const handleRemoveRecipeFromMeal = useCallback((day: string, mealId: string, recipeId: string) => {
+  const handleRemoveRecipeFromMeal = useCallback((day: string, mealId: string, recipeInstanceId: string) => {
      const updateLogic = (plan: WeekPlan) => plan.map(dayPlan =>
       dayPlan.day === day
-        ? { ...dayPlan, meals: dayPlan.meals.map(meal => 
-            meal.id === mealId ? { ...meal, recipes: meal.recipes.filter(r => r.id !== recipeId) } : meal
-          )}
+        ? { ...dayPlan, meals: dayPlan.meals.map(meal => {
+            if (meal.id !== mealId) return meal;
+            
+            const recipeIndex = meal.recipes.findIndex(r => r.instanceId === recipeInstanceId);
+            if (recipeIndex > -1) {
+              const newRecipes = [...meal.recipes];
+              newRecipes.splice(recipeIndex, 1);
+              return { ...meal, recipes: newRecipes };
+            }
+            return meal;
+          })}
         : dayPlan
     );
 
@@ -183,9 +196,17 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
       const targetDay = currentWeekPlan.find(d => d.day === day);
       if (targetDay) {
         const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
-        const updatedMeals = targetDay.meals.map(meal => 
-          meal.id === mealId ? { ...meal, recipes: meal.recipes.filter(r => r.id !== recipeId) } : meal
-        );
+        const updatedMeals = targetDay.meals.map(meal => {
+            if (meal.id !== mealId) return meal;
+
+            const recipeIndex = meal.recipes.findIndex(r => r.instanceId === recipeInstanceId);
+            if (recipeIndex > -1) {
+                const newRecipes = [...meal.recipes];
+                newRecipes.splice(recipeIndex, 1);
+                return { ...meal, recipes: newRecipes };
+            }
+            return meal;
+        });
         setDocumentNonBlocking(dayDocRef, { ...targetDay, meals: updatedMeals }, { merge: true });
       }
     }
