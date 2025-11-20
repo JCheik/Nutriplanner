@@ -31,7 +31,6 @@ export function NewIngredientDialog({ isOpen, onClose, onSave, ingredientToEdit 
   const [protein, setProtein] = useState(0);
   const [carbs, setCarbs] = useState(0);
   const [fat, setFat] = useState(0);
-  const [sugar, setSugar] = useState(0);
   const [fiber, setFiber] = useState(0);
 
   const isEditing = !!ingredientToEdit;
@@ -43,7 +42,6 @@ export function NewIngredientDialog({ isOpen, onClose, onSave, ingredientToEdit 
       setProtein(ingredientToEdit.protein || 0);
       setCarbs(ingredientToEdit.carbs || 0);
       setFat(ingredientToEdit.fat || 0);
-      setSugar(ingredientToEdit.sugar || 0);
       setFiber(ingredientToEdit.fiber || 0);
     } else if (!isOpen) {
       resetForm();
@@ -58,7 +56,6 @@ export function NewIngredientDialog({ isOpen, onClose, onSave, ingredientToEdit 
       protein,
       carbs,
       fat,
-      sugar,
       fiber,
       createdBy: user.uid,
     };
@@ -80,7 +77,6 @@ export function NewIngredientDialog({ isOpen, onClose, onSave, ingredientToEdit 
     setProtein(0);
     setCarbs(0);
     setFat(0);
-    setSugar(0);
     setFiber(0);
   };
 
