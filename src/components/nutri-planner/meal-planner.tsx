@@ -178,7 +178,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
         {hasRecipes ? (
            <div className="w-full h-full flex flex-col gap-1 flex-1">
                 {meal.recipes.map((recipe: RecipeInstance) => (
-                    <div key={recipe.instanceId} className="w-full relative group/item flex-1">
+                    <div key={`${recipe.id}-${recipe.instanceId}`} className="w-full relative group/item flex-1">
                       <div 
                           className="h-full w-full"
                           onClick={(e) => { e.stopPropagation(); onRecipeClick(recipe); }}
