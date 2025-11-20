@@ -237,8 +237,8 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
 
     const canvas = await html2canvas(plannerRef.current, {
       useCORS: true,
-      backgroundColor: null, // Use transparent background
-      scale: 2, // Increase resolution
+      backgroundColor: '#ffffff', // Explicitly set a white background for the capture
+      scale: 2, // Increase resolution for better quality
     });
     const link = document.createElement('a');
     link.download = 'plan-de-comidas.png';
@@ -267,8 +267,8 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
             </Button>
         </div>
       </CardHeader>
-      <CardContent className="pb-4">
-        <div ref={plannerRef} className="printable-area flex gap-2">
+      <CardContent ref={plannerRef} className="pb-4">
+        <div className="printable-area flex gap-2">
           {weekPlan.map((dayPlan) => (
             <div key={dayPlan.day} className="flex-1 flex flex-col gap-2">
                 <h3 className="font-semibold text-center text-lg text-card-foreground mb-2">{dayPlan.day}</h3>
