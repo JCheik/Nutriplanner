@@ -27,13 +27,13 @@ export function FloatingMenu({ onPanelOpen }: FloatingMenuProps) {
 
   return (
     <div className="fixed bottom-8 right-8 z-[60]">
-        <div className="relative flex flex-col items-center gap-3">
+        <div className="relative flex flex-col items-end gap-3">
              {/* Action Items */}
             {menuItems.map((item, index) => (
                 <div
                     key={item.panel}
                     className={cn(
-                        "transition-all duration-300 ease-in-out flex items-center gap-3",
+                        "transition-all duration-300 ease-in-out flex items-center justify-end gap-3",
                         isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
                     )}
                     style={{ transitionDelay: isOpen ? `${(menuItems.length - 1 - index) * 50}ms` : `${index * 50}ms` }}
