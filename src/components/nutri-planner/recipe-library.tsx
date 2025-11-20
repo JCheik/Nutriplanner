@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, type DragEvent, type KeyboardEvent } from 'react';
+import { useState, useMemo, type DragEvent, type KeyboardEvent, useEffect } from 'react';
 import type { Recipe, SortCriteria, Folder, GlobalFolder } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -96,7 +96,7 @@ function FolderButton({
   onUpdate?: (name: string) => void;
   isSelected: boolean;
   isEditing: boolean;
-  onSetEditing: (isEditing: boolean, name: string) => void;
+  onSetEditing: (isEditing: boolean) => void;
   isDroppable: boolean;
   onDragOver?: (e: DragEvent<HTMLDivElement>) => void;
   onDragLeave?: (e: DragEvent<HTMLDivElement>) => void;
@@ -104,17 +104,23 @@ function FolderButton({
 }) {
   const [tempName, setTempName] = useState(name);
 
+  useEffect(() => {
+    if (isEditing) {
+      setTempName(name);
+    }
+  }, [isEditing, name]);
+
   const handleUpdate = () => {
     if (tempName.trim() && tempName !== name && onUpdate) {
       onUpdate(tempName.trim());
     }
-    onSetEditing(false, name);
+    onSetEditing(false);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') handleUpdate();
     if (e.key === 'Escape') {
-      onSetEditing(false, name);
+      onSetEditing(false);
     }
   };
 
@@ -154,7 +160,7 @@ function FolderButton({
         
         {!isEditing && children && (
           <div className="opacity-0 group-hover:opacity-100 flex items-center">
-            {onUpdate && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onSetEditing(true, name)}><Edit className="h-4 w-4"/></Button>}
+            {onUpdate && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onSetEditing(true)}><Edit className="h-4 w-4"/></Button>}
             {children}
           </div>
         )}
@@ -308,23 +314,16 @@ export function RecipeLibrary({
   }, []);
 
   const recipesInSelectedFolder = useMemo(() => {
-    if (activeTab !== 'user-recipes') return [];
-    if (selectedFolderId === 'all') return userRecipes;
-    if (selectedFolderId === null) return userRecipes.filter(r => !r.folderId);
-    return userRecipes.filter(recipe => recipe.folderId === selectedFolderId);
-  }, [userRecipes, selectedFolderId, activeTab]);
+    const sourceRecipes = activeTab === 'user-recipes' ? userRecipes : nutriplannerRecipes;
+    const sourceFolders = activeTab === 'user-recipes' ? folders : globalFolders;
 
-  const recipesInSelectedGlobalFolder = useMemo(() => {
-    if (activeTab !== 'nutriplanner-recipes') return [];
-    if (selectedFolderId === 'all') return nutriplannerRecipes;
-    if (selectedFolderId === null) return nutriplannerRecipes.filter(r => !r.folderId);
-    return nutriplannerRecipes.filter(recipe => recipe.folderId === selectedFolderId);
-  }, [nutriplannerRecipes, selectedFolderId, activeTab]);
-  
+    if (selectedFolderId === 'all') return sourceRecipes;
+    if (selectedFolderId === null) return sourceRecipes.filter(r => !r.folderId);
+    return sourceRecipes.filter(recipe => recipe.folderId === selectedFolderId);
+  }, [userRecipes, nutriplannerRecipes, selectedFolderId, activeTab, folders, globalFolders]);
+
   const filteredAndSortedRecipes = useMemo(() => {
-    const sourceRecipes = activeTab === 'user-recipes' ? recipesInSelectedFolder : recipesInSelectedGlobalFolder;
-
-    return (sourceRecipes || []).filter(recipe => {
+    return (recipesInSelectedFolder || []).filter(recipe => {
       const query = filterQuery.toLowerCase();
       if (!query) return true;
       const nameMatch = recipe.name.toLowerCase().includes(query);
@@ -344,7 +343,7 @@ export function RecipeLibrary({
       if (valA > valB) return order === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [filterQuery, sortCriteria, activeTab, recipesInSelectedFolder, recipesInSelectedGlobalFolder]);
+  }, [filterQuery, sortCriteria, recipesInSelectedFolder]);
 
 
   const handleTabChange = (value: string) => {
@@ -376,10 +375,6 @@ export function RecipeLibrary({
       }
     }
   };
-
-  const handleSetEditing = (isEditing: boolean, folderId: string) => {
-    setEditingFolderId(isEditing ? folderId : null);
-  }
   
   return (
     <>
@@ -447,7 +442,7 @@ export function RecipeLibrary({
                         onClick={() => setSelectedFolderId(folder.id)} 
                         isSelected={selectedFolderId === folder.id}
                         isEditing={editingFolderId === folder.id}
-                        onSetEditing={(isEditing) => handleSetEditing(isEditing, folder.id)}
+                        onSetEditing={(isEditing) => setEditingFolderId(isEditing ? folder.id : null)}
                         onUpdate={(newName) => activeTab === 'user-recipes' ? onFolderUpdate(folder.id, newName) : onGlobalFolderUpdate(folder.id, newName)}
                         isDroppable={true}
                         onDragOver={(e) => handleDragOver(e)}
@@ -534,3 +529,5 @@ export function RecipeLibrary({
     </>
   );
 }
+
+    
