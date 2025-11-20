@@ -472,7 +472,7 @@ export function RecipeLibrary({
                   </div>
                 </ScrollArea>
               </div>
-              <div className="lg:col-span-4 h-full flex flex-col">
+              <div className="lg:col-span-4 h-full flex flex-col min-h-0">
                  <div className="flex flex-col sm:flex-row gap-2 p-1">
                   <div className="relative flex-grow">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
