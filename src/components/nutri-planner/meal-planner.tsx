@@ -128,7 +128,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
       onDrop={handleDrop} 
       onClick={handleSlotClick}
       className={cn(
-        "relative flex flex-col p-2 bg-background/80 border rounded-xl h-full min-h-[120px]",
+        "relative flex flex-col p-2 bg-background/80 border rounded-xl h-full",
         "cursor-pointer",
         isActiveDropTarget && "ring-2 ring-primary"
       )}
