@@ -112,7 +112,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
   const foldersCollectionRef = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'users', user.uid, 'folders') : null, [firestore, user]);
   const { data: folders, isLoading: foldersLoading } = useCollection<Folder>(foldersCollectionRef);
 
-  const globalFoldersCollectionRef = useMemoFirebase(() => (firestore) ? collection(firestore, 'nutriplanner_folders') : null, [firestore]);
+  const globalFoldersCollectionRef = useMemoFirebase(() => (firestore && !isGuestMode) ? collection(firestore, 'nutriplanner_folders') : null, [firestore, isGuestMode]);
   const { data: globalFolders, isLoading: globalFoldersLoading } = useCollection<GlobalFolder>(globalFoldersCollectionRef);
 
   const nutriplannerRecipesCollectionRef = useMemoFirebase(() => (firestore && !isGuestMode) ? collection(firestore, 'nutriplanner_recipes') : null, [firestore, isGuestMode]);
@@ -142,7 +142,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
 
   const handleActiveGoalChange = (goal: GoalType) => {
     setActiveGoal(goal);
-    if (userProfileRef) {
+    if (!isGuestMode && userProfileRef) {
       updateDocumentNonBlocking(userProfileRef, { activeGoalPreference: goal });
     }
   };
@@ -150,8 +150,8 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
   // Memoized data sources based on auth state
   const currentUserRecipes = useMemo(() => isGuestMode ? guestRecipes : (userRecipes || []), [isGuestMode, guestRecipes, userRecipes]);
   const currentFolders = useMemo(() => isGuestMode ? [] : (folders || []), [isGuestMode, folders]);
-  const currentGlobalFolders = useMemo(() => globalFolders || [], [globalFolders]);
-  const currentNutriplannerRecipes = useMemo(() => nutriplannerRecipes || [], [nutriplannerRecipes]);
+  const currentGlobalFolders = useMemo(() => isGuestMode ? [] : (globalFolders || []), [isGuestMode, globalFolders]);
+  const currentNutriplannerRecipes = useMemo(() => isGuestMode ? [] : (nutriplannerRecipes || []), [isGuestMode, nutriplannerRecipes]);
   
   const currentWeekPlan = useMemo(() => {
     if (isGuestMode) return guestWeekPlan;
@@ -338,15 +338,14 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
           }
         }
         
-        const recipeData: Recipe = {
+        const recipeData: Partial<Recipe> = {
           ...recipe,
           id: recipeId,
           imageUrl: finalImageUrl
         };
         
-        // Firestore doesn't allow 'undefined' values.
-        if (!recipeData.folderId) {
-            delete (recipeData as Partial<Recipe>).folderId;
+        if (recipeData.folderId === 'none') {
+            delete recipeData.folderId;
         }
 
         const recipeRef = doc(targetCollectionRef, recipeId);
