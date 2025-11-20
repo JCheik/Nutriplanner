@@ -19,7 +19,7 @@ interface MealPlannerProps {
   onRecipeClick: (recipe: Recipe) => void;
   onRemoveRecipeFromMeal: (day: string, mealId:string, recipeInstanceId: string) => void;
   onUpdateMealTitle: (day: string, mealId: string, newTitle: string) => void;
-  onAddMeal: (day: string) => void;
+  onAddMeal: (day: string, index: number) => void;
   onDeleteMeal: (day: string, mealId: string) => void;
   activeDropTarget: ActiveDropTarget | null;
   onSetDropTarget: (target: ActiveDropTarget | null) => void;
@@ -210,6 +210,22 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
   );
 }
 
+function AddMealButton({ onClick }: { onClick: () => void }) {
+  return (
+    <div className="relative h-4 flex items-center justify-center my-1">
+      <div className="absolute w-full h-px bg-border/80 border-dashed"></div>
+      <Button
+        variant="outline"
+        size="icon"
+        className="h-6 w-6 rounded-full bg-background z-10"
+        onClick={onClick}
+      >
+        <Plus className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
+
 export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget }: MealPlannerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -218,11 +234,10 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
   const handleDownload = async () => {
     if (!plannerRef.current) return;
     setIsDownloading(true);
-
+    
     const plannerElement = plannerRef.current;
     
-    // Temporarily remove text clamping classes before capture
-    const clampedElements = plannerElement.querySelectorAll('.line-clamp-3');
+    const clampedElements = Array.from(plannerElement.querySelectorAll('.line-clamp-3'));
     clampedElements.forEach(el => el.classList.remove('line-clamp-3'));
 
     try {
@@ -239,7 +254,6 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
     } catch (error) {
       console.error("Error downloading image:", error);
     } finally {
-       // Restore text clamping classes after capture
       clampedElements.forEach(el => el.classList.add('line-clamp-3'));
       setIsDownloading(false);
     }
@@ -275,9 +289,12 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
           {weekPlan.map((dayPlan) => (
             <div key={dayPlan.day} className="flex-1 flex flex-col gap-2">
                 <h3 className="font-semibold text-center text-lg text-card-foreground mb-2">{dayPlan.day}</h3>
-                {dayPlan.meals.map(meal => (
+                
+                {isEditing && <AddMealButton onClick={() => onAddMeal(dayPlan.day, 0)} />}
+
+                {dayPlan.meals.map((meal, index) => (
+                  <React.Fragment key={meal.id}>
                     <MealSlot
-                       key={meal.id}
                        day={dayPlan.day}
                        meal={meal}
                        isEditing={isEditing}
@@ -290,15 +307,10 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                        isActiveDropTarget={activeDropTarget?.day === dayPlan.day && activeDropTarget?.mealId === meal.id}
                        onSetDropTarget={onSetDropTarget}
                      />
+                     {isEditing && <AddMealButton onClick={() => onAddMeal(dayPlan.day, index + 1)} />}
+                  </React.Fragment>
                 ))}
                 
-                {isEditing && (
-                    <div className="mt-2">
-                      <Button variant="outline" size="sm" className="w-full" onClick={() => onAddMeal(dayPlan.day)}>
-                          <Plus className="h-4 w-4 mr-2"/> Añadir Comida
-                      </Button>
-                    </div>
-                )}
                 <DailyTotalsRow
                   totals={dailyTotals.find(d => d.day === dayPlan.day)?.totals || { calories: 0, protein: 0, carbs: 0, fat: 0 }}
                   goal={activeGoal}

@@ -236,23 +236,25 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
       }
   }, [user, firestore, currentWeekPlan, isGuestMode]);
 
-  const handleAddMeal = useCallback((day: string) => {
-      if (promptToRegister()) return;
-      if (!user || !firestore || !currentWeekPlan) return;
+  const handleAddMeal = useCallback((day: string, index: number) => {
+    if (promptToRegister()) return;
+    if (!user || !firestore || !currentWeekPlan) return;
 
-      const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
-      const targetDay = currentWeekPlan.find(d => d.day === day);
+    const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
+    const targetDay = currentWeekPlan.find(d => d.day === day);
 
-      if (targetDay) {
-          const newMeal: Meal = {
-              id: `meal-${Date.now()}-${day}`,
-              title: 'Nueva Comida',
-              recipes: [],
-          };
-          const updatedMeals = [...targetDay.meals, newMeal];
-          const updatedDayPlan = { ...targetDay, meals: updatedMeals };
-          setDocumentNonBlocking(dayDocRef, updatedDayPlan, { merge: true });
-      }
+    if (targetDay) {
+        const newMeal: Meal = {
+            id: `meal-${Date.now()}-${day}`,
+            title: 'Nueva Comida',
+            recipes: [],
+        };
+        const updatedMeals = [...targetDay.meals];
+        updatedMeals.splice(index, 0, newMeal);
+        
+        const updatedDayPlan = { ...targetDay, meals: updatedMeals };
+        setDocumentNonBlocking(dayDocRef, updatedDayPlan, { merge: true });
+    }
   }, [user, firestore, currentWeekPlan, isGuestMode]);
 
   const handleDeleteMeal = useCallback((day: string, mealId: string) => {
@@ -618,5 +620,3 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     </div>
   );
 }
-
-    
