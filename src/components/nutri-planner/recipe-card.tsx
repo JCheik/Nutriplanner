@@ -20,7 +20,7 @@ const RecipePlaceholder = ({ recipeName }: { recipeName: string }) => (
     "w-full h-full flex items-center justify-center p-2 rounded-md bg-secondary/50"
   )}>
     <span className={cn(
-      "text-center font-semibold text-secondary-foreground text-sm leading-tight line-clamp-3",
+      "text-center font-semibold text-secondary-foreground text-sm leading-tight line-clamp-3 break-words",
     )}>
       {recipeName}
     </span>
