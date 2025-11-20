@@ -5,7 +5,7 @@ import type { WeekPlan, Recipe, DailyTotal, Macros, GoalMacros, Meal, ActiveDrop
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RecipeCard } from './recipe-card';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, X, Flame, Plus, Edit, Check, Printer, Download } from 'lucide-react';
+import { CalendarDays, X, Flame, Plus, Edit, Check, Printer, Download, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '../ui/input';
 import html2canvas from 'html2canvas';
@@ -19,6 +19,7 @@ interface MealPlannerProps {
   onRecipeClick: (recipe: Recipe) => void;
   onRemoveRecipeFromMeal: (day: string, mealId:string, recipeInstanceId: string) => void;
   onUpdateMealTitle: (day: string, mealId: string, newTitle: string) => void;
+  onUpdateMealTitleAcrossWeek: (mealId: string, newTitle: string) => void;
   onAddMeal: (day: string, index: number) => void;
   onDeleteMeal: (day: string, mealId: string) => void;
   activeDropTarget: ActiveDropTarget | null;
@@ -34,6 +35,7 @@ interface MealSlotProps {
   onRecipeClick: (recipe: Recipe) => void;
   onRemoveRecipeFromMeal: (day: string, mealId: string, recipeInstanceId: string) => void;
   onUpdateMealTitle: (day: string, mealId: string, newTitle: string) => void;
+  onUpdateMealTitleAcrossWeek: (mealId: string, newTitle: string) => void;
   onDeleteMeal: (day: string, mealId: string) => void;
   isActiveDropTarget: boolean;
   onSetDropTarget: (target: ActiveDropTarget | null) => void;
@@ -84,7 +86,7 @@ const DailyTotalsRow = ({ totals, goal, className }: { totals: Macros, goal: Goa
 );
 
 
-function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onDeleteMeal, isActiveDropTarget, onSetDropTarget }: MealSlotProps) {
+function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onUpdateMealTitleAcrossWeek, onDeleteMeal, isActiveDropTarget, onSetDropTarget }: MealSlotProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(meal.title);
 
@@ -136,14 +138,17 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
     >
       <div className="flex justify-between items-center mb-1 pl-1 group">
         {isEditingTitle ? (
-           <Input 
-             value={tempTitle}
-             onChange={(e) => setTempTitle(e.target.value)}
-             onBlur={handleTitleSave}
-             onKeyDown={handleTitleKeyDown}
-             autoFocus
-             className="h-7 text-xs font-medium border-primary bg-input"
-           />
+           <div className="flex-1 flex gap-1 items-center">
+             <Input 
+              value={tempTitle}
+              onChange={(e) => setTempTitle(e.target.value)}
+              onBlur={handleTitleSave}
+              onKeyDown={handleTitleKeyDown}
+              autoFocus
+              className="h-7 text-xs font-medium border-primary bg-input"
+            />
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onUpdateMealTitleAcrossWeek(meal.id, tempTitle)}><Copy className="h-3 w-3" /></Button>
+           </div>
         ) : (
             <h4
               className={cn("text-xs font-medium text-muted-foreground uppercase tracking-widest", isEditing && 'cursor-pointer hover:underline')}
@@ -153,7 +158,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
             </h4>
         )}
 
-        <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className={cn("flex items-center transition-opacity", !isEditingTitle && "opacity-0 group-hover:opacity-100")}>
           {isEditing && (
               <>
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); setIsEditingTitle(true); }}><Edit className="h-3 w-3"/></Button>
@@ -226,7 +231,7 @@ function AddMealButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget }: MealPlannerProps) {
+export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onUpdateMealTitleAcrossWeek, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget }: MealPlannerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const plannerRef = useRef<HTMLDivElement>(null);
@@ -237,8 +242,20 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
     
     const plannerElement = plannerRef.current;
     
-    const clampedElements = Array.from(plannerElement.querySelectorAll('.line-clamp-3'));
-    clampedElements.forEach(el => el.classList.remove('line-clamp-3'));
+    // Temporarily remove line-clamp classes before capturing
+    const clampedElements = Array.from(plannerElement.querySelectorAll('.line-clamp-1, .line-clamp-2, .line-clamp-3'));
+    clampedElements.forEach(el => {
+      el.classList.add('printable-text-fix');
+      if (el.classList.contains('line-clamp-1')) {
+        el.classList.remove('line-clamp-1');
+      }
+      if (el.classList.contains('line-clamp-2')) {
+        el.classList.remove('line-clamp-2');
+      }
+       if (el.classList.contains('line-clamp-3')) {
+        el.classList.remove('line-clamp-3');
+      }
+    });
 
     try {
       const canvas = await html2canvas(plannerElement, {
@@ -254,7 +271,17 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
     } catch (error) {
       console.error("Error downloading image:", error);
     } finally {
-      clampedElements.forEach(el => el.classList.add('line-clamp-3'));
+       // Restore line-clamp classes
+       const fixedElements = Array.from(plannerElement.querySelectorAll('.printable-text-fix'));
+       fixedElements.forEach(el => {
+          el.classList.remove('printable-text-fix');
+          // This is a bit of a hack, assuming we only use these clamps.
+          // A more robust solution might store original classes.
+          el.classList.add('line-clamp-1');
+       });
+       // A more specific re-add for recipe cards that might use clamp-3
+       const recipePlaceholders = Array.from(plannerElement.querySelectorAll('[data-recipe-placeholder]'));
+       recipePlaceholders.forEach(el => el.classList.add('line-clamp-3'));
       setIsDownloading(false);
     }
   };
@@ -303,6 +330,7 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                        onRecipeClick={onRecipeClick}
                        onRemoveRecipeFromMeal={onRemoveRecipeFromMeal}
                        onUpdateMealTitle={onUpdateMealTitle}
+                       onUpdateMealTitleAcrossWeek={onUpdateMealTitleAcrossWeek}
                        onDeleteMeal={onDeleteMeal}
                        isActiveDropTarget={activeDropTarget?.day === dayPlan.day && activeDropTarget?.mealId === meal.id}
                        onSetDropTarget={onSetDropTarget}

@@ -236,6 +236,36 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
       }
   }, [user, firestore, currentWeekPlan, isGuestMode]);
 
+  const handleUpdateMealTitleAcrossWeek = useCallback(async (mealId: string, newTitle: string) => {
+    if (promptToRegister()) return;
+    if (!user || !firestore || !currentWeekPlan) return;
+
+    try {
+        const batch = writeBatch(firestore);
+
+        const sourceDay = currentWeekPlan.find(d => d.meals.some(m => m.id === mealId));
+        if (!sourceDay) return;
+        
+        const mealIndex = sourceDay.meals.findIndex(m => m.id === mealId);
+        if (mealIndex === -1) return;
+
+        currentWeekPlan.forEach(dayPlan => {
+            if (dayPlan.meals[mealIndex]) {
+                const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', dayPlan.day);
+                const updatedMeals = [...dayPlan.meals];
+                updatedMeals[mealIndex] = { ...updatedMeals[mealIndex], title: newTitle };
+                batch.set(dayDocRef, { ...dayPlan, meals: updatedMeals }, { merge: true });
+            }
+        });
+
+        await batch.commit();
+        toast({ title: "Títulos actualizados", description: `"${newTitle}" se ha aplicado a toda la semana.` });
+    } catch (error) {
+        console.error("Error updating titles across week:", error);
+        toast({ variant: "destructive", title: "Error", description: "No se pudieron actualizar los títulos." });
+    }
+}, [user, firestore, currentWeekPlan, toast, isGuestMode]);
+
   const handleAddMeal = useCallback((day: string, index: number) => {
     if (promptToRegister()) return;
     if (!user || !firestore || !currentWeekPlan) return;
@@ -541,6 +571,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
               onRecipeClick={(recipe) => handleRecipeAction('view', recipe)}
               onRemoveRecipeFromMeal={handleRemoveRecipeFromMeal}
               onUpdateMealTitle={handleUpdateMealTitle}
+              onUpdateMealTitleAcrossWeek={handleUpdateMealTitleAcrossWeek}
               onAddMeal={handleAddMeal}
               onDeleteMeal={handleDeleteMeal}
               activeDropTarget={activeDropTarget}
