@@ -39,14 +39,9 @@ export default function Home() {
     );
   }
 
-  if (user) {
-    // If the user is logged in, always show the real dashboard
-    return <Dashboard />;
-  }
-  
-  if (isGuest) {
-    // If guest mode is active, show the dashboard in guest mode
-    return <Dashboard isGuestMode={true} onExitGuestMode={handleExitGuestMode} />;
+  if (user || isGuest) {
+    // If the user is logged in, or is in guest mode, show the dashboard
+    return <Dashboard isGuestMode={!user && isGuest} onExitGuestMode={handleExitGuestMode} />;
   }
 
   // Otherwise, show the welcome/login screen
