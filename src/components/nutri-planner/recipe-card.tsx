@@ -119,7 +119,7 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
             )}
         </div>
         <div className="p-2 flex-1 flex flex-col justify-center">
-             <h3 className={cn("font-headline text-base leading-tight text-foreground", className)}>{recipe.name}</h3>
+             <h3 className={cn("font-headline text-base leading-tight text-foreground line-clamp-1", className)}>{recipe.name}</h3>
             <div className="mt-2 flex justify-around text-muted-foreground">
                 <div className="flex items-center gap-1">
                     <Flame className="h-3 w-3 text-orange-400" />
