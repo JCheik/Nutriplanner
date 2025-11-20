@@ -315,7 +315,6 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
   }, []);
 
   const handleSaveRecipe = (recipeData: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
-    console.log("1. Iniciando guardado de receta...");
     if (promptToRegister() || !user || !firestore || !storage) {
         toast({ variant: "destructive", title: "Error de configuración", description: "Faltan servicios de Firebase." });
         return;
@@ -334,7 +333,6 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     const recipeRef = doc(targetCollectionRef, recipeId);
 
     const saveRecipeData = (imageUrl: string | null) => {
-        console.log("4. URL obtenida. Guardando datos en Firestore...");
         const recipeToSave: Recipe = {
             ...recipeData,
             id: recipeId,
@@ -346,7 +344,6 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
             : setDoc(recipeRef, recipeToSave);
 
         savePromise.then(() => {
-            console.log("5. Receta guardada con éxito.");
             toast({ title: '¡Receta guardada!', description: `${recipeToSave.name} se ha guardado correctamente.` });
             handleDialogClose();
         }).catch((error) => {
@@ -358,15 +355,11 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     };
 
     if (imageFile) {
-        console.log("2. Hay un archivo, intentando subir...", { recipeId });
         const imagePath = `recipes/${recipeId}.${imageFile.name.split('.').pop()}`;
         const imageStorageRef = ref(storage, imagePath);
 
         uploadBytes(imageStorageRef, imageFile)
-            .then(snapshot => {
-                console.log("3. Imagen subida, obteniendo URL...");
-                return getDownloadURL(snapshot.ref);
-            })
+            .then(snapshot => getDownloadURL(snapshot.ref))
             .then(downloadURL => {
                 saveRecipeData(downloadURL);
             })
@@ -376,7 +369,6 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
                 setIsSaving(false);
             });
     } else {
-        console.log("2. No hay archivo, guardando datos directamente.");
         saveRecipeData(recipeData.imageUrl || null);
     }
 };
