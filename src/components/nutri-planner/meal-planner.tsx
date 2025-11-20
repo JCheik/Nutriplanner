@@ -218,25 +218,29 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
   const handleDownload = async () => {
     if (!plannerRef.current) return;
     setIsDownloading(true);
+
+    const plannerElement = plannerRef.current;
+    
+    // Temporarily remove text clamping classes before capture
+    const clampedElements = plannerElement.querySelectorAll('.line-clamp-3');
+    clampedElements.forEach(el => el.classList.remove('line-clamp-3'));
+
     try {
-      document.body.classList.add('print:bg-transparent');
-      
-      const canvas = await html2canvas(plannerRef.current, {
+      const canvas = await html2canvas(plannerElement, {
         useCORS: true,
         allowTaint: true,
         backgroundColor: `hsl(${getComputedStyle(document.body).getPropertyValue('--background').trim()})`,
       });
       
-      document.body.classList.remove('print:bg-transparent');
-
       const link = document.createElement('a');
       link.download = 'plan-de-comidas.png';
       link.href = canvas.toDataURL('image/png');
       link.click();
     } catch (error) {
       console.error("Error downloading image:", error);
-      document.body.classList.remove('print:bg-transparent');
     } finally {
+       // Restore text clamping classes after capture
+      clampedElements.forEach(el => el.classList.add('line-clamp-3'));
       setIsDownloading(false);
     }
   };
@@ -267,7 +271,7 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
         </div>
       </CardHeader>
       <CardContent className="pb-4">
-        <div ref={plannerRef} className="flex gap-2">
+        <div ref={plannerRef} className="flex gap-2 printable-area">
           {weekPlan.map((dayPlan) => (
             <div key={dayPlan.day} className="flex-1 flex flex-col gap-2">
                 <h3 className="font-semibold text-center text-lg text-card-foreground mb-2">{dayPlan.day}</h3>

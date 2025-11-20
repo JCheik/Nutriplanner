@@ -13,14 +13,16 @@ interface RecipeCardProps {
   isCompact?: boolean;
   isListView?: boolean;
   onClick?: () => void;
+  className?: string;
 }
 
-const RecipePlaceholder = ({ recipeName }: { recipeName: string }) => (
+const RecipePlaceholder = ({ recipeName, className }: { recipeName: string, className?: string }) => (
   <div className={cn(
     "w-full h-full flex items-center justify-center p-2 rounded-md bg-secondary/50"
   )}>
     <span className={cn(
-      "text-center font-semibold text-secondary-foreground text-sm leading-tight line-clamp-3 break-words",
+      "text-center font-semibold text-secondary-foreground text-sm leading-tight break-words",
+      className
     )}>
       {recipeName}
     </span>
@@ -35,7 +37,7 @@ const MacroItem = ({ icon: Icon, value, unit, colorClass }: { icon: React.Elemen
 );
 
 
-export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isListView = false, onClick }: RecipeCardProps) {
+export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isListView = false, onClick, className }: RecipeCardProps) {
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
     if (!isDraggable) return;
     e.dataTransfer.setData('application/json', JSON.stringify(recipe));
@@ -79,7 +81,7 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
           className="w-full h-full cursor-pointer"
           onClick={onClick}
         >
-           <RecipePlaceholder recipeName={recipe.name} />
+           <RecipePlaceholder recipeName={recipe.name} className={className} />
         </div>
     );
   }
@@ -119,7 +121,7 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
             )}
         </div>
         <div className="p-2 flex-1 flex flex-col justify-center">
-             <h3 className="font-headline text-base line-clamp-1 leading-tight text-foreground">{recipe.name}</h3>
+             <h3 className={cn("font-headline text-base leading-tight text-foreground", className)}>{recipe.name}</h3>
             <div className="mt-2 flex justify-around text-muted-foreground">
                 <div className="flex items-center gap-1">
                     <Flame className="h-3 w-3 text-orange-400" />
