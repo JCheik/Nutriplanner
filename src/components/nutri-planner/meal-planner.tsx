@@ -219,16 +219,14 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
     if (!plannerRef.current) return;
     setIsDownloading(true);
     try {
-      // Temporarily add a class to the body to remove background image for capture
       document.body.classList.add('print:bg-transparent');
       
       const canvas = await html2canvas(plannerRef.current, {
         useCORS: true,
         allowTaint: true,
-        backgroundColor: getComputedStyle(document.body).getPropertyValue('--background').trim() || '#fdfaf7',
+        backgroundColor: `hsl(${getComputedStyle(document.body).getPropertyValue('--background').trim()})`,
       });
       
-      // Remove class after capture
       document.body.classList.remove('print:bg-transparent');
 
       const link = document.createElement('a');
