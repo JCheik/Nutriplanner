@@ -305,8 +305,8 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                      />
                    );
                  }
-                 // Render an empty placeholder if the meal doesn't exist for that day
-                 return <div key={`empty-${dayIndex}-${rowIndex}`} className="p-2 border rounded-xl bg-background/80 border-transparent h-full min-h-[160px]" />;
+                 // Render a placeholder that maintains grid alignment
+                 return <div key={`empty-${dayIndex}-${rowIndex}`} className="h-full min-h-[160px]" />;
               })}
             </React.Fragment>
           ))}
