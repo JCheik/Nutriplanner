@@ -24,7 +24,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IngredientsDialog } from './ingredients-dialog';
@@ -243,6 +242,87 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isD
   );
 }
 
+// Rewritten FolderButton component to be stateless regarding selection
+function FolderButton({ 
+  name, 
+  icon: Icon, 
+  onClick, 
+  children, 
+  onUpdate, 
+  isSelected, 
+  isDroppable,
+  onDragOver,
+  onDragLeave,
+  onDrop
+}: { 
+  name: string; 
+  icon: React.ElementType; 
+  onClick: () => void; 
+  children?: React.ReactNode; 
+  onUpdate?: (name: string) => void;
+  isSelected: boolean;
+  isDroppable: boolean;
+  onDragOver?: (e: DragEvent<HTMLDivElement>) => void;
+  onDragLeave?: (e: DragEvent<HTMLDivElement>) => void;
+  onDrop?: (e: DragEvent<HTMLDivElement>) => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [tempName, setTempName] = useState(name);
+  
+  const handleUpdate = () => {
+    if (tempName.trim() && tempName !== name && onUpdate) {
+      onUpdate(tempName.trim());
+    }
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') handleUpdate();
+    if (e.key === 'Escape') {
+      setTempName(name);
+      setIsEditing(false);
+    }
+  };
+  
+  return (
+    <div
+      onDragOver={isDroppable ? onDragOver : undefined}
+      onDragLeave={isDroppable ? onDragLeave : undefined}
+      onDrop={isDroppable ? onDrop : undefined}
+      className={cn('rounded-md transition-colors')}
+    >
+      <div className="flex items-center justify-between group hover:bg-accent/50 rounded-md">
+        {isEditing ? (
+          <div className="flex items-center w-full p-1 gap-1">
+             <Input 
+                value={tempName}
+                onChange={e => setTempName(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onBlur={handleUpdate}
+                autoFocus
+                className="h-7 text-sm"
+              />
+              <Button size="icon" variant="ghost" onClick={handleUpdate} className="h-7 w-7"><Check className="h-4 w-4"/></Button>
+          </div>
+        ) : (
+          <Button variant="ghost" onClick={onClick} className={cn("w-full justify-start text-left flex-1 h-9", isSelected && "bg-accent text-accent-foreground")}>
+            <Icon className="mr-2 h-4 w-4 flex-shrink-0" />
+            <span className="truncate flex-1">{name}</span>
+          </Button>
+        )}
+        
+        {!isEditing && children && (
+          <div className="opacity-0 group-hover:opacity-100 flex items-center">
+            {onUpdate && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsEditing(true)}><Edit className="h-4 w-4"/></Button>}
+            {children}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 export function RecipeLibrary({ 
   userRecipes, 
   nutriplannerRecipes,
@@ -289,16 +369,17 @@ export function RecipeLibrary({
   
   const handleDragOver = (e: DragEvent<HTMLDivElement>, folderId: string | null) => {
     e.preventDefault();
-    setDragOverFolderId(folderId);
+    e.currentTarget.classList.add('bg-accent/80');
   };
 
   const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    setDragOverFolderId(null);
+    e.currentTarget.classList.remove('bg-accent/80');
   };
 
   const handleDrop = (e: DragEvent<HTMLDivElement>, folderId: string | null) => {
     e.preventDefault();
+    e.currentTarget.classList.remove('bg-accent/80');
     const recipeData = e.dataTransfer.getData('application/json');
     if (recipeData) {
       const recipe = JSON.parse(recipeData) as Recipe;
@@ -309,67 +390,8 @@ export function RecipeLibrary({
         handler(recipe.id, folderId);
       }
     }
-    setDragOverFolderId(null);
   };
-
-  const FolderButton = ({ folderId, name, icon: Icon, onClick, children, isDroppable = true, onUpdate }: { folderId: string | null; name: string; icon: React.ElementType; onClick: () => void; children?: React.ReactNode; isDroppable?: boolean; onUpdate?: (id: string, name: string) => void; }) => {
-    const [isEditing, setIsEditing] = useState(false);
-    const [tempName, setTempName] = useState(name);
-    
-    const isSelected = selectedFolderId === folderId;
-
-    const handleUpdate = () => {
-      if (folderId && tempName.trim() && tempName !== name) {
-        onUpdate?.(folderId, tempName.trim());
-      }
-      setIsEditing(false);
-    };
-
-    const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter') handleUpdate();
-      if (e.key === 'Escape') {
-        setTempName(name);
-        setIsEditing(false);
-      }
-    };
-    
-    return (
-    <div
-      onDragOver={isDroppable ? (e) => handleDragOver(e, folderId) : undefined}
-      onDragLeave={isDroppable ? handleDragLeave : undefined}
-      onDrop={isDroppable ? (e) => handleDrop(e, folderId) : undefined}
-      className={cn('rounded-md transition-colors', dragOverFolderId === folderId && 'bg-accent/80')}
-    >
-      <div className="flex items-center justify-between group hover:bg-accent/50 rounded-md">
-        {isEditing ? (
-          <div className="flex items-center w-full p-1 gap-1">
-             <Input 
-                value={tempName}
-                onChange={e => setTempName(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onBlur={handleUpdate}
-                autoFocus
-                className="h-7 text-sm"
-              />
-              <Button size="icon" variant="ghost" onClick={handleUpdate} className="h-7 w-7"><Check className="h-4 w-4"/></Button>
-          </div>
-        ) : (
-          <Button variant="ghost" onClick={onClick} className={cn("w-full justify-start text-left flex-1 h-9", isSelected && "bg-accent text-accent-foreground")}>
-            <Icon className="mr-2 h-4 w-4 flex-shrink-0" />
-            <span className="truncate flex-1">{name}</span>
-          </Button>
-        )}
-        
-        {!isEditing && children && (
-          <div className="opacity-0 group-hover:opacity-100 flex items-center">
-            {onUpdate && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsEditing(true)}><Edit className="h-4 w-4"/></Button>}
-            {children}
-          </div>
-        )}
-      </div>
-    </div>
-  )};
-
+  
   return (
     <>
       <Card className="flex flex-col h-[500px] bg-glass">
@@ -407,11 +429,37 @@ export function RecipeLibrary({
                    <h3 className="font-semibold text-sm mb-2 px-2">{activeTab === 'user-recipes' ? 'Mis Carpetas' : 'Carpetas Globales'}</h3>
                   <ScrollArea className="h-full">
                     <div className="space-y-1">
-                      <FolderButton folderId={"all"} name={activeTab === 'user-recipes' ? "Todas mis Recetas" : "Todas"} icon={Folders} isDroppable={false} onClick={() => setSelectedFolderId('all')} />
-                      <FolderButton folderId={null} name="Sin Carpeta" icon={FolderIcon} onClick={() => setSelectedFolderId(null)} />
+                      <FolderButton 
+                        name={activeTab === 'user-recipes' ? "Todas mis Recetas" : "Todas"} 
+                        icon={Folders} 
+                        onClick={() => setSelectedFolderId('all')} 
+                        isSelected={selectedFolderId === 'all'}
+                        isDroppable={false}
+                      />
+                      <FolderButton 
+                        name="Sin Carpeta" 
+                        icon={FolderIcon} 
+                        onClick={() => setSelectedFolderId(null)} 
+                        isSelected={selectedFolderId === null}
+                        isDroppable={true}
+                        onDragOver={(e) => handleDragOver(e, null)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, null)}
+                      />
 
                       {(activeTab === 'user-recipes' ? folders : globalFolders).map(folder => (
-                        <FolderButton key={folder.id} folderId={folder.id} name={folder.name} icon={FolderIcon} onClick={() => setSelectedFolderId(folder.id)} onUpdate={activeTab === 'user-recipes' ? onFolderUpdate : onGlobalFolderUpdate}>
+                        <FolderButton 
+                          key={folder.id} 
+                          name={folder.name} 
+                          icon={FolderIcon} 
+                          onClick={() => setSelectedFolderId(folder.id)} 
+                          isSelected={selectedFolderId === folder.id}
+                          onUpdate={(newName) => activeTab === 'user-recipes' ? onFolderUpdate(folder.id, newName) : onGlobalFolderUpdate(folder.id, newName)}
+                          isDroppable={true}
+                          onDragOver={(e) => handleDragOver(e, folder.id)}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => handleDrop(e, folder.id)}
+                        >
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0">
