@@ -109,13 +109,14 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    const recipe = JSON.parse(e.dataTransfer.getData('application/json'));
-    onDrop(day, meal.id, recipe);
+    const recipeData = e.dataTransfer.getData('application/json');
+    if (recipeData) {
+      const recipe = JSON.parse(recipeData);
+      onDrop(day, meal.id, recipe);
+    }
   };
 
   const handleSlotClick = () => {
-    // In mobile view, set this slot as the active target for adding recipes
-    // The `lg:pointer-events-none` class ensures this only works on small screens
     onSetDropTarget({ day, mealId: meal.id });
   };
 
@@ -127,10 +128,9 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
       onDrop={handleDrop} 
       onClick={handleSlotClick}
       className={cn(
-        "relative flex flex-col p-2 bg-background/80 border rounded-xl h-full lg:pointer-events-auto",
-        "lg:pointer-events-auto", // Enable clicks on desktop
-        "cursor-pointer lg:cursor-default", // Pointer on mobile, default on desktop
-        isActiveDropTarget && "ring-2 ring-primary" // Highlight if it's the active target
+        "relative flex flex-col p-2 bg-background/80 border rounded-xl h-full",
+        "cursor-pointer",
+        isActiveDropTarget && "ring-2 ring-primary"
       )}
     >
       <div className="flex justify-between items-center mb-1 pl-1 group">
@@ -206,25 +206,12 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
 
 export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget }: MealPlannerProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [activeDayIndex, setActiveDayIndex] = useState(new Date().getDay() -1); // Monday is 0
 
   const maxMealsPerDay = useMemo(() => {
     if (!weekPlan || weekPlan.length === 0) return 0;
     return Math.max(...weekPlan.map(day => day.meals.length));
   }, [weekPlan]);
 
-  const mealRows = useMemo(() => {
-    return Array.from({ length: maxMealsPerDay }, (_, i) => i);
-  }, [maxMealsPerDay]);
-
-  const handleNextDay = () => {
-    setActiveDayIndex((prev) => (prev + 1) % 7);
-  };
-
-  const handlePrevDay = () => {
-    setActiveDayIndex((prev) => (prev - 1 + 7) % 7);
-  };
-  
   return (
     <Card className="h-full bg-glass print:shadow-none print:border-none print:bg-transparent">
       <CardHeader className="flex-row items-center justify-between print:hidden">
@@ -241,103 +228,45 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
         </Button>
       </CardHeader>
       <CardContent className="pb-4">
-        {/* Mobile View - Single Day */}
-        <div className="lg:hidden">
-            <div className="flex items-center justify-between mb-4">
-                <Button variant="outline" size="icon" onClick={handlePrevDay}>
-                    <ChevronLeft className="h-4 w-4" />
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
+          {weekPlan.map((dayPlan) => (
+            <div key={dayPlan.day} className="flex flex-col gap-2 px-2">
+              <h3 className="font-semibold text-center text-lg text-card-foreground mb-2">{dayPlan.day}</h3>
+              {dayPlan.meals.map((meal) => (
+                <MealSlot
+                  key={meal.id}
+                  day={dayPlan.day}
+                  meal={meal}
+                  isEditing={isEditing}
+                  onDrop={onDrop}
+                  onClearMeal={onClearMeal}
+                  onRecipeClick={onRecipeClick}
+                  onRemoveRecipeFromMeal={onRemoveRecipeFromMeal}
+                  onUpdateMealTitle={onUpdateMealTitle}
+                  onDeleteMeal={onDeleteMeal}
+                  isActiveDropTarget={activeDropTarget?.day === dayPlan.day && activeDropTarget?.mealId === meal.id}
+                  onSetDropTarget={onSetDropTarget}
+                />
+              ))}
+              {Array.from({ length: Math.max(0, maxMealsPerDay - dayPlan.meals.length) }).map((_, index) => (
+                <div key={`empty-${dayPlan.day}-${index}`} className="p-2 border rounded-xl bg-background/80 border-transparent h-full min-h-[5rem]" />
+              ))}
+              {isEditing && (
+                <Button variant="outline" size="sm" className="w-full mt-2" onClick={() => onAddMeal(dayPlan.day)}>
+                    <Plus className="h-4 w-4 mr-2"/> Añadir Comida
                 </Button>
-                <h3 className="font-semibold text-center text-lg text-card-foreground">{weekPlan[activeDayIndex].day}</h3>
-                <Button variant="outline" size="icon" onClick={handleNextDay}>
-                    <ChevronRight className="h-4 w-4" />
-                </Button>
+              )}
+              <DailyTotalsRow
+                totals={dailyTotals.find(d => d.day === dayPlan.day)?.totals || { calories: 0, protein: 0, carbs: 0, fat: 0 }}
+                goal={activeGoal}
+                className="p-3 rounded-xl bg-background/80 border mt-2 print:hidden"
+              />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {weekPlan[activeDayIndex].meals.map(meal => (
-                    <MealSlot 
-                        key={meal.id}
-                        day={weekPlan[activeDayIndex].day} 
-                        meal={meal}
-                        isEditing={isEditing}
-                        onDrop={onDrop} 
-                        onClearMeal={onClearMeal} 
-                        onRecipeClick={onRecipeClick} 
-                        onRemoveRecipeFromMeal={onRemoveRecipeFromMeal}
-                        onUpdateMealTitle={onUpdateMealTitle}
-                        onDeleteMeal={onDeleteMeal}
-                        isActiveDropTarget={activeDropTarget?.mealId === meal.id}
-                        onSetDropTarget={onSetDropTarget}
-                    />
-                ))}
-                 {isEditing && (
-                    <Button variant="outline" size="sm" className="w-full mt-2" onClick={() => onAddMeal(weekPlan[activeDayIndex].day)}>
-                        <Plus className="h-4 w-4 mr-2"/> Añadir Comida
-                    </Button>
-                )}
-                 <DailyTotalsRow 
-                    totals={dailyTotals.find(d => d.day === weekPlan[activeDayIndex].day)!.totals} 
-                    goal={activeGoal}
-                    className="flex flex-col gap-3 p-3 rounded-xl bg-background/80 border mt-4 sm:col-span-2 print:hidden"
-                  />
-            </div>
-        </div>
-
-        {/* Desktop View - Full Week */}
-        <div className="hidden lg:grid grid-cols-7 gap-x-4 gap-y-2">
-            {/* Day Titles */}
-            {weekPlan.map(({ day }) => (
-                <h3 key={`${day}-header`} className="font-semibold text-center text-lg text-card-foreground mb-2">{day}</h3>
-            ))}
-
-            {/* Meal Rows */}
-            {mealRows.map(mealIndex => (
-                <React.Fragment key={`meal-row-${mealIndex}`}>
-                    {weekPlan.map(dayPlan => {
-                        const meal = dayPlan.meals[mealIndex];
-                        return meal ? (
-                            <MealSlot 
-                                key={meal.id}
-                                day={dayPlan.day} 
-                                meal={meal}
-                                isEditing={isEditing}
-                                onDrop={onDrop} 
-                                onClearMeal={onClearMeal} 
-                                onRecipeClick={onRecipeClick} 
-                                onRemoveRecipeFromMeal={onRemoveRecipeFromMeal}
-                                onUpdateMealTitle={onUpdateMealTitle}
-                                onDeleteMeal={onDeleteMeal}
-                                isActiveDropTarget={activeDropTarget?.mealId === meal.id}
-                                onSetDropTarget={onSetDropTarget}
-                            />
-                        ) : (
-                            <div key={`${dayPlan.day}-meal-${mealIndex}`} className="p-2 border rounded-xl bg-background/80 border-transparent h-full min-h-[5rem]">
-                                {isEditing && mealIndex < dayPlan.meals.length + 1 && (
-                                     <div className="h-full flex items-center justify-center">
-                                        <Button variant="outline" size="sm" className="w-full" onClick={() => onAddMeal(dayPlan.day)}>
-                                            <Plus className="h-4 w-4 mr-2"/> Añadir Comida
-                                        </Button>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </React.Fragment>
-            ))}
-            
-            {/* Daily Totals */}
-            {weekPlan.map(({ day }) => {
-                const dayTotalsData = dailyTotals.find(d => d.day === day)?.totals;
-                return (
-                    <DailyTotalsRow 
-                      key={`${day}-totals`}
-                      totals={dayTotalsData || { calories: 0, protein: 0, carbs: 0, fat: 0 }} 
-                      goal={activeGoal} 
-                      className="p-3 rounded-xl bg-background/80 border mt-2 print:hidden" 
-                    />
-                )
-            })}
+          ))}
         </div>
       </CardContent>
     </Card>
   );
 }
+
+    
