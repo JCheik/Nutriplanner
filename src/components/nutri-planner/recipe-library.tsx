@@ -24,6 +24,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IngredientsDialog } from './ingredients-dialog';
@@ -242,7 +243,6 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isD
   );
 }
 
-// Rewritten FolderButton component to be stateless regarding selection
 function FolderButton({ 
   name, 
   icon: Icon, 
@@ -305,7 +305,14 @@ function FolderButton({
               <Button size="icon" variant="ghost" onClick={handleUpdate} className="h-7 w-7"><Check className="h-4 w-4"/></Button>
           </div>
         ) : (
-          <Button variant="ghost" onClick={onClick} className={cn("w-full justify-start text-left flex-1 h-9", isSelected && "bg-accent text-accent-foreground")}>
+          <Button 
+            variant="ghost" 
+            onClick={onClick} 
+            className={cn(
+              "w-full justify-start text-left flex-1 h-9", 
+              isSelected && "bg-accent text-accent-foreground"
+            )}
+          >
             <Icon className="mr-2 h-4 w-4 flex-shrink-0" />
             <span className="truncate flex-1">{name}</span>
           </Button>
@@ -346,7 +353,6 @@ export function RecipeLibrary({
   
   const [activeTab, setActiveTab] = useState('user-recipes');
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>('all');
-  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
 
   const recipesInSelectedFolder = useMemo(() => {
     if (activeTab !== 'user-recipes') return [];
