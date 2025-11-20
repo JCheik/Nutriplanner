@@ -8,13 +8,6 @@ import type { CalculationResult, GoalMacros, GoalType } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalculatorDialog } from './calculator-dialog';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet';
 
 const GoalCard = ({ title, icon: Icon, goal, isActive = false }: { title: string, icon: React.ElementType, goal: GoalMacros, isActive?: boolean }) => {
     return (
@@ -116,41 +109,21 @@ interface FloatingGoalsProps {
 
 export function FloatingGoals({ isOpen, onOpenChange, calorieResult, onCalorieResultSave, onGoalSelect }: FloatingGoalsProps) {
   return (
-    <>
-      {/* Desktop uses a Dialog-like pop-up */}
-      <div className="hidden lg:block">
-         <div 
-            className={cn(
-               'fixed bottom-24 right-8 w-96 rounded-lg shadow-2xl transform transition-all duration-300 ease-in-out z-50 origin-bottom-right bg-glass border',
-               isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
-            )}
+    <div 
+        className={cn(
+            'fixed bottom-24 right-8 w-96 rounded-lg shadow-2xl transform transition-all duration-300 ease-in-out z-50 origin-bottom-right bg-glass border',
+            isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
+        )}
+    >
+        <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 h-7 w-7 z-10"
+            onClick={() => onOpenChange(false)}
         >
-            <Button
-                variant="ghost"
-                size="icon"
-                className="absolute top-2 right-2 h-7 w-7 z-10"
-                onClick={() => onOpenChange(false)}
-            >
-                <X className="h-5 w-5" />
-            </Button>
-            <TargetGoalsDisplay result={calorieResult} onCalculate={onCalorieResultSave} onGoalSelect={onGoalSelect} />
-        </div>
-      </div>
-
-      {/* Mobile uses a Sheet */}
-      <div className="lg:hidden">
-        <Sheet open={isOpen} onOpenChange={onOpenChange}>
-            <SheetContent side="bottom" className="h-[85vh] flex flex-col p-0">
-                <SheetHeader className="p-4 border-b">
-                    <SheetTitle>Tus Objetivos Nutricionales</SheetTitle>
-                    <SheetDescription>Calcula y selecciona tus metas diarias de calorías y macronutrientes.</SheetDescription>
-                </SheetHeader>
-                <div className="flex-1 overflow-y-auto">
-                    <TargetGoalsDisplay result={calorieResult} onCalculate={onCalorieResultSave} onGoalSelect={onGoalSelect} />
-                </div>
-            </SheetContent>
-        </Sheet>
-      </div>
-    </>
+            <X className="h-5 w-5" />
+        </Button>
+        <TargetGoalsDisplay result={calorieResult} onCalculate={onCalorieResultSave} onGoalSelect={onGoalSelect} />
+    </div>
   );
 }

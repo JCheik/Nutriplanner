@@ -10,14 +10,6 @@ import { Input } from '@/components/ui/input';
 import { ShoppingCart, Smartphone, PlusCircle, Trash2, Pencil, X } from 'lucide-react';
 import { QRCodeDialog } from './qr-code-dialog';
 import { cn } from '@/lib/utils';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-} from '@/components/ui/sheet';
 
 
 interface ShoppingListItem {
@@ -207,50 +199,27 @@ const ShoppingListContent = ({ weekPlan, className }: { weekPlan: WeekPlan; clas
 export function ShoppingListSheet({ weekPlan, isOpen, onOpenChange }: ShoppingListProps) {
   
   return (
-    <>
-      {/* Desktop uses a Dialog-like pop-up */}
-      <div className="hidden lg:block">
-         <div 
-            className={cn(
-               'fixed bottom-24 right-8 w-96 rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right flex flex-col h-[70vh] bg-glass border',
-               isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
-            )}
-        >
-              <div className="flex flex-col space-y-2 text-center sm:text-left">
-                <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                  <ShoppingCart className="h-6 w-6" />
-                  Lista de la Compra
-                </h2>
-              </div>
-              <ShoppingListContent weekPlan={weekPlan} className="-mt-4" />
-              <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute top-2 right-2 h-7 w-7"
-                  onClick={() => onOpenChange(false)}
-              >
-                  <X className="h-5 w-5" />
-              </Button>
+    <div 
+        className={cn(
+            'fixed bottom-24 right-8 w-96 rounded-lg shadow-2xl p-4 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right flex flex-col h-[70vh] bg-glass border',
+            isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
+        )}
+    >
+        <div className="flex flex-col space-y-2 text-center sm:text-left">
+        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+            <ShoppingCart className="h-6 w-6" />
+            Lista de la Compra
+        </h2>
         </div>
-      </div>
-      
-      {/* Mobile uses a Sheet */}
-      <div className="lg:hidden">
-        <Sheet open={isOpen} onOpenChange={onOpenChange}>
-            <SheetContent side="right" className="flex flex-col p-4">
-              <SheetHeader>
-                <SheetTitle className="flex items-center gap-2">
-                  <ShoppingCart className="h-6 w-6" />
-                  Lista de la Compra
-                </SheetTitle>
-                <SheetDescription>
-                  Ingredientes de tu plan semanal y artículos manuales.
-                </SheetDescription>
-              </SheetHeader>
-              <ShoppingListContent weekPlan={weekPlan} />
-            </SheetContent>
-        </Sheet>
-      </div>
-    </>
+        <ShoppingListContent weekPlan={weekPlan} className="-mt-4" />
+        <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 h-7 w-7"
+            onClick={() => onOpenChange(false)}
+        >
+            <X className="h-5 w-5" />
+        </Button>
+    </div>
   );
 }

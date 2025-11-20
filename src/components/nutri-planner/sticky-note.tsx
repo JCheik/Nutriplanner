@@ -4,13 +4,6 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { StickyNoteIcon, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet';
 
 interface StickyNoteProps {
   isOpen: boolean;
@@ -55,41 +48,21 @@ const NoteContent = ({ initialContent, onSave }: Pick<StickyNoteProps, 'initialC
 
 export function StickyNote({ isOpen, onOpenChange, initialContent, onSave }: StickyNoteProps) {
   return (
-    <>
-      {/* Desktop uses a Dialog-like pop-up */}
-      <div className="hidden lg:block">
-        <div
-            className={cn(
-            'fixed bottom-24 right-8 w-80 h-80 rounded-md transform transition-all duration-300 ease-in-out z-50 origin-bottom-right rotate-3 p-0 border-0 bg-transparent shadow-none',
-            isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
-            )}
+    <div
+        className={cn(
+        'fixed bottom-24 right-8 w-80 h-80 rounded-md transform transition-all duration-300 ease-in-out z-50 origin-bottom-right rotate-3 p-0 border-0 bg-transparent shadow-none',
+        isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
+        )}
+    >
+        <NoteContent initialContent={initialContent} onSave={onSave} />
+        <Button
+            variant="ghost"
+            size="icon"
+            className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-card shadow-lg text-card-foreground hover:bg-card/80"
+            onClick={() => onOpenChange(false)}
         >
-            <NoteContent initialContent={initialContent} onSave={onSave} />
-            <Button
-                variant="ghost"
-                size="icon"
-                className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-card shadow-lg text-card-foreground hover:bg-card/80"
-                onClick={() => onOpenChange(false)}
-            >
-                <X className="h-5 w-5" />
-            </Button>
-        </div>
-      </div>
-
-      {/* Mobile uses a Sheet */}
-      <div className="lg:hidden">
-        <Sheet open={isOpen} onOpenChange={onOpenChange}>
-            <SheetContent side="bottom" className="h-[50vh] p-0 bg-transparent border-0">
-                 <SheetHeader className="p-4 bg-yellow-200/80 border-b">
-                    <SheetTitle className="font-handwriting text-xl font-bold text-yellow-800">
-                        Notas Rápidas
-                    </SheetTitle>
-                    <SheetDescription className="sr-only">Un bloc de notas para apuntes rápidos.</SheetDescription>
-                </SheetHeader>
-                <NoteContent initialContent={initialContent} onSave={onSave} />
-            </SheetContent>
-        </Sheet>
-      </div>
-    </>
+            <X className="h-5 w-5" />
+        </Button>
+    </div>
   );
 }
