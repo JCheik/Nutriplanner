@@ -177,9 +177,9 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
         hasRecipes ? 'bg-transparent' : 'border-2 border-dashed border-border/50 bg-secondary/30'
       )}>
         {hasRecipes ? (
-           <div className="w-full h-full flex flex-wrap gap-1 content-start">
+           <div className="w-full h-full flex flex-col gap-1 flex-1">
                 {meal.recipes.map((recipe: RecipeInstance) => (
-                    <div key={`${recipe.id}-${recipe.instanceId}`} className="w-full relative group/item min-h-[40px] flex-1">
+                    <div key={`${recipe.id}-${recipe.instanceId}`} className="w-full relative group/item flex-1">
                       <div 
                           className="h-full w-full"
                           onClick={(e) => { e.stopPropagation(); onRecipeClick(recipe); }}
@@ -264,17 +264,11 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
             <CardDescription>Arrastra y suelta recetas de tu biblioteca para planificar tu semana.</CardDescription>
         </div>
         <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleDownload} disabled={isDownloading}>
+            <Button variant="outline" size="icon" onClick={handleDownload} disabled={isDownloading}>
               {isDownloading ? (
-                <>
-                  <Download className="mr-2 h-4 w-4 animate-pulse" />
-                  Descargando...
-                </>
+                <Download className="h-4 w-4 animate-pulse" />
               ) : (
-                <>
-                  <Printer className="mr-2 h-4 w-4" />
-                  Descargar
-                </>
+                <Printer className="h-4 w-4" />
               )}
             </Button>
             <Button variant="outline" onClick={() => setIsEditing(!isEditing)}>
