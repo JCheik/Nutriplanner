@@ -312,9 +312,11 @@ export function RecipeLibrary({
     setDragOverFolderId(null);
   };
 
-  const FolderButton = ({ folderId, name, icon: Icon, onClick, children, isDroppable = true, className, onUpdate }: { folderId: string | null; name: string; icon: React.ElementType; onClick: () => void; children?: React.ReactNode; isDroppable?: boolean; className?: string, onUpdate?: (id: string, name: string) => void; }) => {
+  const FolderButton = ({ folderId, name, icon: Icon, onClick, children, isDroppable = true, onUpdate }: { folderId: string | null; name: string; icon: React.ElementType; onClick: () => void; children?: React.ReactNode; isDroppable?: boolean; onUpdate?: (id: string, name: string) => void; }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [tempName, setTempName] = useState(name);
+    
+    const isSelected = selectedFolderId === folderId;
 
     const handleUpdate = () => {
       if (folderId && tempName.trim() && tempName !== name) {
@@ -352,7 +354,7 @@ export function RecipeLibrary({
               <Button size="icon" variant="ghost" onClick={handleUpdate} className="h-7 w-7"><Check className="h-4 w-4"/></Button>
           </div>
         ) : (
-          <Button variant="ghost" onClick={onClick} className={cn("w-full justify-start text-left flex-1 h-9", className)}>
+          <Button variant="ghost" onClick={onClick} className={cn("w-full justify-start text-left flex-1 h-9", isSelected && "bg-accent text-accent-foreground")}>
             <Icon className="mr-2 h-4 w-4 flex-shrink-0" />
             <span className="truncate flex-1">{name}</span>
           </Button>
@@ -405,11 +407,11 @@ export function RecipeLibrary({
                    <h3 className="font-semibold text-sm mb-2 px-2">{activeTab === 'user-recipes' ? 'Mis Carpetas' : 'Carpetas Globales'}</h3>
                   <ScrollArea className="h-full">
                     <div className="space-y-1">
-                      <FolderButton folderId={"all"} name={activeTab === 'user-recipes' ? "Todas mis Recetas" : "Todas"} icon={Folders} isDroppable={false} onClick={() => setSelectedFolderId('all')} className={selectedFolderId === 'all' ? "bg-accent text-accent-foreground" : ""} />
-                      <FolderButton folderId={null} name="Sin Carpeta" icon={FolderIcon} onClick={() => setSelectedFolderId(null)} className={selectedFolderId === null ? "bg-accent text-accent-foreground" : ""} />
+                      <FolderButton folderId={"all"} name={activeTab === 'user-recipes' ? "Todas mis Recetas" : "Todas"} icon={Folders} isDroppable={false} onClick={() => setSelectedFolderId('all')} />
+                      <FolderButton folderId={null} name="Sin Carpeta" icon={FolderIcon} onClick={() => setSelectedFolderId(null)} />
 
                       {(activeTab === 'user-recipes' ? folders : globalFolders).map(folder => (
-                        <FolderButton key={folder.id} folderId={folder.id} name={folder.name} icon={FolderIcon} onClick={() => setSelectedFolderId(folder.id)} className={selectedFolderId === folder.id ? "bg-accent text-accent-foreground" : ""} onUpdate={activeTab === 'user-recipes' ? onFolderUpdate : onGlobalFolderUpdate}>
+                        <FolderButton key={folder.id} folderId={folder.id} name={folder.name} icon={FolderIcon} onClick={() => setSelectedFolderId(folder.id)} onUpdate={activeTab === 'user-recipes' ? onFolderUpdate : onGlobalFolderUpdate}>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0">
