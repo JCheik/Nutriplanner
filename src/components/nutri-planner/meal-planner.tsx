@@ -128,7 +128,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
       onDrop={handleDrop} 
       onClick={handleSlotClick}
       className={cn(
-        "relative flex flex-col p-2 bg-background/80 border rounded-xl h-full",
+        "relative flex flex-col p-2 bg-background/80 border rounded-xl h-full min-h-[120px]",
         "cursor-pointer",
         isActiveDropTarget && "ring-2 ring-primary"
       )}
@@ -207,10 +207,21 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
 export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget }: MealPlannerProps) {
   const [isEditing, setIsEditing] = useState(false);
 
-  const maxMealsPerDay = useMemo(() => {
-    if (!weekPlan || weekPlan.length === 0) return 0;
-    return Math.max(...weekPlan.map(day => day.meals.length));
+  const mealRows = useMemo(() => {
+    if (!weekPlan || weekPlan.length === 0) return [];
+    
+    const maxMeals = Math.max(...weekPlan.map(day => day.meals.length));
+    const rows: Meal[][] = Array.from({ length: maxMeals }, () => []);
+
+    weekPlan.forEach(dayPlan => {
+      for (let i = 0; i < maxMeals; i++) {
+        rows[i].push(dayPlan.meals[i] || { id: `empty-${dayPlan.day}-${i}`, title: '', recipes: [] });
+      }
+    });
+
+    return rows;
   }, [weekPlan]);
+
 
   return (
     <Card className="h-full bg-glass print:shadow-none print:border-none print:bg-transparent">
@@ -228,45 +239,61 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
         </Button>
       </CardHeader>
       <CardContent className="pb-4">
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
+        <div className="grid grid-cols-7 gap-2">
           {weekPlan.map((dayPlan) => (
-            <div key={dayPlan.day} className="flex flex-col gap-2 px-2">
-              <h3 className="font-semibold text-center text-lg text-card-foreground mb-2">{dayPlan.day}</h3>
-              {dayPlan.meals.map((meal) => (
-                <MealSlot
-                  key={meal.id}
-                  day={dayPlan.day}
-                  meal={meal}
-                  isEditing={isEditing}
-                  onDrop={onDrop}
-                  onClearMeal={onClearMeal}
-                  onRecipeClick={onRecipeClick}
-                  onRemoveRecipeFromMeal={onRemoveRecipeFromMeal}
-                  onUpdateMealTitle={onUpdateMealTitle}
-                  onDeleteMeal={onDeleteMeal}
-                  isActiveDropTarget={activeDropTarget?.day === dayPlan.day && activeDropTarget?.mealId === meal.id}
-                  onSetDropTarget={onSetDropTarget}
-                />
+            <h3 key={dayPlan.day} className="font-semibold text-center text-lg text-card-foreground mb-2">{dayPlan.day}</h3>
+          ))}
+          
+          {mealRows.map((row, rowIndex) => (
+            <React.Fragment key={`row-${rowIndex}`}>
+              {row.map((meal, dayIndex) => {
+                 const dayPlan = weekPlan[dayIndex];
+                 if (!meal.id.startsWith('empty') && dayPlan) {
+                   return (
+                     <MealSlot
+                       key={meal.id}
+                       day={dayPlan.day}
+                       meal={meal}
+                       isEditing={isEditing}
+                       onDrop={onDrop}
+                       onClearMeal={onClearMeal}
+                       onRecipeClick={onRecipeClick}
+                       onRemoveRecipeFromMeal={onRemoveRecipeFromMeal}
+                       onUpdateMealTitle={onUpdateMealTitle}
+                       onDeleteMeal={onDeleteMeal}
+                       isActiveDropTarget={activeDropTarget?.day === dayPlan.day && activeDropTarget?.mealId === meal.id}
+                       onSetDropTarget={onSetDropTarget}
+                     />
+                   );
+                 }
+                 // Render an empty placeholder if the meal doesn't exist for that day
+                 return <div key={meal.id} className="p-2 border rounded-xl bg-background/80 border-transparent h-full min-h-[5rem]" />;
+              })}
+            </React.Fragment>
+          ))}
+          
+          {isEditing && (
+             <React.Fragment>
+              {weekPlan.map(dayPlan => (
+                <div key={`add-meal-${dayPlan.day}`} className="mt-2">
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => onAddMeal(dayPlan.day)}>
+                      <Plus className="h-4 w-4 mr-2"/> Añadir Comida
+                  </Button>
+                </div>
               ))}
-              {Array.from({ length: Math.max(0, maxMealsPerDay - dayPlan.meals.length) }).map((_, index) => (
-                <div key={`empty-${dayPlan.day}-${index}`} className="p-2 border rounded-xl bg-background/80 border-transparent h-full min-h-[5rem]" />
-              ))}
-              {isEditing && (
-                <Button variant="outline" size="sm" className="w-full mt-2" onClick={() => onAddMeal(dayPlan.day)}>
-                    <Plus className="h-4 w-4 mr-2"/> Añadir Comida
-                </Button>
-              )}
-              <DailyTotalsRow
+            </React.Fragment>
+          )}
+
+          {weekPlan.map((dayPlan) => (
+             <DailyTotalsRow
+                key={`totals-${dayPlan.day}`}
                 totals={dailyTotals.find(d => d.day === dayPlan.day)?.totals || { calories: 0, protein: 0, carbs: 0, fat: 0 }}
                 goal={activeGoal}
                 className="p-3 rounded-xl bg-background/80 border mt-2 print:hidden"
               />
-            </div>
           ))}
         </div>
       </CardContent>
     </Card>
   );
 }
-
-    
