@@ -118,15 +118,19 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
   const handleSave = async () => {
     if (!name) return;
     
-    const recipeData: Omit<Recipe, 'id'> = {
+    const recipeData: Omit<Recipe, 'id' | 'imageUrl'> & { imageUrl?: string } = {
       name,
       description,
       instructions,
       ingredients,
-      imageUrl: imageUrl, // Keep current image url unless a new one is uploaded
       folderId: folderId === 'none' ? undefined : folderId,
       ...calculatedTotals
     };
+
+    // Explicitly remove folderId if it's undefined to prevent Firestore error
+    if (recipeData.folderId === undefined) {
+      delete (recipeData as Partial<typeof recipeData>).folderId;
+    }
 
     onSave(recipeData, imageFile, saveAsGlobal, initialRecipe?.id);
   };
