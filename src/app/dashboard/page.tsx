@@ -16,14 +16,14 @@ import { useUser } from '@/firebase/auth/use-user';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useDoc } from '@/firebase/firestore/use-doc';
 import { useFirebase, useFirestore, useMemoFirebase } from '@/firebase/index';
-import { collection, doc, writeBatch } from 'firebase/firestore';
+import { collection, doc, writeBatch, setDoc } from 'firebase/firestore';
 import {
   setDocumentNonBlocking,
   updateDocumentNonBlocking,
   addDocumentNonBlocking,
   deleteDocumentNonBlocking
 } from '@/firebase/non-blocking-updates';
-import { uploadImageAndGetUrl } from '@/firebase/storage/image-upload';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Logo } from '@/components/icons/logo';
 import {
   AlertDialog,
@@ -314,54 +314,72 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     setDialogState({ open: false });
   }, []);
 
-  const handleSaveRecipe = useCallback(async (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
-    if (promptToRegister()) return;
-    if (!user || !firestore || !storage) return;
+ const handleSaveRecipe = (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
+    if (promptToRegister() || !user || !firestore) return;
+
+    if (!storage) {
+      toast({
+        variant: "destructive",
+        title: "Función no disponible",
+        description: "El servicio de almacenamiento de imágenes no está configurado. Por favor, contacta con el soporte.",
+      });
+      return;
+    }
 
     setIsSaving(true);
     
-    try {
-        const targetCollectionRef = isGlobal ? nutriplannerRecipesCollectionRef : userRecipesCollectionRef;
-        if (!targetCollectionRef) throw new Error("Colección de destino no encontrada.");
+    const targetCollectionRef = isGlobal ? nutriplannerRecipesCollectionRef : userRecipesCollectionRef;
+    if (!targetCollectionRef) {
+        toast({ variant: "destructive", title: "Error", description: "Colección de destino no encontrada." });
+        setIsSaving(false);
+        return;
+    }
 
-        const recipeId = existingId || doc(targetCollectionRef).id;
-        let finalImageUrl = (existingId && (isGlobal ? currentNutriplannerRecipes : currentUserRecipes).find(r => r.id === existingId)?.imageUrl) || '';
+    // Determine the recipe ID. Use existing if editing, or generate a new one if creating.
+    const recipeId = existingId || doc(targetCollectionRef).id;
+    const recipeRef = doc(targetCollectionRef, recipeId);
 
-        if (imageFile) {
-          try {
-            finalImageUrl = await uploadImageAndGetUrl(storage, imageFile, recipeId);
-          } catch(uploadError) {
-             console.error("Error al subir la imagen:", uploadError);
-             toast({ variant: "destructive", title: "¡Oh no! Error de subida.", description: "No se pudo subir la imagen. Por favor, inténtalo de nuevo." });
-             setIsSaving(false);
-             return;
-          }
-        }
-        
-        const recipeData: Partial<Recipe> = {
-          ...recipe,
-          id: recipeId,
-          imageUrl: finalImageUrl
+    const saveRecipeData = (imageUrl?: string) => {
+        const fullRecipeData: Recipe = {
+            ...recipe,
+            id: recipeId,
+            imageUrl: imageUrl || recipe.imageUrl || '',
         };
         
-        if (recipeData.folderId === 'none') {
-            delete recipeData.folderId;
-        }
+        setDoc(recipeRef, fullRecipeData, { merge: true })
+            .then(() => {
+                toast({ title: '¡Receta guardada!', description: `${recipe.name} se ha guardado correctamente.` });
+                handleDialogClose();
+            })
+            .catch(error => {
+                console.error("Error al guardar la receta en Firestore:", error);
+                toast({ variant: "destructive", title: "Error de guardado", description: "No se pudo guardar la receta en la base de datos." });
+            })
+            .finally(() => {
+                setIsSaving(false);
+            });
+    };
 
-        const recipeRef = doc(targetCollectionRef, recipeId);
-        await setDocumentNonBlocking(recipeRef, recipeData, { merge: true });
-        
-        const isExistingRecipe = !!existingId;
-        toast({ title: isExistingRecipe ? '¡Receta actualizada!' : '¡Receta guardada!', description: `${recipeData.name} se ha ${isExistingRecipe ? 'actualizado' : 'guardado'}.` });
-        handleDialogClose();
+    if (imageFile) {
+        const imagePath = `recipes/${recipeId}.${imageFile.name.split('.').pop()}`;
+        const imageStorageRef = ref(storage, imagePath);
 
-    } catch (error) {
-        console.error("Error al guardar la receta:", error);
-        toast({ variant: "destructive", title: "¡Oh no! Algo salió mal.", description: (error as Error).message || "No se pudo guardar la receta." });
-    } finally {
-        setIsSaving(false);
+        uploadBytes(imageStorageRef, imageFile)
+            .then(snapshot => getDownloadURL(snapshot.ref))
+            .then(downloadURL => {
+                saveRecipeData(downloadURL);
+            })
+            .catch(error => {
+                console.error("Error al subir la imagen:", error);
+                toast({ variant: "destructive", title: "Error de subida", description: "No se pudo subir la imagen, pero se intentará guardar la receta sin ella." });
+                // Still try to save recipe data without the new image
+                saveRecipeData(existingId ? recipe.imageUrl : undefined);
+            });
+    } else {
+        // If no new image, save with the existing image URL (if any)
+        saveRecipeData(existingId ? recipe.imageUrl : undefined);
     }
-}, [user, firestore, storage, nutriplannerRecipesCollectionRef, userRecipesCollectionRef, currentNutriplannerRecipes, currentUserRecipes, toast, handleDialogClose, isGuestMode]);
+};
 
 
   const handleDeleteRecipe = useCallback(async (recipeId: string, isGlobal: boolean) => {
