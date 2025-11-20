@@ -49,7 +49,7 @@ interface RecipeLibraryProps {
   nutriplannerRecipes: Recipe[];
   folders: Folder[];
   globalFolders: GlobalFolder[];
-  onRecipeAction: (action: 'view' | 'create', recipe?: Recipe, isNutriPlannerRecipe?: boolean) => void;
+  onRecipeAction: (action: 'view' | 'create' | 'edit', recipe?: Recipe, isNutriPlannerRecipe?: boolean) => void;
   onCopyRecipe: (recipe: Recipe) => void;
   onAddToPlan: (recipe: Recipe) => void;
   onFolderCreate: (name: string) => void;
@@ -390,8 +390,8 @@ export function RecipeLibrary({
             </div>
           </div>
         </CardHeader>
-        <CardContent className="flex-1 overflow-hidden flex flex-col">
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col overflow-hidden">
+        <CardContent className="flex-1 flex flex-col min-h-0">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col min-h-0">
             <div className="flex justify-between items-center pr-1 border-b">
               <TabsList>
                 <TabsTrigger value="user-recipes">Mis Recetas</TabsTrigger>
@@ -505,10 +505,10 @@ export function RecipeLibrary({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-                 <ScrollArea className="flex-1 mt-2">
+                 <ScrollArea className="flex-1 mt-2 min-h-0">
                    <RecipeList 
                       recipes={filteredAndSortedRecipes}
-                      onRecipeClick={onRecipeAction}
+                      onRecipeClick={(recipe, isNutri) => onRecipeAction('view', recipe, isNutri)}
                       onCopyClick={activeTab === 'nutriplanner-recipes' ? onCopyRecipe : undefined}
                       onAddToPlanClick={onAddToPlan}
                       isDraggable={activeTab === 'user-recipes' || (activeTab === 'nutriplanner-recipes' && isAdmin)}
@@ -531,3 +531,4 @@ export function RecipeLibrary({
 }
 
     
+
