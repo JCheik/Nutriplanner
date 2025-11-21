@@ -7,7 +7,7 @@ import {
   type User,
 } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
-import { doc, getDoc, writeBatch, collection, getDocs, query, setDoc } from 'firebase/firestore';
+import { doc, getDoc, writeBatch, collection, getDocs, query, setDoc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/firebase/provider';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
 import type { UserProfile, BaseIngredient, Recipe } from '@/lib/types';
@@ -31,7 +31,7 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
             const quantity = ing.quantity ?? 0;
             const hasMacros = (ing.calories ?? 0) > 0 || (ing.protein ?? 0) > 0;
             
-            // Only process ingredients with a valid quantity
+            // Only process ingredients with a valid quantity to avoid division by zero
             if (quantity <= 0) return;
 
             const scale = 100 / quantity;
@@ -41,20 +41,21 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
                 protein: (ing.protein ?? 0) * scale,
                 carbs: (ing.carbs ?? 0) * scale,
                 fat: (ing.fat ?? 0) * scale,
-                fiber: 0,
+                fiber: 0, // Fiber data is not available in initial recipes
                 createdBy: userId
             };
+
+            // Avoid adding ingredients with NaN values
+            if (Object.values(newIngredientData).some(val => typeof val === 'number' && isNaN(val))) {
+                console.warn(`Skipping ingredient with NaN values: ${newIngredientData.name}`);
+                return;
+            }
             
             const existing = uniqueIngredients.get(key);
             const existingHasMacros = (existing?.calories ?? 0) > 0 || (existing?.protein ?? 0) > 0;
 
             // Add if it's the first time, or if the new one has macros and the existing one doesn't.
             if (!existing || (hasMacros && !existingHasMacros)) {
-                // Avoid adding ingredients with NaN values
-                if (Object.values(newIngredientData).some(val => typeof val === 'number' && isNaN(val))) {
-                    console.warn(`Skipping ingredient with NaN values: ${newIngredientData.name}`);
-                    return;
-                }
                 uniqueIngredients.set(key, newIngredientData);
             }
         });
@@ -99,6 +100,45 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
     return newIngredientsCount;
 }
 
+export async function cleanNutriPlannerRecipes(firestore: Firestore): Promise<number> {
+  const recipesCollectionRef = collection(firestore, 'nutriplanner_recipes');
+  const snapshot = await getDocs(recipesCollectionRef);
+
+  if (snapshot.empty) {
+    console.log("No NutriPlanner recipes found to clean.");
+    return 0;
+  }
+
+  const batch = writeBatch(firestore);
+  let cleanedCount = 0;
+
+  snapshot.forEach(document => {
+    const recipe = document.data() as Recipe;
+    
+    // Only clean if there are ingredients and at least one has extra fields
+    const needsCleaning = recipe.ingredients && recipe.ingredients.some(ing => 'calories' in ing || 'protein' in ing);
+
+    if (needsCleaning) {
+      const cleanedIngredients = recipe.ingredients.map(({ id, name, quantity, unit }) => ({
+        id,
+        name,
+        quantity,
+        unit,
+      }));
+
+      const docRef = doc(firestore, 'nutriplanner_recipes', document.id);
+      batch.update(docRef, { ingredients: cleanedIngredients });
+      cleanedCount++;
+    }
+  });
+
+  if (cleanedCount > 0) {
+    await batch.commit();
+  }
+
+  return cleanedCount;
+}
+
 
 export const signInWithGoogle = async (auth: Auth, firestore: Firestore) => {
   if (!auth || !firestore) {
@@ -127,17 +167,9 @@ export const signInWithGoogle = async (auth: Auth, firestore: Firestore) => {
         const recipesCollectionRef = collection(firestore, 'users', user.uid, 'recipes');
         INITIAL_RECIPES.forEach(recipe => {
           const recipeRef = doc(recipesCollectionRef);
-          const cleanRecipe: Omit<Recipe, 'id'> & { id: string } = {
-            ...recipe,
-            id: recipeRef.id,
-            ingredients: (recipe.ingredients || []).map(ing => ({
-                id: ing.id,
-                name: ing.name,
-                quantity: ing.quantity,
-                unit: ing.unit,
-            })),
-          };
-          batch.set(recipeRef, cleanRecipe);
+          // We still copy the 'dirty' recipe, which is fine. The app logic will handle it.
+          // The global collection is what we clean.
+          batch.set(recipeRef, { ...recipe, id: recipeRef.id });
         });
 
         const weekPlanCollectionRef = collection(firestore, 'users', user.uid, 'weekPlan');

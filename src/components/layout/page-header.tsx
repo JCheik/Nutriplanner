@@ -4,7 +4,7 @@ import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
 import { LogOut, User as UserIcon, CheckCircle, UserPlus, Database, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { useUser, signInWithGoogle, signOut, migrateInitialIngredients } from '@/firebase/auth/use-user';
+import { useUser, signInWithGoogle, signOut, migrateInitialIngredients, cleanNutriPlannerRecipes } from '@/firebase/auth/use-user';
 import { useAuth, useFirestore, useFirebaseApp } from '@/firebase/provider';
 import {
   DropdownMenu,
@@ -67,6 +67,30 @@ export function PageHeader({ isGuest = false, onRegisterClick }: PageHeaderProps
     }
   };
 
+  const handleCleanGlobalRecipes = async () => {
+    if (!firestore) {
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'No se pudo conectar con la base de datos.',
+        });
+        return;
+    };
+    try {
+        const count = await cleanNutriPlannerRecipes(firestore);
+        toast({
+            title: 'Limpieza completada',
+            description: `${count} recetas globales han sido limpiadas y estandarizadas.`,
+        });
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Error en la limpieza',
+            description: error.message || 'No se pudieron limpiar las recetas.',
+        });
+    }
+  };
+
   const renderUserAuth = () => {
     if (loading) {
       return <div className="h-10 w-24 rounded-md bg-muted animate-pulse" />;
@@ -105,6 +129,10 @@ export function PageHeader({ isGuest = false, onRegisterClick }: PageHeaderProps
                   <DropdownMenuItem onClick={handleMigration} className="cursor-pointer">
                       <Database className="mr-2 h-4 w-4" />
                       <span>Migrar Ingredientes</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleCleanGlobalRecipes} className="cursor-pointer">
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      <span>Limpiar Recetas Globales</span>
                   </DropdownMenuItem>
                 </>
               )}
