@@ -4,7 +4,7 @@ import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
 import { LogOut, User as UserIcon, CheckCircle, UserPlus, Database, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { useUser, signInWithGoogle, signOut, migrateInitialIngredients, cleanNutriPlannerRecipes } from '@/firebase/auth/use-user';
+import { useUser, signInWithGoogle, signOut, migrateInitialIngredients, populateAndCleanGlobalRecipes } from '@/firebase/auth/use-user';
 import { useAuth, useFirestore, useFirebaseApp } from '@/firebase/provider';
 import {
   DropdownMenu,
@@ -67,7 +67,7 @@ export function PageHeader({ isGuest = false, onRegisterClick }: PageHeaderProps
     }
   };
 
-  const handleCleanGlobalRecipes = async () => {
+  const handlePopulateAndClean = async () => {
     if (!firestore) {
         toast({
             variant: 'destructive',
@@ -77,16 +77,16 @@ export function PageHeader({ isGuest = false, onRegisterClick }: PageHeaderProps
         return;
     };
     try {
-        const count = await cleanNutriPlannerRecipes(firestore);
+        const count = await populateAndCleanGlobalRecipes(firestore);
         toast({
-            title: 'Limpieza completada',
-            description: `${count} recetas globales han sido limpiadas y estandarizadas.`,
+            title: 'Proceso completado',
+            description: `${count} recetas globales han sido creadas/actualizadas con datos limpios.`,
         });
     } catch (error: any) {
         toast({
             variant: 'destructive',
-            title: 'Error en la limpieza',
-            description: error.message || 'No se pudieron limpiar las recetas.',
+            title: 'Error en el proceso',
+            description: error.message || 'No se pudieron poblar las recetas globales.',
         });
     }
   };
@@ -130,9 +130,9 @@ export function PageHeader({ isGuest = false, onRegisterClick }: PageHeaderProps
                       <Database className="mr-2 h-4 w-4" />
                       <span>Migrar Ingredientes</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleCleanGlobalRecipes} className="cursor-pointer">
+                  <DropdownMenuItem onClick={handlePopulateAndClean} className="cursor-pointer">
                       <Trash2 className="mr-2 h-4 w-4" />
-                      <span>Limpiar Recetas Globales</span>
+                      <span>Poblar Recetas Globales</span>
                   </DropdownMenuItem>
                 </>
               )}

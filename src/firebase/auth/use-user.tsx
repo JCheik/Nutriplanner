@@ -28,12 +28,12 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
     INITIAL_RECIPES.forEach(recipe => {
         (recipe.ingredients || []).forEach(ing => {
             const key = ing.name.toLowerCase();
-            // Default quantity to a non-zero value to avoid division by zero
-            const quantity = ing.quantity ?? 100;
-            const hasMacros = (ing.calories ?? 0) > 0 || (ing.protein ?? 0) > 0;
+            const quantity = ing.quantity ?? 0;
             
-            // Only process ingredients with a valid quantity to avoid division by zero
-            if (quantity <= 0) return;
+            if (quantity <= 0) {
+              console.warn(`Skipping ingredient with zero or undefined quantity: ${ing.name}`);
+              return;
+            }
 
             const scale = 100 / quantity;
             const newIngredientData: Omit<BaseIngredient, 'id'> = {
@@ -42,11 +42,10 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
                 protein: (ing.protein ?? 0) * scale,
                 carbs: (ing.carbs ?? 0) * scale,
                 fat: (ing.fat ?? 0) * scale,
-                fiber: 0, // Fiber data is not available in initial recipes
+                fiber: 0,
                 createdBy: userId
             };
 
-            // Avoid adding ingredients with NaN values
             if (Object.values(newIngredientData).some(val => typeof val === 'number' && isNaN(val))) {
                 console.warn(`Skipping ingredient with NaN values: ${newIngredientData.name}`);
                 return;
@@ -54,9 +53,9 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
             
             const existing = uniqueIngredients.get(key);
             const existingHasMacros = (existing?.calories ?? 0) > 0 || (existing?.protein ?? 0) > 0;
+            const newHasMacros = newIngredientData.calories > 0 || newIngredientData.protein > 0;
 
-            // Add if it's the first time, or if the new one has macros and the existing one doesn't.
-            if (!existing || (hasMacros && !existingHasMacros)) {
+            if (!existing || (!existingHasMacros && newHasMacros)) {
                 uniqueIngredients.set(key, newIngredientData);
             }
         });
@@ -66,7 +65,6 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
         return 0;
     }
     
-    // Step 2: Check which of these ingredients already exist in Firestore.
     const batch = writeBatch(firestore);
     let newIngredientsCount = 0;
     
@@ -74,16 +72,14 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
     const existingIngredientsSnapshot = await getDocs(existingIngredientsQuery);
     const existingIngredientNames = new Set(existingIngredientsSnapshot.docs.map(doc => doc.data().name.toLowerCase()));
 
-    // Step 3: Add only the ingredients that are not already in the database.
     uniqueIngredients.forEach((ingredientData, key) => {
         if (!existingIngredientNames.has(key)) {
-            const docRef = doc(ingredientsCollectionRef); // Let Firestore generate the ID
+            const docRef = doc(ingredientsCollectionRef);
             batch.set(docRef, { ...ingredientData, id: docRef.id });
             newIngredientsCount++;
         }
     });
 
-    // Step 4: Commit the batch if there are new ingredients to add.
     if (newIngredientsCount > 0) {
         try {
             await batch.commit();
@@ -101,45 +97,41 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
     return newIngredientsCount;
 }
 
-export async function cleanNutriPlannerRecipes(firestore: Firestore): Promise<number> {
+export async function populateAndCleanGlobalRecipes(firestore: Firestore): Promise<number> {
   const recipesCollectionRef = collection(firestore, 'nutriplanner_recipes');
-  const snapshot = await getDocs(recipesCollectionRef);
-
-  if (snapshot.empty) {
-    console.log("No NutriPlanner recipes found to clean.");
-    return 0;
-  }
-
-  console.log(`Found ${snapshot.docs.length} recipes to check for cleaning.`);
-
   const batch = writeBatch(firestore);
-  let cleanedCount = 0;
 
-  snapshot.forEach(document => {
-    const recipe = document.data() as Recipe;
-    
-    // Only clean if there are ingredients and at least one has extra fields
-    const needsCleaning = recipe.ingredients && recipe.ingredients.some(ing => 'calories' in ing || 'protein' in ing);
+  INITIAL_RECIPES.forEach((recipe) => {
+    // 1. Create the clean version of the recipe
+    const cleanedIngredients = recipe.ingredients.map(({ id, name, quantity, unit }) => ({
+      id, name, quantity, unit
+    }));
 
-    if (needsCleaning) {
-      const cleanedIngredients = recipe.ingredients.map(({ id, name, quantity, unit }) => ({
-        id,
-        name,
-        quantity,
-        unit,
-      }));
+    const cleanedRecipe: Recipe = {
+      ...recipe,
+      ingredients: cleanedIngredients,
+    };
 
-      const docRef = doc(firestore, 'nutriplanner_recipes', document.id);
-      batch.update(docRef, { ingredients: cleanedIngredients });
-      cleanedCount++;
-    }
+    // 2. Use the local ID to create a predictable document ID
+    const docRef = doc(recipesCollectionRef, `nutriplanner-recipe-${recipe.id}`);
+
+    // 3. Use set() with merge to create or overwrite the document
+    batch.set(docRef, cleanedRecipe, { merge: true });
   });
 
-  if (cleanedCount > 0) {
+  try {
     await batch.commit();
+    // Return the total number of recipes processed
+    return INITIAL_RECIPES.length;
+  } catch (error) {
+    console.error("Error populating and cleaning global recipes:", error);
+    errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: 'nutriplanner_recipes',
+        operation: 'write',
+        requestResourceData: { note: `Batch write for ${INITIAL_RECIPES.length} recipes.` }
+    }));
+    throw new Error("Failed to populate global recipes due to a permissions issue.");
   }
-
-  return cleanedCount;
 }
 
 
@@ -170,8 +162,6 @@ export const signInWithGoogle = async (auth: Auth, firestore: Firestore) => {
         const recipesCollectionRef = collection(firestore, 'users', user.uid, 'recipes');
         INITIAL_RECIPES.forEach(recipe => {
           const recipeRef = doc(recipesCollectionRef);
-          // We still copy the 'dirty' recipe, which is fine. The app logic will handle it.
-          // The global collection is what we clean.
           batch.set(recipeRef, { ...recipe, id: recipeRef.id });
         });
 
