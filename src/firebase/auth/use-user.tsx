@@ -7,7 +7,7 @@ import {
   type User,
 } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
-import { doc, getDoc, writeBatch, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, getDoc, writeBatch, collection, getDocs, query, setDoc } from 'firebase/firestore';
 import { useAuth } from '@/firebase/provider';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
 import type { UserProfile, BaseIngredient } from '@/lib/types';
@@ -23,18 +23,27 @@ const provider = new GoogleAuthProvider();
 export async function migrateInitialIngredients(firestore: Firestore, userId: string): Promise<number> {
     const ingredientsCollectionRef = collection(firestore, 'ingredients');
     
+    // 1. Collect all unique ingredients from initial recipes and normalize macros to 100g.
     const uniqueIngredients = new Map<string, Omit<BaseIngredient, 'id'>>();
+
     INITIAL_RECIPES.forEach(recipe => {
         (recipe.ingredients || []).forEach(ing => {
             const key = ing.name.toLowerCase();
-            if (!uniqueIngredients.has(key)) {
-                const { id, quantity, unit, ...baseIngredientData } = ing;
-                uniqueIngredients.set(key, {
-                    ...baseIngredientData,
-                    fiber: 0, 
-                    createdBy: userId // Use the provided user ID
-                });
-            }
+            
+            // Normalize macros to a 100g standard.
+            // Formula: (value / quantity) * 100
+            const scale = ing.quantity > 0 ? 100 / ing.quantity : 0;
+            const normalizedIngredient: Omit<BaseIngredient, 'id'> = {
+                name: ing.name,
+                calories: (ing.calories || 0) * scale,
+                protein: (ing.protein || 0) * scale,
+                carbs: (ing.carbs || 0) * scale,
+                fat: (ing.fat || 0) * scale,
+                fiber: 0, // Assuming fiber is not in the initial data
+                createdBy: userId
+            };
+            
+            uniqueIngredients.set(key, normalizedIngredient);
         });
     });
 
@@ -42,45 +51,26 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
         return 0;
     }
     
-    const ingredientNames = Array.from(uniqueIngredients.keys()).map(name => {
-        const correspondingIngredient = uniqueIngredients.get(name);
-        return correspondingIngredient ? correspondingIngredient.name : '';
-    }).filter(Boolean);
-
-    let existingIngredientsSnap;
-
-    try {
-        if (ingredientNames.length > 0) {
-            const existingIngredientsQuery = query(ingredientsCollectionRef, where('name', 'in', ingredientNames));
-            existingIngredientsSnap = await getDocs(existingIngredientsQuery);
-        } else {
-            existingIngredientsSnap = { docs: [] };
-        }
-    } catch (error) {
-        console.error("Error fetching existing ingredients:", error);
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: 'ingredients',
-            operation: 'list',
-        }));
-        throw new Error("Failed to check for existing ingredients due to a permissions issue.");
-    }
-    
-    const existingNames = new Set(existingIngredientsSnap.docs.map(d => d.data().name.toLowerCase()));
-
-    const ingredientsBatch = writeBatch(firestore);
+    // 2. Use a write batch to set/overwrite these normalized ingredients in the database.
+    // This ensures the database always has the correct 100g-standardized values.
+    const batch = writeBatch(firestore);
     let newIngredientsCount = 0;
     
-    uniqueIngredients.forEach((ingredient, key) => {
-        if (!existingNames.has(key)) {
-            const newIngredientRef = doc(ingredientsCollectionRef);
-            ingredientsBatch.set(newIngredientRef, { ...ingredient, id: newIngredientRef.id, name: ingredient.name, createdBy: userId });
-            newIngredientsCount++;
-        }
+    // We create a new ingredient document for each unique name.
+    // The document ID will be a sanitized version of the ingredient name.
+    uniqueIngredients.forEach((ingredientData) => {
+        // Create a Firestore-safe ID from the ingredient name
+        const docId = ingredientData.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        const newIngredientRef = doc(ingredientsCollectionRef, docId);
+        
+        batch.set(newIngredientRef, { ...ingredientData, id: docId });
+        newIngredientsCount++;
     });
 
+    // 3. Commit the batch.
     if (newIngredientsCount > 0) {
         try {
-            await ingredientsBatch.commit();
+            await batch.commit();
         } catch (error) {
              console.error("Error committing ingredients batch:", error);
              errorEmitter.emit('permission-error', new FirestorePermissionError({
