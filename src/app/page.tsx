@@ -11,9 +11,9 @@ import { useRouter } from 'next/navigation';
 
 const isMobileDevice = () => {
     if (typeof window === 'undefined') return false;
+    // Simple check, can be improved with more robust libraries if needed.
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 };
-
 
 export default function Home() {
   const { user, loading } = useUser();
@@ -26,13 +26,13 @@ export default function Home() {
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // This check runs only on the client, after hydration
+    // This check runs only on the client, after hydration, to avoid mismatches.
     setIsMobile(isMobileDevice());
   }, []);
 
   useEffect(() => {
-    // This effect runs when isMobile or user state changes
-    if (user && isMobile) {
+    // This effect runs when isMobile or user state changes.
+    if (isMobile === true && user) {
       router.replace('/mobile');
     }
   }, [user, isMobile, router]);
@@ -57,7 +57,7 @@ export default function Home() {
     setIsGuest(false);
   }
 
-  // Show a generic loader while determining client type or auth state
+  // Show a generic loader while determining client type or auth state.
   if (loading || isMobile === null) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -69,19 +69,19 @@ export default function Home() {
     );
   }
 
+  // If the user is logged in on desktop, show the dashboard.
   if (user && !isMobile) {
-    // If the user is logged in on desktop, show the dashboard
     return <Dashboard isGuestMode={false} onExitGuestMode={handleExitGuestMode} />;
   }
 
+  // If in guest mode on desktop, show the dashboard.
   if (isGuest && !isMobile) {
-    // If in guest mode on desktop, show the dashboard
     return <Dashboard isGuestMode={true} onExitGuestMode={handleExitGuestMode} />;
   }
   
+  // This state will be brief as the useEffect above will redirect.
+  // Showing a loader here prevents a flash of the login screen.
   if (user && isMobile) {
-    // This state will be brief as the useEffect above will redirect.
-    // Showing a loader here prevents a flash of the login screen.
     return (
        <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
@@ -92,8 +92,7 @@ export default function Home() {
     );
   }
 
-
-  // Otherwise, show the welcome/login screen
+  // Otherwise, show the welcome/login screen.
   return (
     <div className="flex items-center justify-center min-h-screen p-4">
       <Card className="w-full max-w-md bg-glass text-center">
@@ -130,5 +129,3 @@ export default function Home() {
     </div>
   );
 }
-
-    
