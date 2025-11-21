@@ -1,12 +1,11 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import type { DialogState, Recipe, Ingredient, Folder, GlobalFolder } from '@/lib/types';
+import type { DialogState, Recipe, Ingredient, Folder, GlobalFolder, BaseIngredient } from '@/lib/types';
 import { useUser, useFirestore, useMemoFirebase } from '@/firebase/index';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { collection } from 'firebase/firestore';
-import type { BaseIngredient } from '@/lib/types';
 import {
   Dialog,
   DialogContent,
@@ -67,6 +66,15 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
 
   const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);
   const { data: ingredientDB, isLoading: ingredientsLoading } = useCollection<BaseIngredient>(ingredientsCollectionRef);
+  
+  const ingredientDBMap = useMemo(() => {
+    const map = new Map<string, BaseIngredient>();
+    if (ingredientDB) {
+      ingredientDB.forEach(ing => map.set(ing.name.toLowerCase(), ing));
+    }
+    return map;
+  }, [ingredientDB]);
+
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -105,15 +113,18 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
 
   const calculatedTotals = useMemo(() => {
     return ingredients.reduce((acc, ing) => {
+        const baseIng = ingredientDBMap.get(ing.name.toLowerCase());
+        if (!baseIng) return acc;
+      
         const scale = ing.quantity / 100;
-        acc.calories += (ing.calories || 0) * scale;
-        acc.protein += (ing.protein || 0) * scale;
-        acc.carbs += (ing.carbs || 0) * scale;
-        acc.fat += (ing.fat || 0) * scale;
+        acc.calories += (baseIng.calories || 0) * scale;
+        acc.protein += (baseIng.protein || 0) * scale;
+        acc.carbs += (baseIng.carbs || 0) * scale;
+        acc.fat += (baseIng.fat || 0) * scale;
       
       return acc;
     }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
-  }, [ingredients]);
+  }, [ingredients, ingredientDBMap]);
 
   const handleSave = async () => {
     if (!name) return;
@@ -122,7 +133,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
       name,
       description,
       instructions,
-      ingredients,
+      ingredients, // Now only contains {id, name, quantity, unit}
       folderId: folderId === 'none' ? undefined : folderId,
       ...calculatedTotals
     };
@@ -138,15 +149,12 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
   const addIngredient = () => {
     if (!selectedIngredient) return;
 
+    // Only store reference data, not the macros
     const newIng: Ingredient = {
-      id: self.crypto.randomUUID(),
+      id: self.crypto.randomUUID(), // Unique instance ID for this ingredient in this recipe
       name: selectedIngredient.name,
       quantity: Number(newIngredientQty) || 100,
       unit: 'g',
-      calories: selectedIngredient.calories || 0,
-      protein: selectedIngredient.protein || 0,
-      carbs: selectedIngredient.carbs || 0,
-      fat: selectedIngredient.fat || 0,
     };
 
     setIngredients(prev => [...prev, newIng]);
@@ -171,6 +179,19 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
     setSelectedIngredient(optimisticIngredient);
     setIsNewIngredientOpen(false);
   }
+  
+  const ingredientDisplayList = useMemo(() => {
+    return ingredients.map(ing => {
+        const baseIng = ingredientDBMap.get(ing.name.toLowerCase());
+        const scale = ing.quantity / 100;
+        const calories = baseIng ? (baseIng.calories || 0) * scale : 0;
+        return {
+            ...ing,
+            calories,
+        };
+    });
+  }, [ingredients, ingredientDBMap]);
+
 
   const filteredIngredients = useMemo(() => {
     const lowercasedQuery = searchQuery.toLowerCase();
@@ -289,11 +310,11 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
                             <Label>2. Ingredientes de la Receta</Label>
                             <ScrollArea className="h-36 border border-white/10 rounded-lg p-2">
                                 <div className="space-y-2 pr-2">
-                                    {ingredients.map(ing => (
+                                    {ingredientDisplayList.map(ing => (
                                     <div key={ing.id} className="flex items-center justify-between bg-black/10 p-2 rounded-md text-sm">
                                         <span>{ing.quantity}{ing.unit} <strong>{ing.name}</strong></span>
                                         <div className='flex items-center gap-2'>
-                                            <span className='text-xs text-muted-foreground'>{Math.round(ing.calories * (ing.quantity/100))} kcal</span>
+                                            <span className='text-xs text-muted-foreground'>{Math.round(ing.calories)} kcal</span>
                                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeIngredient(ing.id)}><Trash2 className="h-4 w-4" /></Button>
                                         </div>
                                     </div>

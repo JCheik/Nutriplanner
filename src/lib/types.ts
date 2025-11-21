@@ -13,11 +13,14 @@ export interface BaseIngredient extends Macros {
   createdBy: string;
 }
 
-export interface Ingredient extends Macros {
-  id: string;
+// An ingredient within a recipe no longer stores its own macros.
+// It references a BaseIngredient via its name (or a future ingredientId).
+export interface Ingredient {
+  id: string; // This is an instance ID, unique within the recipe
   name: string;
   quantity: number;
   unit: string;
+  // Macro data is now removed from here.
 }
 
 export interface Folder {
