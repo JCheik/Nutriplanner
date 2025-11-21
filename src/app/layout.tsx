@@ -6,6 +6,7 @@ import { FirebaseClientProvider } from '@/firebase/client-provider';
 export const metadata: Metadata = {
   title: 'NutriPlanner',
   description: 'Planifica tus comidas, crea recetas y sigue tu nutrición.',
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({
