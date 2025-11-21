@@ -213,26 +213,10 @@ export function ShoppingListSheet({ weekPlan, isOpen, onOpenChange }: ShoppingLi
         <div 
             className={cn(
                 'fixed bottom-24 right-8 w-[420px] rounded-lg shadow-2xl p-6 transform transition-all duration-300 ease-in-out z-50 origin-bottom-right flex flex-col h-[75vh] border border-primary/20 bg-notebook-paper',
-                // This logic is for the desktop floating panel view
-                'sm:scale-100 sm:opacity-100 sm:pointer-events-auto',
                 isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none',
-                // This is a special class to hide the floating panel when on a mobile shopping list page
-                'shopping-list-page:hidden'
+                // This is the new class that applies our mobile styles
+                'mobile-page-view'
             )}
-            style={{
-                // On mobile, this will be a full screen view, so we override some styles
-                '@media (max-width: 640px)': {
-                    position: 'relative',
-                    bottom: 'auto',
-                    right: 'auto',
-                    width: '100%',
-                    height: 'calc(100vh - 8.5rem)',
-                    boxShadow: 'none',
-                    border: 'none',
-                    margin: 0,
-                    borderRadius: 0,
-                }
-            }}
         >
             <div className="flex justify-between items-center -mt-2 mb-2">
                 <h2 className="text-xl font-headline text-foreground/90 flex items-center gap-2">

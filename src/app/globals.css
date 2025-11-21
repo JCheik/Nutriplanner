@@ -110,4 +110,9 @@
         );
         line-height: 2.05rem;
     }
+    @media (max-width: 640px) {
+      .mobile-page-view {
+        @apply relative w-full h-[calc(100vh_-_8.5rem)] shadow-none border-none m-0 rounded-none bottom-auto right-auto;
+      }
+    }
 }
