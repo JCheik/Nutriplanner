@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useUser, useCollection, useFirebase, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
@@ -9,7 +9,7 @@ import type { DayPlan } from '@/lib/types';
 import { ShoppingListSheet } from '@/components/nutri-planner/shopping-list';
 import { Logo } from '@/components/icons/logo';
 
-export default function MobileShoppingListPage() {
+function MobileShoppingListPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const isGuestMode = searchParams.get('guest') === 'true';
@@ -54,4 +54,21 @@ export default function MobileShoppingListPage() {
         />
     </div>
   );
+}
+
+const MobilePageLoader = () => (
+    <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
+        <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
+          <Logo className="h-12 w-12 text-primary animate-pulse" />
+          <p className="text-lg text-muted-foreground">Cargando...</p>
+        </div>
+    </div>
+);
+
+export default function MobileShoppingListPage() {
+    return (
+        <Suspense fallback={<MobilePageLoader />}>
+            <MobileShoppingListPageContent />
+        </Suspense>
+    );
 }

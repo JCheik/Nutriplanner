@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection } from 'firebase/firestore';
 import type { Recipe, Folder } from '@/lib/types';
 import { INITIAL_RECIPES } from '@/lib/data';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
@@ -11,14 +11,13 @@ import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/icons/logo';
 
-export default function MobileRecipesPage() {
+function MobileRecipesPageContent() {
     const searchParams = useSearchParams();
-    const router = useRouter();
     const { toast } = useToast();
     const isGuestMode = searchParams.get('guest') === 'true';
 
     const { user, loading: userLoading } = useUser();
-    const { firestore, storage } = useFirebase();
+    const { firestore } = useFirebase();
 
     const [dialogState, setDialogState] = useState<any>({ open: false });
 
@@ -88,4 +87,22 @@ export default function MobileRecipesPage() {
             />
         </>
     )
+}
+
+
+const MobilePageLoader = () => (
+    <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
+        <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
+          <Logo className="h-12 w-12 text-primary animate-pulse" />
+          <p className="text-lg text-muted-foreground">Cargando...</p>
+        </div>
+    </div>
+);
+
+export default function MobileRecipesPage() {
+    return (
+        <Suspense fallback={<MobilePageLoader />}>
+            <MobileRecipesPageContent />
+        </Suspense>
+    );
 }
