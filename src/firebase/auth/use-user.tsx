@@ -7,12 +7,13 @@ import {
   type User,
 } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
-import { doc, getDoc, writeBatch, collection, getDocs, query, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, writeBatch, collection, getDocs, query, setDoc } from 'firebase/firestore';
 import { useAuth } from '@/firebase/provider';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
 import type { UserProfile, BaseIngredient, Recipe } from '@/lib/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { normalizeText } from '@/lib/utils';
 
 
 export { type User };
@@ -27,7 +28,7 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
 
     INITIAL_RECIPES.forEach(recipe => {
         (recipe.ingredients || []).forEach(ing => {
-            const key = ing.name.toLowerCase();
+            const key = normalizeText(ing.name);
             const quantity = ing.quantity ?? 0;
 
             if (quantity <= 0) return;
@@ -44,17 +45,15 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
                 createdBy: userId
             };
             
-            // Avoid NaN values
             if (Object.values(newIngredientData).some(val => typeof val === 'number' && isNaN(val))) {
                 console.warn(`Skipping ingredient with NaN values: ${newIngredientData.name}`);
                 return;
             }
 
             const existing = uniqueIngredients.get(key);
-            const existingHasMacros = (existing?.calories ?? 0) > 0 || (existing?.protein ?? 0) > 0;
             const newHasMacros = newIngredientData.calories > 0 || newIngredientData.protein > 0;
 
-            if (!existing || (!existingHasMacros && newHasMacros)) {
+            if (!existing || (!existing.calories && newHasMacros)) {
                 uniqueIngredients.set(key, newIngredientData);
             }
         });
@@ -69,12 +68,12 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
     
     const existingIngredientsQuery = query(collection(firestore, "ingredients"));
     const existingIngredientsSnapshot = await getDocs(existingIngredientsQuery);
-    const existingIngredientNames = new Set(existingIngredientsSnapshot.docs.map(doc => doc.data().name.toLowerCase()));
+    const existingIngredientNames = new Set(existingIngredientsSnapshot.docs.map(doc => normalizeText(doc.data().name)));
 
     uniqueIngredients.forEach((ingredientData, key) => {
         if (!existingIngredientNames.has(key)) {
-            const docRef = doc(ingredientsCollectionRef);
-            batch.set(docRef, { ...ingredientData, id: docRef.id });
+            const docRef = doc(ingredientsCollectionRef); // Firestore generates ID
+            batch.set(docRef, ingredientData);
             newIngredientsCount++;
         }
     });
@@ -101,26 +100,32 @@ export async function populateAndCleanGlobalRecipes(firestore: Firestore): Promi
   const batch = writeBatch(firestore);
 
   INITIAL_RECIPES.forEach((recipe) => {
-    // 1. Create the clean version of the recipe
-    const cleanedIngredients = recipe.ingredients.map(({ id, name, quantity, unit }) => ({
-      id, name, quantity, unit
+    // 1. Create the clean version of the recipe's ingredients
+    const cleanedIngredients = recipe.ingredients.map(({ name, quantity, unit }) => ({
+      id: self.crypto.randomUUID(), // Instance ID for this ingredient
+      name,
+      quantity,
+      unit,
     }));
 
+    // 2. Create the full, clean recipe object
     const cleanedRecipe: Recipe = {
       ...recipe,
       ingredients: cleanedIngredients,
     };
 
-    // 2. Use the local ID to create a predictable document ID
-    const docRef = doc(recipesCollectionRef, `nutriplanner-recipe-${recipe.id}`);
+    // 3. Generate a predictable, URL-friendly ID from the recipe name
+    const docId = normalizeText(recipe.name).replace(/\s+/g, '-').toLowerCase();
+    const docRef = doc(recipesCollectionRef, docId);
 
-    // 3. Use set() with merge to create or overwrite the document
+    // 4. Use set() with merge: true. This will create the document if it doesn't exist,
+    // or completely overwrite it if it does. This is how we clean and prevent duplicates.
     batch.set(docRef, cleanedRecipe, { merge: true });
   });
 
   try {
     await batch.commit();
-    // Return the total number of recipes processed
+    console.log(`${INITIAL_RECIPES.length} recetas globales han sido pobladas y limpiadas.`);
     return INITIAL_RECIPES.length;
   } catch (error) {
     console.error("Error populating and cleaning global recipes:", error);
