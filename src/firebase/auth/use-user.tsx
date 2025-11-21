@@ -7,7 +7,7 @@ import {
   type User,
 } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
-import { doc, getDoc, writeBatch, collection, getDocs, query, where, documentId } from 'firebase/firestore';
+import { doc, getDoc, writeBatch, collection, getDocs, query, where, documentId, addDoc } from 'firebase/firestore';
 import { useAuth } from '@/firebase/provider';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
 import type { UserProfile, BaseIngredient, Ingredient } from '@/lib/types';
@@ -18,6 +18,60 @@ import { FirestorePermissionError } from '@/firebase/errors';
 export { type User };
 
 const provider = new GoogleAuthProvider();
+
+
+export async function migrateInitialIngredients(firestore: Firestore): Promise<number> {
+    try {
+        const ingredientsCollectionRef = collection(firestore, 'ingredients');
+        
+        const uniqueIngredients = new Map<string, Omit<BaseIngredient, 'id'>>();
+        INITIAL_RECIPES.forEach(recipe => {
+            (recipe.ingredients || []).forEach(ing => {
+                const key = ing.name.toLowerCase();
+                if (!uniqueIngredients.has(key)) {
+                    const { id, quantity, unit, ...baseIngredientData } = ing;
+                    uniqueIngredients.set(key, {
+                        ...baseIngredientData,
+                        fiber: 0, 
+                        createdBy: 'system'
+                    });
+                }
+            });
+        });
+
+        if (uniqueIngredients.size === 0) {
+            return 0;
+        }
+
+        const ingredientNames = Array.from(uniqueIngredients.keys()).map(name => name.charAt(0).toUpperCase() + name.slice(1));
+        
+        const existingIngredientsQuery = query(ingredientsCollectionRef, where('name', 'in', ingredientNames));
+        const existingIngredientsSnap = await getDocs(existingIngredientsQuery);
+        const existingNames = new Set(existingIngredientsSnap.docs.map(d => d.data().name.toLowerCase()));
+
+        const ingredientsBatch = writeBatch(firestore);
+        let newIngredientsCount = 0;
+        
+        uniqueIngredients.forEach((ingredient, key) => {
+            if (!existingNames.has(key)) {
+                const newIngredientRef = doc(ingredientsCollectionRef);
+                ingredientsBatch.set(newIngredientRef, { ...ingredient, id: newIngredientRef.id, name: ingredient.name });
+                newIngredientsCount++;
+            }
+        });
+
+        if (newIngredientsCount > 0) {
+            await ingredientsBatch.commit();
+        }
+        
+        return newIngredientsCount;
+
+    } catch (error) {
+        console.error("Error seeding global ingredients:", error);
+        throw new Error("Failed to migrate ingredients.");
+    }
+}
+
 
 export const signInWithGoogle = async (auth: Auth, firestore: Firestore) => {
   if (!auth || !firestore) {
@@ -63,50 +117,6 @@ export const signInWithGoogle = async (auth: Auth, firestore: Firestore) => {
               requestResourceData: { note: 'Initial user setup batch write.' }
           }));
         });
-        
-        // --- START INGREDIENT MIGRATION ---
-        try {
-            const ingredientsCollectionRef = collection(firestore, 'ingredients');
-            
-            // 1. Get all unique ingredients from INITIAL_RECIPES
-            const uniqueIngredients = new Map<string, Omit<BaseIngredient, 'id'>>();
-            INITIAL_RECIPES.forEach(recipe => {
-                recipe.ingredients.forEach(ing => {
-                    const key = ing.name.toLowerCase();
-                    if (!uniqueIngredients.has(key)) {
-                        const { id, quantity, unit, ...baseIngredientData } = ing;
-                        uniqueIngredients.set(key, {
-                            ...baseIngredientData,
-                            fiber: 0, // Assume 0 fiber if not present
-                            createdBy: 'system' // Mark as system-generated
-                        });
-                    }
-                });
-            });
-
-            const ingredientNames = Array.from(uniqueIngredients.keys());
-
-            // 2. Check which ingredients already exist in Firestore
-            const existingIngredientsQuery = query(ingredientsCollectionRef, where('name', 'in', ingredientNames.map(name => name.charAt(0).toUpperCase() + name.slice(1))));
-            const existingIngredientsSnap = await getDocs(existingIngredientsQuery);
-            const existingNames = new Set(existingIngredientsSnap.docs.map(d => d.data().name.toLowerCase()));
-
-            // 3. Add only the ingredients that do not exist
-            const ingredientsBatch = writeBatch(firestore);
-            uniqueIngredients.forEach((ingredient, key) => {
-                if (!existingNames.has(key)) {
-                    const newIngredientRef = doc(ingredientsCollectionRef);
-                    ingredientsBatch.set(newIngredientRef, { ...ingredient, id: newIngredientRef.id, name: ingredient.name });
-                }
-            });
-
-            await ingredientsBatch.commit();
-
-        } catch (error) {
-            console.error("Error seeding global ingredients:", error);
-            // Non-critical error, so we don't need to throw, just log it.
-        }
-        // --- END INGREDIENT MIGRATION ---
       }
     }
   } catch (error: any) {
