@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, Suspense } from 'react';
+import { useState, useMemo, useEffect, Suspense, Key } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useUser } from '@/firebase/auth/use-user';
 import { useCollection, useDoc, useFirebase, useFirestore, useMemoFirebase } from '@/firebase';
@@ -35,7 +35,7 @@ const TodayMeals = ({ dayPlan }: { dayPlan: DayPlan | null }) => {
   return (
     <>
       <div className="space-y-6">
-        {dayPlan.meals.map(meal => (
+        {dayPlan.meals.map((meal: Meal) => (
           <div key={meal.id}>
             <h3 className="text-lg font-semibold mb-2 text-muted-foreground">{meal.title}</h3>
             {meal.recipes.length > 0 ? (
