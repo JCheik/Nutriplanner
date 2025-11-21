@@ -1,18 +1,39 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useUser, signInWithGoogle } from '@/firebase/auth/use-user';
 import { useAuth, useFirestore } from '@/firebase/provider';
 import Dashboard from './dashboard/page';
 import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useRouter } from 'next/navigation';
+
+const isMobileDevice = () => {
+    if (typeof window === 'undefined') return false;
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
 
 export default function Home() {
   const { user, loading } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
   const [isGuest, setIsGuest] = useState(false);
+  const router = useRouter();
+
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    setIsMobile(isMobileDevice());
+  }, []);
+
+  useEffect(() => {
+    if (user && isMobile) {
+      router.replace('/mobile');
+    }
+  }, [user, isMobile, router]);
+
 
   const handleSignIn = async () => {
     if (auth && firestore) {
@@ -21,7 +42,12 @@ export default function Home() {
   };
 
   const handleGuestMode = () => {
-    setIsGuest(true);
+    if (isMobile) {
+        // On mobile, guest mode should also go to the mobile page.
+        router.push('/mobile?guest=true');
+    } else {
+        setIsGuest(true);
+    }
   };
   
   const handleExitGuestMode = () => {
@@ -39,10 +65,29 @@ export default function Home() {
     );
   }
 
-  if (user || isGuest) {
-    // If the user is logged in, or is in guest mode, show the dashboard
-    return <Dashboard isGuestMode={!user && isGuest} onExitGuestMode={handleExitGuestMode} />;
+  if (user && !isMobile) {
+    // If the user is logged in on desktop, show the dashboard
+    return <Dashboard isGuestMode={false} onExitGuestMode={handleExitGuestMode} />;
   }
+
+  if (isGuest && !isMobile) {
+    // If in guest mode on desktop, show the dashboard
+    return <Dashboard isGuestMode={true} onExitGuestMode={handleExitGuestMode} />;
+  }
+  
+  if (user && isMobile) {
+    // This state will be brief as the useEffect above will redirect.
+    // Showing a loader here prevents a flash of the login screen.
+    return (
+       <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
+          <Logo className="h-12 w-12 text-primary animate-pulse" />
+          <p className="text-lg text-muted-foreground">Redirigiendo...</p>
+        </div>
+      </div>
+    );
+  }
+
 
   // Otherwise, show the welcome/login screen
   return (
