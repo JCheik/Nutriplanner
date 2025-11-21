@@ -136,16 +136,16 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
   const handleSave = async () => {
     if (!name) return;
     
-    const recipeData: Omit<Recipe, 'id' | 'imageUrl'> & { imageUrl?: string; folderId?: string } = {
+    const recipeData: Omit<Recipe, 'id' | 'imageUrl'> & { imageUrl?: string; folderId?: string | null } = {
       name,
       description,
       instructions,
       ingredients, // Already in clean format { id, name, quantity, unit }
-      folderId: folderId === 'none' ? undefined : folderId,
+      folderId: folderId === 'none' ? null : folderId,
       ...calculatedTotals
     };
 
-    onSave(recipeData, imageFile, saveAsGlobal, initialRecipe?.id);
+    onSave(recipeData as Omit<Recipe, 'id'>, imageFile, saveAsGlobal, initialRecipe?.id);
   };
   
   const handleSelectIngredient = (ingredient: BaseIngredient) => {
