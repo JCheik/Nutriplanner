@@ -7,10 +7,10 @@ import {
   type User,
 } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
-import { doc, getDoc, writeBatch, collection, getDocs, query, setDoc } from 'firebase/firestore';
+import { doc, getDoc, writeBatch, collection, getDocs, query, setDoc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/firebase/provider';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
-import type { UserProfile, BaseIngredient, Recipe } from '@/lib/types';
+import type { UserProfile, BaseIngredient, Recipe, Ingredient } from '@/lib/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -54,13 +54,20 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
     const batch = writeBatch(firestore);
     let newIngredientsCount = 0;
     
-    uniqueIngredients.forEach((ingredientData) => {
-        const docId = ingredientData.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-        if (!docId) return;
-        const newIngredientRef = doc(ingredientsCollectionRef, docId);
-        
-        batch.set(newIngredientRef, { ...ingredientData, id: docId });
-        newIngredientsCount++;
+    // Check which ingredients already exist to avoid overwriting them
+    const existingIngredientsQuery = query(collection(firestore, "ingredients"));
+    const existingIngredientsSnapshot = await getDocs(existingIngredientsQuery);
+    const existingIngredientNames = new Set(existingIngredientsSnapshot.docs.map(doc => doc.data().name.toLowerCase()));
+
+    uniqueIngredients.forEach((ingredientData, key) => {
+        if (!existingIngredientNames.has(key)) {
+            const docId = ingredientData.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+            if (!docId) return;
+            const newIngredientRef = doc(ingredientsCollectionRef, docId);
+            
+            batch.set(newIngredientRef, { ...ingredientData, id: docId });
+            newIngredientsCount++;
+        }
     });
 
     if (newIngredientsCount > 0) {
@@ -83,28 +90,36 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
 export async function cleanNutriPlannerRecipes(firestore: Firestore) {
   const batch = writeBatch(firestore);
   const recipesCollectionRef = collection(firestore, 'nutriplanner_recipes');
-  const snapshot = await getDocs(recipesCollectionRef);
+  
+  try {
+    const snapshot = await getDocs(recipesCollectionRef);
 
-  snapshot.forEach(document => {
-    const recipe = document.data() as Recipe;
-    
-    const cleanIngredients = (recipe.ingredients || []).map(ing => ({
-      id: ing.id,
-      name: ing.name,
-      quantity: ing.quantity,
-      unit: ing.unit,
-    }));
+    snapshot.forEach(document => {
+      const recipe = document.data() as Recipe;
+      
+      const cleanIngredients = (recipe.ingredients || []).map(ing => ({
+        id: ing.id,
+        name: ing.name,
+        quantity: ing.quantity,
+        unit: ing.unit,
+      }));
 
-    const cleanedRecipeData = {
-      ...recipe,
-      ingredients: cleanIngredients,
-    };
-    
-    // Use the existing document reference to update it
-    batch.update(document.ref, cleanedRecipeData);
-  });
+      const cleanedRecipeData = {
+        ...recipe,
+        ingredients: cleanIngredients,
+      };
+      
+      // Use the existing document reference from the snapshot to update it
+      batch.update(document.ref, cleanedRecipeData);
+    });
 
-  await batch.commit();
+    await batch.commit();
+
+  } catch (error) {
+    console.error("Error cleaning NutriPlanner recipes:", error);
+    // Optionally re-throw or handle the error as needed
+    throw error;
+  }
 }
 
 
@@ -135,7 +150,17 @@ export const signInWithGoogle = async (auth: Auth, firestore: Firestore) => {
         const recipesCollectionRef = collection(firestore, 'users', user.uid, 'recipes');
         INITIAL_RECIPES.forEach(recipe => {
           const recipeRef = doc(recipesCollectionRef);
-          batch.set(recipeRef, { ...recipe, id: recipeRef.id });
+          const cleanRecipe: Omit<Recipe, 'id'> & { id: string } = {
+            ...recipe,
+            id: recipeRef.id,
+            ingredients: (recipe.ingredients || []).map(ing => ({
+                id: ing.id,
+                name: ing.name,
+                quantity: ing.quantity,
+                unit: ing.unit,
+            })),
+          };
+          batch.set(recipeRef, cleanRecipe);
         });
 
         const weekPlanCollectionRef = collection(firestore, 'users', user.uid, 'weekPlan');
