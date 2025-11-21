@@ -39,7 +39,6 @@ import { TodayPlan } from '@/components/nutri-planner/today-plan';
 
 
 const DAY_ORDER = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-const DAY_NAMES_MAP: { [key: number]: DayPlan['day'] } = { 0: 'Domingo', 1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes', 6: 'Sábado' };
 
 interface DashboardProps {
   isGuestMode?: boolean;
@@ -172,11 +171,6 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
 
   }, [isGuestMode, guestWeekPlan, weekPlanData]);
   
-  const todayName = useMemo(() => DAY_NAMES_MAP[new Date().getDay()], []);
-  const todayPlan = useMemo(() => {
-    return currentWeekPlan.find(d => d.day === todayName) || null;
-  }, [currentWeekPlan, todayName]);
-
   const currentStickyNote = useMemo(() => isGuestMode ? guestStickyNote : (userProfile?.stickyNote || '¡Bienvenido a NutriPlanner! Usa esta nota para apuntar lo que quieras.'), [isGuestMode, guestStickyNote, userProfile]);
   const currentCalorieResult = useMemo(() => isGuestMode ? guestCalorieResult : (userProfile?.calorieResult || null), [isGuestMode, guestCalorieResult, userProfile]);
   const activeGoalMacros = useMemo(() => currentCalorieResult && activeGoal ? currentCalorieResult[activeGoal] : null, [currentCalorieResult, activeGoal]);
@@ -499,12 +493,6 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
       <PageHeader isGuest={isGuestMode} onRegisterClick={onExitGuestMode} />
       <main className="flex-1 p-4 sm:p-6 lg:p-8">
         <div className="max-w-screen-2xl mx-auto flex flex-col gap-6">
-          <TodayPlan 
-            dayPlan={todayPlan} 
-            activeGoal={activeGoalMacros}
-            onRecipeClick={(recipe) => handleRecipeAction('view', recipe)}
-          />
-
           <div className="w-full">
             <MealPlanner
               weekPlan={currentWeekPlan}
