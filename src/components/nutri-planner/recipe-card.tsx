@@ -111,7 +111,7 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
                     data-ai-hint={recipe.imageHint}
                 />
             ) : (
-                <div className="w-full h-full flex items-center justify-center p-2 bg-secondary">
+                <div className="w-full h-full flex items-center justify-center p-4 bg-secondary">
                     <span className="text-center font-headline text-lg leading-tight text-secondary-foreground">
                         {recipe.name}
                     </span>
