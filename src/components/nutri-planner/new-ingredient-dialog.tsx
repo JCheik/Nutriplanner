@@ -27,22 +27,22 @@ interface NewIngredientDialogProps {
 export function NewIngredientDialog({ isOpen, onClose, onSave, ingredientToEdit }: NewIngredientDialogProps) {
   const { user } = useUser();
   const [name, setName] = useState('');
-  const [calories, setCalories] = useState(0);
-  const [protein, setProtein] = useState(0);
-  const [carbs, setCarbs] = useState(0);
-  const [fat, setFat] = useState(0);
-  const [fiber, setFiber] = useState(0);
+  const [calories, setCalories] = useState<number | ''>('');
+  const [protein, setProtein] = useState<number | ''>('');
+  const [carbs, setCarbs] = useState<number | ''>('');
+  const [fat, setFat] = useState<number | ''>('');
+  const [fiber, setFiber] = useState<number | ''>('');
 
   const isEditing = !!ingredientToEdit;
 
   useEffect(() => {
     if (isOpen && ingredientToEdit) {
       setName(ingredientToEdit.name || '');
-      setCalories(ingredientToEdit.calories || 0);
-      setProtein(ingredientToEdit.protein || 0);
-      setCarbs(ingredientToEdit.carbs || 0);
-      setFat(ingredientToEdit.fat || 0);
-      setFiber(ingredientToEdit.fiber || 0);
+      setCalories(ingredientToEdit.calories ?? '');
+      setProtein(ingredientToEdit.protein ?? '');
+      setCarbs(ingredientToEdit.carbs ?? '');
+      setFat(ingredientToEdit.fat ?? '');
+      setFiber(ingredientToEdit.fiber ?? '');
     } else if (!isOpen) {
       resetForm();
     }
@@ -52,11 +52,11 @@ export function NewIngredientDialog({ isOpen, onClose, onSave, ingredientToEdit 
     if (!name || !user) return;
     const newIngredient: EditableIngredient = {
       name,
-      calories,
-      protein,
-      carbs,
-      fat,
-      fiber,
+      calories: Number(calories) || 0,
+      protein: Number(protein) || 0,
+      carbs: Number(carbs) || 0,
+      fat: Number(fat) || 0,
+      fiber: Number(fiber) || 0,
       createdBy: user.uid,
     };
     if (isEditing) {
@@ -73,12 +73,25 @@ export function NewIngredientDialog({ isOpen, onClose, onSave, ingredientToEdit 
 
   const resetForm = () => {
     setName('');
-    setCalories(0);
-    setProtein(0);
-    setCarbs(0);
-    setFat(0);
-    setFiber(0);
+    setCalories('');
+    setProtein('');
+    setCarbs('');
+    setFat('');
+    setFiber('');
   };
+  
+  const handleNumericChange = (setter: React.Dispatch<React.SetStateAction<number | ''>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value === '') {
+        setter('');
+    } else {
+        const parsed = parseFloat(value);
+        if (!isNaN(parsed)) {
+            setter(parsed);
+        }
+    }
+  };
+
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -100,31 +113,31 @@ export function NewIngredientDialog({ isOpen, onClose, onSave, ingredientToEdit 
             <Label htmlFor="calories" className="text-right">
               Calorías (kcal)
             </Label>
-            <Input id="calories" name="calories" type="number" value={calories} onChange={(e) => setCalories(parseFloat(e.target.value) || 0)} className="col-span-3" />
+            <Input id="calories" name="calories" type="number" value={calories} onChange={handleNumericChange(setCalories)} className="col-span-3" />
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="protein" className="text-right">
               Proteínas (g)
             </Label>
-            <Input id="protein" name="protein" type="number" value={protein} onChange={(e) => setProtein(parseFloat(e.target.value) || 0)} className="col-span-3" />
+            <Input id="protein" name="protein" type="number" value={protein} onChange={handleNumericChange(setProtein)} className="col-span-3" />
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="carbs" className="text-right">
               Carbohidratos (g)
             </Label>
-            <Input id="carbs" name="carbs" type="number" value={carbs} onChange={(e) => setCarbs(parseFloat(e.target.value) || 0)} className="col-span-3" />
+            <Input id="carbs" name="carbs" type="number" value={carbs} onChange={handleNumericChange(setCarbs)} className="col-span-3" />
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="fat" className="text-right">
               Grasas (g)
             </Label>
-            <Input id="fat" name="fat" type="number" value={fat} onChange={(e) => setFat(parseFloat(e.target.value) || 0)} className="col-span-3" />
+            <Input id="fat" name="fat" type="number" value={fat} onChange={handleNumericChange(setFat)} className="col-span-3" />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="fiber" className="text-right">
               Fibra (g)
             </Label>
-            <Input id="fiber" name="fiber" type="number" value={fiber} onChange={(e) => setFiber(parseFloat(e.target.value) || 0)} className="col-span-3" />
+            <Input id="fiber" name="fiber" type="number" value={fiber} onChange={handleNumericChange(setFiber)} className="col-span-3" />
           </div>
         </div>
         <DialogFooter>
