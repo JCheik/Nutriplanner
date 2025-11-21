@@ -28,7 +28,8 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
     INITIAL_RECIPES.forEach(recipe => {
         (recipe.ingredients || []).forEach(ing => {
             const key = ing.name.toLowerCase();
-            const quantity = ing.quantity ?? 0;
+            // Default quantity to a non-zero value to avoid division by zero
+            const quantity = ing.quantity ?? 100;
             const hasMacros = (ing.calories ?? 0) > 0 || (ing.protein ?? 0) > 0;
             
             // Only process ingredients with a valid quantity to avoid division by zero
@@ -108,6 +109,8 @@ export async function cleanNutriPlannerRecipes(firestore: Firestore): Promise<nu
     console.log("No NutriPlanner recipes found to clean.");
     return 0;
   }
+
+  console.log(`Found ${snapshot.docs.length} recipes to check for cleaning.`);
 
   const batch = writeBatch(firestore);
   let cleanedCount = 0;
