@@ -25,7 +25,6 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
     
     const uniqueIngredients = new Map<string, Omit<BaseIngredient, 'id'>>();
 
-    // First pass: iterate over all ingredients and store the most complete version of each.
     INITIAL_RECIPES.forEach(recipe => {
         (recipe.ingredients || []).forEach(ing => {
             const key = ing.name.toLowerCase();
@@ -33,11 +32,12 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
 
             const existing = uniqueIngredients.get(key);
             const existingHasMacros = (existing?.calories ?? 0) > 0 || (existing?.protein ?? 0) > 0;
-
+            
+            const quantity = ing.quantity ?? 0;
+            const scale = quantity > 0 ? 100 / quantity : 0;
+            
             // If the new one has macros and the existing one doesn't, or if it's the first time we see it, add it.
             if (!existing || (hasMacros && !existingHasMacros)) {
-                 const quantity = ing.quantity ?? 0;
-                 const scale = quantity > 0 ? 100 / quantity : 0;
                  const normalizedIngredient: Omit<BaseIngredient, 'id'> = {
                     name: ing.name,
                     calories: (ing.calories ?? 0) * scale,
@@ -101,11 +101,14 @@ export async function cleanNutriPlannerRecipes(firestore: Firestore) {
   const recipesCollectionRef = collection(firestore, 'nutriplanner_recipes');
   
   try {
+    // 1. Get all documents from the nutriplanner_recipes collection
     const snapshot = await getDocs(recipesCollectionRef);
 
+    // 2. Iterate over each document found in the database
     snapshot.forEach(document => {
       const recipe = document.data() as Recipe;
       
+      // 3. Create a "clean" version of the ingredients array
       const cleanIngredients = (recipe.ingredients || []).map(ing => ({
         id: ing.id,
         name: ing.name,
@@ -113,6 +116,7 @@ export async function cleanNutriPlannerRecipes(firestore: Firestore) {
         unit: ing.unit,
       }));
 
+      // 4. Update the existing document with the cleaned data
       const cleanedRecipeData = {
         ...recipe,
         ingredients: cleanIngredients,
@@ -121,16 +125,18 @@ export async function cleanNutriPlannerRecipes(firestore: Firestore) {
       batch.update(document.ref, cleanedRecipeData);
     });
 
+    // 5. Commit the batch update
     await batch.commit();
 
   } catch (error) {
     console.error("Error cleaning NutriPlanner recipes:", error);
+    // Emit a generic error for the collection, as this is a batch operation
     errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: '/nutriplanner_recipes',
         operation: 'write',
         requestResourceData: { note: 'Batch cleaning of all nutriplanner recipes.' }
     }));
-    throw error;
+    throw error; // Re-throw to be caught by the UI
   }
 }
 
