@@ -14,7 +14,7 @@ export interface BaseIngredient extends Macros {
 }
 
 // An ingredient within a recipe no longer stores its own macros.
-// It references a BaseIngredient via its name (or a future ingredientId).
+// It references a BaseIngredient via its name.
 export interface Ingredient {
   id: string; // This is an instance ID, unique within the recipe
   name: string;

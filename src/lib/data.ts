@@ -1,12 +1,10 @@
 'use client';
-import type { Recipe, WeekPlan, Meal, DayPlan, Ingredient, BaseIngredient } from './types';
+import type { Recipe, WeekPlan, Meal, DayPlan, Ingredient } from './types';
 import { PlaceHolderImages } from './placeholder-images';
 
 const findImage = (hint: string) => PlaceHolderImages.find(img => img.imageHint.includes(hint));
 
-// Helper to create ingredients with their macro data for the initial migration.
-// This data is intentionally "dirty" (not normalized to 100g) to simulate the
-// real-world scenario that the migration script is designed to fix.
+// This helper function now only includes the necessary data for migration.
 const createInitialIngredient = (
     name: string,
     quantity: number,
@@ -20,15 +18,13 @@ const createInitialIngredient = (
     name,
     quantity,
     unit,
+    // Macro data is included here *only* for the initial migration script.
     calories,
     protein,
     carbs,
     fat,
 });
 
-
-// NOTE: The macros within each ingredient are for migration only.
-// The recipe's top-level macros are the pre-calculated totals.
 export const INITIAL_RECIPES: Recipe[] = [
   {
     id: '1',
@@ -178,7 +174,6 @@ export const INITIAL_RECIPES: Recipe[] = [
     fat: 12,
     ingredients: [
       createInitialIngredient('Avena', 60, 'g', 232, 10, 41, 5),
-      // Repeated ingredient with full data to ensure migration works
       createInitialIngredient('Leche', 180, 'ml', 85, 6, 8.6, 2), 
       createInitialIngredient('Semillas de Chía', 15, 'g', 73, 2.5, 6, 4.5),
     ],
@@ -197,7 +192,6 @@ export const INITIAL_RECIPES: Recipe[] = [
     ingredients: [
       createInitialIngredient('Proteína en Polvo', 30, 'g', 120, 25, 2, 2),
       createInitialIngredient('Plátano', 100, 'g', 89, 1.1, 23, 0.3),
-      // Repeated ingredient with full data
       createInitialIngredient('Leche de Almendras', 250, 'ml', 75, 2.5, 2.5, 6.25),
     ],
     imageUrl: findImage('protein shake')?.imageUrl,
@@ -214,7 +208,6 @@ export const INITIAL_RECIPES: Recipe[] = [
     fat: 6,
     ingredients: [
       createInitialIngredient('Yogur Griego', 150, 'g', 146, 15, 6, 7.5),
-      // Repeated ingredient with full data
       createInitialIngredient('Frutos Rojos', 100, 'g', 57, 1, 13, 0.3),
       createInitialIngredient('Miel', 15, 'ml', 48, 0, 13, 0),
     ],

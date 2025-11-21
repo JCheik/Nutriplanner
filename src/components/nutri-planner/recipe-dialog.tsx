@@ -97,7 +97,13 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
         setName(initialRecipe.name);
         setDescription(initialRecipe.description || '');
         setInstructions(initialRecipe.instructions || '');
-        setIngredients(initialRecipe.ingredients || []);
+        // When editing, ensure ingredients are in the clean format.
+        setIngredients(initialRecipe.ingredients.map(ing => ({
+            id: ing.id,
+            name: ing.name,
+            quantity: ing.quantity,
+            unit: ing.unit,
+        })) || []);
         setImageUrl(initialRecipe.imageUrl || '');
         setFolderId(initialRecipe.folderId || 'none');
     } else {
@@ -134,7 +140,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
       name,
       description,
       instructions,
-      ingredients, // Now only contains {id, name, quantity, unit}
+      ingredients, // Already in clean format { id, name, quantity, unit }
       folderId: folderId === 'none' ? undefined : folderId,
       ...calculatedTotals
     };
@@ -167,17 +173,19 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
     setIngredients(prev => prev.filter(i => i.id !== id));
   };
   
-  const handleNewIngredientSave = (newIngredient: Omit<BaseIngredient, 'id' | 'createdBy'> & { createdBy: string }) => {
+  const handleNewIngredientSave = (newIngredientData: Omit<BaseIngredient, 'id'> & { createdBy: string }) => {
     if (!ingredientsCollectionRef) return;
     
-    addDocumentNonBlocking(ingredientsCollectionRef, newIngredient);
+    // Optimistically add to UI while it saves in the background
+    addDocumentNonBlocking(ingredientsCollectionRef, newIngredientData).then(docRef => {
+        // After saving, you could update the ingredientDB or re-fetch,
+        // but for now, optimistic update is enough.
+        if (docRef) {
+          const newOptimisticIngredient: BaseIngredient = { ...newIngredientData, id: docRef.id };
+          setSelectedIngredient(newOptimisticIngredient);
+        }
+    });
 
-    const optimisticIngredient: BaseIngredient = {
-      ...newIngredient,
-      id: `optimistic-${self.crypto.randomUUID()}`
-    }
-
-    setSelectedIngredient(optimisticIngredient);
     setIsNewIngredientOpen(false);
   }
   
@@ -461,6 +469,7 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
               <h3 className="font-semibold mb-2">Ingredientes</h3>
               <ul className="list-disc list-inside space-y-1 text-sm">
                 {recipe.ingredients.map(ing => {
+                  // Always look up the ingredient in the DB map to get live macros
                   const baseIng = ingredientDBMap.get(normalizeText(ing.name));
                   const scale = baseIng ? ing.quantity / 100 : 0;
                   const calories = baseIng ? (baseIng.calories || 0) * scale : 0;
@@ -481,8 +490,27 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
         </ScrollArea>
       </div>
       <DialogFooter className="mt-6 justify-between">
-         {isAdmin && !isNutriPlannerRecipe ? (
+         {isAdmin && (
           <AlertDialog>
+              <AlertDialogTrigger asChild>
+              <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="bg-glass">
+              <AlertDialogHeader>
+                  <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                  Esta acción no se puede deshacer. Esto eliminará permanentemente la receta.
+                  </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => onDelete(recipe.id, isNutriPlannerRecipe)}>Borrar</AlertDialogAction>
+              </AlertDialogFooter>
+              </AlertDialogContent>
+          </AlertDialog>
+        )}
+        {!isAdmin && !isNutriPlannerRecipe && (
+             <AlertDialog>
               <AlertDialogTrigger asChild>
               <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
               </AlertDialogTrigger>
@@ -499,7 +527,7 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
               </AlertDialogFooter>
               </AlertDialogContent>
           </AlertDialog>
-        ) : <div></div>}
+        )}
         
         <div className='flex gap-2'>
           {isNutriPlannerRecipe && (
@@ -508,7 +536,7 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
           {isAdmin && (
             <Button variant="outline" onClick={() => onEdit(recipe, isNutriPlannerRecipe)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
           )}
-          {!isNutriPlannerRecipe && !isAdmin && (
+          {!isNutriPlannerRecipe && (
             <Button variant="outline" onClick={() => onEdit(recipe, false)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
           )}
         </div>
