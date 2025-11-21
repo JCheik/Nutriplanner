@@ -23,19 +23,17 @@ const provider = new GoogleAuthProvider();
 export async function migrateInitialIngredients(firestore: Firestore, userId: string): Promise<number> {
     const ingredientsCollectionRef = collection(firestore, 'ingredients');
     
-    // Step 1: Collect all unique ingredients from INITIAL_RECIPES, prioritizing those with macro data.
     const uniqueIngredients = new Map<string, Omit<BaseIngredient, 'id'>>();
+
     INITIAL_RECIPES.forEach(recipe => {
         (recipe.ingredients || []).forEach(ing => {
             const key = ing.name.toLowerCase();
             const quantity = ing.quantity ?? 0;
-            
-            if (quantity <= 0) {
-              console.warn(`Skipping ingredient with zero or undefined quantity: ${ing.name}`);
-              return;
-            }
+
+            if (quantity <= 0) return;
 
             const scale = 100 / quantity;
+            
             const newIngredientData: Omit<BaseIngredient, 'id'> = {
                 name: ing.name,
                 calories: (ing.calories ?? 0) * scale,
@@ -45,12 +43,13 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
                 fiber: 0,
                 createdBy: userId
             };
-
+            
+            // Avoid NaN values
             if (Object.values(newIngredientData).some(val => typeof val === 'number' && isNaN(val))) {
                 console.warn(`Skipping ingredient with NaN values: ${newIngredientData.name}`);
                 return;
             }
-            
+
             const existing = uniqueIngredients.get(key);
             const existingHasMacros = (existing?.calories ?? 0) > 0 || (existing?.protein ?? 0) > 0;
             const newHasMacros = newIngredientData.calories > 0 || newIngredientData.protein > 0;
@@ -158,12 +157,6 @@ export const signInWithGoogle = async (auth: Auth, firestore: Firestore) => {
           stickyNote: '¡Bienvenido a NutriPlanner! Usa esta nota para apuntar lo que quieras.',
         }
         batch.set(userRef, profile, { merge: true });
-
-        const recipesCollectionRef = collection(firestore, 'users', user.uid, 'recipes');
-        INITIAL_RECIPES.forEach(recipe => {
-          const recipeRef = doc(recipesCollectionRef);
-          batch.set(recipeRef, { ...recipe, id: recipeRef.id });
-        });
 
         const weekPlanCollectionRef = collection(firestore, 'users', user.uid, 'weekPlan');
         INITIAL_WEEK_PLAN.forEach(dayPlan => {

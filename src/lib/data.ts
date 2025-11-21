@@ -4,7 +4,6 @@ import { PlaceHolderImages } from './placeholder-images';
 
 const findImage = (hint: string) => PlaceHolderImages.find(img => img.imageHint.includes(hint));
 
-// This helper function now only includes the necessary data for migration.
 const createInitialIngredient = (
     name: string,
     quantity: number,
@@ -18,7 +17,6 @@ const createInitialIngredient = (
     name,
     quantity,
     unit,
-    // Macro data is included here *only* for the initial migration script.
     calories,
     protein,
     carbs,
