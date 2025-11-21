@@ -22,7 +22,7 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Kalam:wght@400;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet" />
       </head>
       <body 
-        className="font-body antialiased kitchen-bg"
+        className="font-body antialiased bg-background"
       >
         <FirebaseClientProvider>
           {children}

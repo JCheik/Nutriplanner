@@ -6,8 +6,8 @@ import { useAuth, useFirestore } from '@/firebase/provider';
 import Dashboard from './dashboard/page';
 import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 const isMobileDevice = () => {
     if (typeof window === 'undefined') return false;
@@ -60,7 +60,7 @@ export default function Home() {
   // Show a generic loader while determining client type or auth state.
   if (loading || isMobile === null) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
           <Logo className="h-12 w-12 text-primary animate-pulse" />
           <p className="text-lg text-muted-foreground">Cargando tu planificador...</p>
@@ -83,7 +83,7 @@ export default function Home() {
   // Showing a loader here prevents a flash of the login screen.
   if (user && isMobile) {
     return (
-       <div className="flex items-center justify-center min-h-screen">
+       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
           <Logo className="h-12 w-12 text-primary animate-pulse" />
           <p className="text-lg text-muted-foreground">Redirigiendo...</p>
@@ -94,38 +94,50 @@ export default function Home() {
 
   // Otherwise, show the welcome/login screen.
   return (
-    <div className="flex items-center justify-center min-h-screen p-4">
-      <Card className="w-full max-w-md bg-glass text-center">
-        <CardHeader>
-          <div className="flex justify-center mb-4">
-            <Logo className="h-16 w-16 text-primary" />
+    <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen">
+      <div className="flex items-center justify-center p-6 sm:p-12">
+        <div className="mx-auto grid w-[350px] gap-6">
+          <div className="grid gap-2 text-center">
+             <div className="flex justify-center mb-2">
+              <Logo className="h-12 w-12 text-primary" />
+            </div>
+            <h1 className="text-3xl font-bold">Bienvenido a NutriPlanner</h1>
+            <p className="text-balance text-muted-foreground">
+              Planifica tus comidas, crea recetas y alcanza tus objetivos nutricionales.
+            </p>
           </div>
-          <CardTitle>Bienvenido a NutriPlanner</CardTitle>
-          <CardDescription>
-            Planifica tus comidas, crea recetas y alcanza tus objetivos nutricionales. Inicia sesión para guardar tu progreso o prueba la aplicación como invitado.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <Button
-            onClick={handleSignIn}
-            className="w-full h-12 text-base"
-            size="lg"
-          >
-            <svg className="mr-2 h-5 w-5" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
-              <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 126 23.4 172.9 61.9l-76.2 64.5C308.6 106.5 280.4 96 248 96c-84.3 0-152.3 67.8-152.3 152s68 152 152.3 152c92.8 0 140.3-61.5 143.8-92.6H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
-            </svg>
-            Iniciar Sesión con Google
-          </Button>
-          <Button
-            onClick={handleGuestMode}
-            className="w-full h-12 text-base"
-            size="lg"
-            variant="secondary"
-          >
-            Continuar como Invitado
-          </Button>
-        </CardContent>
-      </Card>
+          <div className="grid gap-4">
+            <Button
+              onClick={handleSignIn}
+              className="w-full h-11 text-base"
+              size="lg"
+            >
+              <svg className="mr-2 h-5 w-5" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
+                <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 126 23.4 172.9 61.9l-76.2 64.5C308.6 106.5 280.4 96 248 96c-84.3 0-152.3 67.8-152.3 152s68 152 152.3 152c92.8 0 140.3-61.5 143.8-92.6H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
+              </svg>
+              Iniciar Sesión con Google
+            </Button>
+            <Button
+              onClick={handleGuestMode}
+              className="w-full h-11 text-base"
+              size="lg"
+              variant="secondary"
+            >
+              Continuar como Invitado
+            </Button>
+          </div>
+        </div>
+      </div>
+      <div className="hidden bg-muted lg:block">
+        <Image
+          src="https://images.unsplash.com/photo-1599021419847-d8a7a6aba5b4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxncmVlayUyMHNhbGFkfGVufDB8fHx8MTc2MzI0NzI4NHww&ixlib=rb-4.1.0&q=80&w=1080"
+          alt="Ensalada griega saludable"
+          width="1920"
+          height="1080"
+          className="h-full w-full object-cover"
+          data-ai-hint="greek salad"
+        />
+      </div>
     </div>
   );
 }
