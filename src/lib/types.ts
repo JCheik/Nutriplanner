@@ -20,7 +20,12 @@ export interface Ingredient {
   name: string;
   quantity: number;
   unit: string;
-  // Macro data is now removed from here.
+  // The following properties are temporarily allowed for the initial migration script
+  // but should not be used in the application logic itself.
+  calories?: number;
+  protein?: number;
+  carbs?: number;
+  fat?: number;
 }
 
 export interface Folder {

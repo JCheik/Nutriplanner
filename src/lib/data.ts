@@ -1,10 +1,26 @@
-import type { Recipe, WeekPlan, Meal, DayPlan } from './types';
+import type { Recipe, WeekPlan, Meal, DayPlan, Ingredient } from './types';
 import { PlaceHolderImages } from './placeholder-images';
 
 const findImage = (hint: string) => PlaceHolderImages.find(img => img.imageHint.includes(hint));
 
-// NOTE: The macros within each ingredient are now for reference during initial creation only.
-// The final recipe object will NOT store these macros inside the ingredients array.
+// Helper to create ingredients with full macros for initial migration
+const createInitialIngredient = (name: string, quantity: number, unit: string, calories: number, protein: number, carbs: number, fat: number): Ingredient => ({
+    id: `ing-${name.toLowerCase().replace(' ', '-')}-${Math.random()}`,
+    name,
+    quantity,
+    unit,
+    // @ts-ignore
+    calories,
+    // @ts-ignore
+    protein,
+    // @ts-ignore
+    carbs,
+    // @ts-ignore
+    fat,
+});
+
+// NOTE: The macros within each ingredient are for reference during initial migration ONLY.
+// The final recipe object created in the app will NOT store these macros inside the ingredients array.
 export const INITIAL_RECIPES: Recipe[] = [
   {
     id: '1',
@@ -16,9 +32,9 @@ export const INITIAL_RECIPES: Recipe[] = [
     carbs: 15,
     fat: 25,
     ingredients: [
-      { id: 'i1', name: 'Lechuga', quantity: 100, unit: 'g' },
-      { id: 'i2', name: 'Tomate', quantity: 150, unit: 'g' },
-      { id: 'i3', name: 'Queso Feta', quantity: 50, unit: 'g' },
+      createInitialIngredient('Lechuga', 100, 'g', 15, 1.4, 2.9, 0.2),
+      createInitialIngredient('Tomate', 150, 'g', 27, 1.3, 5.8, 0.3),
+      createInitialIngredient('Queso Feta', 50, 'g', 132, 7, 2, 11),
     ],
     imageUrl: findImage('greek salad')?.imageUrl,
     imageHint: findImage('greek salad')?.imageHint,
@@ -33,8 +49,8 @@ export const INITIAL_RECIPES: Recipe[] = [
     carbs: 0,
     fat: 8,
     ingredients: [
-      { id: 'i4', name: 'Pechuga de Pollo', quantity: 200, unit: 'g' },
-      { id: 'i5', name: 'Aceite de Oliva', quantity: 5, unit: 'ml' },
+      createInitialIngredient('Pechuga de Pollo', 200, 'g', 330, 62, 0, 7.2),
+      createInitialIngredient('Aceite de Oliva', 5, 'ml', 44, 0, 0, 5),
     ],
     imageUrl: findImage('grilled chicken')?.imageUrl,
     imageHint: findImage('grilled chicken')?.imageHint,
@@ -49,9 +65,9 @@ export const INITIAL_RECIPES: Recipe[] = [
     carbs: 75,
     fat: 10,
     ingredients: [
-      { id: 'i6', name: 'Avena', quantity: 80, unit: 'g' },
-      { id: 'i7', name: 'Frutos Rojos', quantity: 150, unit: 'g' },
-      { id: 'i8', name: 'Leche', quantity: 200, unit: 'ml' },
+       createInitialIngredient('Avena', 80, 'g', 311, 13.5, 55, 5.5),
+       createInitialIngredient('Frutos Rojos', 150, 'g', 85, 1, 20, 0.5),
+       createInitialIngredient('Leche', 200, 'ml', 92, 6.6, 9.6, 2),
     ],
     imageUrl: findImage('oatmeal berries')?.imageUrl,
     imageHint: findImage('oatmeal berries')?.imageHint,
@@ -66,9 +82,9 @@ export const INITIAL_RECIPES: Recipe[] = [
     carbs: 10,
     fat: 38,
     ingredients: [
-      { id: 'i9', name: 'Salmón', quantity: 180, unit: 'g' },
-      { id: 'i10', name: 'Espárragos', quantity: 150, unit: 'g' },
-      { id: 'i11', name: 'Limón', quantity: 30, unit: 'g' },
+      createInitialIngredient('Salmón', 180, 'g', 374, 36, 0, 25),
+      createInitialIngredient('Espárragos', 150, 'g', 30, 3.3, 5.8, 0.2),
+      createInitialIngredient('Limón', 30, 'g', 9, 0.3, 2.8, 0.1),
     ],
     imageUrl: findImage('baked salmon')?.imageUrl,
     imageHint: findImage('baked salmon')?.imageHint,
@@ -83,10 +99,10 @@ export const INITIAL_RECIPES: Recipe[] = [
     carbs: 80,
     fat: 15,
     ingredients: [
-      { id: 'i12', name: 'Lentejas', quantity: 100, unit: 'g' },
-      { id: 'i13', name: 'Chorizo', quantity: 50, unit: 'g' },
-      { id: 'i14', name: 'Zanahoria', quantity: 80, unit: 'g' },
-      { id: 'i15', name: 'Cebolla', quantity: 50, unit: 'g' },
+      createInitialIngredient('Lentejas', 100, 'g', 353, 26, 60, 1.1),
+      createInitialIngredient('Chorizo', 50, 'g', 225, 12, 1, 19),
+      createInitialIngredient('Zanahoria', 80, 'g', 33, 0.7, 7.8, 0.2),
+      createInitialIngredient('Cebolla', 50, 'g', 20, 0.6, 4.7, 0.1),
     ],
     imageUrl: findImage('lentil stew')?.imageUrl,
     imageHint: findImage('lentil stew')?.imageHint,
@@ -101,14 +117,48 @@ export const INITIAL_RECIPES: Recipe[] = [
     carbs: 90,
     fat: 30,
     ingredients: [
-      { id: 'i16', name: 'Espaguetis', quantity: 100, unit: 'g' },
-      { id: 'i17', name: 'Guanciale', quantity: 50, unit: 'g' },
-      { id: 'i18', name: 'Yema de Huevo', quantity: 40, unit: 'g' },
-      { id: 'i19', name: 'Queso Pecorino', quantity: 30, unit: 'g' },
+      createInitialIngredient('Espaguetis', 100, 'g', 371, 13, 75, 1.5),
+      createInitialIngredient('Guanciale', 50, 'g', 300, 13, 0, 28),
+      createInitialIngredient('Yema de Huevo', 40, 'g', 130, 6, 0.2, 11),
+      createInitialIngredient('Queso Pecorino', 30, 'g', 117, 7.5, 0.4, 9.6),
     ],
     imageUrl: findImage('pasta carbonara')?.imageUrl,
     imageHint: findImage('pasta carbonara')?.imageHint,
-  }
+  },
+  {
+    id: '7',
+    name: 'Pudding de Chía',
+    description: 'Un desayuno o postre saludable, lleno de fibra y Omega-3.',
+    instructions: '1. Mezcla las semillas de chía con la leche y el sirope. 2. Deja reposar en la nevera al menos 4 horas. 3. Sirve con fruta fresca.',
+    calories: 300,
+    protein: 8,
+    carbs: 30,
+    fat: 16,
+    ingredients: [
+        createInitialIngredient('Semillas de Chía', 30, 'g', 146, 5, 12.6, 9.2),
+        createInitialIngredient('Leche de Almendras', 200, 'ml', 30, 1, 1, 2.5),
+        createInitialIngredient('Sirope de Arce', 15, 'ml', 52, 0, 13, 0),
+    ],
+    imageUrl: findImage('chia pudding')?.imageUrl,
+    imageHint: findImage('chia pudding')?.imageHint,
+  },
+  {
+    id: '8',
+    name: 'Tostada de Aguacate y Huevo',
+    description: 'Un clásico del brunch, rápido, fácil y nutritivo.',
+    instructions: '1. Tuesta el pan. 2. Machaca el aguacate y úntalo sobre la tostada. 3. Cocina un huevo poché o frito y colócalo encima. 4. Sazona al gusto.',
+    calories: 400,
+    protein: 15,
+    carbs: 30,
+    fat: 25,
+    ingredients: [
+        createInitialIngredient('Pan Integral', 80, 'g', 212, 11, 41, 3),
+        createInitialIngredient('Aguacate', 100, 'g', 160, 2, 9, 15),
+        createInitialIngredient('Huevo', 50, 'g', 78, 6, 0.6, 5),
+    ],
+    imageUrl: findImage('avocado toast')?.imageUrl,
+    imageHint: findImage('avocado toast')?.imageHint,
+  },
 ];
 
 const defaultMeals: Omit<Meal, 'id'>[] = [

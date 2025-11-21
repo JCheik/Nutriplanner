@@ -35,6 +35,18 @@
       "description": "Baked salmon with asparagus and lemon.",
       "imageUrl": "https://images.unsplash.com/photo-1519623238617-1f19f7273d2a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxiYWtlZCUyMHNhbG1vbnxlbnwwfHx8fDE3NjM0MDk4MzV8MA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "baked salmon"
+    },
+    {
+      "id": "7",
+      "description": "A glass of healthy chia pudding with berries.",
+      "imageUrl": "https://images.unsplash.com/photo-1565599249889-7de4c136a57c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxjaGlhJTIwcHVkZGluZ3xlbnwwfHx8fDE3NjM0MTAyMjB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "chia pudding"
+    },
+    {
+      "id": "8",
+      "description": "A piece of toast with mashed avocado and a fried egg on top.",
+      "imageUrl": "https://images.unsplash.com/photo-1525351484163-7529414344d8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxhdm9jYWRvJTIwdG9hc3R8ZW58MHx8fHwxNzYzNDEwMjQ0fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "avocado toast"
     }
   ]
 }
