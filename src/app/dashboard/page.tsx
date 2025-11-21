@@ -16,7 +16,7 @@ import { useUser } from '@/firebase/auth/use-user';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useDoc } from '@/firebase/firestore/use-doc';
 import { useFirebase, useFirestore, useMemoFirebase } from '@/firebase/index';
-import { collection, doc, writeBatch, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, writeBatch, setDoc } from 'firebase/firestore';
 import {
   setDocumentNonBlocking,
   updateDocumentNonBlocking,
@@ -111,13 +111,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
 
   const foldersCollectionRef = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'users', user.uid, 'folders') : null, [firestore, user]);
   const { data: folders, isLoading: foldersLoading } = useCollection<Folder>(foldersCollectionRef);
-
-  const globalFoldersCollectionRef = useMemoFirebase(() => (firestore && !isGuestMode) ? collection(firestore, 'nutriplanner_folders') : null, [firestore, isGuestMode]);
-  const { data: globalFolders, isLoading: globalFoldersLoading } = useCollection<GlobalFolder>(globalFoldersCollectionRef);
-
-  const nutriplannerRecipesCollectionRef = useMemoFirebase(() => (firestore && !isGuestMode) ? collection(firestore, 'nutriplanner_recipes') : null, [firestore, isGuestMode]);
-  const { data: nutriplannerRecipes, isLoading: nutriplannerRecipesLoading } = useCollection<Recipe>(nutriplannerRecipesCollectionRef);
-
+  
   const weekPlanCollectionRef = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'users', user.uid, 'weekPlan') : null, [firestore, user]);
   const { data: weekPlanData, isLoading: weekPlanLoading } = useCollection<DayPlan>(weekPlanCollectionRef);
   
@@ -150,8 +144,6 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
   // Memoized data sources based on auth state
   const currentUserRecipes = useMemo(() => isGuestMode ? guestRecipes : (userRecipes || []), [isGuestMode, guestRecipes, userRecipes]);
   const currentFolders = useMemo(() => isGuestMode ? [] : (folders || []), [isGuestMode, folders]);
-  const currentGlobalFolders = useMemo(() => isGuestMode ? [] : (globalFolders || []), [isGuestMode, globalFolders]);
-  const currentNutriplannerRecipes = useMemo(() => isGuestMode ? [] : (nutriplannerRecipes || []), [isGuestMode, nutriplannerRecipes]);
   
   const currentWeekPlan = useMemo(() => {
     if (isGuestMode) return guestWeekPlan;
@@ -363,43 +355,38 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
 
   const handleDeleteRecipe = useCallback(async (recipeId: string, isGlobal: boolean) => {
     if (promptToRegister()) return;
-    if (!user || !firestore) return;
+    if (!user || !firestore || !userRecipesCollectionRef) return;
     
-    const targetCollectionRef = isGlobal ? nutriplannerRecipesCollectionRef : userRecipesCollectionRef;
-    if (!targetCollectionRef) return;
-
-    const recipeRef = doc(targetCollectionRef, recipeId);
+    const recipeRef = doc(userRecipesCollectionRef, recipeId);
     deleteDocumentNonBlocking(recipeRef);
 
-    // If a user recipe is deleted, also remove all its instances from the week plan
-    if (!isGlobal) {
-        try {
-            const batch = writeBatch(firestore);
-            currentWeekPlan.forEach(dayPlan => {
-                let dayWasUpdated = false;
-                const newMeals = dayPlan.meals.map(meal => {
-                    const initialLength = meal.recipes.length;
-                    const filteredRecipes = meal.recipes.filter(r => r.id !== recipeId);
-                    if (initialLength > filteredRecipes.length) {
-                        dayWasUpdated = true;
-                        return { ...meal, recipes: filteredRecipes };
-                    }
-                    return meal;
-                });
-                if (dayWasUpdated) {
-                    const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', dayPlan.day);
-                    batch.set(dayDocRef, { meals: newMeals }, { merge: true });
+    // Also remove all instances of the deleted recipe from the week plan
+    try {
+        const batch = writeBatch(firestore);
+        currentWeekPlan.forEach(dayPlan => {
+            let dayWasUpdated = false;
+            const newMeals = dayPlan.meals.map(meal => {
+                const initialLength = meal.recipes.length;
+                const filteredRecipes = meal.recipes.filter(r => r.id !== recipeId);
+                if (initialLength > filteredRecipes.length) {
+                    dayWasUpdated = true;
+                    return { ...meal, recipes: filteredRecipes };
                 }
+                return meal;
             });
-            await batch.commit();
-        } catch (error) {
-            console.error("Error removing recipe from week plan:", error);
-        }
+            if (dayWasUpdated) {
+                const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', dayPlan.day);
+                batch.set(dayDocRef, { meals: newMeals }, { merge: true });
+            }
+        });
+        await batch.commit();
+    } catch (error) {
+        console.error("Error removing recipe from week plan:", error);
     }
 
     toast({ title: 'Receta eliminada', description: 'La receta ha sido eliminada permanentemente.' });
     handleDialogClose();
-  }, [handleDialogClose, user, firestore, userRecipesCollectionRef, nutriplannerRecipesCollectionRef, currentWeekPlan, toast, isGuestMode]);
+  }, [handleDialogClose, user, firestore, userRecipesCollectionRef, currentWeekPlan, toast, isGuestMode]);
 
   const handleCopyRecipe = useCallback((recipe: Recipe) => {
     if (promptToRegister()) return;
@@ -452,44 +439,6 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     toast({ title: 'Receta movida' });
   }, [user, firestore, isGuestMode]);
 
-  // --- Global Folder Actions (Admin only) ---
-  const handleGlobalFolderCreate = useCallback((name: string) => {
-    if (!globalFoldersCollectionRef) return;
-    const newFolder: Omit<GlobalFolder, 'id'> = { name };
-    addDocumentNonBlocking(globalFoldersCollectionRef, newFolder);
-    toast({ title: 'Carpeta global creada', description: `La carpeta "${name}" ha sido creada.` });
-  }, [globalFoldersCollectionRef]);
-
-  const handleGlobalFolderDelete = useCallback(async (id: string) => {
-    if (!firestore || !globalFoldersCollectionRef) return;
-    
-    const folderRef = doc(firestore, 'nutriplanner_folders', id);
-    deleteDocumentNonBlocking(folderRef);
-
-    const batch = writeBatch(firestore);
-    const recipesToUpdate = nutriplannerRecipes?.filter(r => r.folderId === id) || [];
-    recipesToUpdate.forEach(recipe => {
-      const recipeRef = doc(firestore, 'nutriplanner_recipes', recipe.id);
-      batch.update(recipeRef, { folderId: null });
-    });
-    
-    await batch.commit();
-    toast({ title: 'Carpeta global eliminada' });
-  }, [firestore, nutriplannerRecipes]);
-
-  const handleGlobalFolderUpdate = useCallback((id: string, name: string) => {
-    if (!firestore) return;
-    const folderRef = doc(firestore, 'nutriplanner_folders', id);
-    updateDocumentNonBlocking(folderRef, { name });
-  }, [firestore]);
-
-  const handleAssignRecipeToGlobalFolder = useCallback((recipeId: string, folderId: string | null) => {
-    if (!firestore) return;
-    const recipeRef = doc(firestore, 'nutriplanner_recipes', recipeId);
-    updateDocumentNonBlocking(recipeRef, { folderId });
-    toast({ title: 'Receta movida' });
-  }, [firestore]);
-
 
   const dailyTotals = useMemo(() => {
     return currentWeekPlan.map(dayPlan => {
@@ -536,7 +485,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     }
   }
 
-  const isLoading = !isGuestMode && (userLoading || userRecipesLoading || nutriplannerRecipesLoading || weekPlanLoading || profileLoading || foldersLoading || globalFoldersLoading);
+  const isLoading = !isGuestMode && (userLoading || userRecipesLoading || weekPlanLoading || profileLoading || foldersLoading);
 
   if (isLoading) {
     return (
@@ -573,9 +522,9 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
           <div className="grid grid-cols-1 gap-6">
             <RecipeLibrary 
               userRecipes={currentUserRecipes}
-              nutriplannerRecipes={currentNutriplannerRecipes}
+              nutriplannerRecipes={INITIAL_RECIPES}
               folders={currentFolders}
-              globalFolders={currentGlobalFolders}
+              globalFolders={[]}
               onRecipeAction={handleRecipeAction}
               onCopyRecipe={handleCopyRecipe}
               onAddToPlan={handleAddToPlan}
@@ -583,10 +532,10 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
               onFolderUpdate={handleFolderUpdate}
               onFolderDelete={handleFolderDelete}
               onAssignRecipeToFolder={handleAssignRecipeToFolder}
-              onGlobalFolderCreate={handleGlobalFolderCreate}
-              onGlobalFolderUpdate={handleGlobalFolderUpdate}
-              onGlobalFolderDelete={handleGlobalFolderDelete}
-              onAssignRecipeToGlobalFolder={handleAssignRecipeToGlobalFolder}
+              onGlobalFolderCreate={() => {}}
+              onGlobalFolderUpdate={() => {}}
+              onGlobalFolderDelete={() => {}}
+              onAssignRecipeToGlobalFolder={() => {}}
             />
           </div>
         </div>
@@ -595,7 +544,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
         dialogState={dialogState}
         isSaving={isSaving}
         folders={currentFolders}
-        globalFolders={currentGlobalFolders}
+        globalFolders={[]}
         onClose={handleDialogClose}
         onSave={handleSaveRecipe}
         onDelete={handleDeleteRecipe}

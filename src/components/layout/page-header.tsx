@@ -2,9 +2,9 @@
 import { useState } from 'react';
 import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
-import { LogOut, User as UserIcon, CheckCircle, UserPlus, Database, Trash2 } from 'lucide-react';
+import { LogOut, User as UserIcon, CheckCircle, UserPlus } from 'lucide-react';
 import Link from 'next/link';
-import { useUser, signInWithGoogle, signOut, migrateInitialIngredients, populateAndCleanGlobalRecipes } from '@/firebase/auth/use-user';
+import { useUser, signInWithGoogle, signOut } from '@/firebase/auth/use-user';
 import { useAuth, useFirestore, useFirebaseApp } from '@/firebase/provider';
 import {
   DropdownMenu,
@@ -15,7 +15,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { useToast } from '@/hooks/use-toast';
 
 
 interface PageHeaderProps {
@@ -29,7 +28,6 @@ export function PageHeader({ isGuest = false, onRegisterClick }: PageHeaderProps
   const firestore = useFirestore();
   const firebaseApp = useFirebaseApp();
   const isAdmin = claims?.admin === true;
-  const { toast } = useToast();
   
   const handleSignIn = async () => {
     if (auth && firestore) {
@@ -40,54 +38,6 @@ export function PageHeader({ isGuest = false, onRegisterClick }: PageHeaderProps
   const handleSignOut = () => {
     if (auth) {
       signOut(auth);
-    }
-  };
-  
-  const handleMigration = async () => {
-    if (!firestore || !user) {
-        toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: 'No se pudo realizar la migración. Intenta iniciar sesión de nuevo.',
-        });
-        return;
-    };
-    try {
-        const count = await migrateInitialIngredients(firestore, user.uid);
-        toast({
-            title: 'Migración completada',
-            description: `${count} ingredientes nuevos han sido añadidos a la base de datos.`,
-        });
-    } catch (error: any) {
-        toast({
-            variant: 'destructive',
-            title: 'Error en la migración',
-            description: error.message || 'No se pudieron migrar los ingredientes.',
-        });
-    }
-  };
-
-  const handlePopulateAndClean = async () => {
-    if (!firestore) {
-        toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: 'No se pudo conectar con la base de datos.',
-        });
-        return;
-    };
-    try {
-        const count = await populateAndCleanGlobalRecipes(firestore);
-        toast({
-            title: 'Proceso completado',
-            description: `${count} recetas globales han sido creadas/actualizadas con datos limpios.`,
-        });
-    } catch (error: any) {
-        toast({
-            variant: 'destructive',
-            title: 'Error en el proceso',
-            description: error.message || 'No se pudieron poblar las recetas globales.',
-        });
     }
   };
 
@@ -124,18 +74,6 @@ export function PageHeader({ isGuest = false, onRegisterClick }: PageHeaderProps
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {isAdmin && (
-                <>
-                  <DropdownMenuItem onClick={handleMigration} className="cursor-pointer">
-                      <Database className="mr-2 h-4 w-4" />
-                      <span>Migrar Ingredientes</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handlePopulateAndClean} className="cursor-pointer">
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      <span>Poblar Recetas Globales</span>
-                  </DropdownMenuItem>
-                </>
-              )}
               <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Cerrar sesión</span>
