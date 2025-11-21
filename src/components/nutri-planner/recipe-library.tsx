@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IngredientsDialog } from './ingredients-dialog';
-import { cn } from '@/lib/utils';
+import { cn, normalizeText } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Label } from '../ui/label';
 import { useUser } from '@/firebase';
@@ -311,10 +311,10 @@ export function RecipeLibrary({
 
   const filteredAndSortedRecipes = useMemo(() => {
     return (recipesInSelectedFolder || []).filter(recipe => {
-      const query = filterQuery.toLowerCase();
-      if (!query) return true;
-      const nameMatch = recipe.name.toLowerCase().includes(query);
-      const ingredientMatch = (recipe.ingredients || []).some(ing => ing.name.toLowerCase().includes(query));
+      const normalizedQuery = normalizeText(filterQuery);
+      if (!normalizedQuery) return true;
+      const nameMatch = normalizeText(recipe.name).includes(normalizedQuery);
+      const ingredientMatch = (recipe.ingredients || []).some(ing => normalizeText(ing.name).includes(normalizedQuery));
       return nameMatch || ingredientMatch;
     }).sort((a, b) => {
       const [key, order] = sortCriteria.split('-') as [keyof Recipe, 'asc' | 'desc'];
@@ -322,8 +322,8 @@ export function RecipeLibrary({
       let valB = b[key];
       
       if (typeof valA === 'string' && typeof valB === 'string') {
-        valA = valA.toLowerCase();
-        valB = valB.toLowerCase();
+        valA = normalizeText(valA);
+        valB = normalizeText(valB);
       }
 
       if (valA === undefined || valA === null) return 1;

@@ -36,6 +36,7 @@ import { Card, CardContent } from '../ui/card';
 import Image from 'next/image';
 import { Switch } from '../ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { normalizeText } from '@/lib/utils';
 
 
 interface RecipeDialogProps {
@@ -70,7 +71,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
   const ingredientDBMap = useMemo(() => {
     const map = new Map<string, BaseIngredient>();
     if (ingredientDB) {
-      ingredientDB.forEach(ing => map.set(ing.name.toLowerCase(), ing));
+      ingredientDB.forEach(ing => map.set(normalizeText(ing.name), ing));
     }
     return map;
   }, [ingredientDB]);
@@ -113,7 +114,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
 
   const calculatedTotals = useMemo(() => {
     return ingredients.reduce((acc, ing) => {
-        const baseIng = ingredientDBMap.get(ing.name.toLowerCase());
+        const baseIng = ingredientDBMap.get(normalizeText(ing.name));
         if (!baseIng) return acc;
       
         const scale = ing.quantity / 100;
@@ -182,7 +183,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
   
   const ingredientDisplayList = useMemo(() => {
     return ingredients.map(ing => {
-        const baseIng = ingredientDBMap.get(ing.name.toLowerCase());
+        const baseIng = ingredientDBMap.get(normalizeText(ing.name));
         const scale = ing.quantity / 100;
         const calories = baseIng ? (baseIng.calories || 0) * scale : 0;
         return {
@@ -194,11 +195,11 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
 
 
   const filteredIngredients = useMemo(() => {
-    const lowercasedQuery = searchQuery.toLowerCase();
-    if (!lowercasedQuery) return [];
+    const normalizedQuery = normalizeText(searchQuery);
+    if (!normalizedQuery) return [];
     
     return (ingredientDB || [])
-        .filter(ingredient => ingredient.name.toLowerCase().includes(lowercasedQuery))
+        .filter(ingredient => normalizeText(ingredient.name).includes(normalizedQuery))
         .sort((a, b) => a.name.localeCompare(b.name))
         .slice(0, 5);
   }, [searchQuery, ingredientDB]);
