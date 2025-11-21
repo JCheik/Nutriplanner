@@ -36,7 +36,8 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
 
             // If the new one has macros and the existing one doesn't, or if it's the first time we see it, add it.
             if (!existing || (hasMacros && !existingHasMacros)) {
-                 const scale = (ing.quantity ?? 0) > 0 ? 100 / ing.quantity! : 0;
+                 const quantity = ing.quantity ?? 0;
+                 const scale = quantity > 0 ? 100 / quantity : 0;
                  const normalizedIngredient: Omit<BaseIngredient, 'id'> = {
                     name: ing.name,
                     calories: (ing.calories ?? 0) * scale,
@@ -64,6 +65,11 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
 
     uniqueIngredients.forEach((ingredientData, key) => {
         if (!existingIngredientNames.has(key)) {
+            // Avoid creating ingredients with NaN values
+            if (isNaN(ingredientData.calories) || isNaN(ingredientData.protein) || isNaN(ingredientData.carbs) || isNaN(ingredientData.fat)) {
+                console.warn(`Skipping ingredient with NaN values: ${ingredientData.name}`);
+                return;
+            }
             const docId = ingredientData.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
             if (!docId) return;
             const newIngredientRef = doc(ingredientsCollectionRef, docId);

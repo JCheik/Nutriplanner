@@ -1,4 +1,5 @@
-import type { Recipe, WeekPlan, Meal, DayPlan, Ingredient } from './types';
+'use client';
+import type { Recipe, WeekPlan, Meal, DayPlan, Ingredient, BaseIngredient } from './types';
 import { PlaceHolderImages } from './placeholder-images';
 
 const findImage = (hint: string) => PlaceHolderImages.find(img => img.imageHint.includes(hint));
@@ -177,7 +178,8 @@ export const INITIAL_RECIPES: Recipe[] = [
     fat: 12,
     ingredients: [
       createInitialIngredient('Avena', 60, 'g', 232, 10, 41, 5),
-      createInitialIngredient('Leche', 180, 'ml', 85, 6, 8.6, 2),
+      // Repeated ingredient with full data to ensure migration works
+      createInitialIngredient('Leche', 180, 'ml', 85, 6, 8.6, 2), 
       createInitialIngredient('Semillas de Chía', 15, 'g', 73, 2.5, 6, 4.5),
     ],
     imageUrl: findImage('overnight oats')?.imageUrl || findImage('oatmeal berries')?.imageUrl,
@@ -195,6 +197,7 @@ export const INITIAL_RECIPES: Recipe[] = [
     ingredients: [
       createInitialIngredient('Proteína en Polvo', 30, 'g', 120, 25, 2, 2),
       createInitialIngredient('Plátano', 100, 'g', 89, 1.1, 23, 0.3),
+      // Repeated ingredient with full data
       createInitialIngredient('Leche de Almendras', 250, 'ml', 75, 2.5, 2.5, 6.25),
     ],
     imageUrl: findImage('protein shake')?.imageUrl,
@@ -211,6 +214,7 @@ export const INITIAL_RECIPES: Recipe[] = [
     fat: 6,
     ingredients: [
       createInitialIngredient('Yogur Griego', 150, 'g', 146, 15, 6, 7.5),
+      // Repeated ingredient with full data
       createInitialIngredient('Frutos Rojos', 100, 'g', 57, 1, 13, 0.3),
       createInitialIngredient('Miel', 15, 'ml', 48, 0, 13, 0),
     ],
