@@ -22,7 +22,7 @@ const RecipePlaceholder = ({ recipeName, className }: { recipeName: string, clas
     "cursor-pointer"
   )}>
     <span className={cn(
-      "text-center font-semibold text-secondary-foreground text-sm leading-tight break-words",
+      "text-center font-semibold text-secondary-foreground text-sm leading-tight",
       className
     )}>
       {recipeName}
@@ -112,14 +112,14 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
                 />
             ) : (
                 <div className="w-full h-full flex items-center justify-center p-2 bg-secondary">
-                    <span className="text-center font-headline text-lg leading-tight line-clamp-3 text-secondary-foreground">
+                    <span className="text-center font-headline text-lg leading-tight text-secondary-foreground">
                         {recipe.name}
                     </span>
                 </div>
             )}
         </div>
         <div className="p-2 flex-1 flex flex-col justify-center">
-             <h3 className={cn("font-headline text-base leading-tight text-foreground line-clamp-1", className)}>{recipe.name}</h3>
+             <h3 className={cn("font-headline text-base leading-tight text-foreground text-center", className)}>{recipe.name}</h3>
             <div className="mt-2 flex justify-around text-muted-foreground">
                 <div className="flex items-center gap-1">
                     <Flame className="h-3 w-3 text-orange-400" />
