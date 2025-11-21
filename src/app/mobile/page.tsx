@@ -36,11 +36,9 @@ const TodayMeals = ({ dayPlan }: { dayPlan: DayPlan | null }) => {
     <>
       <div className="space-y-6">
         {(dayPlan.meals || []).map((meal: Meal) => (
-          // Simplified for debugging
           <div key={meal.id}>
             <h3 className="text-lg font-semibold mb-2 text-muted-foreground">{meal.title}</h3>
-            {/* Temporarily commented out the recipe mapping to isolate the key issue */}
-            {/* {meal.recipes.length > 0 ? (
+            {meal.recipes.length > 0 ? (
               <div className="grid grid-cols-2 gap-4">
                 {meal.recipes.map((recipe: RecipeInstance) => (
                   <div key={recipe.instanceId}>
@@ -55,7 +53,7 @@ const TodayMeals = ({ dayPlan }: { dayPlan: DayPlan | null }) => {
               <Card className="flex items-center justify-center h-24 border-2 border-dashed">
                 <p className="text-sm text-muted-foreground">Sin recetas</p>
               </Card>
-            )} */}
+            )}
           </div>
         ))}
       </div>
