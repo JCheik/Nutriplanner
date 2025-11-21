@@ -25,25 +25,29 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
     
     const uniqueIngredients = new Map<string, Omit<BaseIngredient, 'id'>>();
 
+    // First pass: iterate over all ingredients and store the most complete version of each.
     INITIAL_RECIPES.forEach(recipe => {
         (recipe.ingredients || []).forEach(ing => {
             const key = ing.name.toLowerCase();
-            
-            // Normalize macros to a 100g standard.
-            // Formula: (value / quantity) * 100
-            // This is only correct if the ingredient macros are for the specified quantity.
-            const scale = (ing.quantity ?? 0) > 0 ? 100 / ing.quantity! : 0;
-            const normalizedIngredient: Omit<BaseIngredient, 'id'> = {
-                name: ing.name,
-                calories: (ing.calories ?? 0) * scale,
-                protein: (ing.protein ?? 0) * scale,
-                carbs: (ing.carbs ?? 0) * scale,
-                fat: (ing.fat ?? 0) * scale,
-                fiber: 0, // Assuming fiber is not in the initial data
-                createdBy: userId
-            };
-            
-            uniqueIngredients.set(key, normalizedIngredient);
+            const hasMacros = (ing.calories ?? 0) > 0 || (ing.protein ?? 0) > 0;
+
+            const existing = uniqueIngredients.get(key);
+            const existingHasMacros = (existing?.calories ?? 0) > 0 || (existing?.protein ?? 0) > 0;
+
+            // If the new one has macros and the existing one doesn't, or if it's the first time we see it, add it.
+            if (!existing || (hasMacros && !existingHasMacros)) {
+                 const scale = (ing.quantity ?? 0) > 0 ? 100 / ing.quantity! : 0;
+                 const normalizedIngredient: Omit<BaseIngredient, 'id'> = {
+                    name: ing.name,
+                    calories: (ing.calories ?? 0) * scale,
+                    protein: (ing.protein ?? 0) * scale,
+                    carbs: (ing.carbs ?? 0) * scale,
+                    fat: (ing.fat ?? 0) * scale,
+                    fiber: 0, // Assuming fiber is not in the initial data
+                    createdBy: userId
+                };
+                uniqueIngredients.set(key, normalizedIngredient);
+            }
         });
     });
 
@@ -54,7 +58,6 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
     const batch = writeBatch(firestore);
     let newIngredientsCount = 0;
     
-    // Check which ingredients already exist to avoid overwriting them
     const existingIngredientsQuery = query(collection(firestore, "ingredients"));
     const existingIngredientsSnapshot = await getDocs(existingIngredientsQuery);
     const existingIngredientNames = new Set(existingIngredientsSnapshot.docs.map(doc => doc.data().name.toLowerCase()));
@@ -109,7 +112,6 @@ export async function cleanNutriPlannerRecipes(firestore: Firestore) {
         ingredients: cleanIngredients,
       };
       
-      // Use the existing document reference from the snapshot to update it
       batch.update(document.ref, cleanedRecipeData);
     });
 
@@ -117,7 +119,11 @@ export async function cleanNutriPlannerRecipes(firestore: Firestore) {
 
   } catch (error) {
     console.error("Error cleaning NutriPlanner recipes:", error);
-    // Optionally re-throw or handle the error as needed
+    errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: '/nutriplanner_recipes',
+        operation: 'write',
+        requestResourceData: { note: 'Batch cleaning of all nutriplanner recipes.' }
+    }));
     throw error;
   }
 }
