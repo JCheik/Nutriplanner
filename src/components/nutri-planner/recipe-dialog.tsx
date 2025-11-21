@@ -396,6 +396,18 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
 function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, isNutriPlannerRecipe }: { recipe: Recipe; folders: Folder[], globalFolders: GlobalFolder[], onEdit: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void; onDelete: (id: string, isGlobal: boolean) => void; onCopy: (recipe: Recipe) => void; isNutriPlannerRecipe: boolean }) {
   const { user, claims } = useUser();
   const isAdmin = claims?.admin === true;
+  const firestore = useFirestore();
+
+  const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);
+  const { data: ingredientDB } = useCollection<BaseIngredient>(ingredientsCollectionRef);
+  
+  const ingredientDBMap = useMemo(() => {
+    const map = new Map<string, BaseIngredient>();
+    if (ingredientDB) {
+      ingredientDB.forEach(ing => map.set(normalizeText(ing.name), ing));
+    }
+    return map;
+  }, [ingredientDB]);
 
   const folderName = useMemo(() => {
     if (!recipe.folderId) return null;
@@ -448,9 +460,17 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
             <div>
               <h3 className="font-semibold mb-2">Ingredientes</h3>
               <ul className="list-disc list-inside space-y-1 text-sm">
-                {recipe.ingredients.map(ing => (
-                  <li key={ing.id}>{ing.quantity}{ing.unit} {ing.name}</li>
-                ))}
+                {recipe.ingredients.map(ing => {
+                  const baseIng = ingredientDBMap.get(normalizeText(ing.name));
+                  const scale = baseIng ? ing.quantity / 100 : 0;
+                  const calories = baseIng ? (baseIng.calories || 0) * scale : 0;
+                  return (
+                    <li key={ing.id}>
+                        {ing.quantity}{ing.unit} {ing.name}
+                        {baseIng && <span className="text-xs text-muted-foreground ml-2">({Math.round(calories)} kcal)</span>}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
             <div>

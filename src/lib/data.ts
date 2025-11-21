@@ -3,24 +3,17 @@ import { PlaceHolderImages } from './placeholder-images';
 
 const findImage = (hint: string) => PlaceHolderImages.find(img => img.imageHint.includes(hint));
 
-// Helper to create ingredients with full macros for initial migration
-const createInitialIngredient = (name: string, quantity: number, unit: string, calories: number, protein: number, carbs: number, fat: number): Ingredient => ({
+// Helper to create ingredients WITHOUT macros, just the reference.
+const createIngredient = (name: string, quantity: number, unit: string): Ingredient => ({
     id: `ing-${name.toLowerCase().replace(' ', '-')}-${Math.random()}`,
     name,
     quantity,
     unit,
-    // @ts-ignore
-    calories,
-    // @ts-ignore
-    protein,
-    // @ts-ignore
-    carbs,
-    // @ts-ignore
-    fat,
 });
 
-// NOTE: The macros within each ingredient are for reference during initial migration ONLY.
-// The final recipe object created in the app will NOT store these macros inside the ingredients array.
+
+// NOTE: The macros within each ingredient were for migration only and are now removed.
+// The recipe's top-level macros are still present as they are pre-calculated totals.
 export const INITIAL_RECIPES: Recipe[] = [
   {
     id: '1',
@@ -32,9 +25,9 @@ export const INITIAL_RECIPES: Recipe[] = [
     carbs: 15,
     fat: 25,
     ingredients: [
-      createInitialIngredient('Lechuga', 100, 'g', 15, 1.4, 2.9, 0.2),
-      createInitialIngredient('Tomate', 150, 'g', 27, 1.3, 5.8, 0.3),
-      createInitialIngredient('Queso Feta', 50, 'g', 132, 7, 2, 11),
+      createIngredient('Lechuga', 100, 'g'),
+      createIngredient('Tomate', 150, 'g'),
+      createIngredient('Queso Feta', 50, 'g'),
     ],
     imageUrl: findImage('greek salad')?.imageUrl,
     imageHint: findImage('greek salad')?.imageHint,
@@ -49,8 +42,8 @@ export const INITIAL_RECIPES: Recipe[] = [
     carbs: 0,
     fat: 8,
     ingredients: [
-      createInitialIngredient('Pechuga de Pollo', 200, 'g', 330, 62, 0, 7.2),
-      createInitialIngredient('Aceite de Oliva', 5, 'ml', 44, 0, 0, 5),
+      createIngredient('Pechuga de Pollo', 200, 'g'),
+      createIngredient('Aceite de Oliva', 5, 'ml'),
     ],
     imageUrl: findImage('grilled chicken')?.imageUrl,
     imageHint: findImage('grilled chicken')?.imageHint,
@@ -65,9 +58,9 @@ export const INITIAL_RECIPES: Recipe[] = [
     carbs: 75,
     fat: 10,
     ingredients: [
-       createInitialIngredient('Avena', 80, 'g', 311, 13.5, 55, 5.5),
-       createInitialIngredient('Frutos Rojos', 150, 'g', 85, 1, 20, 0.5),
-       createInitialIngredient('Leche', 200, 'ml', 92, 6.6, 9.6, 2),
+       createIngredient('Avena', 80, 'g'),
+       createIngredient('Frutos Rojos', 150, 'g'),
+       createIngredient('Leche', 200, 'ml'),
     ],
     imageUrl: findImage('oatmeal berries')?.imageUrl,
     imageHint: findImage('oatmeal berries')?.imageHint,
@@ -82,9 +75,9 @@ export const INITIAL_RECIPES: Recipe[] = [
     carbs: 10,
     fat: 38,
     ingredients: [
-      createInitialIngredient('Salmón', 180, 'g', 374, 36, 0, 25),
-      createInitialIngredient('Espárragos', 150, 'g', 30, 3.3, 5.8, 0.2),
-      createInitialIngredient('Limón', 30, 'g', 9, 0.3, 2.8, 0.1),
+      createIngredient('Salmón', 180, 'g'),
+      createIngredient('Espárragos', 150, 'g'),
+      createIngredient('Limón', 30, 'g'),
     ],
     imageUrl: findImage('baked salmon')?.imageUrl,
     imageHint: findImage('baked salmon')?.imageHint,
@@ -99,10 +92,10 @@ export const INITIAL_RECIPES: Recipe[] = [
     carbs: 80,
     fat: 15,
     ingredients: [
-      createInitialIngredient('Lentejas', 100, 'g', 353, 26, 60, 1.1),
-      createInitialIngredient('Chorizo', 50, 'g', 225, 12, 1, 19),
-      createInitialIngredient('Zanahoria', 80, 'g', 33, 0.7, 7.8, 0.2),
-      createInitialIngredient('Cebolla', 50, 'g', 20, 0.6, 4.7, 0.1),
+      createIngredient('Lentejas', 100, 'g'),
+      createIngredient('Chorizo', 50, 'g'),
+      createIngredient('Zanahoria', 80, 'g'),
+      createIngredient('Cebolla', 50, 'g'),
     ],
     imageUrl: findImage('lentil stew')?.imageUrl,
     imageHint: findImage('lentil stew')?.imageHint,
@@ -117,10 +110,10 @@ export const INITIAL_RECIPES: Recipe[] = [
     carbs: 90,
     fat: 30,
     ingredients: [
-      createInitialIngredient('Espaguetis', 100, 'g', 371, 13, 75, 1.5),
-      createInitialIngredient('Guanciale', 50, 'g', 300, 13, 0, 28),
-      createInitialIngredient('Yema de Huevo', 40, 'g', 130, 6, 0.2, 11),
-      createInitialIngredient('Queso Pecorino', 30, 'g', 117, 7.5, 0.4, 9.6),
+      createIngredient('Espaguetis', 100, 'g'),
+      createIngredient('Guanciale', 50, 'g'),
+      createIngredient('Yema de Huevo', 40, 'g'),
+      createIngredient('Queso Pecorino', 30, 'g'),
     ],
     imageUrl: findImage('pasta carbonara')?.imageUrl,
     imageHint: findImage('pasta carbonara')?.imageHint,
@@ -135,9 +128,9 @@ export const INITIAL_RECIPES: Recipe[] = [
     carbs: 30,
     fat: 16,
     ingredients: [
-        createInitialIngredient('Semillas de Chía', 30, 'g', 146, 5, 12.6, 9.2),
-        createInitialIngredient('Leche de Almendras', 200, 'ml', 30, 1, 1, 2.5),
-        createInitialIngredient('Sirope de Arce', 15, 'ml', 52, 0, 13, 0),
+        createIngredient('Semillas de Chía', 30, 'g'),
+        createIngredient('Leche de Almendras', 200, 'ml'),
+        createIngredient('Sirope de Arce', 15, 'ml'),
     ],
     imageUrl: findImage('chia pudding')?.imageUrl,
     imageHint: findImage('chia pudding')?.imageHint,
@@ -152,9 +145,9 @@ export const INITIAL_RECIPES: Recipe[] = [
     carbs: 30,
     fat: 25,
     ingredients: [
-        createInitialIngredient('Pan Integral', 80, 'g', 212, 11, 41, 3),
-        createInitialIngredient('Aguacate', 100, 'g', 160, 2, 9, 15),
-        createInitialIngredient('Huevo', 50, 'g', 78, 6, 0.6, 5),
+        createIngredient('Pan Integral', 80, 'g'),
+        createIngredient('Aguacate', 100, 'g'),
+        createIngredient('Huevo', 50, 'g'),
     ],
     imageUrl: findImage('avocado toast')?.imageUrl,
     imageHint: findImage('avocado toast')?.imageHint,
