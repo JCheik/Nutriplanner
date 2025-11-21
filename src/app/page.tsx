@@ -22,13 +22,16 @@ export default function Home() {
   const [isGuest, setIsGuest] = useState(false);
   const router = useRouter();
 
-  const [isMobile, setIsMobile] = useState(false);
+  // State to safely check for mobile on client-side
+  const [isMobile, setIsMobile] = useState<boolean | null>(null);
 
   useEffect(() => {
+    // This check runs only on the client, after hydration
     setIsMobile(isMobileDevice());
   }, []);
 
   useEffect(() => {
+    // This effect runs when isMobile or user state changes
     if (user && isMobile) {
       router.replace('/mobile');
     }
@@ -54,7 +57,8 @@ export default function Home() {
     setIsGuest(false);
   }
 
-  if (loading) {
+  // Show a generic loader while determining client type or auth state
+  if (loading || isMobile === null) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
@@ -126,3 +130,5 @@ export default function Home() {
     </div>
   );
 }
+
+    

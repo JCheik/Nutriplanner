@@ -17,13 +17,13 @@ import { useCollection } from '@/firebase/firestore/use-collection';
 import { useDoc } from '@/firebase/firestore/use-doc';
 import { useFirebase, useFirestore, useMemoFirebase } from '@/firebase/index';
 import { collection, doc, writeBatch, setDoc } from 'firebase/firestore';
+import { saveRecipe } from '@/lib/actions';
 import {
   setDocumentNonBlocking,
   updateDocumentNonBlocking,
   addDocumentNonBlocking,
   deleteDocumentNonBlocking
 } from '@/firebase/non-blocking-updates';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Logo } from '@/components/icons/logo';
 import {
   AlertDialog,
@@ -97,7 +97,7 @@ const removeRecipeFromMeal = (plan: WeekPlan, day: string, mealId: string, recip
 export default function Dashboard({ isGuestMode = false, onExitGuestMode }: DashboardProps) {
   const { toast } = useToast();
   const { user, loading: userLoading } = useUser();
-  const { firestore, storage } = useFirebase();
+  const { firestore } = useFirebase();
 
   // State for guest mode
   const [guestRecipes, setGuestRecipes] = useState<Recipe[]>(INITIAL_RECIPES);
@@ -161,6 +161,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     return DAY_ORDER.map(dayName => {
         const savedDay = planMap.get(dayName as DayPlan['day']);
         if (savedDay) {
+          // Ensure meals is always an array to prevent crashes
           const meals = Array.isArray(savedDay.meals) ? savedDay.meals : [];
           return { ...savedDay, day: dayName as DayPlan['day'], meals };
         }
@@ -307,45 +308,32 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
   }, []);
 
   const handleSaveRecipe = async (recipeData: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
-    if (promptToRegister() || !user || !firestore || !storage) {
-        toast({ variant: "destructive", title: "Error de configuración", description: "Faltan servicios de Firebase." });
-        return;
+    if (promptToRegister() || !user) {
+      return;
     }
 
     setIsSaving(true);
-    
     try {
-        const targetCollectionPath = isGlobal ? 'nutriplanner_recipes' : `users/${user.uid}/recipes`;
-        const targetCollectionRef = collection(firestore, targetCollectionPath);
-        
-        const recipeId = existingId || doc(targetCollectionRef).id;
-        let finalImageUrl = recipeData.imageUrl || '';
+      const result = await saveRecipe({
+        recipeData,
+        imageFile,
+        isGlobal,
+        userId: user.uid,
+        existingId,
+      });
 
-        if (imageFile) {
-            const imagePath = `recipes/${recipeId}.${imageFile.name.split('.').pop()}`;
-            const imageStorageRef = ref(storage, imagePath);
-            const snapshot = await uploadBytes(imageStorageRef, imageFile);
-            finalImageUrl = await getDownloadURL(snapshot.ref);
-        }
-
-        const recipeToSave: Recipe = {
-            ...recipeData,
-            id: recipeId,
-            imageUrl: finalImageUrl,
-        };
-        
-        const recipeRef = doc(targetCollectionRef, recipeId);
-        await setDoc(recipeRef, recipeToSave, { merge: true });
-
-        toast({ title: '¡Receta guardada!', description: `${recipeToSave.name} se ha guardado correctamente.` });
+      if (result.success) {
+        toast({ title: '¡Receta guardada!', description: `${result.recipeName} se ha guardado correctamente.` });
         handleDialogClose();
-
+      } else {
+        throw new Error(result.error || 'Error desconocido al guardar la receta');
+      }
     } catch (error: any) {
         console.error("Error saving recipe:", error);
         toast({
             variant: "destructive",
             title: "Error al guardar la receta",
-            description: `No se pudo guardar la receta. ${error.message || 'Error desconocido.'}`
+            description: error.message || 'No se pudo guardar la receta.',
         });
     } finally {
         setIsSaving(false);
@@ -593,3 +581,5 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     </div>
   );
 }
+
+    
