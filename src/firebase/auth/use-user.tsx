@@ -10,7 +10,7 @@ import type { Firestore } from 'firebase/firestore';
 import { doc, getDoc, writeBatch, collection, getDocs, query, setDoc } from 'firebase/firestore';
 import { useAuth } from '@/firebase/provider';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
-import type { UserProfile, BaseIngredient } from '@/lib/types';
+import type { UserProfile, BaseIngredient, Recipe } from '@/lib/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -23,7 +23,6 @@ const provider = new GoogleAuthProvider();
 export async function migrateInitialIngredients(firestore: Firestore, userId: string): Promise<number> {
     const ingredientsCollectionRef = collection(firestore, 'ingredients');
     
-    // 1. Collect all unique ingredients from initial recipes and normalize macros to 100g.
     const uniqueIngredients = new Map<string, Omit<BaseIngredient, 'id'>>();
 
     INITIAL_RECIPES.forEach(recipe => {
@@ -32,13 +31,14 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
             
             // Normalize macros to a 100g standard.
             // Formula: (value / quantity) * 100
-            const scale = ing.quantity > 0 ? 100 / ing.quantity : 0;
+            // This is only correct if the ingredient macros are for the specified quantity.
+            const scale = (ing.quantity ?? 0) > 0 ? 100 / ing.quantity! : 0;
             const normalizedIngredient: Omit<BaseIngredient, 'id'> = {
                 name: ing.name,
-                calories: (ing.calories || 0) * scale,
-                protein: (ing.protein || 0) * scale,
-                carbs: (ing.carbs || 0) * scale,
-                fat: (ing.fat || 0) * scale,
+                calories: (ing.calories ?? 0) * scale,
+                protein: (ing.protein ?? 0) * scale,
+                carbs: (ing.carbs ?? 0) * scale,
+                fat: (ing.fat ?? 0) * scale,
                 fiber: 0, // Assuming fiber is not in the initial data
                 createdBy: userId
             };
@@ -51,23 +51,18 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
         return 0;
     }
     
-    // 2. Use a write batch to set/overwrite these normalized ingredients in the database.
-    // This ensures the database always has the correct 100g-standardized values.
     const batch = writeBatch(firestore);
     let newIngredientsCount = 0;
     
-    // We create a new ingredient document for each unique name.
-    // The document ID will be a sanitized version of the ingredient name.
     uniqueIngredients.forEach((ingredientData) => {
-        // Create a Firestore-safe ID from the ingredient name
         const docId = ingredientData.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        if (!docId) return;
         const newIngredientRef = doc(ingredientsCollectionRef, docId);
         
         batch.set(newIngredientRef, { ...ingredientData, id: docId });
         newIngredientsCount++;
     });
 
-    // 3. Commit the batch.
     if (newIngredientsCount > 0) {
         try {
             await batch.commit();
@@ -83,6 +78,33 @@ export async function migrateInitialIngredients(firestore: Firestore, userId: st
     }
     
     return newIngredientsCount;
+}
+
+export async function cleanNutriPlannerRecipes(firestore: Firestore) {
+  const batch = writeBatch(firestore);
+  const recipesCollectionRef = collection(firestore, 'nutriplanner_recipes');
+  const snapshot = await getDocs(recipesCollectionRef);
+
+  snapshot.forEach(document => {
+    const recipe = document.data() as Recipe;
+    
+    const cleanIngredients = (recipe.ingredients || []).map(ing => ({
+      id: ing.id,
+      name: ing.name,
+      quantity: ing.quantity,
+      unit: ing.unit,
+    }));
+
+    const cleanedRecipeData = {
+      ...recipe,
+      ingredients: cleanIngredients,
+    };
+    
+    // Use the existing document reference to update it
+    batch.update(document.ref, cleanedRecipeData);
+  });
+
+  await batch.commit();
 }
 
 

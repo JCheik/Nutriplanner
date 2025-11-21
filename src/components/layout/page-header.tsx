@@ -2,9 +2,9 @@
 import { useState } from 'react';
 import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
-import { LogOut, User as UserIcon, CheckCircle, UserPlus, Database } from 'lucide-react';
+import { LogOut, User as UserIcon, CheckCircle, UserPlus, Database, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { useUser, signInWithGoogle, signOut, migrateInitialIngredients } from '@/firebase/auth/use-user';
+import { useUser, signInWithGoogle, signOut, migrateInitialIngredients, cleanNutriPlannerRecipes } from '@/firebase/auth/use-user';
 import { useAuth, useFirestore, useFirebaseApp } from '@/firebase/provider';
 import {
   DropdownMenu,
@@ -66,6 +66,30 @@ export function PageHeader({ isGuest = false, onRegisterClick }: PageHeaderProps
         });
     }
   };
+  
+  const handleCleanGlobalRecipes = async () => {
+    if (!firestore) {
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'No se pudo realizar la limpieza. Intenta iniciar sesión de nuevo.',
+        });
+        return;
+    };
+    try {
+        await cleanNutriPlannerRecipes(firestore);
+        toast({
+            title: 'Limpieza completada',
+            description: 'Las recetas globales de NutriPlanner han sido actualizadas y limpiadas.',
+        });
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Error en la limpieza',
+            description: error.message || 'No se pudieron limpiar las recetas globales.',
+        });
+    }
+  };
 
   const renderUserAuth = () => {
     if (loading) {
@@ -101,10 +125,16 @@ export function PageHeader({ isGuest = false, onRegisterClick }: PageHeaderProps
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               {isAdmin && (
-                <DropdownMenuItem onClick={handleMigration} className="cursor-pointer">
-                    <Database className="mr-2 h-4 w-4" />
-                    <span>Migrar Ingredientes</span>
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuItem onClick={handleMigration} className="cursor-pointer">
+                      <Database className="mr-2 h-4 w-4" />
+                      <span>Migrar Ingredientes</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleCleanGlobalRecipes} className="cursor-pointer">
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      <span>Limpiar Recetas Globales</span>
+                  </DropdownMenuItem>
+                </>
               )}
               <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />
