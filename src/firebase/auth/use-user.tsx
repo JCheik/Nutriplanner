@@ -7,10 +7,10 @@ import {
   type User,
 } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
-import { doc, getDoc, writeBatch, collection, getDocs, query, where, documentId, addDoc } from 'firebase/firestore';
+import { doc, getDoc, writeBatch, collection, getDocs, query, where } from 'firebase/firestore';
 import { useAuth } from '@/firebase/provider';
 import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
-import type { UserProfile, BaseIngredient, Ingredient } from '@/lib/types';
+import type { UserProfile, BaseIngredient } from '@/lib/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -20,7 +20,7 @@ export { type User };
 const provider = new GoogleAuthProvider();
 
 
-export async function migrateInitialIngredients(firestore: Firestore): Promise<number> {
+export async function migrateInitialIngredients(firestore: Firestore, userId: string): Promise<number> {
     const ingredientsCollectionRef = collection(firestore, 'ingredients');
     
     const uniqueIngredients = new Map<string, Omit<BaseIngredient, 'id'>>();
@@ -32,7 +32,7 @@ export async function migrateInitialIngredients(firestore: Firestore): Promise<n
                 uniqueIngredients.set(key, {
                     ...baseIngredientData,
                     fiber: 0, 
-                    createdBy: 'system' // Placeholder until we have a user
+                    createdBy: userId // Use the provided user ID
                 });
             }
         });
@@ -42,19 +42,26 @@ export async function migrateInitialIngredients(firestore: Firestore): Promise<n
         return 0;
     }
     
-    const ingredientNames = Array.from(uniqueIngredients.keys()).map(name => name.charAt(0).toUpperCase() + name.slice(1));
+    const ingredientNames = Array.from(uniqueIngredients.keys()).map(name => {
+        const correspondingIngredient = uniqueIngredients.get(name);
+        return correspondingIngredient ? correspondingIngredient.name : '';
+    }).filter(Boolean);
+
     let existingIngredientsSnap;
 
     try {
-        const existingIngredientsQuery = query(ingredientsCollectionRef, where('name', 'in', ingredientNames));
-        existingIngredientsSnap = await getDocs(existingIngredientsQuery);
+        if (ingredientNames.length > 0) {
+            const existingIngredientsQuery = query(ingredientsCollectionRef, where('name', 'in', ingredientNames));
+            existingIngredientsSnap = await getDocs(existingIngredientsQuery);
+        } else {
+            existingIngredientsSnap = { docs: [] };
+        }
     } catch (error) {
         console.error("Error fetching existing ingredients:", error);
         errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: 'ingredients',
             operation: 'list',
         }));
-        // Re-throw or handle as per your app's error policy
         throw new Error("Failed to check for existing ingredients due to a permissions issue.");
     }
     
@@ -66,9 +73,7 @@ export async function migrateInitialIngredients(firestore: Firestore): Promise<n
     uniqueIngredients.forEach((ingredient, key) => {
         if (!existingNames.has(key)) {
             const newIngredientRef = doc(ingredientsCollectionRef);
-            // In a real scenario, you'd want to associate this with a user
-            // For now, we'll use a system marker.
-            ingredientsBatch.set(newIngredientRef, { ...ingredient, id: newIngredientRef.id, name: ingredient.name, createdBy: 'system' });
+            ingredientsBatch.set(newIngredientRef, { ...ingredient, id: newIngredientRef.id, name: ingredient.name, createdBy: userId });
             newIngredientsCount++;
         }
     });

@@ -44,9 +44,16 @@ export function PageHeader({ isGuest = false, onRegisterClick }: PageHeaderProps
   };
   
   const handleMigration = async () => {
-    if (!firestore) return;
+    if (!firestore || !user) {
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'No se pudo realizar la migración. Intenta iniciar sesión de nuevo.',
+        });
+        return;
+    };
     try {
-        const count = await migrateInitialIngredients(firestore);
+        const count = await migrateInitialIngredients(firestore, user.uid);
         toast({
             title: 'Migración completada',
             description: `${count} ingredientes nuevos han sido añadidos a la base de datos.`,
