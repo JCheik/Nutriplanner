@@ -85,8 +85,8 @@ export function RecipeSelectionDialog({ isOpen, onClose, meal, allRecipes, onSav
                        <div className="w-24 h-16 flex-shrink-0">
                          <RecipeCard recipe={recipe} isCompact />
                        </div>
-                       <div className="flex-1">
-                          <p className="font-semibold leading-tight">{recipe.name}</p>
+                       <div className="flex-1 min-w-0">
+                          <p className="font-semibold leading-tight break-words">{recipe.name}</p>
                           <p className="text-xs text-muted-foreground">{Math.round(recipe.calories)} kcal</p>
                        </div>
                         <Checkbox
@@ -108,5 +108,3 @@ export function RecipeSelectionDialog({ isOpen, onClose, meal, allRecipes, onSav
     </Dialog>
   );
 }
-
-    

@@ -6,7 +6,7 @@ import { Home, BookHeart, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { href: '/mobile', label: 'Hoy', icon: Home },
+  { href: '/mobile', label: 'Plan', icon: Home },
   { href: '/mobile/recipes', label: 'Recetas', icon: BookHeart },
   { href: '/mobile/shopping-list', label: 'Compra', icon: ShoppingCart },
 ];
