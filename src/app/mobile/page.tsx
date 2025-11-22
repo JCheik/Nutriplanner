@@ -38,38 +38,36 @@ const TodayMeals = ({ dayPlan, onMealClick, isGuestMode, onRemoveRecipe }: { day
   }
 
   return (
-    <>
-      <div className="space-y-4">
-        {(dayPlan.meals || []).map((meal: Meal) => (
-          <div key={meal.id}>
-            <Card onClick={() => !isGuestMode && onMealClick(meal)} className={isGuestMode ? '' : 'cursor-pointer hover:bg-muted/50'}>
-              <CardHeader className="pb-2">
-                 <CardTitle className="text-base text-muted-foreground">{meal.title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {meal.recipes.length > 0 ? (
-                  <div className="space-y-2">
-                    {meal.recipes.map((recipe: RecipeInstance) => (
-                      <div key={recipe.instanceId} className="h-16">
-                        <RecipeCard
-                          recipe={recipe}
-                          onClick={(e) => { e.stopPropagation(); handleRecipeClick(recipe, meal); }}
-                          isCompact
-                          className="text-sm"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <Card className="flex items-center justify-center h-24 border-2 border-dashed">
-                    <p className="text-sm text-muted-foreground">Toca para añadir recetas</p>
-                  </Card>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        ))}
-      </div>
+    <div className="space-y-4">
+      {(dayPlan.meals || []).map((meal: Meal) => (
+        <div key={meal.id}>
+          <Card onClick={() => !isGuestMode && onMealClick(meal)} className={isGuestMode ? '' : 'cursor-pointer hover:bg-muted/50'}>
+            <CardHeader className="pb-2">
+               <CardTitle className="text-base text-muted-foreground">{meal.title}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {meal.recipes.length > 0 ? (
+                <div className="space-y-2">
+                  {meal.recipes.map((recipe: RecipeInstance) => (
+                    <div key={recipe.instanceId} className="h-16">
+                      <RecipeCard
+                        recipe={recipe}
+                        onClick={(e) => { e.stopPropagation(); handleRecipeClick(recipe, meal); }}
+                        isCompact
+                        className="text-sm"
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <Card className="flex items-center justify-center h-24 border-2 border-dashed">
+                  <p className="text-sm text-muted-foreground">Toca para añadir recetas</p>
+                </Card>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      ))}
       <RecipeDialog
         dialogState={dialogState}
         onClose={() => setDialogState({ open: false })}
@@ -81,7 +79,7 @@ const TodayMeals = ({ dayPlan, onMealClick, isGuestMode, onRemoveRecipe }: { day
         }}
         isMobile={true}
       />
-    </>
+    </div>
   );
 };
 
@@ -251,5 +249,3 @@ export default function MobileHomePage() {
         </Suspense>
     );
 }
-
-    
