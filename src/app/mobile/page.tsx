@@ -1,7 +1,6 @@
 'use client';
 
-// This page uses client-side hooks for search params and authentication.
-// It must be rendered dynamically.
+// Added to ensure the page is rendered dynamically, as it uses searchParams.
 export const dynamic = 'force-dynamic';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
