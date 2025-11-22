@@ -20,7 +20,6 @@ import { es } from 'date-fns/locale';
 import { MobileNav } from '@/components/layout/mobile-nav';
 import { cn } from '@/lib/utils';
 
-const DAY_NAMES_ORDER = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
 const TodayMeals = ({ dayPlan, onMealClick, isGuestMode, onRemoveRecipe }: { dayPlan: DayPlan | null, onMealClick: (meal: Meal) => void, isGuestMode: boolean, onRemoveRecipe: (mealId: string, recipeInstanceId: string) => void }) => {
   const [dialogState, setDialogState] = useState<any>({ open: false });
@@ -29,48 +28,46 @@ const TodayMeals = ({ dayPlan, onMealClick, isGuestMode, onRemoveRecipe }: { day
     setDialogState({ open: true, mode: 'view', recipe, context: { mealId: meal.id, source: 'mobile-planner' } });
   };
   
-  if (!dayPlan || !dayPlan.meals || dayPlan.meals.length === 0) {
-    return (
-      <Card>
-        <CardContent className="p-6 text-center text-muted-foreground">
-          <p>No se encontró el plan de este día. ¡Añade algunas recetas!</p>
-        </CardContent>
-      </Card>
-    );
-  }
+  const dayMeals = dayPlan?.meals || [];
 
   return (
     <>
       <div className="space-y-4">
-        {(dayPlan.meals).map((meal: Meal) => (
-          <Card key={meal.id} onClick={() => !isGuestMode && onMealClick(meal)} className={cn('cursor-pointer', isGuestMode ? '' : 'hover:bg-muted/50')}>
-              <CardHeader className="pb-2">
-                 <CardTitle className="text-base text-muted-foreground">{meal.title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {meal.recipes && meal.recipes.length > 0 ? (
-                  <div className="space-y-2">
-                    {meal.recipes.map((recipe: RecipeInstance) => (
-                      <div key={recipe.instanceId} className="h-16">
-                        <RecipeCard
-                          recipe={recipe}
-                          onClick={(e) => { e.stopPropagation(); handleRecipeClick(recipe, meal); }}
-                          isCompact
-                          className="text-sm"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <Card className="flex items-center justify-center h-24 border-2 border-dashed">
-                    <p className="text-sm text-muted-foreground">Toca para añadir recetas</p>
-                  </Card>
-                )}
-              </CardContent>
-          </Card>
-        ))}
+        {dayMeals.length > 0 ? dayMeals.map((meal: Meal) => (
+            <Card key={meal.id} onClick={() => !isGuestMode && onMealClick(meal)} className={cn('cursor-pointer', isGuestMode ? '' : 'hover:bg-muted/50')}>
+                <CardHeader className="pb-2">
+                   <CardTitle className="text-base text-muted-foreground">{meal.title}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {meal.recipes && meal.recipes.length > 0 ? (
+                    <div className="space-y-2">
+                      {meal.recipes.map((recipe: RecipeInstance) => (
+                        <div key={recipe.instanceId} className="h-16">
+                          <RecipeCard
+                            recipe={recipe}
+                            onClick={(e) => { e.stopPropagation(); handleRecipeClick(recipe, meal); }}
+                            isCompact
+                            className="text-sm"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <Card className="flex items-center justify-center h-24 border-2 border-dashed">
+                      <p className="text-sm text-muted-foreground">Toca para añadir recetas</p>
+                    </Card>
+                  )}
+                </CardContent>
+            </Card>
+        )) : (
+            <Card>
+                <CardContent className="p-6 text-center text-muted-foreground">
+                <p>No se encontró el plan de este día. ¡Añade algunas recetas!</p>
+                </CardContent>
+            </Card>
+        )}
       </div>
-      <RecipeDialog
+       <RecipeDialog
         dialogState={dialogState}
         onClose={() => setDialogState({ open: false })}
         onRemoveFromMeal={(context) => {
@@ -95,7 +92,12 @@ function MobilePageContent() {
   const { firestore } = useFirebase();
   
   // --- State for day navigation ---
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState<Date | null>(null);
+
+  useEffect(() => {
+    // Set date only on client to avoid hydration mismatch
+    setCurrentDate(new Date());
+  }, []);
 
   // --- State for meal editing ---
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
@@ -114,20 +116,23 @@ function MobilePageContent() {
   const { data: nutriplannerRecipes } = useCollection<Recipe>(nutriplannerRecipesCollectionRef);
 
   const activeDayName = useMemo(() => {
+    if (!currentDate) return '';
     const dayIndex = currentDate.getDay();
-    // Adjust for locale where Sunday is 0 but our array starts with Sunday
+    // The map MUST start with Sunday at index 0 to match getDay() output.
+    // Ensure Firebase docs and INITIAL_WEEK_PLAN use these exact string names.
     const dayMap = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     return dayMap[dayIndex];
   }, [currentDate]);
 
   const activeDayPlan = useMemo(() => {
     const sourcePlan = isGuestMode ? guestWeekPlan : (weekPlanData || INITIAL_WEEK_PLAN);
-    if (!sourcePlan) return null;
+    if (!sourcePlan || !activeDayName) return null;
     return sourcePlan.find(d => d.day === activeDayName) || { day: activeDayName as DayPlan['day'], meals: [] };
   }, [isGuestMode, guestWeekPlan, weekPlanData, activeDayName]);
   
   const handlePrevDay = () => {
     setCurrentDate(prev => {
+        if (!prev) return new Date();
         const newDate = new Date(prev);
         newDate.setDate(newDate.getDate() - 1);
         return newDate;
@@ -136,6 +141,7 @@ function MobilePageContent() {
 
   const handleNextDay = () => {
      setCurrentDate(prev => {
+        if (!prev) return new Date();
         const newDate = new Date(prev);
         newDate.setDate(newDate.getDate() + 1);
         return newDate;
@@ -148,17 +154,45 @@ function MobilePageContent() {
   };
   
   const handleRecipeSelectionSave = (updatedRecipes: Recipe[]) => {
+     // Preserve existing instanceIds and create new ones only for new recipes
+    const updatedRecipeIds = new Set(updatedRecipes.map(r => r.id));
+    const existingInstances = selectedMeal?.recipes.filter(r => updatedRecipeIds.has(r.id)) || [];
+    const newRecipes = updatedRecipes.filter(r => !existingInstances.some(er => er.id === r.id));
+
+    const finalRecipeInstances: RecipeInstance[] = [
+        ...existingInstances,
+        ...newRecipes.map(r => ({
+            ...r,
+            instanceId: `instance-${self.crypto.randomUUID()}`
+        }))
+    ];
+
+    if (isGuestMode) {
+        setGuestWeekPlan(prevPlan => {
+            return prevPlan.map(day => {
+                if (day.day !== activeDayName) return day;
+                return {
+                    ...day,
+                    meals: day.meals.map(m => 
+                        m.id === selectedMeal?.id 
+                        ? { ...m, recipes: finalRecipeInstances } 
+                        : m
+                    )
+                };
+            });
+        });
+        setIsRecipeSelectorOpen(false);
+        setSelectedMeal(null);
+        return;
+    }
+    
     if (!user || !firestore || !activeDayPlan || !selectedMeal) return;
 
     const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', activeDayName);
     
     const updatedMeals = activeDayPlan.meals.map(meal => {
         if (meal.id === selectedMeal.id) {
-            const newRecipeInstances: RecipeInstance[] = updatedRecipes.map(r => ({
-                ...r,
-                instanceId: self.crypto.randomUUID()
-            }));
-            return { ...meal, recipes: newRecipeInstances };
+            return { ...meal, recipes: finalRecipeInstances };
         }
         return meal;
     });
@@ -170,6 +204,24 @@ function MobilePageContent() {
   };
 
   const handleRemoveRecipe = useCallback((mealId: string, recipeInstanceId: string) => {
+    if (isGuestMode) {
+        setGuestWeekPlan(prevPlan => {
+            return prevPlan.map(day => {
+                 if (day.day !== activeDayName) return day;
+                 return {
+                     ...day,
+                     meals: day.meals.map(m => {
+                         if (m.id === mealId) {
+                             return { ...m, recipes: m.recipes.filter(r => r.instanceId !== recipeInstanceId) };
+                         }
+                         return m;
+                     })
+                 }
+            });
+        });
+        return;
+    }
+    
     if (!user || !firestore || !activeDayPlan) return;
 
     const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', activeDayName);
@@ -185,9 +237,9 @@ function MobilePageContent() {
     
     const updatedDayPlan = { ...activeDayPlan, meals: updatedMeals };
     setDocumentNonBlocking(dayDocRef, updatedDayPlan, { merge: true });
-  }, [user, firestore, activeDayName, activeDayPlan]);
+  }, [user, firestore, activeDayName, activeDayPlan, isGuestMode]);
 
-  if (userLoading || (!isGuestMode && weekPlanLoading)) {
+  if (userLoading || (!isGuestMode && weekPlanLoading) || !currentDate) {
      return (
       <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
         <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
@@ -253,3 +305,5 @@ export default function MobileHomePage() {
         </Suspense>
     );
 }
+
+    
