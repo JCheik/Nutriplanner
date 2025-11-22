@@ -94,49 +94,37 @@ export default function Home() {
 
   // Otherwise, show the welcome/login screen.
   return (
-    <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen">
-      <div className="flex items-center justify-center p-6 sm:p-12">
-        <div className="mx-auto grid w-[350px] gap-6">
-          <div className="grid gap-2 text-center">
-             <div className="flex justify-center mb-2">
-              <Logo className="h-12 w-12 text-primary" />
-            </div>
-            <h1 className="text-3xl font-bold">Bienvenido a NutriPlanner</h1>
-            <p className="text-balance text-muted-foreground">
-              Planifica tus comidas, crea recetas y alcanza tus objetivos nutricionales.
-            </p>
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="mx-auto grid w-[350px] gap-6 text-center">
+        <div className="grid gap-2">
+            <div className="flex justify-center mb-2">
+            <Logo className="h-12 w-12 text-primary" />
           </div>
-          <div className="grid gap-4">
-            <Button
-              onClick={handleSignIn}
-              className="w-full h-11 text-base"
-              size="lg"
-            >
-              <svg className="mr-2 h-5 w-5" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
-                <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 126 23.4 172.9 61.9l-76.2 64.5C308.6 106.5 280.4 96 248 96c-84.3 0-152.3 67.8-152.3 152s68 152 152.3 152c92.8 0 140.3-61.5 143.8-92.6H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
-              </svg>
-              Iniciar Sesión con Google
-            </Button>
-            <Button
-              onClick={handleGuestMode}
-              className="w-full h-11 text-base"
-              size="lg"
-              variant="secondary"
-            >
-              Continuar como Invitado
-            </Button>
-          </div>
+          <h1 className="text-3xl font-bold">Bienvenido a NutriPlanner</h1>
+          <p className="text-balance text-muted-foreground">
+            Planifica tus comidas, crea recetas y alcanza tus objetivos nutricionales.
+          </p>
         </div>
-      </div>
-      <div className="hidden bg-muted lg:block">
-        <Image
-          src="https://images.unsplash.com/photo-1599021419847-d8a7a6aba5b4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxncmVlayUyMHNhbGFkfGVufDB8fHx8MTc2MzI0NzI4NHww&ixlib=rb-4.1.0&q=80&w=1080"
-          alt="Ensalada griega saludable"
-          width="1920"
-          height="1080"
-          className="h-full w-full object-cover"
-          data-ai-hint="greek salad"
-        />
+        <div className="grid gap-4">
+          <Button
+            onClick={handleSignIn}
+            className="w-full h-11 text-base"
+            size="lg"
+          >
+            <svg className="mr-2 h-5 w-5" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
+              <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 126 23.4 172.9 61.9l-76.2 64.5C308.6 106.5 280.4 96 248 96c-84.3 0-152.3 67.8-152.3 152s68 152 152.3 152c92.8 0 140.3-61.5 143.8-92.6H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
+            </svg>
+            Iniciar Sesión con Google
+          </Button>
+          <Button
+            onClick={handleGuestMode}
+            className="w-full h-11 text-base"
+            size="lg"
+            variant="secondary"
+          >
+            Continuar como Invitado
+          </Button>
+        </div>
       </div>
     </div>
   );
