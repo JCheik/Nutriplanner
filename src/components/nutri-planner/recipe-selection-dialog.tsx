@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Search } from 'lucide-react';
 import type { Meal, Recipe } from '@/lib/types';
-import { normalizeText } from '@/lib/utils';
+import { normalizeText, cn } from '@/lib/utils';
 import { RecipeCard } from './recipe-card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -60,7 +60,7 @@ export function RecipeSelectionDialog({ isOpen, onClose, meal, allRecipes, onSav
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md h-[90vh] flex flex-col bg-glass">
+      <DialogContent className={cn("max-w-md h-[90vh] flex flex-col bg-glass")}>
         <DialogHeader>
           <DialogTitle>Seleccionar para {meal.title}</DialogTitle>
           <DialogDescription>
@@ -108,3 +108,5 @@ export function RecipeSelectionDialog({ isOpen, onClose, meal, allRecipes, onSav
     </Dialog>
   );
 }
+
+    

@@ -17,3 +17,5 @@ export function normalizeText(text: string): string {
     .normalize("NFD") // Decomposes combined graphemes into base characters and diacritics
     .replace(/[\u0300-\u036f]/g, ""); // Removes the diacritics
 }
+
+    

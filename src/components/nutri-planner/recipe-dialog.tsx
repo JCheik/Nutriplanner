@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, Plus, Copy, Search, Image as ImageIcon, UploadCloud, Globe, Folder as FolderIcon, XCircle, Trash } from 'lucide-react';
+import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, Plus, Copy, Search, Image as ImageIcon, UploadCloud, Globe, Folder as FolderIcon, Trash } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,7 +36,7 @@ import { Card, CardContent } from '../ui/card';
 import Image from 'next/image';
 import { Switch } from '../ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { normalizeText } from '@/lib/utils';
+import { normalizeText, cn } from '@/lib/utils';
 
 
 interface RecipeDialogProps {
@@ -403,7 +403,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
 }
 
 
-function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, onRemoveFromMeal, isNutriPlannerRecipe, source, context, isMobile }: { recipe: Recipe; folders: Folder[], globalFolders: GlobalFolder[], onEdit: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void; onDelete: (id: string, isGlobal: boolean) => void; onCopy: (recipe: Recipe) => void; onRemoveFromMeal?: (context: any) => void; isNutriPlannerRecipe: boolean; source?: string; context?: any; isMobile?: boolean; }) {
+function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, onRemoveFromMeal, isNutriPlannerRecipe, context, isMobile }: { recipe: Recipe; folders: Folder[], globalFolders: GlobalFolder[], onEdit: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void; onDelete: (id: string, isGlobal: boolean) => void; onCopy: (recipe: Recipe) => void; onRemoveFromMeal?: (context: any) => void; isNutriPlannerRecipe: boolean; context?: any; isMobile?: boolean; }) {
   const { user, claims } = useUser();
   const isAdmin = claims?.admin === true;
   const firestore = useFirestore();
@@ -426,7 +426,6 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
   }, [recipe, folders, globalFolders]);
 
   const canEdit = isAdmin || !isNutriPlannerRecipe;
-  const showRemoveFromPlan = (isMobile || source === 'meal-planner') && onRemoveFromMeal && recipe.id;
 
   return (
      <>
@@ -495,8 +494,8 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
       </div>
       <DialogFooter className="mt-6 flex flex-row justify-between items-center w-full">
          {/* --- Left Aligned Buttons --- */}
-         <div>
-            {showRemoveFromPlan ? (
+         <div className="flex gap-2">
+            {onRemoveFromMeal ? (
                 <Button variant="destructive" onClick={() => onRemoveFromMeal({ mealId: context?.mealId, recipeInstanceId: (recipe as any).instanceId })}>
                     <Trash className="mr-2 h-4 w-4" />
                     Quitar del Plan
@@ -551,7 +550,10 @@ export function RecipeDialog({ dialogState, isSaving, folders, globalFolders, on
   
   return (
     <Dialog open={dialogState.open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl bg-glass">
+      <DialogContent className={cn(
+        "max-w-4xl bg-glass",
+        isMobile && "h-[90vh] flex flex-col"
+        )}>
         {isViewMode && dialogState.recipe ? (
           <RecipeView 
             recipe={dialogState.recipe} 
@@ -562,7 +564,6 @@ export function RecipeDialog({ dialogState, isSaving, folders, globalFolders, on
             onCopy={onCopy}
             onRemoveFromMeal={onRemoveFromMeal}
             isNutriPlannerRecipe={!!isNutriPlannerRecipe}
-            source={(dialogState as any).source}
             context={(dialogState as any).context}
             isMobile={isMobile}
           />
@@ -582,3 +583,5 @@ export function RecipeDialog({ dialogState, isSaving, folders, globalFolders, on
     </Dialog>
   );
 }
+
+    
