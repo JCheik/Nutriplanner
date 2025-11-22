@@ -72,14 +72,7 @@ const TodayMeals = ({ dayPlan, onMealClick, isGuestMode, onRemoveRecipe }: { day
       </div>
       <RecipeDialog
         dialogState={dialogState}
-        isSaving={false}
-        folders={[]}
-        globalFolders={[]}
         onClose={() => setDialogState({ open: false })}
-        onSave={() => {}}
-        onDelete={() => {}}
-        onEdit={(recipe) => setDialogState({open: true, mode: 'edit', recipe})}
-        onCopy={() => {}}
         onRemoveFromMeal={(context) => {
             if (context.mealId && context.recipeInstanceId) {
                 onRemoveRecipe(context.mealId, context.recipeInstanceId);

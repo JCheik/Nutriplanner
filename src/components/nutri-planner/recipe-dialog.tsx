@@ -41,14 +41,14 @@ import { normalizeText, cn } from '@/lib/utils';
 
 interface RecipeDialogProps {
   dialogState: DialogState;
-  isSaving: boolean;
-  folders: Folder[];
-  globalFolders: GlobalFolder[];
+  isSaving?: boolean;
+  folders?: Folder[];
+  globalFolders?: GlobalFolder[];
   onClose: () => void;
-  onSave: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void;
-  onDelete: (recipeId: string, isGlobal: boolean) => void;
-  onEdit: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void;
-  onCopy: (recipe: Recipe) => void;
+  onSave?: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void;
+  onDelete?: (recipeId: string, isGlobal: boolean) => void;
+  onEdit?: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void;
+  onCopy?: (recipe: Recipe) => void;
   onRemoveFromMeal?: (context: any) => void;
   isMobile?: boolean;
 }
@@ -136,7 +136,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
   }, [ingredients, ingredientDBMap]);
 
   const handleSave = async () => {
-    if (!name) return;
+    if (!name || !onSave) return;
     
     const recipeData: Omit<Recipe, 'id' | 'imageUrl'> & { imageUrl?: string; folderId?: string | null } = {
       name,
@@ -250,7 +250,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
                 </SelectTrigger>
                 <SelectContent className="bg-glass">
                   <SelectItem value="none">Sin carpeta</SelectItem>
-                  {(saveAsGlobal ? globalFolders : folders).map((folder) => (
+                  {(saveAsGlobal ? (globalFolders || []) : (folders || [])).map((folder) => (
                     <SelectItem key={folder.id} value={folder.id}>
                       {folder.name}
                     </SelectItem>
@@ -367,7 +367,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
         </div>
       </div>
       <DialogFooter className="justify-between pt-4">
-        {isEditing && initialRecipe?.id ? (
+        {isEditing && initialRecipe?.id && onDelete ? (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
@@ -403,7 +403,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
 }
 
 
-function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, onRemoveFromMeal, isNutriPlannerRecipe, context, isMobile }: { recipe: Recipe; folders: Folder[], globalFolders: GlobalFolder[], onEdit: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void; onDelete: (id: string, isGlobal: boolean) => void; onCopy: (recipe: Recipe) => void; onRemoveFromMeal?: (context: any) => void; isNutriPlannerRecipe: boolean; context?: any; isMobile?: boolean; }) {
+function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, onRemoveFromMeal, isNutriPlannerRecipe, context, isMobile }: { recipe: Recipe; folders?: Folder[], globalFolders?: GlobalFolder[], onEdit?: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void; onDelete?: (id: string, isGlobal: boolean) => void; onCopy?: (recipe: Recipe) => void; onRemoveFromMeal?: (context: any) => void; isNutriPlannerRecipe: boolean; context?: any; isMobile?: boolean; }) {
   const { user, claims } = useUser();
   const isAdmin = claims?.admin === true;
   const firestore = useFirestore();
@@ -420,8 +420,8 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
   }, [ingredientDB]);
 
   const folderName = useMemo(() => {
-    if (!recipe.folderId) return null;
-    const allFolders = [...folders, ...globalFolders];
+    if (!recipe.folderId || (!folders && !globalFolders)) return null;
+    const allFolders = [...(folders || []), ...(globalFolders || [])];
     return allFolders.find(f => f.id === recipe.folderId)?.name;
   }, [recipe, folders, globalFolders]);
 
@@ -495,12 +495,12 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
       <DialogFooter className="mt-6 flex flex-row justify-between items-center w-full">
          {/* --- Left Aligned Buttons --- */}
          <div className="flex gap-2">
-            {onRemoveFromMeal ? (
+            {onRemoveFromMeal && context?.source === 'mobile-planner' ? (
                 <Button variant="destructive" onClick={() => onRemoveFromMeal({ mealId: context?.mealId, recipeInstanceId: (recipe as any).instanceId })}>
                     <Trash className="mr-2 h-4 w-4" />
                     Quitar del Plan
                 </Button>
-            ) : canEdit && (
+            ) : (onDelete && canEdit) && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
@@ -523,10 +523,10 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
 
         {/* --- Right Aligned Buttons --- */}
         <div className='flex gap-2'>
-          {isNutriPlannerRecipe && !isMobile && (
+          {isNutriPlannerRecipe && !isMobile && onCopy && (
             <Button onClick={() => onCopy(recipe)}><Copy className="mr-2 h-4 w-4" /> Copiar a Mis Recetas</Button>
           )}
-          {canEdit && (
+          {canEdit && onEdit && (
             <Button variant="outline" onClick={() => onEdit(recipe, isNutriPlannerRecipe)}>
                 <Edit className="mr-2 h-4 w-4" /> Editar
             </Button>
@@ -538,14 +538,16 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
 }
 
 
-export function RecipeDialog({ dialogState, isSaving, folders, globalFolders, onClose, onSave, onDelete, onEdit, onCopy, onRemoveFromMeal, isMobile }: RecipeDialogProps) {
+export function RecipeDialog({ dialogState, isSaving = false, folders, globalFolders, onClose, onSave, onDelete, onEdit, onCopy, onRemoveFromMeal, isMobile }: RecipeDialogProps) {
   if (!dialogState.open) return null;
 
   const isViewMode = dialogState.mode === 'view';
   const isNutriPlannerRecipe = isViewMode && dialogState.isNutriPlannerRecipe;
 
   const handleEdit = (recipe: Recipe) => {
-    onEdit(recipe, dialogState.mode === 'view' ? dialogState.isNutriPlannerRecipe : false);
+    if (onEdit) {
+      onEdit(recipe, dialogState.mode === 'view' ? dialogState.isNutriPlannerRecipe : false);
+    }
   };
   
   return (
@@ -570,13 +572,13 @@ export function RecipeDialog({ dialogState, isSaving, folders, globalFolders, on
         ) : (
           <RecipeForm
             recipe={dialogState.mode === 'edit' ? dialogState.recipe : undefined}
-            folders={folders}
-            globalFolders={globalFolders}
+            folders={folders || []}
+            globalFolders={globalFolders || []}
             isInitiallyGlobal={dialogState.mode === 'edit' ? dialogState.isNutriPlannerRecipe : false}
             isSaving={isSaving}
-            onSave={onSave}
+            onSave={onSave!}
             onCancel={onClose}
-            onDelete={onDelete}
+            onDelete={onDelete!}
           />
         )}
       </DialogContent>
