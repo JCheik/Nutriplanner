@@ -68,8 +68,8 @@ export interface DailyTotal {
 
 export type DialogState = 
   | { open: false }
-  | { open: true; mode: 'create', isNutriPlannerRecipe?: false }
-  | { open: true; mode: 'view' | 'edit'; recipe: Recipe; isNutriPlannerRecipe?: boolean };
+  | { open: true; mode: 'create', isNutriPlannerRecipe?: false, source?: string; }
+  | { open: true; mode: 'view' | 'edit'; recipe: Recipe; isNutriPlannerRecipe?: boolean; source?: string; };
 
 export type SortCriteria = 
   | 'name-asc' | 'name-desc'

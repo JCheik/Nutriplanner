@@ -280,7 +280,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
       }
   }, [user, firestore, currentWeekPlan, isGuestMode]);
 
-  const handleRecipeAction = useCallback((action: 'view' | 'create' | 'edit', recipe?: Recipe, isNutriPlannerRecipe: boolean = false) => {
+  const handleRecipeAction = useCallback((action: 'view' | 'create' | 'edit', recipe?: Recipe, isNutriPlannerRecipe: boolean = false, source?: string) => {
     if ((action === 'create' || action === 'edit') && promptToRegister()) {
         return;
     }
@@ -289,7 +289,8 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
       mode: action,
       recipe: recipe || undefined,
       isNutriPlannerRecipe,
-    });
+      source
+    } as DialogState);
   }, [isGuestMode]);
   
   const handleAddToPlan = (recipe: Recipe) => {
@@ -499,7 +500,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
               activeGoal={activeGoalMacros}
               onDrop={handleDrop}
               onClearMeal={handleClearMeal}
-              onRecipeClick={(recipe) => handleRecipeAction('view', recipe)}
+              onRecipeClick={(recipe) => handleRecipeAction('view', recipe, false, 'meal-planner')}
               onRemoveRecipeFromMeal={handleRemoveRecipeFromMeal}
               onUpdateMealTitle={handleUpdateMealTitle}
               onAddMeal={handleAddMeal}

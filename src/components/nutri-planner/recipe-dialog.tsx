@@ -401,10 +401,11 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
 }
 
 
-function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, isNutriPlannerRecipe }: { recipe: Recipe; folders: Folder[], globalFolders: GlobalFolder[], onEdit: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void; onDelete: (id: string, isGlobal: boolean) => void; onCopy: (recipe: Recipe) => void; isNutriPlannerRecipe: boolean }) {
+function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, isNutriPlannerRecipe, source }: { recipe: Recipe; folders: Folder[], globalFolders: GlobalFolder[], onEdit: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void; onDelete: (id: string, isGlobal: boolean) => void; onCopy: (recipe: Recipe) => void; isNutriPlannerRecipe: boolean; source?: string }) {
   const { user, claims } = useUser();
   const isAdmin = claims?.admin === true;
   const firestore = useFirestore();
+  const isFromMealPlanner = source === 'meal-planner';
 
   const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);
   const { data: ingredientDB } = useCollection<BaseIngredient>(ingredientsCollectionRef);
@@ -490,7 +491,7 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
         </ScrollArea>
       </div>
       <DialogFooter className="mt-6 justify-between">
-         {isAdmin && (
+         {isAdmin && !isFromMealPlanner && (
           <AlertDialog>
               <AlertDialogTrigger asChild>
               <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
@@ -509,7 +510,7 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
               </AlertDialogContent>
           </AlertDialog>
         )}
-        {!isAdmin && !isNutriPlannerRecipe && (
+        {!isAdmin && !isNutriPlannerRecipe && !isFromMealPlanner && (
              <AlertDialog>
               <AlertDialogTrigger asChild>
               <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
@@ -529,6 +530,9 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
           </AlertDialog>
         )}
         
+        {/* Placeholder for the left side if delete button is not shown */}
+        {(isFromMealPlanner) && <div></div>}
+
         <div className='flex gap-2'>
           {isNutriPlannerRecipe && (
             <Button onClick={() => onCopy(recipe)}><Copy className="mr-2 h-4 w-4" /> Copiar a Mis Recetas</Button>
@@ -568,6 +572,7 @@ export function RecipeDialog({ dialogState, isSaving, folders, globalFolders, on
             onDelete={onDelete}
             onCopy={onCopy}
             isNutriPlannerRecipe={!!isNutriPlannerRecipe}
+            source={(dialogState as any).source}
           />
         ) : (
           <RecipeForm
