@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, Plus, Copy, Search, Image as ImageIcon, UploadCloud, Globe, Folder as FolderIcon, XCircle } from 'lucide-react';
+import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, Plus, Copy, Search, Image as ImageIcon, UploadCloud, Globe, Folder as FolderIcon, XCircle, Trash } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -426,6 +426,7 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
   }, [recipe, folders, globalFolders]);
 
   const canEdit = isAdmin || !isNutriPlannerRecipe;
+  const showRemoveFromPlan = (isMobile || source === 'meal-planner') && onRemoveFromMeal && recipe.id;
 
   return (
      <>
@@ -495,14 +496,12 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
       <DialogFooter className="mt-6 flex flex-row justify-between items-center w-full">
          {/* --- Left Aligned Buttons --- */}
          <div>
-            {isMobile && onRemoveFromMeal && recipe.id && (
+            {showRemoveFromPlan ? (
                 <Button variant="destructive" onClick={() => onRemoveFromMeal({ mealId: context.mealId, recipeInstanceId: recipe.instanceId })}>
-                    <XCircle className="mr-2 h-4 w-4" />
+                    <Trash className="mr-2 h-4 w-4" />
                     Quitar del Plan
                 </Button>
-            )}
-             {/* Desktop delete buttons */}
-            { !isMobile && canEdit && (
+            ) : canEdit && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>

@@ -227,6 +227,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
             updateDayPlanInFirestore(day, updatedDay.meals);
         }
     }
+    handleDialogClose();
   }, [user, firestore, currentWeekPlan, isGuestMode]);
 
   const handleUpdateMealTitle = useCallback((day: string, mealId: string, newTitle: string) => {
