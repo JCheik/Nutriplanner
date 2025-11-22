@@ -17,6 +17,7 @@ import { RecipeSelectionDialog } from '@/components/nutri-planner/recipe-selecti
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { MobileNav } from '@/components/layout/mobile-nav';
 
 const DAY_NAMES_ORDER = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -203,7 +204,7 @@ function MobilePageContent() {
 
   return (
     <>
-      <div className="p-4">
+      <div className="p-4 pb-20">
         <div className="flex justify-between items-center mb-6">
             <Button variant="ghost" size="icon" onClick={handlePrevDay}>
                 <ChevronLeft className="h-6 w-6" />
@@ -249,3 +250,5 @@ export default function MobileHomePage() {
         </Suspense>
     );
 }
+
+    
