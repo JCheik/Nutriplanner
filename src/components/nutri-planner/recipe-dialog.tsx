@@ -495,68 +495,68 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
       <DialogFooter className="mt-6 flex flex-row justify-between items-center w-full">
          {/* --- Left Aligned Buttons --- */}
          <div>
-            {isAdmin && !isFromMealPlanner && (
-            <AlertDialog>
-                <AlertDialogTrigger asChild>
-                <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent className="bg-glass">
-                <AlertDialogHeader>
-                    <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                    Esta acción no se puede deshacer. Esto eliminará permanentemente la receta.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => onDelete(recipe.id, isNutriPlannerRecipe)}>Borrar</AlertDialogAction>
-                </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-            )}
-            {!isAdmin && !isNutriPlannerRecipe && !isFromMealPlanner && (
-                <AlertDialog>
-                <AlertDialogTrigger asChild>
-                <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent className="bg-glass">
-                <AlertDialogHeader>
-                    <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                    Esta acción no se puede deshacer. Esto eliminará permanentemente la receta de tu biblioteca y de todos los planes de comidas.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => onDelete(recipe.id, false)}>Borrar</AlertDialogAction>
-                </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-            )}
-            
-             {isMobile && onRemoveFromMeal && recipe.id && (
+            {isMobile && onRemoveFromMeal && recipe.id && (
                 <Button variant="destructive" onClick={() => onRemoveFromMeal({ mealId: context.mealId, recipeInstanceId: recipe.instanceId })}>
                     <XCircle className="mr-2 h-4 w-4" />
                     Quitar del Plan
                 </Button>
             )}
+             {/* Desktop delete buttons */}
+            { !isMobile && (
+                <>
+                    {isAdmin && !isFromMealPlanner && (
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                        <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="bg-glass">
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                            Esta acción no se puede deshacer. Esto eliminará permanentemente la receta.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => onDelete(recipe.id, isNutriPlannerRecipe)}>Borrar</AlertDialogAction>
+                        </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                    )}
+                    {!isAdmin && !isNutriPlannerRecipe && !isFromMealPlanner && (
+                        <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                        <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="bg-glass">
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                            Esta acción no se puede deshacer. Esto eliminará permanentemente la receta de tu biblioteca y de todos los planes de comidas.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => onDelete(recipe.id, false)}>Borrar</AlertDialogAction>
+                        </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                    )}
+                </>
+            )}
          </div>
 
         {/* --- Right Aligned Buttons --- */}
         <div className='flex gap-2'>
-          {isNutriPlannerRecipe && (
+          {isNutriPlannerRecipe && !isMobile && (
             <Button onClick={() => onCopy(recipe)}><Copy className="mr-2 h-4 w-4" /> Copiar a Mis Recetas</Button>
           )}
-          {!isMobile && (
-             <>
-                {isAdmin && (
-                    <Button variant="outline" onClick={() => onEdit(recipe, isNutriPlannerRecipe)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
-                )}
-                {!isNutriPlannerRecipe && (
-                    <Button variant="outline" onClick={() => onEdit(recipe, false)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
-                )}
-             </>
-          )}
+            {isAdmin && (
+                <Button variant="outline" onClick={() => onEdit(recipe, isNutriPlannerRecipe)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
+            )}
+            {!isNutriPlannerRecipe && (
+                <Button variant="outline" onClick={() => onEdit(recipe, false)}><Edit className="mr-2 h-4 w-4" /> Editar</Button>
+            )}
         </div>
       </DialogFooter>
     </>
