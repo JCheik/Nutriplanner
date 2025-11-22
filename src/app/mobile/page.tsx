@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic'; 
+
 import { useState, useMemo, useEffect, Suspense, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useUser } from '@/firebase/auth/use-user';
@@ -36,6 +38,7 @@ function MobilePageContent() {
   const [guestWeekPlan, setGuestWeekPlan] = useState<DayPlan[]>(INITIAL_WEEK_PLAN);
 
   useEffect(() => {
+    // Initialize date only on the client to avoid hydration mismatch
     setCurrentDate(new Date());
   }, []);
 
@@ -50,10 +53,13 @@ function MobilePageContent() {
 
   const activeDayName = useMemo(() => {
     if (!currentDate) return '';
+    // Sunday - 0, Monday - 1, etc.
     const dayIndex = currentDate.getDay();
+    // Consistent mapping for lookups
     const dayMap = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     return dayMap[dayIndex];
   }, [currentDate]);
+
 
   const activeDayPlan = useMemo(() => {
     const sourcePlan = isGuestMode ? guestWeekPlan : (weekPlanData || INITIAL_WEEK_PLAN);
@@ -80,7 +86,7 @@ function MobilePageContent() {
   };
   
   const handleRecipeClick = (recipe: Recipe, meal: Meal) => {
-    setDialogState({ open: true, mode: 'view', recipe, context: { mealId: meal.id, source: 'mobile-planner' } });
+    setDialogState({ open: true, mode: 'view', recipe, context: { mealId: meal.id, recipeInstanceId: (recipe as RecipeInstance).instanceId, source: 'mobile-planner' } });
   };
 
   const handleMealClick = (meal: Meal) => {
@@ -89,7 +95,10 @@ function MobilePageContent() {
   };
   
   const handleRecipeSelectionSave = (updatedRecipes: Recipe[]) => {
-    const existingInstances = selectedMeal?.recipes.filter(r => updatedRecipes.some(ur => ur.id === r.id)) || [];
+    if (!selectedMeal) return;
+
+    // Preserve existing instances, create new ones only for new recipes
+    const existingInstances = selectedMeal.recipes.filter(r => updatedRecipes.some(ur => ur.id === r.id));
     const newRecipes = updatedRecipes.filter(r => !existingInstances.some(er => er.id === r.id));
 
     const finalRecipeInstances: RecipeInstance[] = [
@@ -97,6 +106,7 @@ function MobilePageContent() {
         ...newRecipes.map(r => ({ ...r, instanceId: self.crypto.randomUUID() }))
     ];
 
+    // --- GUEST MODE LOGIC ---
     if (isGuestMode) {
         setGuestWeekPlan(prevPlan => 
             prevPlan.map(day => {
@@ -113,10 +123,11 @@ function MobilePageContent() {
         );
         setIsRecipeSelectorOpen(false);
         setSelectedMeal(null);
-        return;
+        return; // Stop execution for guest mode
     }
     
-    if (!user || !firestore || !activeDayPlan || !selectedMeal) return;
+    // --- AUTHENTICATED USER LOGIC ---
+    if (!user || !firestore || !activeDayPlan) return;
 
     const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', activeDayName);
     const updatedMeals = activeDayPlan.meals.map(meal => {
@@ -132,6 +143,7 @@ function MobilePageContent() {
   };
 
   const handleRemoveRecipe = useCallback((mealId: string, recipeInstanceId: string) => {
+    // --- GUEST MODE LOGIC ---
     if (isGuestMode) {
         setGuestWeekPlan(prevPlan => 
             prevPlan.map(day => {
@@ -147,9 +159,11 @@ function MobilePageContent() {
                  }
             })
         );
-        return;
+        setDialogState({ open: false });
+        return; // Stop execution for guest mode
     }
     
+    // --- AUTHENTICATED USER LOGIC ---
     if (!user || !firestore || !activeDayPlan) return;
 
     const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', activeDayName);
@@ -164,6 +178,7 @@ function MobilePageContent() {
     });
     
     setDocumentNonBlocking(dayDocRef, { ...activeDayPlan, meals: updatedMeals }, { merge: true });
+    setDialogState({ open: false });
   }, [user, firestore, activeDayName, activeDayPlan, isGuestMode]);
 
   if (userLoading || (!isGuestMode && weekPlanLoading) || !currentDate) {
@@ -245,7 +260,6 @@ function MobilePageContent() {
         onRemoveFromMeal={(context) => {
             if (context.mealId && context.recipeInstanceId) {
                 handleRemoveRecipe(context.mealId, context.recipeInstanceId);
-                setDialogState({ open: false });
             }
         }}
         isMobile={true}
