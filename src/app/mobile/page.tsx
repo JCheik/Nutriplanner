@@ -1,5 +1,8 @@
 'use client';
 
+// Added to ensure the page is rendered dynamically, as it uses searchParams.
+export const dynamic = 'force-dynamic'; 
+
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useUser } from '@/firebase/auth/use-user';
@@ -51,11 +54,9 @@ export default function MobilePageContent() {
 
   const activeDayName = useMemo(() => {
     if (!currentDate) return '';
-    // Sunday - 0, Monday - 1, etc.
-    const dayIndex = currentDate.getDay();
-    // Consistent mapping for lookups
+    // Consistent mapping for lookups, Sunday (0) to Saturday (6)
     const dayMap = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-    return dayMap[dayIndex];
+    return dayMap[currentDate.getDay()];
   }, [currentDate]);
 
 
@@ -96,13 +97,13 @@ export default function MobilePageContent() {
     if (!selectedMeal) return;
 
     // Preserve existing instances, create new ones only for new recipes
-    const existingInstances = selectedMeal.recipes.filter(r => updatedRecipes.some(ur => ur.id === r.id));
-    const newRecipes = updatedRecipes.filter(r => !existingInstances.some(er => er.id === r.id));
-
-    const finalRecipeInstances: RecipeInstance[] = [
-        ...existingInstances,
-        ...newRecipes.map(r => ({ ...r, instanceId: self.crypto.randomUUID() }))
-    ];
+    const existingRecipeInstanceMap = new Map(selectedMeal.recipes.map(r => [r.id, r]));
+    const finalRecipeInstances: RecipeInstance[] = updatedRecipes.map(recipe => {
+      if (existingRecipeInstanceMap.has(recipe.id)) {
+        return existingRecipeInstanceMap.get(recipe.id)!;
+      }
+      return { ...recipe, instanceId: self.crypto.randomUUID() };
+    });
 
     // --- GUEST MODE LOGIC ---
     if (isGuestMode) {

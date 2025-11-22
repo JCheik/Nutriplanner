@@ -1,5 +1,8 @@
 'use client';
 
+// Added to ensure the page is rendered dynamically, as it uses searchParams.
+export const dynamic = 'force-dynamic';
+
 import { useMemo, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useUser, useCollection, useFirebase, useMemoFirebase } from '@/firebase';
