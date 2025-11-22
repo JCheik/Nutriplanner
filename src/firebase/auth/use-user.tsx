@@ -7,10 +7,9 @@ import {
   type User,
 } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
-import { doc, getDoc, writeBatch, collection, getDocs, query, setDoc } from 'firebase/firestore';
-import { useAuth } from '@/firebase/provider';
-import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
-import type { UserProfile, Recipe } from '@/lib/types';
+import { doc, getDoc, writeBatch, collection, setDoc } from 'firebase/firestore';
+import { NUTRIPLANNER_RECIPES_DATA, INITIAL_WEEK_PLAN } from '@/lib/data';
+import type { UserProfile } from '@/lib/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -44,7 +43,7 @@ export const signInWithGoogle = async (auth: Auth, firestore: Firestore) => {
         batch.set(userRef, profile, { merge: true });
 
         const recipesCollectionRef = collection(firestore, 'users', user.uid, 'recipes');
-        INITIAL_RECIPES.forEach(recipe => {
+        NUTRIPLANNER_RECIPES_DATA.forEach(recipe => {
             const newRecipeRef = doc(recipesCollectionRef, recipe.id);
             batch.set(newRecipeRef, recipe);
         });

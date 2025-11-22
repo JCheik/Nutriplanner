@@ -17,7 +17,7 @@ const createRecipeIngredient = (
     unit,
 });
 
-export const INITIAL_RECIPES: Recipe[] = [];
+export const NUTRIPLANNER_RECIPES_DATA: Recipe[] = [];
 
 const defaultMeals: Omit<Meal, 'id'>[] = [
   { title: 'Desayuno', recipes: [] },
@@ -35,12 +35,6 @@ const createDayPlan = (day: DayPlan['day']): DayPlan => ({
     })),
 });
 
-export const INITIAL_WEEK_PLAN: WeekPlan = [
-  createDayPlan('Lunes'),
-  createDayPlan('Martes'),
-  createDayPlan('Miércoles'),
-  createDayPlan('Jueves'),
-  createDayPlan('Viernes'),
-  createDayPlan('Sábado'),
-  createDayPlan('Domingo'),
-];
+export const DAY_ORDER: DayPlan['day'][] = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+export const INITIAL_WEEK_PLAN: WeekPlan = DAY_ORDER.map(createDayPlan);

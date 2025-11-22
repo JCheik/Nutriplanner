@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
-import type { DayPlan, Recipe, Meal, WeekPlan, DialogState, UserProfile, CalculationResult, GoalType, ActiveDropTarget, RecipeInstance, Folder, GlobalFolder } from '@/lib/types';
-import { INITIAL_WEEK_PLAN, INITIAL_RECIPES } from '@/lib/data';
+import { useState, useCallback, useMemo } from 'react';
+import type { DayPlan, Recipe, Meal, WeekPlan, DialogState, ActiveDropTarget, GlobalFolder } from '@/lib/types';
 import { PageHeader } from '@/components/layout/page-header';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
 import { MealPlanner } from '@/components/nutri-planner/meal-planner';
@@ -12,19 +11,8 @@ import { StickyNote } from '@/components/nutri-planner/sticky-note';
 import { FloatingGoals } from '@/components/nutri-planner/floating-goals';
 import { ShoppingListSheet } from '@/components/nutri-planner/shopping-list';
 import { FloatingMenu } from '@/components/nutri-planner/floating-menu';
-import { useUser } from '@/firebase/auth/use-user';
-import { useCollection } from '@/firebase/firestore/use-collection';
-import { useDoc } from '@/firebase/firestore/use-doc';
-import { useFirebase, useFirestore, useMemoFirebase } from '@/firebase/index';
-import { collection, doc, writeBatch, setDoc } from 'firebase/firestore';
-import { saveRecipe } from '@/lib/actions';
-import {
-  setDocumentNonBlocking,
-  updateDocumentNonBlocking,
-  addDocumentNonBlocking,
-  deleteDocumentNonBlocking
-} from '@/firebase/non-blocking-updates';
 import { Logo } from '@/components/icons/logo';
+import { usePlannerState } from '@/hooks/use-planner-state';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,142 +25,49 @@ import {
 } from '@/components/ui/alert-dialog';
 
 
-const DAY_ORDER = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-
 interface DashboardProps {
   isGuestMode?: boolean;
   onExitGuestMode?: () => void;
 }
 
-// --- Helper functions to update week plan state ---
-
-const addRecipeToMeal = (plan: WeekPlan, day: string, mealId: string, recipe: Recipe): WeekPlan => {
-    const newRecipeInstance: RecipeInstance = {
-        ...recipe,
-        instanceId: self.crypto.randomUUID()
-    };
-    return plan.map(dayPlan =>
-        dayPlan.day === day
-            ? {
-                ...dayPlan,
-                meals: dayPlan.meals.map(meal =>
-                    meal.id === mealId
-                        ? { ...meal, recipes: [...meal.recipes, newRecipeInstance] }
-                        : meal
-                )
-            }
-            : dayPlan
-    );
-};
-
-const clearMealRecipes = (plan: WeekPlan, day: string, mealId: string): WeekPlan => {
-    return plan.map(dayPlan =>
-        dayPlan.day === day
-            ? {
-                ...dayPlan,
-                meals: dayPlan.meals.map(meal =>
-                    meal.id === mealId ? { ...meal, recipes: [] } : meal
-                )
-            }
-            : dayPlan
-    );
-};
-
-const removeRecipeFromMeal = (plan: WeekPlan, day: string, mealId: string, recipeInstanceId: string): WeekPlan => {
-    return plan.map(dayPlan =>
-        dayPlan.day === day
-            ? {
-                ...dayPlan,
-                meals: dayPlan.meals.map(meal => {
-                    if (meal.id !== mealId) return meal;
-                    const updatedRecipes = meal.recipes.filter(r => r.instanceId !== recipeInstanceId);
-                    return { ...meal, recipes: updatedRecipes };
-                })
-            }
-            : dayPlan
-    );
-};
-
-
 export default function Dashboard({ isGuestMode = false, onExitGuestMode }: DashboardProps) {
   const { toast } = useToast();
-  const { user, loading: userLoading } = useUser();
-  const { firestore } = useFirebase();
-
-  // State for guest mode
-  const [guestRecipes, setGuestRecipes] = useState<Recipe[]>(INITIAL_RECIPES);
-  const [guestWeekPlan, setGuestWeekPlan] = useState<WeekPlan>(INITIAL_WEEK_PLAN);
-  const [guestStickyNote, setGuestStickyNote] = useState('¡Bienvenido a NutriPlanner! Usa esta nota para apuntar lo que quieras.');
-  const [guestCalorieResult, setGuestCalorieResult] = useState<CalculationResult | null>(null);
-
-  // Firestore data hooks for logged-in users
-  const userRecipesCollectionRef = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'users', user.uid, 'recipes') : null, [firestore, user]);
-  const { data: userRecipes, isLoading: userRecipesLoading } = useCollection<Recipe>(userRecipesCollectionRef);
-
-  const foldersCollectionRef = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'users', user.uid, 'folders') : null, [firestore, user]);
-  const { data: folders, isLoading: foldersLoading } = useCollection<Folder>(foldersCollectionRef);
   
-  const weekPlanCollectionRef = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'users', user.uid, 'weekPlan') : null, [firestore, user]);
-  const { data: weekPlanData, isLoading: weekPlanLoading } = useCollection<DayPlan>(weekPlanCollectionRef);
-  
-  const userProfileRef = useMemoFirebase(() => (user && firestore) ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
-  const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
-  
+  const {
+    currentUserRecipes,
+    nutriplannerRecipes,
+    currentFolders,
+    currentWeekPlan,
+    currentStickyNote,
+    currentCalorieResult,
+    activeGoalMacros,
+    isLoading,
+    isSaving,
+    activeGoal,
+    handleDrop,
+    handleClearMeal,
+    handleRemoveRecipeFromMeal,
+    handleUpdateMealTitle,
+    handleAddMeal,
+    handleDeleteMeal,
+    handleSaveRecipe,
+    handleDeleteRecipe,
+    handleCopyRecipe,
+    handleFolderCreate,
+    handleFolderDelete,
+    handleFolderUpdate,
+    handleAssignRecipeToFolder,
+    handleNoteSave,
+    handleCalorieResultSave,
+    handleActiveGoalChange,
+    handleSaveCustomGoal
+  } = usePlannerState({ isGuestMode });
+
   // Dialog and UI state
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
   const [activePanel, setActivePanel] = useState<'goals' | 'shopping-list' | 'sticky-note' | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
   const [isGuestPromptOpen, setIsGuestPromptOpen] = useState(false);
-  const [activeGoal, setActiveGoal] = useState<GoalType>('maintenance');
   const [activeDropTarget, setActiveDropTarget] = useState<ActiveDropTarget | null>(null);
-
-  useEffect(() => {
-    if (userProfile?.activeGoalPreference) {
-      setActiveGoal(userProfile.activeGoalPreference);
-    } else {
-      setActiveGoal('maintenance');
-    }
-  }, [userProfile]);
-
-  const handleActiveGoalChange = (goal: GoalType) => {
-    setActiveGoal(goal);
-    if (!isGuestMode && userProfileRef) {
-      updateDocumentNonBlocking(userProfileRef, { activeGoalPreference: goal });
-    }
-  };
-
-  // Memoized data sources based on auth state
-  const currentUserRecipes = useMemo(() => isGuestMode ? guestRecipes : (userRecipes || []), [isGuestMode, guestRecipes, userRecipes]);
-  const currentFolders = useMemo(() => isGuestMode ? [] : (folders || []), [isGuestMode, folders]);
-  
-  const currentWeekPlan = useMemo(() => {
-    if (isGuestMode) return guestWeekPlan;
-
-    if (!weekPlanData || weekPlanData.length === 0) {
-      return INITIAL_WEEK_PLAN;
-    }
-    
-    const planMap = new Map(weekPlanData.map(day => [day.day, day]));
-
-    if (planMap.size === 0) {
-      return INITIAL_WEEK_PLAN;
-    }
-
-    return DAY_ORDER.map(dayName => {
-        const savedDay = planMap.get(dayName as DayPlan['day']);
-        if (savedDay) {
-          // Ensure meals is always an array to prevent crashes
-          const meals = Array.isArray(savedDay.meals) ? savedDay.meals : [];
-          return { ...savedDay, day: dayName as DayPlan['day'], meals };
-        }
-        return INITIAL_WEEK_PLAN.find(d => d.day === dayName)!;
-    });
-
-  }, [isGuestMode, guestWeekPlan, weekPlanData]);
-  
-  const currentStickyNote = useMemo(() => isGuestMode ? guestStickyNote : (userProfile?.stickyNote || '¡Bienvenido a NutriPlanner! Usa esta nota para apuntar lo que quieras.'), [isGuestMode, guestStickyNote, userProfile]);
-  const currentCalorieResult = useMemo(() => isGuestMode ? guestCalorieResult : (userProfile?.calorieResult || null), [isGuestMode, guestCalorieResult, userProfile]);
-  const activeGoalMacros = useMemo(() => currentCalorieResult && activeGoal ? currentCalorieResult[activeGoal] : null, [currentCalorieResult, activeGoal]);
   
   // --- Guest Mode Interaction ---
   const promptToRegister = () => {
@@ -182,104 +77,6 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     }
     return false; // Indicates that the user is logged in
   };
-
-  const updateDayPlanInFirestore = (day: string, updatedMeals: Meal[]) => {
-    if (!user || !firestore) return;
-    const targetDay = currentWeekPlan.find(d => d.day === day);
-    if (targetDay) {
-        const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
-        setDocumentNonBlocking(dayDocRef, { ...targetDay, meals: updatedMeals }, { merge: true });
-    }
-  };
-
-  const handleDrop = useCallback((day: string, mealId: string, droppedRecipe: Recipe) => {
-    if (isGuestMode) {
-        setGuestWeekPlan(plan => addRecipeToMeal(plan, day, mealId, droppedRecipe));
-    } else {
-        const updatedPlan = addRecipeToMeal(currentWeekPlan, day, mealId, droppedRecipe);
-        const updatedDay = updatedPlan.find(d => d.day === day);
-        if (updatedDay) {
-            updateDayPlanInFirestore(day, updatedDay.meals);
-        }
-    }
-    setActiveDropTarget(null);
-  }, [user, firestore, currentWeekPlan, isGuestMode]);
-  
-  const handleClearMeal = useCallback((day: string, mealId: string) => {
-    if (isGuestMode) {
-        setGuestWeekPlan(plan => clearMealRecipes(plan, day, mealId));
-    } else {
-        const updatedPlan = clearMealRecipes(currentWeekPlan, day, mealId);
-        const updatedDay = updatedPlan.find(d => d.day === day);
-        if (updatedDay) {
-            updateDayPlanInFirestore(day, updatedDay.meals);
-        }
-    }
-  }, [user, firestore, currentWeekPlan, isGuestMode]);
-  
-  const handleRemoveRecipeFromMeal = useCallback((day: string, mealId: string, recipeInstanceId: string) => {
-    if (isGuestMode) {
-        setGuestWeekPlan(plan => removeRecipeFromMeal(plan, day, mealId, recipeInstanceId));
-    } else {
-        const updatedPlan = removeRecipeFromMeal(currentWeekPlan, day, mealId, recipeInstanceId);
-        const updatedDay = updatedPlan.find(d => d.day === day);
-        if (updatedDay) {
-            updateDayPlanInFirestore(day, updatedDay.meals);
-        }
-    }
-    handleDialogClose();
-  }, [user, firestore, currentWeekPlan, isGuestMode]);
-
-  const handleUpdateMealTitle = useCallback((day: string, mealId: string, newTitle: string) => {
-      if (promptToRegister()) return;
-      if (!user || !firestore || !currentWeekPlan) return;
-
-      const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
-      const targetDay = currentWeekPlan.find(d => d.day === day);
-
-      if (targetDay) {
-          const updatedMeals = targetDay.meals.map(meal =>
-              meal.id === mealId ? { ...meal, title: newTitle } : meal
-          );
-          const updatedDayPlan = { ...targetDay, meals: updatedMeals };
-          setDocumentNonBlocking(dayDocRef, updatedDayPlan, { merge: true });
-      }
-  }, [user, firestore, currentWeekPlan, isGuestMode]);
-
-  const handleAddMeal = useCallback((day: string, index: number) => {
-    if (promptToRegister()) return;
-    if (!user || !firestore || !currentWeekPlan) return;
-
-    const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
-    const targetDay = currentWeekPlan.find(d => d.day === day);
-
-    if (targetDay) {
-        const newMeal: Meal = {
-            id: `meal-${Date.now()}-${day}`,
-            title: 'Nueva Comida',
-            recipes: [],
-        };
-        const updatedMeals = [...targetDay.meals];
-        updatedMeals.splice(index, 0, newMeal);
-        
-        const updatedDayPlan = { ...targetDay, meals: updatedMeals };
-        setDocumentNonBlocking(dayDocRef, updatedDayPlan, { merge: true });
-    }
-  }, [user, firestore, currentWeekPlan, isGuestMode]);
-
-  const handleDeleteMeal = useCallback((day: string, mealId: string) => {
-      if (promptToRegister()) return;
-      if (!user || !firestore || !currentWeekPlan) return;
-
-      const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
-      const targetDay = currentWeekPlan.find(d => d.day === day);
-
-      if (targetDay) {
-          const updatedMeals = targetDay.meals.filter(meal => meal.id !== mealId);
-          const updatedDayPlan = { ...targetDay, meals: updatedMeals };
-          setDocumentNonBlocking(dayDocRef, updatedDayPlan, { merge: true });
-      }
-  }, [user, firestore, currentWeekPlan, isGuestMode]);
 
   const handleRecipeAction = useCallback((action: 'view' | 'create' | 'edit', recipe?: Recipe, isNutriPlannerRecipe: boolean = false, source?: string) => {
     if ((action === 'create' || action === 'edit') && promptToRegister()) {
@@ -304,134 +101,22 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
         description: "Toca una casilla de comida en el planificador antes de añadir una receta.",
       });
     }
+    setActiveDropTarget(null);
   };
 
   const handleDialogClose = useCallback(() => {
     setDialogState({ open: false });
   }, []);
 
-  const handleSaveRecipe = async (recipeData: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
-    if (promptToRegister() || !user) {
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const result = await saveRecipe({
-        recipeData,
-        imageFile,
-        isGlobal,
-        userId: user.uid,
-        existingId,
-      });
-
-      if (result.success) {
-        toast({ title: '¡Receta guardada!', description: `${result.recipeName} se ha guardado correctamente.` });
-        handleDialogClose();
-      } else {
-        throw new Error(result.error || 'Error desconocido al guardar la receta');
-      }
-    } catch (error: any) {
-        console.error("Error saving recipe:", error);
-        toast({
-            variant: "destructive",
-            title: "Error al guardar la receta",
-            description: error.message || 'No se pudo guardar la receta.',
-        });
-    } finally {
-        setIsSaving(false);
-    }
+  const handleInternalDeleteRecipe = (recipeId: string, isGlobal: boolean) => {
+    handleDeleteRecipe(recipeId, isGlobal);
+    handleDialogClose();
   };
 
-
-  const handleDeleteRecipe = useCallback(async (recipeId: string, isGlobal: boolean) => {
-    if (promptToRegister()) return;
-    if (!user || !firestore || !userRecipesCollectionRef) return;
-    
-    const recipeRef = doc(userRecipesCollectionRef, recipeId);
-    deleteDocumentNonBlocking(recipeRef);
-
-    // Also remove all instances of the deleted recipe from the week plan
-    try {
-        const batch = writeBatch(firestore);
-        currentWeekPlan.forEach(dayPlan => {
-            let dayWasUpdated = false;
-            const newMeals = dayPlan.meals.map(meal => {
-                const initialLength = meal.recipes.length;
-                const filteredRecipes = meal.recipes.filter(r => r.id !== recipeId);
-                if (initialLength > filteredRecipes.length) {
-                    dayWasUpdated = true;
-                    return { ...meal, recipes: filteredRecipes };
-                }
-                return meal;
-            });
-            if (dayWasUpdated) {
-                const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', dayPlan.day);
-                batch.set(dayDocRef, { meals: newMeals }, { merge: true });
-            }
-        });
-        await batch.commit();
-    } catch (error) {
-        console.error("Error removing recipe from week plan:", error);
-    }
-
-    toast({ title: 'Receta eliminada', description: 'La receta ha sido eliminada permanentemente.' });
-    handleDialogClose();
-  }, [handleDialogClose, user, firestore, userRecipesCollectionRef, currentWeekPlan, toast, isGuestMode]);
-
-  const handleCopyRecipe = useCallback((recipe: Recipe) => {
-    if (promptToRegister()) return;
-    if (!user || !userRecipesCollectionRef) return;
-    
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id, folderId, ...recipeData } = recipe; // Exclude folderId
-    
-    const newRecipeRef = doc(userRecipesCollectionRef);
-    // Save the copied recipe without a folderId
-    addDocumentNonBlocking(userRecipesCollectionRef, { ...recipeData, id: newRecipeRef.id, folderId: null });
-
-    toast({ title: '¡Receta Copiada!', description: `${recipe.name} ha sido añadida a "Mis Recetas".` });
-  }, [user, userRecipesCollectionRef, toast, isGuestMode]);
-
-  // --- Folder Actions ---
-  const handleFolderCreate = useCallback((name: string) => {
-    if (promptToRegister() || !user || !foldersCollectionRef) return;
-    const newFolder: Omit<Folder, 'id'> = { name, userId: user.uid };
-    addDocumentNonBlocking(foldersCollectionRef, newFolder);
-    toast({ title: 'Carpeta creada', description: `La carpeta "${name}" ha sido creada.` });
-  }, [user, foldersCollectionRef, isGuestMode]);
-
-  const handleFolderDelete = useCallback(async (id: string) => {
-    if (promptToRegister() || !user || !firestore) return;
-    
-    const folderRef = doc(firestore, 'users', user.uid, 'folders', id);
-    deleteDocumentNonBlocking(folderRef);
-
-    // Unassign recipes from the deleted folder
-    const batch = writeBatch(firestore);
-    const recipesToUpdate = userRecipes?.filter(r => r.folderId === id) || [];
-    recipesToUpdate.forEach(recipe => {
-      const recipeRef = doc(firestore, 'users', user.uid, 'recipes', recipe.id);
-      batch.update(recipeRef, { folderId: null });
-    });
-    
-    await batch.commit();
-    toast({ title: 'Carpeta eliminada' });
-  }, [user, firestore, userRecipes, isGuestMode]);
-  
-  const handleFolderUpdate = useCallback((id: string, name: string) => {
-    if (promptToRegister() || !user || !firestore) return;
-    const folderRef = doc(firestore, 'users', user.uid, 'folders', id);
-    updateDocumentNonBlocking(folderRef, { name });
-  }, [user, firestore, isGuestMode]);
-
-  const handleAssignRecipeToFolder = useCallback((recipeId: string, folderId: string | null) => {
-    if (promptToRegister() || !user || !firestore) return;
-    const recipeRef = doc(firestore, 'users', user.uid, 'recipes', recipeId);
-    updateDocumentNonBlocking(recipeRef, { folderId });
-    toast({ title: 'Receta movida' });
-  }, [user, firestore, isGuestMode]);
-
+  const handleInternalSaveRecipe = async (recipeData: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
+      await handleSaveRecipe(recipeData, imageFile, isGlobal, existingId);
+      handleDialogClose();
+  };
 
   const dailyTotals = useMemo(() => {
     return currentWeekPlan.map(dayPlan => {
@@ -450,35 +135,13 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     });
   }, [currentWeekPlan]);
   
-  const handleNoteSave = useCallback((content: string) => {
-    if (isGuestMode) {
-      setGuestStickyNote(content);
-    } else if (user && userProfileRef) {
-      updateDocumentNonBlocking(userProfileRef, { stickyNote: content });
-    }
-  }, [user, userProfileRef, isGuestMode]);
-
-  const handleCalorieResultSave = useCallback((result: CalculationResult) => {
-    if (isGuestMode) {
-        setGuestCalorieResult(result);
-    } else if (user && userProfileRef) {
-      updateDocumentNonBlocking(userProfileRef, { calorieResult: result });
-    }
-  }, [user, userProfileRef, isGuestMode]);
-
   const handlePanelOpen = (panel: 'goals' | 'shopping-list' | 'sticky-note') => {
     setActivePanel(panel);
   }
   
   const handlePanelChange = (panel: 'goals' | 'shopping-list' | 'sticky-note', isOpen: boolean) => {
-    if (!isOpen) {
-      setActivePanel(null);
-    } else {
-      setActivePanel(panel);
-    }
+    setActivePanel(isOpen ? panel : null);
   }
-
-  const isLoading = !isGuestMode && (userLoading || userRecipesLoading || weekPlanLoading || profileLoading || foldersLoading);
 
   if (isLoading) {
     return (
@@ -505,9 +168,9 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
               onClearMeal={handleClearMeal}
               onRecipeClick={(recipe) => handleRecipeAction('view', recipe, false, 'meal-planner')}
               onRemoveRecipeFromMeal={handleRemoveRecipeFromMeal}
-              onUpdateMealTitle={handleUpdateMealTitle}
-              onAddMeal={handleAddMeal}
-              onDeleteMeal={handleDeleteMeal}
+              onUpdateMealTitle={promptToRegister() ? () => {} : handleUpdateMealTitle}
+              onAddMeal={promptToRegister() ? () => {} : handleAddMeal}
+              onDeleteMeal={promptToRegister() ? () => {} : handleDeleteMeal}
               activeDropTarget={activeDropTarget}
               onSetDropTarget={setActiveDropTarget}
             />
@@ -515,16 +178,16 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
           <div className="grid grid-cols-1 gap-6">
             <RecipeLibrary 
               userRecipes={currentUserRecipes}
-              nutriplannerRecipes={INITIAL_RECIPES}
+              nutriplannerRecipes={nutriplannerRecipes}
               folders={currentFolders}
               globalFolders={[]}
               onRecipeAction={handleRecipeAction}
               onCopyRecipe={handleCopyRecipe}
               onAddToPlan={handleAddToPlan}
-              onFolderCreate={handleFolderCreate}
-              onFolderUpdate={handleFolderUpdate}
-              onFolderDelete={handleFolderDelete}
-              onAssignRecipeToFolder={handleAssignRecipeToFolder}
+              onFolderCreate={promptToRegister() ? () => {} : handleFolderCreate}
+              onFolderUpdate={promptToRegister() ? () => {} : handleFolderUpdate}
+              onFolderDelete={promptToRegister() ? () => {} : handleFolderDelete}
+              onAssignRecipeToFolder={promptToRegister() ? () => {} : handleAssignRecipeToFolder}
               onGlobalFolderCreate={() => {}}
               onGlobalFolderUpdate={() => {}}
               onGlobalFolderDelete={() => {}}
@@ -539,8 +202,8 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
         folders={currentFolders}
         globalFolders={[]}
         onClose={handleDialogClose}
-        onSave={handleSaveRecipe}
-        onDelete={handleDeleteRecipe}
+        onSave={handleInternalSaveRecipe}
+        onDelete={handleInternalDeleteRecipe}
         onEdit={(recipe, isGlobal) => handleRecipeAction('edit', recipe, isGlobal)}
         onCopy={handleCopyRecipe}
       />
@@ -558,6 +221,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
         isOpen={activePanel === 'goals'}
         onOpenChange={(isOpen) => handlePanelChange('goals', isOpen)}
         onGoalSelect={handleActiveGoalChange}
+        onSaveCustomGoal={handleSaveCustomGoal}
         activeGoal={activeGoal}
       />
       <StickyNote

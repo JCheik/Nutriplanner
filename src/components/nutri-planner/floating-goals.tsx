@@ -102,10 +102,6 @@ const CustomGoalEditor = ({ goal, onSave }: { goal?: GoalMacros, onSave: (macros
 const TargetGoalsDisplay = ({ result, onCalculate, onGoalSelect, activeGoal, onSaveCustomGoal }: { result: CalculationResult | null, onCalculate: (result: CalculationResult) => void, onGoalSelect: (goal: GoalType) => void, activeGoal: GoalType, onSaveCustomGoal: (macros: GoalMacros) => void }) => {
     const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
 
-    const handleOpenCalculator = () => {
-        setIsCalculatorOpen(true);
-    };
-
     if (!result) {
         return (
             <>
@@ -114,7 +110,7 @@ const TargetGoalsDisplay = ({ result, onCalculate, onGoalSelect, activeGoal, onS
                         <Target className="h-12 w-12 mx-auto mb-2" />
                         <h3 className="text-lg font-semibold mb-2">Calcula tus Metas</h3>
                         <p className="mb-4 text-sm">Usa la calculadora para establecer tus metas de calorías y macros.</p>
-                        <Button onClick={handleOpenCalculator}>
+                        <Button onClick={() => setIsCalculatorOpen(true)}>
                             <Calculator className="mr-2 h-4 w-4" />
                             Abrir Calculadora
                         </Button>
@@ -128,7 +124,7 @@ const TargetGoalsDisplay = ({ result, onCalculate, onGoalSelect, activeGoal, onS
     const GoalHeader = ({ title }: { title: string }) => (
         <div className="flex justify-between items-center w-full">
             <span className="font-semibold">{title}</span>
-            <Button variant="ghost" size="sm" onClick={handleOpenCalculator}>
+            <Button variant="ghost" size="sm" onClick={() => setIsCalculatorOpen(true)}>
                 <Edit className="h-4 w-4 mr-2"/>
                 Editar
             </Button>
@@ -176,21 +172,11 @@ interface FloatingGoalsProps {
   calorieResult: CalculationResult | null;
   onCalorieResultSave: (result: CalculationResult) => void;
   onGoalSelect: (goal: GoalType) => void;
+  onSaveCustomGoal: (macros: GoalMacros) => void;
   activeGoal: GoalType;
 }
 
-export function FloatingGoals({ isOpen, onOpenChange, calorieResult, onCalorieResultSave, onGoalSelect, activeGoal }: FloatingGoalsProps) {
-  
-  const handleSaveCustomGoal = (macros: GoalMacros) => {
-        const newResult: CalculationResult = {
-            bmr: calorieResult?.bmr || 0,
-            maintenance: calorieResult?.maintenance || { calories: 0, protein: 0, carbs: 0, fat: 0 },
-            loss: calorieResult?.loss || { calories: 0, protein: 0, carbs: 0, fat: 0 },
-            gain: calorieResult?.gain || { calories: 0, protein: 0, carbs: 0, fat: 0 },
-            custom: macros,
-        };
-        onCalorieResultSave(newResult);
-    };
+export function FloatingGoals({ isOpen, onOpenChange, calorieResult, onCalorieResultSave, onGoalSelect, onSaveCustomGoal, activeGoal }: FloatingGoalsProps) {
 
   return (
     <div 
@@ -220,7 +206,7 @@ export function FloatingGoals({ isOpen, onOpenChange, calorieResult, onCalorieRe
                 onCalculate={onCalorieResultSave} 
                 onGoalSelect={onGoalSelect} 
                 activeGoal={activeGoal}
-                onSaveCustomGoal={handleSaveCustomGoal}
+                onSaveCustomGoal={onSaveCustomGoal}
             />
         </div>
     </div>

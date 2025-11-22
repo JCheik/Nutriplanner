@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, type DragEvent, type KeyboardEvent, useEffect } from 'react';
+import { useState, useMemo, type DragEvent, type KeyboardEvent } from 'react';
 import type { Recipe, SortCriteria, Folder, GlobalFolder } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IngredientsDialog } from './ingredients-dialog';
@@ -108,9 +107,7 @@ function FolderButton({
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') handleUpdate();
-    if (e.key === 'Escape') {
-      onSetEditing(false);
-    }
+    if (e.key === 'Escape') onSetEditing(false);
   };
 
   return (
@@ -208,11 +205,7 @@ function NewFolderPopover({ onFolderCreate }: { onFolderCreate: (name: string) =
 function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isDraggable, isNutriPlanner = false, isMobile, viewMode }: { recipes: Recipe[], onRecipeClick: (recipe: Recipe, isNutriPlanner?: boolean) => void, onCopyClick?: (recipe: Recipe) => void, onAddToPlanClick?: (recipe: Recipe) => void, isDraggable: boolean, isNutriPlanner?: boolean, isMobile: boolean, viewMode: 'grid' | 'list' }) {
   
   const handleCardClick = (recipe: Recipe) => {
-    if (isMobile && onAddToPlanClick) {
-      onAddToPlanClick(recipe);
-    } else {
       onRecipeClick(recipe, isNutriPlanner);
-    }
   };
 
   return (
@@ -241,6 +234,15 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isD
                       <Copy className="h-4 w-4" />
                     </Button>
                   )}
+                  {onAddToPlanClick && isMobile && (
+                     <Button
+                        onClick={(e) => { e.stopPropagation(); onAddToPlanClick(recipe);}}
+                        className="absolute bottom-2 right-2 z-10 h-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        size="sm"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                  )}
                 </div>
               ) : (
                 <div className="w-full relative">
@@ -260,6 +262,15 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isD
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
+                  )}
+                  {onAddToPlanClick && isMobile && (
+                     <Button
+                        onClick={(e) => { e.stopPropagation(); onAddToPlanClick(recipe);}}
+                        className="absolute top-1/2 -translate-y-1/2 right-12 z-10 h-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        size="sm"
+                      >
+                        Añadir
+                      </Button>
                   )}
                 </div>
               )}
@@ -312,7 +323,6 @@ export function RecipeLibrary({
 
   const recipesInSelectedFolder = useMemo(() => {
     const sourceRecipes = activeTab === 'user-recipes' ? userRecipes : nutriplannerRecipes;
-
     if (selectedFolderId === 'all') return sourceRecipes;
     if (selectedFolderId === null) return sourceRecipes.filter(r => !r.folderId);
     return sourceRecipes.filter(recipe => recipe.folderId === selectedFolderId);
@@ -404,7 +414,7 @@ export function RecipeLibrary({
                     <Database className="h-4 w-4" />
                   </Button>
                 )}
-                {!isMobile && (
+                {activeTab === 'user-recipes' && !isMobile && (
                   <Button onClick={() => onRecipeAction('create')}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Nueva Receta
@@ -423,10 +433,7 @@ export function RecipeLibrary({
                         icon={Folders} 
                         onClick={() => setSelectedFolderId('all')} 
                         isSelected={selectedFolderId === 'all'}
-                        isEditing={false}
-                        onSetEditing={() => {}}
-                        tempName=""
-                        onSetTempName={() => {}}
+                        isEditing={false} onSetEditing={() => {}} tempName="" onSetTempName={() => {}}
                         isDroppable={false}
                       />
                       <FolderButton 
@@ -434,10 +441,7 @@ export function RecipeLibrary({
                         icon={FolderIcon} 
                         onClick={() => setSelectedFolderId(null)} 
                         isSelected={selectedFolderId === null}
-                        isEditing={false}
-                        onSetEditing={() => {}}
-                        tempName=""
-                        onSetTempName={() => {}}
+                        isEditing={false} onSetEditing={() => {}} tempName="" onSetTempName={() => {}}
                         isDroppable={true}
                         onDragOver={(e) => handleDragOver(e)}
                         onDragLeave={handleDragLeave}

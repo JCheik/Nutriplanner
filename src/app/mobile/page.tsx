@@ -1,91 +1,82 @@
 'use client';
 
-// Added to ensure the page is rendered dynamically, as it uses searchParams.
-export const dynamic = 'force-dynamic'; 
+// This page uses client-side hooks for search params and authentication.
+// It must be rendered dynamically.
+export const dynamic = 'force-dynamic';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useUser } from '@/firebase/auth/use-user';
-import { useCollection, useDoc, useFirebase, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, doc, setDoc } from 'firebase/firestore';
-import { INITIAL_RECIPES, INITIAL_WEEK_PLAN } from '@/lib/data';
-import type { DayPlan, Meal, Recipe, RecipeInstance, UserProfile } from '@/lib/types';
+import { useCollection, useFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
+import { NUTRIPLANNER_RECIPES_DATA } from '@/lib/data';
+import type { DayPlan, Meal, Recipe, RecipeInstance } from '@/lib/types';
 import { Logo } from '@/components/icons/logo';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RecipeCard } from '@/components/nutri-planner/recipe-card';
 import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { RecipeSelectionDialog } from '@/components/nutri-planner/recipe-selection-dialog';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BookHeart, PlusCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { MobileNav } from '@/components/layout/mobile-nav';
-import { cn } from '@/lib/utils';
+import { usePlannerState } from '@/hooks/use-planner-state';
 
-export default function MobilePageContent() {
+function MobilePageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const isGuestMode = searchParams.get('guest') === 'true';
 
-  const { user, loading: userLoading } = useUser();
-  const { firestore } = useFirebase();
+  const {
+    currentUserRecipes,
+    nutriplannerRecipes,
+    currentWeekPlan,
+    isLoading,
+    setGuestWeekPlan
+  } = usePlannerState({ isGuestMode });
+  
+  const { firestore, user } = useFirebase();
 
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
   const [isRecipeSelectorOpen, setIsRecipeSelectorOpen] = useState(false);
   const [dialogState, setDialogState] = useState<any>({ open: false });
   
-  const [guestWeekPlan, setGuestWeekPlan] = useState<DayPlan[]>(INITIAL_WEEK_PLAN);
-
   useEffect(() => {
     // Initialize date only on the client to avoid hydration mismatch
     setCurrentDate(new Date());
   }, []);
-
-  const weekPlanCollectionRef = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'users', user.uid, 'weekPlan') : null, [firestore, user]);
-  const { data: weekPlanData, isLoading: weekPlanLoading } = useCollection<DayPlan>(weekPlanCollectionRef);
   
-  const userRecipesCollectionRef = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'users', user.uid, 'recipes') : null, [firestore, user]);
-  const { data: userRecipes } = useCollection<Recipe>(userRecipesCollectionRef);
-
-  const nutriplannerRecipesCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'nutriplanner_recipes') : null, [firestore]);
-  const { data: nutriplannerRecipes } = useCollection<Recipe>(nutriplannerRecipesCollectionRef);
-
   const activeDayName = useMemo(() => {
     if (!currentDate) return '';
-    // Consistent mapping for lookups, Sunday (0) to Saturday (6)
     const dayMap = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     return dayMap[currentDate.getDay()];
   }, [currentDate]);
 
-
   const activeDayPlan = useMemo(() => {
-    const sourcePlan = isGuestMode ? guestWeekPlan : (weekPlanData || INITIAL_WEEK_PLAN);
-    if (!sourcePlan || !activeDayName) return null;
-    return sourcePlan.find(d => d.day === activeDayName) || { day: activeDayName as DayPlan['day'], meals: [] };
-  }, [isGuestMode, guestWeekPlan, weekPlanData, activeDayName]);
+    if (!currentWeekPlan || !activeDayName) return null;
+    return currentWeekPlan.find(d => d.day === activeDayName) || { day: activeDayName as DayPlan['day'], meals: [] };
+  }, [currentWeekPlan, activeDayName]);
   
-  const handlePrevDay = () => {
+  const handleDateChange = (direction: -1 | 1) => {
     setCurrentDate(prev => {
         if (!prev) return new Date();
         const newDate = new Date(prev);
-        newDate.setDate(newDate.getDate() - 1);
-        return newDate;
-    });
-  };
-
-  const handleNextDay = () => {
-     setCurrentDate(prev => {
-        if (!prev) return new Date();
-        const newDate = new Date(prev);
-        newDate.setDate(newDate.getDate() + 1);
+        newDate.setDate(newDate.getDate() + direction);
         return newDate;
     });
   };
   
   const handleRecipeClick = (recipe: Recipe, meal: Meal) => {
-    setDialogState({ open: true, mode: 'view', recipe, context: { mealId: meal.id, recipeInstanceId: (recipe as RecipeInstance).instanceId, source: 'mobile-planner' } });
+    setDialogState({ 
+      open: true, 
+      mode: 'view', 
+      recipe, 
+      context: { 
+        mealId: meal.id, 
+        recipeInstanceId: (recipe as RecipeInstance).instanceId, 
+        source: 'mobile-planner' 
+      } 
+    });
   };
 
   const handleMealClick = (meal: Meal) => {
@@ -96,91 +87,56 @@ export default function MobilePageContent() {
   const handleRecipeSelectionSave = (updatedRecipes: Recipe[]) => {
     if (!selectedMeal) return;
 
-    // Preserve existing instances, create new ones only for new recipes
-    const existingRecipeInstanceMap = new Map(selectedMeal.recipes.map(r => [r.id, r]));
     const finalRecipeInstances: RecipeInstance[] = updatedRecipes.map(recipe => {
-      if (existingRecipeInstanceMap.has(recipe.id)) {
-        return existingRecipeInstanceMap.get(recipe.id)!;
-      }
-      return { ...recipe, instanceId: self.crypto.randomUUID() };
+      const existing = selectedMeal.recipes.find(r => r.id === recipe.id);
+      return existing || { ...recipe, instanceId: self.crypto.randomUUID() };
     });
 
-    // --- GUEST MODE LOGIC ---
     if (isGuestMode) {
         setGuestWeekPlan(prevPlan => 
-            prevPlan.map(day => {
-                if (day.day !== activeDayName) return day;
-                return {
+            prevPlan.map(day => 
+                day.day !== activeDayName ? day : {
                     ...day,
-                    meals: day.meals.map(m => 
-                        m.id === selectedMeal?.id 
-                        ? { ...m, recipes: finalRecipeInstances } 
-                        : m
-                    )
-                };
-            })
+                    meals: day.meals.map(m => m.id === selectedMeal?.id ? { ...m, recipes: finalRecipeInstances } : m)
+                }
+            )
         );
-        setIsRecipeSelectorOpen(false);
-        setSelectedMeal(null);
-        return; // Stop execution for guest mode
+    } else if (user && firestore && activeDayPlan) {
+        const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', activeDayName);
+        const updatedMeals = activeDayPlan.meals.map(meal => 
+            meal.id === selectedMeal.id ? { ...meal, recipes: finalRecipeInstances } : meal
+        );
+        setDoc(dayDocRef, { ...activeDayPlan, meals: updatedMeals }, { merge: true });
     }
     
-    // --- AUTHENTICATED USER LOGIC ---
-    if (!user || !firestore || !activeDayPlan) return;
-
-    const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', activeDayName);
-    const updatedMeals = activeDayPlan.meals.map(meal => {
-        if (meal.id === selectedMeal.id) {
-            return { ...meal, recipes: finalRecipeInstances };
-        }
-        return meal;
-    });
-    
-    setDocumentNonBlocking(dayDocRef, { ...activeDayPlan, meals: updatedMeals }, { merge: true });
     setIsRecipeSelectorOpen(false);
     setSelectedMeal(null);
   };
 
   const handleRemoveRecipe = useCallback((mealId: string, recipeInstanceId: string) => {
-    // --- GUEST MODE LOGIC ---
+    const updatePlan = (plan: DayPlan[]): DayPlan[] => 
+      plan.map(day => 
+        day.day !== activeDayName ? day : {
+          ...day,
+          meals: day.meals.map(m => 
+            m.id === mealId ? { ...m, recipes: m.recipes.filter(r => r.instanceId !== recipeInstanceId) } : m
+          )
+        }
+      );
+    
     if (isGuestMode) {
-        setGuestWeekPlan(prevPlan => 
-            prevPlan.map(day => {
-                 if (day.day !== activeDayName) return day;
-                 return {
-                     ...day,
-                     meals: day.meals.map(m => {
-                         if (m.id === mealId) {
-                             return { ...m, recipes: m.recipes.filter(r => r.instanceId !== recipeInstanceId) };
-                         }
-                         return m;
-                     })
-                 }
-            })
-        );
-        setDialogState({ open: false });
-        return; // Stop execution for guest mode
+      setGuestWeekPlan(updatePlan);
+    } else if (user && firestore && activeDayPlan) {
+      const updatedMeals = updatePlan(currentWeekPlan).find(d => d.day === activeDayName)?.meals || [];
+      const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', activeDayName);
+      setDoc(dayDocRef, { ...activeDayPlan, meals: updatedMeals }, { merge: true });
     }
     
-    // --- AUTHENTICATED USER LOGIC ---
-    if (!user || !firestore || !activeDayPlan) return;
-
-    const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', activeDayName);
-    const updatedMeals = activeDayPlan.meals.map(meal => {
-        if (meal.id === mealId) {
-            return {
-                ...meal,
-                recipes: meal.recipes.filter(r => r.instanceId !== recipeInstanceId)
-            };
-        }
-        return meal;
-    });
-    
-    setDocumentNonBlocking(dayDocRef, { ...activeDayPlan, meals: updatedMeals }, { merge: true });
     setDialogState({ open: false });
-  }, [user, firestore, activeDayName, activeDayPlan, isGuestMode]);
+  }, [user, firestore, activeDayName, activeDayPlan, isGuestMode, currentWeekPlan, setGuestWeekPlan]);
 
-  if (userLoading || (!isGuestMode && weekPlanLoading) || !currentDate) {
+
+  if (isLoading || !currentDate) {
      return (
       <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
         <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
@@ -203,14 +159,14 @@ export default function MobilePageContent() {
     <>
       <div className="p-4 pb-20">
         <div className="flex justify-between items-center mb-6">
-            <Button variant="ghost" size="icon" onClick={handlePrevDay}>
+            <Button variant="ghost" size="icon" onClick={() => handleDateChange(-1)}>
                 <ChevronLeft className="h-6 w-6" />
             </Button>
             <div className="text-center">
                  <h1 className="text-2xl font-bold font-headline capitalize">{formattedDate.split(',')[0]}</h1>
                  <p className="text-muted-foreground">{formattedDate.split(',')[1]}</p>
             </div>
-            <Button variant="ghost" size="icon" onClick={handleNextDay}>
+            <Button variant="ghost" size="icon" onClick={() => handleDateChange(1)}>
                 <ChevronRight className="h-6 w-6" />
             </Button>
         </div>
@@ -236,18 +192,18 @@ export default function MobilePageContent() {
                           ))}
                         </div>
                       ) : (
-                        <Card className="flex items-center justify-center h-24 border-2 border-dashed">
+                        <div className="flex flex-col items-center justify-center h-24 border-2 border-dashed rounded-lg text-center p-2">
+                          <BookHeart className="h-6 w-6 text-muted-foreground mb-1" />
                           <p className="text-sm text-muted-foreground">Toca para añadir recetas</p>
-                        </Card>
+                        </div>
                       )}
                     </CardContent>
                 </Card>
             )) : (
-                <Card>
-                    <CardContent className="p-6 text-center text-muted-foreground">
-                    <p>No se encontró el plan de este día. ¡Añade algunas recetas!</p>
-                    </CardContent>
-                </Card>
+                 <div className="flex flex-col items-center justify-center h-60 text-center p-4 border-2 border-dashed rounded-lg">
+                    <p className="font-semibold">No hay comidas en este día.</p>
+                    <p className="text-sm text-muted-foreground mt-1">Puedes añadirlas desde la versión de escritorio.</p>
+                </div>
             )}
         </div>
 
@@ -269,10 +225,14 @@ export default function MobilePageContent() {
             isOpen={isRecipeSelectorOpen}
             onClose={() => setIsRecipeSelectorOpen(false)}
             meal={selectedMeal}
-            allRecipes={[...(userRecipes || []), ...(nutriplannerRecipes || [])]}
+            allRecipes={[...currentUserRecipes, ...nutriplannerRecipes]}
             onSave={handleRecipeSelectionSave}
         />
       )}
     </>
   );
+}
+
+export default function MobilePage() {
+  return <MobilePageContent />
 }

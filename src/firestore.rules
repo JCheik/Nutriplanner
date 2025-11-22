@@ -1,0 +1,133 @@
+/**
+ * @fileoverview Firestore Security Rules for a user-centric recipe and meal planning application.
+ *
+ * Core Philosophy: This ruleset enforces a strict user-ownership model for personal data, while
+ * enabling a collaborative, shared database for common resources like ingredients and global recipes.
+ *
+ * Data Structure: 
+ * - User-specific data is nested under /users/{userId}.
+ * - Global NutriPlanner recipes are in /nutriplanner_recipes/{recipeId}.
+ * - A global, shared ingredient database is in /ingredients/{ingredientId}.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description User profile documents.
+     * @path /users/{userId}
+     */
+    match /users/{userId} {
+        allow create: if isSignedIn() && isOwner(userId);
+        allow get: if isSignedIn() && isOwner(userId);
+        allow list: if false; // Disallow listing all user documents
+        allow update: if isSignedIn() && isOwner(userId);
+        allow delete: if false; // Users should not delete their own root doc
+    }
+
+    /**
+     * @description Recipes owned by a specific user.
+     * @path /users/{userId}/recipes/{recipeId}
+     */
+    match /users/{userId}/recipes/{recipeId} {
+      allow read, list, create: if isSignedIn() && isOwner(userId);
+      allow update, delete: if isSignedIn() && isExistingOwner(userId);
+    }
+
+     /**
+     * @description Folders for organizing recipes, owned by a specific user.
+     * @path /users/{userId}/folders/{folderId}
+     */
+    match /users/{userId}/folders/{folderId} {
+      allow read, list, create: if isSignedIn() && isOwner(userId);
+      allow update, delete: if isSignedIn() && isExistingOwner(userId);
+    }
+    
+    /**
+     * @description Weekly meal plan documents for a specific user.
+     * @path /users/{userId}/weekPlan/{day}
+     */
+    match /users/{userId}/weekPlan/{day} {
+        allow read, list, create: if isSignedIn() && isOwner(userId);
+        allow update, delete: if isSignedIn() && isExistingOwner(userId);
+    }
+
+    /**
+     * @description Meal plans owned by a specific user (legacy, may be deprecated).
+     * @path /users/{userId}/meal_plans/{mealPlanId}
+     */
+    match /users/{userId}/meal_plans/{mealPlanId} {
+      allow read, list, create: if isSignedIn() && isOwner(userId);
+      allow update, delete: if isSignedIn() && isExistingOwner(userId);
+    }
+
+    /**
+     * @description Global recipes managed by administrators.
+     * @path /nutriplanner_recipes/{recipeId}
+     */
+    match /nutriplanner_recipes/{recipeId} {
+        allow get, list: if isSignedIn();
+        allow create, update, delete: if isAdmin();
+    }
+    
+    /**
+     * @description Global folders for NutriPlanner recipes, managed by administrators.
+     * @path /nutriplanner_folders/{folderId}
+     */
+    match /nutriplanner_folders/{folderId} {
+        allow get, list: if isSignedIn();
+        allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Shared, global ingredient database.
+     * @path /ingredients/{ingredientId}
+     */
+    match /ingredients/{ingredientId} {
+      // Any authenticated user can read the full list or a single ingredient.
+      allow get, list: if isSignedIn();
+      // Any authenticated user can add a new ingredient, if they set themselves as the creator.
+      allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
+      // Only the user who created the ingredient or an admin can update or delete it.
+      allow update, delete: if isSignedIn() && (resource.data.createdBy == request.auth.uid || isAdmin());
+    }
+
+    //----------------------------------------------------------------------------------------------
+    // Helper functions
+    //----------------------------------------------------------------------------------------------
+
+    /**
+     * @description Checks if the user is signed in.
+     * @return {boolean} True if the user is signed in, false otherwise.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the user is an administrator.
+     * @return {boolean} True if the user has admin claims.
+     */
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    /**
+     * @description Checks if the request is made by the owner of the resource.
+     * @param {string} userId The user ID of the owner.
+     * @return {boolean} True if the request is made by the owner, false otherwise.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the request is made by the existing owner of the resource.
+     * @param {string} userId The user ID of the owner.
+     * @return {boolean} True if the request is made by the owner and their document exists, false otherwise.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && exists(/databases/$(database)/documents/users/$(userId));
+    }
+  }
+}

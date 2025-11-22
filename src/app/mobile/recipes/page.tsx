@@ -5,10 +5,8 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { usePlannerState } from '@/hooks/use-planner-state';
 import type { Recipe, Folder } from '@/lib/types';
-import { INITIAL_RECIPES } from '@/lib/data';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
 import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -16,36 +14,34 @@ import { Logo } from '@/components/icons/logo';
 
 function MobileRecipesPageContent() {
     const searchParams = useSearchParams();
+    const router = useRouter();
     const { toast } = useToast();
     const isGuestMode = searchParams.get('guest') === 'true';
 
-    const { user, loading: userLoading } = useUser();
-    const { firestore } = useFirebase();
+    const {
+        currentUserRecipes,
+        nutriplannerRecipes,
+        currentFolders,
+        isLoading,
+        handleCopyRecipe,
+    } = usePlannerState({ isGuestMode });
+
 
     const [dialogState, setDialogState] = useState<any>({ open: false });
 
-    // --- Data Fetching ---
-    const [guestRecipes] = useState<Recipe[]>(INITIAL_RECIPES);
-
-    const userRecipesCollectionRef = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'users', user.uid, 'recipes') : null, [firestore, user]);
-    const { data: userRecipes, isLoading: userRecipesLoading } = useCollection<Recipe>(userRecipesCollectionRef);
-    
-    const nutriplannerRecipesCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'nutriplanner_recipes') : null, [firestore]);
-    const { data: nutriplannerRecipes, isLoading: nutriplannerRecipesLoading } = useCollection<Recipe>(nutriplannerRecipesCollectionRef);
-
-    const foldersCollectionRef = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'users', user.uid, 'folders') : null, [firestore, user]);
-    const { data: folders, isLoading: foldersLoading } = useCollection<Folder>(foldersCollectionRef);
-
     const handleRecipeAction = (action: 'view' | 'create' | 'edit', recipe?: Recipe, isNutriPlannerRecipe?: boolean) => {
+        if (isGuestMode && action !== 'view') {
+            toast({
+                variant: 'destructive',
+                title: 'Función no disponible',
+                description: 'Inicia sesión para crear o editar recetas.',
+            });
+            return;
+        }
         setDialogState({ open: true, mode: action, recipe, isNutriPlannerRecipe });
     };
 
-    const handleCopyRecipe = (recipe: Recipe) => {
-        toast({ title: 'Copiado', description: `${recipe.name} ha sido añadido a tus recetas.` });
-        // Add copy logic here if needed for mobile
-    };
-
-    if (userLoading || userRecipesLoading || nutriplannerRecipesLoading || foldersLoading) {
+    if (isLoading) {
          return (
             <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
                 <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
@@ -60,13 +56,13 @@ function MobileRecipesPageContent() {
         <>
             <div className="p-4 h-full">
                 <RecipeLibrary
-                    userRecipes={isGuestMode ? guestRecipes : userRecipes || []}
-                    nutriplannerRecipes={nutriplannerRecipes || []}
-                    folders={folders || []}
+                    userRecipes={currentUserRecipes}
+                    nutriplannerRecipes={nutriplannerRecipes}
+                    folders={currentFolders}
                     globalFolders={[]}
                     onRecipeAction={handleRecipeAction}
                     onCopyRecipe={handleCopyRecipe}
-                    onAddToPlan={() => toast({title: "Función no disponible", description: "Arrastra recetas desde el ordenador."})}
+                    onAddToPlan={() => router.push(isGuestMode ? '/mobile?guest=true' : '/mobile')}
                     onFolderCreate={() => {}}
                     onFolderUpdate={() => {}}
                     onFolderDelete={() => {}}
@@ -82,7 +78,7 @@ function MobileRecipesPageContent() {
             <RecipeDialog
                 dialogState={dialogState}
                 isSaving={false}
-                folders={folders || []}
+                folders={currentFolders}
                 globalFolders={[]}
                 onClose={() => setDialogState({ open: false })}
                 onSave={() => {}}
@@ -97,6 +93,12 @@ function MobileRecipesPageContent() {
 
 export default function MobileRecipesPage() {
     return (
-        <MobileRecipesPageContent />
+        <Suspense fallback={
+            <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
+                <Logo className="h-12 w-12 text-primary animate-pulse" />
+            </div>
+        }>
+            <MobileRecipesPageContent />
+        </Suspense>
     );
 }

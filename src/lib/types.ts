@@ -41,7 +41,7 @@ export interface Recipe extends Macros {
   ingredients: Ingredient[];
   imageUrl?: string;
   imageHint?: string;
-  folderId?: string;
+  folderId?: string | null; // Allow null
 }
 
 export interface RecipeInstance extends Recipe {
