@@ -72,6 +72,8 @@ function MobileRecipesPageContent() {
                     onGlobalFolderUpdate={() => {}}
                     onGlobalFolderDelete={() => {}}
                     onAssignRecipeToGlobalFolder={() => {}}
+                    isMobile={true}
+                    initialViewMode="list"
                 />
             </div>
             <RecipeDialog

@@ -29,7 +29,7 @@ export default function MobileLayout({
   return (
     <div className="flex flex-col min-h-screen">
       <PageHeader />
-      <main className="flex-1 pb-20">{children}</main>
+      <main className="flex-1 pb-16">{children}</main>
       <MobileNav />
     </div>
   )

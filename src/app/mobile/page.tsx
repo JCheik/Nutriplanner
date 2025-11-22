@@ -39,12 +39,14 @@ const TodayMeals = ({ dayPlan }: { dayPlan: DayPlan | null }) => {
           <div key={meal.id}>
             <h3 className="text-lg font-semibold mb-2 text-muted-foreground">{meal.title}</h3>
             {meal.recipes.length > 0 ? (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
                 {meal.recipes.map((recipe: RecipeInstance) => (
-                  <div key={recipe.instanceId}>
+                  <div key={recipe.instanceId} className="h-16">
                     <RecipeCard
                       recipe={recipe}
                       onClick={() => handleRecipeClick(recipe)}
+                      isCompact
+                      className="text-sm"
                     />
                   </div>
                 ))}

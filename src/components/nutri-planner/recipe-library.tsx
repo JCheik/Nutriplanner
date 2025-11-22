@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { RecipeCard } from './recipe-card';
-import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Database, Folder as FolderIcon, Plus, Trash2, Folders, Edit, Check } from 'lucide-react';
+import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Database, Folder as FolderIcon, Plus, Trash2, Folders, Edit, Check, LayoutGrid, List } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -50,6 +50,8 @@ interface RecipeLibraryProps {
   onGlobalFolderUpdate: (id: string, name: string) => void;
   onGlobalFolderDelete: (id: string) => void;
   onAssignRecipeToGlobalFolder: (recipeId: string, folderId: string | null) => void;
+  isMobile?: boolean;
+  initialViewMode?: 'grid' | 'list';
 }
 
 const sortOptions: { value: SortCriteria; label: string }[] = [
@@ -215,7 +217,7 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isD
 
   return (
     <div className={cn(
-      "h-full pr-4",
+      "h-full pr-1",
       viewMode === 'grid' ? "grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3" : "flex flex-col gap-3"
     )}>
       {recipes.length > 0 ? (
@@ -241,19 +243,30 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isD
                   )}
                 </div>
               ) : (
-                <>
+                <div className="w-full relative">
                   <RecipeCard 
                     recipe={recipe} 
                     isDraggable={isDraggable && !isMobile}
                     isListView
                     onClick={() => handleCardClick(recipe)}
                   />
-                </>
+                   {onCopyClick && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => { e.stopPropagation(); onCopyClick(recipe);}}
+                      className="absolute top-1/2 -translate-y-1/2 right-2 z-10 h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity bg-background/50 hover:bg-background/80"
+                      aria-label="Copiar a Mis Recetas"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               )}
           </div>
         ))
       ) : (
-        <div className="col-span-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-border rounded-lg h-[250px]">
+        <div className={cn("flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-border rounded-lg h-[250px]", viewMode === 'grid' ? 'col-span-full' : 'w-full')}>
           <p className="font-semibold">No se encontraron recetas</p>
           <p className="text-sm text-muted-foreground">Prueba a cambiar el filtro o crea una nueva receta.</p>
         </div>
@@ -279,6 +292,8 @@ export function RecipeLibrary({
   onGlobalFolderUpdate,
   onGlobalFolderDelete,
   onAssignRecipeToGlobalFolder,
+  isMobile = false,
+  initialViewMode = 'grid',
 }: RecipeLibraryProps) {
   const { claims } = useUser();
   const isAdmin = claims?.admin === true;
@@ -292,14 +307,8 @@ export function RecipeLibrary({
 
   const [filterQuery, setFilterQuery] = useState('');
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
-  const [isMobile, setIsMobile] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(initialViewMode);
 
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   const recipesInSelectedFolder = useMemo(() => {
     const sourceRecipes = activeTab === 'user-recipes' ? userRecipes : nutriplannerRecipes;
@@ -369,110 +378,118 @@ export function RecipeLibrary({
   return (
     <>
       <Card className="flex flex-col h-[500px] bg-glass">
-        <CardHeader>
+        <CardHeader className={cn(isMobile && "p-0")}>
           <div className="flex justify-between items-start gap-4">
-            <div>
-              <div className="flex items-center gap-3">
-                <BookHeart className="h-6 w-6 text-primary" />
-                <CardTitle>Biblioteca de Recetas</CardTitle>
+             {!isMobile && (
+              <div>
+                <div className="flex items-center gap-3">
+                  <BookHeart className="h-6 w-6 text-primary" />
+                  <CardTitle>Biblioteca de Recetas</CardTitle>
+                </div>
+                <CardDescription>Tu colección de recetas y las sugerencias de NutriPlanner.</CardDescription>
               </div>
-              <CardDescription>Tu colección de recetas y las sugerencias de NutriPlanner.</CardDescription>
-            </div>
+            )}
           </div>
         </CardHeader>
-        <CardContent className="flex-1 flex flex-col min-h-0">
+        <CardContent className={cn("flex-1 flex flex-col min-h-0", isMobile && "p-0")}>
           <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col min-h-0">
             <div className="flex justify-between items-center pr-1 border-b">
-              <TabsList>
-                <TabsTrigger value="user-recipes">Mis Recetas</TabsTrigger>
-                <TabsTrigger value="nutriplanner-recipes">Recetas NutriPlanner</TabsTrigger>
+              <TabsList className={cn(isMobile && "flex-1")}>
+                <TabsTrigger value="user-recipes" className={cn(isMobile && "flex-1")}>Mis Recetas</TabsTrigger>
+                <TabsTrigger value="nutriplanner-recipes" className={cn(isMobile && "flex-1")}>NutriPlanner</TabsTrigger>
               </TabsList>
               <div className="flex gap-2">
-                <Button variant="outline" size="icon" onClick={() => setIsIngredientsOpen(true)}>
-                  <Database className="h-4 w-4" />
-                </Button>
-                <Button onClick={() => onRecipeAction('create')}>
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Nueva Receta
-                </Button>
+                {!isMobile && (
+                  <Button variant="outline" size="icon" onClick={() => setIsIngredientsOpen(true)}>
+                    <Database className="h-4 w-4" />
+                  </Button>
+                )}
+                {!isMobile && (
+                  <Button onClick={() => onRecipeAction('create')}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Nueva Receta
+                  </Button>
+                )}
               </div>
             </div>
             <div className="flex-1 grid lg:grid-cols-5 mt-2 overflow-hidden gap-4">
-              <div className="col-span-1 border-r pr-2 hidden lg:block">
-                  <h3 className="font-semibold text-sm mb-2 px-2">{activeTab === 'user-recipes' ? 'Mis Carpetas' : 'Carpetas Globales'}</h3>
-                <ScrollArea className="h-full pr-2">
-                  <div className="space-y-1">
-                    <FolderButton 
-                      name={activeTab === 'user-recipes' ? "Todas mis Recetas" : "Todas"} 
-                      icon={Folders} 
-                      onClick={() => setSelectedFolderId('all')} 
-                      isSelected={selectedFolderId === 'all'}
-                      isEditing={false}
-                      onSetEditing={() => {}}
-                      tempName=""
-                      onSetTempName={() => {}}
-                      isDroppable={false}
-                    />
-                    <FolderButton 
-                      name="Sin Carpeta" 
-                      icon={FolderIcon} 
-                      onClick={() => setSelectedFolderId(null)} 
-                      isSelected={selectedFolderId === null}
-                      isEditing={false}
-                      onSetEditing={() => {}}
-                      tempName=""
-                      onSetTempName={() => {}}
-                      isDroppable={true}
-                      onDragOver={(e) => handleDragOver(e)}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, null)}
-                    />
-
-                    {(activeTab === 'user-recipes' ? folders : globalFolders).map(folder => (
+              {!isMobile && (
+                <div className="col-span-1 border-r pr-2">
+                    <h3 className="font-semibold text-sm mb-2 px-2">{activeTab === 'user-recipes' ? 'Mis Carpetas' : 'Carpetas Globales'}</h3>
+                  <ScrollArea className="h-full pr-2">
+                    <div className="space-y-1">
                       <FolderButton 
-                        key={folder.id} 
-                        name={folder.name} 
+                        name={activeTab === 'user-recipes' ? "Todas mis Recetas" : "Todas"} 
+                        icon={Folders} 
+                        onClick={() => setSelectedFolderId('all')} 
+                        isSelected={selectedFolderId === 'all'}
+                        isEditing={false}
+                        onSetEditing={() => {}}
+                        tempName=""
+                        onSetTempName={() => {}}
+                        isDroppable={false}
+                      />
+                      <FolderButton 
+                        name="Sin Carpeta" 
                         icon={FolderIcon} 
-                        onClick={() => setSelectedFolderId(folder.id)} 
-                        isSelected={selectedFolderId === folder.id}
-                        isEditing={editingFolderId === folder.id}
-                        onSetEditing={(isEditing) => setEditingFolderId(isEditing ? folder.id : null)}
-                        tempName={editingFolderName}
-                        onSetTempName={setEditingFolderName}
-                        onUpdate={(newName) => activeTab === 'user-recipes' ? onFolderUpdate(folder.id, newName) : onGlobalFolderUpdate(folder.id, newName)}
+                        onClick={() => setSelectedFolderId(null)} 
+                        isSelected={selectedFolderId === null}
+                        isEditing={false}
+                        onSetEditing={() => {}}
+                        tempName=""
+                        onSetTempName={() => {}}
                         isDroppable={true}
                         onDragOver={(e) => handleDragOver(e)}
                         onDragLeave={handleDragLeave}
-                        onDrop={(e) => handleDrop(e, folder.id)}
-                      >
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0">
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent className="bg-glass">
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>¿Borrar carpeta?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Esto no borrará las recetas. Las recetas de esta carpeta se quedarán sin carpeta. ¿Estás seguro?
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => activeTab === 'user-recipes' ? onFolderDelete(folder.id) : onGlobalFolderDelete(folder.id)}>Sí, borrar</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </FolderButton>
-                    ))}
-                    {(activeTab === 'user-recipes' || (activeTab === 'nutriplanner-recipes' && isAdmin)) && (
-                      <NewFolderPopover onFolderCreate={activeTab === 'user-recipes' ? onFolderCreate : onGlobalFolderCreate} />
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-              <div className="lg:col-span-4 h-full flex flex-col min-h-0">
+                        onDrop={(e) => handleDrop(e, null)}
+                      />
+
+                      {(activeTab === 'user-recipes' ? folders : globalFolders).map(folder => (
+                        <FolderButton 
+                          key={folder.id} 
+                          name={folder.name} 
+                          icon={FolderIcon} 
+                          onClick={() => setSelectedFolderId(folder.id)} 
+                          isSelected={selectedFolderId === folder.id}
+                          isEditing={editingFolderId === folder.id}
+                          onSetEditing={(isEditing) => setEditingFolderId(isEditing ? folder.id : null)}
+                          tempName={editingFolderName}
+                          onSetTempName={setEditingFolderName}
+                          onUpdate={(newName) => activeTab === 'user-recipes' ? onFolderUpdate(folder.id, newName) : onGlobalFolderUpdate(folder.id, newName)}
+                          isDroppable={true}
+                          onDragOver={(e) => handleDragOver(e)}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => handleDrop(e, folder.id)}
+                        >
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent className="bg-glass">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>¿Borrar carpeta?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Esto no borrará las recetas. Las recetas de esta carpeta se quedarán sin carpeta. ¿Estás seguro?
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => activeTab === 'user-recipes' ? onFolderDelete(folder.id) : onGlobalFolderDelete(folder.id)}>Sí, borrar</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </FolderButton>
+                      ))}
+                      {(activeTab === 'user-recipes' || (activeTab === 'nutriplanner-recipes' && isAdmin)) && (
+                        <NewFolderPopover onFolderCreate={activeTab === 'user-recipes' ? onFolderCreate : onGlobalFolderCreate} />
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+              <div className={cn("h-full flex flex-col min-h-0", isMobile ? "col-span-full" : "lg:col-span-4")}>
                  <div className="flex flex-col sm:flex-row gap-2 p-1">
                   <div className="relative flex-grow">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -483,23 +500,33 @@ export function RecipeLibrary({
                       className="pl-10"
                     />
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="shrink-0 w-full sm:w-auto">
-                        <ArrowUpDown className="mr-2 h-4 w-4" />
-                        Ordenar
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="bg-glass">
-                      <DropdownMenuRadioGroup value={sortCriteria} onValueChange={(value) => setSortCriteria(value as SortCriteria)}>
-                        {sortOptions.map((option) => (
-                          <DropdownMenuRadioItem key={option.value} value={option.value} className="cursor-pointer">
-                            {option.label}
-                          </DropdownMenuRadioItem>
-                        ))}
-                      </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <div className="flex gap-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="shrink-0 flex-1">
+                          <ArrowUpDown className="mr-2 h-4 w-4" />
+                          Ordenar
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-glass">
+                        <DropdownMenuRadioGroup value={sortCriteria} onValueChange={(value) => setSortCriteria(value as SortCriteria)}>
+                          {sortOptions.map((option) => (
+                            <DropdownMenuRadioItem key={option.value} value={option.value} className="cursor-pointer">
+                              {option.label}
+                            </DropdownMenuRadioItem>
+                          ))}
+                        </DropdownMenuRadioGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                     <div className="p-1 border bg-muted rounded-md hidden sm:flex">
+                        <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('grid')} className="h-8 w-8">
+                            <LayoutGrid className="h-4 w-4" />
+                        </Button>
+                        <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('list')} className="h-8 w-8">
+                            <List className="h-4 w-4" />
+                        </Button>
+                    </div>
+                  </div>
                 </div>
                 <div className="flex-1 mt-2 min-h-0">
                   <ScrollArea className="h-full">
@@ -511,7 +538,7 @@ export function RecipeLibrary({
                         isDraggable={activeTab === 'user-recipes' || (activeTab === 'nutriplanner-recipes' && isAdmin)}
                         isNutriPlanner={activeTab === 'nutriplanner-recipes'}
                         isMobile={isMobile}
-                        viewMode='grid'
+                        viewMode={viewMode}
                       />
                   </ScrollArea>
                 </div>
