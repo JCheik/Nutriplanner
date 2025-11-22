@@ -78,7 +78,7 @@ const TodayMeals = ({ dayPlan, onMealClick, isGuestMode, onRemoveRecipe }: { day
         onClose={() => setDialogState({ open: false })}
         onSave={() => {}}
         onDelete={() => {}}
-        onEdit={() => {}}
+        onEdit={(recipe) => setDialogState({open: true, mode: 'edit', recipe})}
         onCopy={() => {}}
         onRemoveFromMeal={(context) => {
             if (context.mealId && context.recipeInstanceId) {

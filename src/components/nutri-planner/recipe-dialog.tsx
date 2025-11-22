@@ -497,7 +497,7 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
          {/* --- Left Aligned Buttons --- */}
          <div>
             {showRemoveFromPlan ? (
-                <Button variant="destructive" onClick={() => onRemoveFromMeal({ mealId: context.mealId, recipeInstanceId: recipe.instanceId })}>
+                <Button variant="destructive" onClick={() => onRemoveFromMeal({ mealId: context?.mealId, recipeInstanceId: (recipe as any).instanceId })}>
                     <Trash className="mr-2 h-4 w-4" />
                     Quitar del Plan
                 </Button>
