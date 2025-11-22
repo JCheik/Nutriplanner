@@ -377,7 +377,7 @@ export function RecipeLibrary({
   
   return (
     <>
-      <Card className="flex flex-col h-[500px] bg-glass">
+      <Card className={cn("flex flex-col bg-glass", isMobile ? 'h-full' : 'h-[500px]')}>
         <CardHeader className={cn(isMobile && "p-0")}>
           <div className="flex justify-between items-start gap-4">
              {!isMobile && (
