@@ -383,10 +383,12 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     if (promptToRegister()) return;
     if (!user || !userRecipesCollectionRef) return;
     
-    const { id, ...recipeData } = recipe;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id, folderId, ...recipeData } = recipe; // Exclude folderId
     
     const newRecipeRef = doc(userRecipesCollectionRef);
-    addDocumentNonBlocking(userRecipesCollectionRef, { ...recipeData, id: newRecipeRef.id });
+    // Save the copied recipe without a folderId
+    addDocumentNonBlocking(userRecipesCollectionRef, { ...recipeData, id: newRecipeRef.id, folderId: null });
 
     toast({ title: '¡Receta Copiada!', description: `${recipe.name} ha sido añadida a "Mis Recetas".` });
   }, [user, userRecipesCollectionRef, toast, isGuestMode]);
