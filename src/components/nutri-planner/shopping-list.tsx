@@ -3,8 +3,7 @@
 import { useMemo, useState } from 'react';
 import type { WeekPlan } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart, Smartphone, X, RefreshCw } from 'lucide-react';
-import { QRCodeDialog } from './qr-code-dialog';
+import { ShoppingCart, X, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ShoppingListContent, type ShoppingListItem } from './shopping-list-content';
 import {
@@ -49,12 +48,7 @@ const generateListFromPlan = (weekPlan: WeekPlan): ShoppingListItem[] => {
 };
 
 export function ShoppingListSheet({ weekPlan, isOpen, onOpenChange }: ShoppingListSheetProps) {
-  const [isQrOpen, setIsQrOpen] = useState(false);
   const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
-  
-  const shoppingListString = useMemo(() => {
-    return shoppingList.map(item => `- ${item.quantity > 0 ? item.quantity.toFixed(0) : ''}${item.unit} ${item.name}`).join('\n');
-  }, [shoppingList]);
 
   const handleGenerateList = () => {
     const newList = generateListFromPlan(weekPlan);
@@ -75,15 +69,6 @@ export function ShoppingListSheet({ weekPlan, isOpen, onOpenChange }: ShoppingLi
                     Lista de la Compra
                 </h2>
                 <div className="flex items-center">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => setIsQrOpen(true)}
-                        disabled={!shoppingListString}
-                    >
-                        <Smartphone className="h-5 w-5" />
-                    </Button>
                     <Button
                         variant="ghost"
                         size="icon"
@@ -118,13 +103,6 @@ export function ShoppingListSheet({ weekPlan, isOpen, onOpenChange }: ShoppingLi
             
             <ShoppingListContent initialList={shoppingList} onListChange={setShoppingList} />
         </div>
-        <QRCodeDialog
-            isOpen={isQrOpen}
-            onClose={() => setIsQrOpen(false)}
-            qrValue={shoppingListString}
-            title="Escanea para llevarte la lista"
-            description="Abre la cámara de tu móvil y apunta al código QR para ver la lista de la compra."
-        />
     </>
   );
 }

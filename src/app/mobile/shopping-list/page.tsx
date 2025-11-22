@@ -9,8 +9,7 @@ import type { DayPlan } from '@/lib/types';
 import { Logo } from '@/components/icons/logo';
 import { ShoppingListContent, type ShoppingListItem } from '@/components/nutri-planner/shopping-list-content';
 import { Button } from '@/components/ui/button';
-import { Smartphone, RefreshCw } from 'lucide-react';
-import { QRCodeDialog } from '@/components/nutri-planner/qr-code-dialog';
+import { RefreshCw } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,7 +53,6 @@ function MobileShoppingListPageContent() {
   const { user, loading: userLoading } = useUser();
   const { firestore } = useFirebase();
 
-  const [isQrOpen, setIsQrOpen] = useState(false);
   const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
 
   // --- Data Fetching ---
@@ -66,10 +64,6 @@ function MobileShoppingListPageContent() {
   const currentWeekPlan = useMemo(() => {
     return isGuestMode ? guestWeekPlan : weekPlanData || [];
   }, [isGuestMode, guestWeekPlan, weekPlanData]);
-  
-  const shoppingListString = useMemo(() => {
-    return shoppingList.map(item => `- ${item.quantity > 0 ? item.quantity.toFixed(0) : ''}${item.unit} ${item.name}`).join('\n');
-  }, [shoppingList]);
   
   const handleGenerateList = () => {
     const newList = generateListFromPlan(currentWeekPlan);
@@ -116,25 +110,9 @@ function MobileShoppingListPageContent() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-            <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsQrOpen(true)}
-                disabled={!shoppingListString}
-            >
-                <Smartphone className="h-6 w-6" />
-            </Button>
         </div>
       </div>
       <ShoppingListContent initialList={shoppingList} onListChange={setShoppingList} />
-
-      <QRCodeDialog
-        isOpen={isQrOpen}
-        onClose={() => setIsQrOpen(false)}
-        qrValue={shoppingListString}
-        title="Escanea para llevarte la lista"
-        description="Abre la cámara de tu móvil y apunta al código QR para ver la lista de la compra."
-      />
     </div>
   );
 }
