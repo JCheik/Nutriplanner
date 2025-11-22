@@ -41,8 +41,7 @@ const TodayMeals = ({ dayPlan, onMealClick, isGuestMode, onRemoveRecipe }: { day
   return (
     <div className="space-y-4">
       {(dayPlan.meals || []).map((meal: Meal) => (
-        <div key={meal.id}>
-          <Card onClick={() => !isGuestMode && onMealClick(meal)} className={isGuestMode ? '' : 'cursor-pointer hover:bg-muted/50'}>
+        <Card key={meal.id} onClick={() => !isGuestMode && onMealClick(meal)} className={isGuestMode ? '' : 'cursor-pointer hover:bg-muted/50'}>
             <CardHeader className="pb-2">
                <CardTitle className="text-base text-muted-foreground">{meal.title}</CardTitle>
             </CardHeader>
@@ -66,8 +65,7 @@ const TodayMeals = ({ dayPlan, onMealClick, isGuestMode, onRemoveRecipe }: { day
                 </Card>
               )}
             </CardContent>
-          </Card>
-        </div>
+        </Card>
       ))}
       <RecipeDialog
         dialogState={dialogState}
@@ -250,5 +248,3 @@ export default function MobileHomePage() {
         </Suspense>
     );
 }
-
-    
