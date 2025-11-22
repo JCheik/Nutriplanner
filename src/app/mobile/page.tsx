@@ -24,7 +24,7 @@ const TodayMeals = ({ dayPlan, onMealClick, isGuestMode, onRemoveRecipe }: { day
   const [dialogState, setDialogState] = useState<any>({ open: false });
 
   const handleRecipeClick = (recipe: Recipe, meal: Meal) => {
-    setDialogState({ open: true, mode: 'view', recipe, context: { mealId: meal.id } });
+    setDialogState({ open: true, mode: 'view', recipe, context: { mealId: meal.id, source: 'mobile-planner' } });
   };
   
   if (!dayPlan) {
