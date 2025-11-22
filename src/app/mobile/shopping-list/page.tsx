@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useMemo, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useUser, useCollection, useFirebase, useMemoFirebase } from '@/firebase';
@@ -101,7 +103,7 @@ function MobileShoppingListPageContent() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>¿Sobrescribir lista actual?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Esta acción reemplazará la lista actual con los ingredientes de tu plan de comidas. Los artículos que hayas añadido manualmente se perderán.
+                    Esta acción reemplazará la lista actual con los ingredientes de tu plan de comidas. Los artículos que hayas añadido manually se perderán.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
