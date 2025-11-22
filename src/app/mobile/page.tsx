@@ -18,8 +18,9 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { MobileNav } from '@/components/layout/mobile-nav';
+import { cn } from '@/lib/utils';
 
-const DAY_NAMES_ORDER = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+const DAY_NAMES_ORDER = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
 const TodayMeals = ({ dayPlan, onMealClick, isGuestMode, onRemoveRecipe }: { dayPlan: DayPlan | null, onMealClick: (meal: Meal) => void, isGuestMode: boolean, onRemoveRecipe: (mealId: string, recipeInstanceId: string) => void }) => {
   const [dialogState, setDialogState] = useState<any>({ open: false });
@@ -28,7 +29,7 @@ const TodayMeals = ({ dayPlan, onMealClick, isGuestMode, onRemoveRecipe }: { day
     setDialogState({ open: true, mode: 'view', recipe, context: { mealId: meal.id, source: 'mobile-planner' } });
   };
   
-  if (!dayPlan) {
+  if (!dayPlan || !dayPlan.meals || dayPlan.meals.length === 0) {
     return (
       <Card>
         <CardContent className="p-6 text-center text-muted-foreground">
@@ -39,34 +40,36 @@ const TodayMeals = ({ dayPlan, onMealClick, isGuestMode, onRemoveRecipe }: { day
   }
 
   return (
-    <div className="space-y-4">
-      {(dayPlan.meals || []).map((meal: Meal) => (
-        <Card key={meal.id} onClick={() => !isGuestMode && onMealClick(meal)} className={isGuestMode ? '' : 'cursor-pointer hover:bg-muted/50'}>
-            <CardHeader className="pb-2">
-               <CardTitle className="text-base text-muted-foreground">{meal.title}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {meal.recipes.length > 0 ? (
-                <div className="space-y-2">
-                  {meal.recipes.map((recipe: RecipeInstance) => (
-                    <div key={recipe.instanceId} className="h-16">
-                      <RecipeCard
-                        recipe={recipe}
-                        onClick={(e) => { e.stopPropagation(); handleRecipeClick(recipe, meal); }}
-                        isCompact
-                        className="text-sm"
-                      />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <Card className="flex items-center justify-center h-24 border-2 border-dashed">
-                  <p className="text-sm text-muted-foreground">Toca para añadir recetas</p>
-                </Card>
-              )}
-            </CardContent>
-        </Card>
-      ))}
+    <>
+      <div className="space-y-4">
+        {(dayPlan.meals).map((meal: Meal) => (
+          <Card key={meal.id} onClick={() => !isGuestMode && onMealClick(meal)} className={cn('cursor-pointer', isGuestMode ? '' : 'hover:bg-muted/50')}>
+              <CardHeader className="pb-2">
+                 <CardTitle className="text-base text-muted-foreground">{meal.title}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {meal.recipes && meal.recipes.length > 0 ? (
+                  <div className="space-y-2">
+                    {meal.recipes.map((recipe: RecipeInstance) => (
+                      <div key={recipe.instanceId} className="h-16">
+                        <RecipeCard
+                          recipe={recipe}
+                          onClick={(e) => { e.stopPropagation(); handleRecipeClick(recipe, meal); }}
+                          isCompact
+                          className="text-sm"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <Card className="flex items-center justify-center h-24 border-2 border-dashed">
+                    <p className="text-sm text-muted-foreground">Toca para añadir recetas</p>
+                  </Card>
+                )}
+              </CardContent>
+          </Card>
+        ))}
+      </div>
       <RecipeDialog
         dialogState={dialogState}
         onClose={() => setDialogState({ open: false })}
@@ -78,7 +81,7 @@ const TodayMeals = ({ dayPlan, onMealClick, isGuestMode, onRemoveRecipe }: { day
         }}
         isMobile={true}
       />
-    </div>
+    </>
   );
 };
 
@@ -112,7 +115,9 @@ function MobilePageContent() {
 
   const activeDayName = useMemo(() => {
     const dayIndex = currentDate.getDay();
-    return DAY_NAMES_ORDER[dayIndex];
+    // Adjust for locale where Sunday is 0 but our array starts with Sunday
+    const dayMap = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    return dayMap[dayIndex];
   }, [currentDate]);
 
   const activeDayPlan = useMemo(() => {
