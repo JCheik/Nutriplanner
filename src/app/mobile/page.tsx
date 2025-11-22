@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, Suspense } from 'react';
+import { useState, useMemo, useEffect, Suspense, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useUser } from '@/firebase/auth/use-user';
 import { useCollection, useDoc, useFirebase, useFirestore, useMemoFirebase } from '@/firebase';
@@ -20,11 +20,11 @@ import { es } from 'date-fns/locale';
 
 const DAY_NAMES_ORDER = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
-const TodayMeals = ({ dayPlan, onMealClick, isGuestMode }: { dayPlan: DayPlan | null, onMealClick: (meal: Meal) => void, isGuestMode: boolean }) => {
+const TodayMeals = ({ dayPlan, onMealClick, isGuestMode, onRemoveRecipe }: { dayPlan: DayPlan | null, onMealClick: (meal: Meal) => void, isGuestMode: boolean, onRemoveRecipe: (mealId: string, recipeInstanceId: string) => void }) => {
   const [dialogState, setDialogState] = useState<any>({ open: false });
 
-  const handleRecipeClick = (recipe: Recipe) => {
-    setDialogState({ open: true, mode: 'view', recipe });
+  const handleRecipeClick = (recipe: Recipe, meal: Meal) => {
+    setDialogState({ open: true, mode: 'view', recipe, context: { mealId: meal.id } });
   };
   
   if (!dayPlan) {
@@ -53,7 +53,7 @@ const TodayMeals = ({ dayPlan, onMealClick, isGuestMode }: { dayPlan: DayPlan | 
                       <div key={recipe.instanceId} className="h-16">
                         <RecipeCard
                           recipe={recipe}
-                          onClick={(e) => { e.stopPropagation(); handleRecipeClick(recipe); }}
+                          onClick={(e) => { e.stopPropagation(); handleRecipeClick(recipe, meal); }}
                           isCompact
                           className="text-sm"
                         />
@@ -80,6 +80,13 @@ const TodayMeals = ({ dayPlan, onMealClick, isGuestMode }: { dayPlan: DayPlan | 
         onDelete={() => {}}
         onEdit={() => {}}
         onCopy={() => {}}
+        onRemoveFromMeal={(context) => {
+            if (context.mealId && context.recipeInstanceId) {
+                onRemoveRecipe(context.mealId, context.recipeInstanceId);
+                setDialogState({ open: false });
+            }
+        }}
+        isMobile={true}
       />
     </>
   );
@@ -167,6 +174,24 @@ function MobilePageContent() {
     setSelectedMeal(null);
   };
 
+  const handleRemoveRecipe = useCallback((mealId: string, recipeInstanceId: string) => {
+    if (!user || !firestore || !activeDayPlan) return;
+
+    const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', activeDayName);
+    const updatedMeals = activeDayPlan.meals.map(meal => {
+        if (meal.id === mealId) {
+            return {
+                ...meal,
+                recipes: meal.recipes.filter(r => r.instanceId !== recipeInstanceId)
+            };
+        }
+        return meal;
+    });
+    
+    const updatedDayPlan = { ...activeDayPlan, meals: updatedMeals };
+    setDocumentNonBlocking(dayDocRef, updatedDayPlan, { merge: true });
+  }, [user, firestore, activeDayName, activeDayPlan]);
+
   if (userLoading || (!isGuestMode && weekPlanLoading)) {
      return (
       <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
@@ -201,7 +226,7 @@ function MobilePageContent() {
             </Button>
         </div>
         
-        <TodayMeals dayPlan={activeDayPlan} onMealClick={handleMealClick} isGuestMode={isGuestMode}/>
+        <TodayMeals dayPlan={activeDayPlan} onMealClick={handleMealClick} isGuestMode={isGuestMode} onRemoveRecipe={handleRemoveRecipe}/>
       </div>
 
       {selectedMeal && (
