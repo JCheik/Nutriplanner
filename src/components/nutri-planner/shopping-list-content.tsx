@@ -11,7 +11,7 @@ import { PlusCircle, Trash2, Pencil, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 
-interface ShoppingListItem {
+export interface ShoppingListItem {
   id: string;
   name: string;
   quantity: number;
@@ -20,41 +20,24 @@ interface ShoppingListItem {
 }
 
 interface ShoppingListContentProps {
-  weekPlan: WeekPlan;
+  initialList: ShoppingListItem[];
+  onListChange: (list: ShoppingListItem[]) => void;
 }
 
-export const ShoppingListContent = ({ weekPlan }: ShoppingListContentProps) => {
-  const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
+export const ShoppingListContent = ({ initialList, onListChange }: ShoppingListContentProps) => {
+  const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>(initialList);
   const [newItemName, setNewItemName] = useState('');
   const [newItemQty, setNewItemQty] = useState('');
   const [editingItem, setEditingItem] = useState<ShoppingListItem | null>(null);
 
   useEffect(() => {
-    const aggregated: Record<string, { name: string; quantity: number; unit: string }> = {};
+    setShoppingList(initialList);
+  }, [initialList]);
 
-    weekPlan.forEach(dayPlan => {
-      (dayPlan.meals || []).forEach(meal => {
-        (meal.recipes || []).forEach(recipe => {
-          (recipe.ingredients || []).forEach(ingredient => {
-            const key = `${ingredient.name.toLowerCase().trim()}-${ingredient.unit}`;
-            if (aggregated[key]) {
-              aggregated[key].quantity += ingredient.quantity;
-            } else {
-              aggregated[key] = { ...ingredient };
-            }
-          });
-        });
-      });
-    });
+  useEffect(() => {
+    onListChange(shoppingList);
+  }, [shoppingList, onListChange]);
 
-    const generatedList = Object.values(aggregated).map((item, index) => ({
-      ...item,
-      id: `gen-${index}`,
-      checked: false,
-    })).sort((a, b) => a.name.localeCompare(b.name));
-    
-    setShoppingList(generatedList);
-  }, [weekPlan]);
 
   const handleToggleCheck = (id: string) => {
     setShoppingList(prev => prev.map(item => item.id === id ? { ...item, checked: !item.checked } : item));
@@ -172,7 +155,7 @@ export const ShoppingListContent = ({ weekPlan }: ShoppingListContentProps) => {
           <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
             <ShoppingCart className="h-12 w-12 mb-4" />
             <p className="font-semibold font-sans">Tu lista está vacía.</p>
-            <p className="text-sm font-sans">Los ingredientes del planificador aparecerán aquí.</p>
+            <p className="text-sm font-sans">Genera una lista desde tu plan de comidas o añade artículos manualmente.</p>
           </div>
         )}
       </ScrollArea>

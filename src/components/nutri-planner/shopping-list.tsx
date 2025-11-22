@@ -3,10 +3,21 @@
 import { useMemo, useState } from 'react';
 import type { WeekPlan } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart, Smartphone, X } from 'lucide-react';
+import { ShoppingCart, Smartphone, X, RefreshCw } from 'lucide-react';
 import { QRCodeDialog } from './qr-code-dialog';
 import { cn } from '@/lib/utils';
-import { ShoppingListContent } from './shopping-list-content';
+import { ShoppingListContent, type ShoppingListItem } from './shopping-list-content';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface ShoppingListSheetProps {
   weekPlan: WeekPlan;
@@ -14,10 +25,7 @@ interface ShoppingListSheetProps {
   onOpenChange: (isOpen: boolean) => void;
 }
 
-export function ShoppingListSheet({ weekPlan, isOpen, onOpenChange }: ShoppingListSheetProps) {
-  const [isQrOpen, setIsQrOpen] = useState(false);
-  
-  const shoppingListString = useMemo(() => {
+const generateListFromPlan = (weekPlan: WeekPlan): ShoppingListItem[] => {
     const aggregated: Record<string, { name: string; quantity: number; unit: string }> = {};
     weekPlan.forEach(dayPlan => {
       (dayPlan.meals || []).forEach(meal => {
@@ -33,10 +41,25 @@ export function ShoppingListSheet({ weekPlan, isOpen, onOpenChange }: ShoppingLi
         });
       });
     });
-    const list = Object.values(aggregated).sort((a, b) => a.name.localeCompare(b.name));
-    return list.map(item => `- ${item.quantity.toFixed(0)}${item.unit} ${item.name}`).join('\n');
-  }, [weekPlan]);
+     return Object.values(aggregated).map((item, index) => ({
+      ...item,
+      id: `gen-${index}`,
+      checked: false,
+    })).sort((a, b) => a.name.localeCompare(b.name));
+};
 
+export function ShoppingListSheet({ weekPlan, isOpen, onOpenChange }: ShoppingListSheetProps) {
+  const [isQrOpen, setIsQrOpen] = useState(false);
+  const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
+  
+  const shoppingListString = useMemo(() => {
+    return shoppingList.map(item => `- ${item.quantity > 0 ? item.quantity.toFixed(0) : ''}${item.unit} ${item.name}`).join('\n');
+  }, [shoppingList]);
+
+  const handleGenerateList = () => {
+    const newList = generateListFromPlan(weekPlan);
+    setShoppingList(newList);
+  }
 
   return (
     <>
@@ -71,7 +94,29 @@ export function ShoppingListSheet({ weekPlan, isOpen, onOpenChange }: ShoppingLi
                     </Button>
                 </div>
             </div>
-            <ShoppingListContent weekPlan={weekPlan} />
+            
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="w-full">
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Generar desde el Plan
+                  </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="bg-glass">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Sobrescribir lista actual?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta acción reemplazará la lista actual con los ingredientes de tu plan de comidas. Los artículos que hayas añadido manualmente se perderán.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleGenerateList}>Sí, generar</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            
+            <ShoppingListContent initialList={shoppingList} onListChange={setShoppingList} />
         </div>
         <QRCodeDialog
             isOpen={isQrOpen}
