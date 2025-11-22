@@ -95,8 +95,8 @@ export default function Home() {
   // Otherwise, show the welcome/login screen.
   return (
     <div className="flex items-center justify-center min-h-screen">
-      <div className="mx-auto grid w-[350px] gap-6 text-center">
-        <div className="grid gap-2">
+      <div className="mx-auto w-[350px] space-y-6 text-center">
+        <div className="space-y-2">
             <div className="flex justify-center mb-2">
             <Logo className="h-12 w-12 text-primary" />
           </div>
@@ -105,7 +105,7 @@ export default function Home() {
             Planifica tus comidas, crea recetas y alcanza tus objetivos nutricionales.
           </p>
         </div>
-        <div className="grid gap-4">
+        <div className="space-y-4">
           <Button
             onClick={handleSignIn}
             className="w-full h-11 text-base"
