@@ -2,7 +2,7 @@
  * @fileoverview Server-side Firebase initialization.
  * This file is NOT for client-side use and should only be imported in Server Actions or API routes.
  */
-import { initializeApp, getApp, getApps, FirebaseOptions } from 'firebase-admin/app';
+import { initializeApp, getApps, cert, type AppOptions } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { getAuth } from 'firebase-admin/auth';
@@ -14,9 +14,9 @@ const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
   : undefined;
 
 // Use the client-side config for project details and add credentials for admin access.
-const adminConfig = {
+const adminConfig: AppOptions = {
   ...firebaseConfig,
-  credential: serviceAccount ? getApp(serviceAccount) : undefined,
+  credential: serviceAccount ? cert(serviceAccount) : undefined,
 };
 
 /**
@@ -33,5 +33,3 @@ export function initializeFirebase() {
     auth: getAuth(),
   };
 }
-
-    
