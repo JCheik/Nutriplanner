@@ -2,8 +2,9 @@
 
 import { initializeFirebase } from '@/firebase/server-init';
 import type { Recipe } from '@/lib/types';
-import { doc, collection, setDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { doc, collection, setDoc, getDocs, deleteDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { UserRecord } from 'firebase-admin/auth';
 
 interface SaveRecipePayload {
   recipeData: Omit<Recipe, 'id'>;
@@ -13,10 +14,6 @@ interface SaveRecipePayload {
   existingId?: string;
 }
 
-/**
- * Server Action to save a recipe to Firestore and upload an image to Storage.
- * This encapsulates server-side logic for creating or updating recipes.
- */
 export async function saveRecipe(payload: SaveRecipePayload) {
   const { recipeData, imageFile, isGlobal, userId, existingId } = payload;
   
@@ -52,9 +49,91 @@ export async function saveRecipe(payload: SaveRecipePayload) {
     return { success: true, recipeName: recipeToSave.name };
   } catch (error: any) {
     console.error("Server Action 'saveRecipe' failed:", error);
-    // Return a generic error message to the client for security
     return { success: false, error: 'An unexpected error occurred on the server.' };
   }
 }
 
-    
+export async function listUsers() {
+    try {
+        const { auth } = initializeFirebase();
+        const userRecords = await auth.listUsers();
+        return { success: true, users: userRecords.users.map(mapUserRecord) };
+    } catch (error: any) {
+        console.error("Server Action 'listUsers' failed:", error);
+        return { success: false, error: 'No se pudieron cargar los usuarios.' };
+    }
+}
+
+export async function setUserAdmin(uid: string, isAdmin: boolean) {
+    try {
+        const { auth } = initializeFirebase();
+        await auth.setCustomUserClaims(uid, { admin: isAdmin });
+        return { success: true, message: `El usuario ahora ${isAdmin ? 'es' : 'no es'} administrador.` };
+    } catch (error: any) {
+        console.error("Server Action 'setUserAdmin' failed:", error);
+        return { success: false, error: 'No se pudieron actualizar los permisos del usuario.' };
+    }
+}
+
+export async function deleteUserAccount(uid: string) {
+    try {
+        const { auth, firestore } = initializeFirebase();
+        
+        // This will trigger the 'delete' extension if installed, which should clean up Firestore/Storage.
+        // If not, we have to do it manually.
+        await auth.deleteUser(uid);
+        
+        // Manual cleanup as a fallback
+        await deleteUserRelatedData(uid);
+        
+        return { success: true, message: 'Usuario y todos sus datos han sido eliminados.' };
+    } catch (error: any) {
+        console.error("Server Action 'deleteUserAccount' failed:", error);
+        return { success: false, error: 'No se pudo eliminar el usuario.' };
+    }
+}
+
+// Helper to map Firebase Admin UserRecord to a simpler object for the client
+const mapUserRecord = (user: UserRecord) => ({
+    uid: user.uid,
+    email: user.email,
+    displayName: user.displayName,
+    photoURL: user.photoURL,
+    disabled: user.disabled,
+    creationTime: user.metadata.creationTime,
+    lastSignInTime: user.metadata.lastSignInTime,
+    isAdmin: user.customClaims?.admin === true,
+});
+
+// Helper for manual data deletion
+async function deleteUserRelatedData(uid: string) {
+    const { firestore, storage } = initializeFirebase();
+    const userDocRef = doc(firestore, 'users', uid);
+
+    // Array of sub-collection names to delete
+    const subcollections = ['recipes', 'folders', 'weekPlan', 'meal_plans'];
+
+    for (const sub of subcollections) {
+        const subCollectionRef = collection(userDocRef, sub);
+        const snapshot = await getDocs(subCollectionRef);
+        snapshot.forEach(async (doc) => {
+            await deleteDoc(doc.ref);
+            // If recipes have images, delete them from storage
+            if (sub === 'recipes' && doc.data().imageUrl) {
+                try {
+                    const url = doc.data().imageUrl;
+                    const imageRef = ref(storage, url);
+                    await deleteObject(imageRef);
+                } catch (storageError: any) {
+                    // Ignore "object not found" errors, as the image might not exist
+                    if (storageError.code !== 'storage/object-not-found') {
+                        console.error(`Failed to delete image for recipe ${doc.id}:`, storageError);
+                    }
+                }
+            }
+        });
+    }
+
+    // Finally, delete the main user document
+    await deleteDoc(userDocRef);
+}

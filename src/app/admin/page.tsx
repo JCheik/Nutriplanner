@@ -6,6 +6,7 @@ import { useUser } from '@/firebase';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Shield, BookOpen, Users, Wheat } from 'lucide-react';
+import Link from 'next/link';
 
 export default function AdminPage() {
   const { user, claims, loading } = useUser();
@@ -13,13 +14,11 @@ export default function AdminPage() {
   const isAdmin = claims?.admin === true || user?.email === 'jonicheik@gmail.com';
 
   useEffect(() => {
-    // If loading is finished and user is not an admin, redirect them.
     if (!loading && !isAdmin) {
       router.replace('/');
     }
   }, [user, isAdmin, loading, router]);
 
-  // While loading, show a placeholder to prevent flicker
   if (loading || !isAdmin) {
     return (
       <div className="flex flex-col min-h-screen">
@@ -42,7 +41,20 @@ export default function AdminPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                    <Link href="/admin/users" className="hover:shadow-lg transition-shadow rounded-lg">
+                        <Card className="h-full cursor-pointer">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Users className="h-5 w-5" />
+                                    Administrar Usuarios
+                                </CardTitle>
+                                <CardDescription>
+                                    Ver, eliminar y cambiar roles de los usuarios de la plataforma.
+                                </CardDescription>
+                            </CardHeader>
+                        </Card>
+                    </Link>
+                    <Card className="hover:shadow-lg transition-shadow cursor-pointer border-dashed">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <BookOpen className="h-5 w-5" />
@@ -56,21 +68,7 @@ export default function AdminPage() {
                             <p className="text-sm text-muted-foreground">Próximamente...</p>
                         </CardContent>
                     </Card>
-                    <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Users className="h-5 w-5" />
-                                Recetas de la Comunidad
-                            </CardTitle>
-                            <CardDescription>
-                                Moderar y gestionar las recetas compartidas por los usuarios.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-muted-foreground">Próximamente...</p>
-                        </CardContent>
-                    </Card>
-                     <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                     <Card className="hover:shadow-lg transition-shadow cursor-pointer border-dashed">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <Wheat className="h-5 w-5" />
