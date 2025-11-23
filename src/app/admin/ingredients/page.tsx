@@ -168,11 +168,25 @@ export default function AdminIngredientsPage() {
                                                             <Button variant="ghost" size="icon" onClick={() => handleEditClick(ingredient)} disabled={!canManage}>
                                                                 <Edit className="h-4 w-4" />
                                                             </Button>
-                                                            <AlertDialogTrigger asChild>
-                                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteTrigger(ingredient)} disabled={!canManage}>
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </Button>
-                                                            </AlertDialogTrigger>
+                                                            <AlertDialog onOpenChange={() => setIngredientToDelete(null)}>
+                                                                <AlertDialogTrigger asChild>
+                                                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteTrigger(ingredient)} disabled={!canManage}>
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                </AlertDialogTrigger>
+                                                                <AlertDialogContent className="bg-glass">
+                                                                    <AlertDialogHeader>
+                                                                        <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                                                                        <AlertDialogDescription>
+                                                                            Esta acción eliminará permanentemente el ingrediente "{ingredient.name}".
+                                                                        </AlertDialogDescription>
+                                                                    </AlertDialogHeader>
+                                                                    <AlertDialogFooter>
+                                                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                                        <AlertDialogAction onClick={() => handleDeleteConfirm()}>Sí, eliminar</AlertDialogAction>
+                                                                    </AlertDialogFooter>
+                                                                </AlertDialogContent>
+                                                            </AlertDialog>
                                                         </div>
                                                     </TableCell>
                                                 </TableRow>
@@ -205,24 +219,6 @@ export default function AdminIngredientsPage() {
                 onSave={handleSaveIngredient}
                 ingredientToEdit={ingredientToEdit}
             />
-
-            {/* Alert Dialog for Deleting */}
-            {ingredientToDelete && (
-                <AlertDialog open={!!ingredientToDelete} onOpenChange={() => setIngredientToDelete(null)}>
-                     <AlertDialogContent className="bg-glass">
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Esta acción eliminará permanentemente el ingrediente "{ingredientToDelete.name}".
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel onClick={() => setIngredientToDelete(null)}>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleDeleteConfirm}>Sí, eliminar</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            )}
         </>
     );
 }
