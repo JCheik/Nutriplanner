@@ -1,7 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { listUsers, setUserAdmin, deleteUserAccount } from '@/lib/actions';
-import { UserRecord } from 'firebase-admin/auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -15,7 +14,12 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Link from 'next/link';
 
-type ClientUserRecord = Omit<UserRecord, 'metadata'> & {
+type ClientUserRecord = {
+    uid: string;
+    email?: string;
+    displayName?: string;
+    photoURL?: string;
+    disabled: boolean;
     creationTime: string;
     lastSignInTime: string;
     isAdmin: boolean;
@@ -32,7 +36,7 @@ export default function AdminUsersPage() {
         try {
             const result = await listUsers();
             if (result.success) {
-                setUsers(result.users as ClientUserRecord[]);
+                setUsers(result.users);
             } else {
                 setError(result.error || 'Ocurrió un error desconocido');
             }

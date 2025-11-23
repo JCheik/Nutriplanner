@@ -14,6 +14,19 @@ interface SaveRecipePayload {
   existingId?: string;
 }
 
+// Client-side representation of a user record
+type ClientUserRecord = {
+    uid: string;
+    email?: string;
+    displayName?: string;
+    photoURL?: string;
+    disabled: boolean;
+    creationTime: string;
+    lastSignInTime: string;
+    isAdmin: boolean;
+};
+
+
 export async function saveRecipe(payload: SaveRecipePayload) {
   const { recipeData, imageFile, isGlobal, userId, existingId } = payload;
   
@@ -93,8 +106,8 @@ export async function deleteUserAccount(uid: string) {
     }
 }
 
-// Helper to map Firebase Admin UserRecord to a simpler object for the client
-const mapUserRecord = (user: UserRecord) => ({
+// Helper to map Firebase Admin UserRecord to a serializable object for the client
+const mapUserRecord = (user: UserRecord): ClientUserRecord => ({
     uid: user.uid,
     email: user.email,
     displayName: user.displayName,
