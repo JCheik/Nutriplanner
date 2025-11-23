@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import type { DialogState, Recipe, Ingredient, Folder, GlobalFolder, BaseIngredient } from '@/lib/types';
+import type { DialogState as DialogStateBase, Recipe, Ingredient, Folder, GlobalFolder, BaseIngredient } from '@/lib/types';
 import { useUser, useFirestore, useMemoFirebase } from '@/firebase/index';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -38,6 +38,7 @@ import { Switch } from '../ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { normalizeText, cn } from '@/lib/utils';
 
+export type DialogState = DialogStateBase;
 
 interface RecipeDialogProps {
   dialogState: DialogState;
@@ -449,6 +450,7 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
                 src={recipe.imageUrl}
                 alt={recipe.name}
                 fill
+                sizes="50vw"
                 className="object-cover"
                 data-ai-hint={recipe.imageHint}
               />
@@ -496,7 +498,7 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
          {/* --- Left Aligned Buttons --- */}
          <div className="flex gap-2">
             {onRemoveFromMeal && context?.source === 'mobile-planner' ? (
-                <Button variant="destructive" onClick={() => onRemoveFromMeal({ mealId: context?.mealId, recipeInstanceId: (recipe as any).instanceId })}>
+                <Button variant="destructive" onClick={() => onRemoveFromMeal(context)}>
                     <Trash className="mr-2 h-4 w-4" />
                     Quitar del Plan
                 </Button>

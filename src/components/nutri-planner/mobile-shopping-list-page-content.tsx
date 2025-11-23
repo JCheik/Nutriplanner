@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { DayPlan } from '@/lib/types';
-import { Logo } from '@/components/icons/logo';
 import { ShoppingListContent, type ShoppingListItem } from '@/components/nutri-planner/shopping-list-content';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
@@ -21,9 +20,10 @@ import type { usePlannerState } from '@/hooks/use-planner-state';
 
 type PlannerState = ReturnType<typeof usePlannerState>;
 
-
 const generateListFromPlan = (weekPlan: DayPlan[]): ShoppingListItem[] => {
     const aggregated: Record<string, { name: string; quantity: number; unit: string }> = {};
+    if (!weekPlan) return [];
+    
     weekPlan.forEach(dayPlan => {
       (dayPlan.meals || []).forEach(meal => {
         (meal.recipes || []).forEach(recipe => {
@@ -45,23 +45,22 @@ const generateListFromPlan = (weekPlan: DayPlan[]): ShoppingListItem[] => {
     })).sort((a, b) => a.name.localeCompare(b.name));
 };
 
-export function MobileShoppingListPageContent({ currentWeekPlan, isLoading, isGuestMode }: PlannerState) {
-  const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
-  
+export function MobileShoppingListPageContent({ currentWeekPlan, currentShoppingList, handleShoppingListUpdate }: PlannerState) {
+  const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>(currentShoppingList || []);
+
+  useEffect(() => {
+    setShoppingList(currentShoppingList || []);
+  }, [currentShoppingList]);
+
   const handleGenerateList = () => {
     const newList = generateListFromPlan(currentWeekPlan);
     setShoppingList(newList);
+    handleShoppingListUpdate(newList);
   };
-
-  if (isLoading && !isGuestMode) {
-     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
-        <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
-          <Logo className="h-12 w-12 text-primary animate-pulse" />
-          <p className="text-lg text-muted-foreground">Cargando lista...</p>
-        </div>
-      </div>
-    );
+  
+  const handleLocalListChange = (newList: ShoppingListItem[]) => {
+    setShoppingList(newList);
+    handleShoppingListUpdate(newList);
   }
 
   return (
@@ -90,7 +89,7 @@ export function MobileShoppingListPageContent({ currentWeekPlan, isLoading, isGu
             </AlertDialog>
         </div>
       </div>
-      <ShoppingListContent initialList={shoppingList} onListChange={setShoppingList} />
+      <ShoppingListContent initialList={shoppingList} onListChange={handleLocalListChange} />
     </div>
   );
 }

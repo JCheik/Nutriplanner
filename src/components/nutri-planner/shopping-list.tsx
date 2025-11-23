@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { WeekPlan } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { ShoppingCart, X, RefreshCw } from 'lucide-react';
@@ -20,12 +20,16 @@ import {
 
 interface ShoppingListSheetProps {
   weekPlan: WeekPlan;
+  initialShoppingList?: ShoppingListItem[];
+  onShoppingListUpdate?: (list: ShoppingListItem[]) => void;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
 }
 
 const generateListFromPlan = (weekPlan: WeekPlan): ShoppingListItem[] => {
     const aggregated: Record<string, { name: string; quantity: number; unit: string }> = {};
+    if (!weekPlan) return [];
+    
     weekPlan.forEach(dayPlan => {
       (dayPlan.meals || []).forEach(meal => {
         (meal.recipes || []).forEach(recipe => {
@@ -47,12 +51,27 @@ const generateListFromPlan = (weekPlan: WeekPlan): ShoppingListItem[] => {
     })).sort((a, b) => a.name.localeCompare(b.name));
 };
 
-export function ShoppingListSheet({ weekPlan, isOpen, onOpenChange }: ShoppingListSheetProps) {
-  const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
+export function ShoppingListSheet({ weekPlan, initialShoppingList = [], onShoppingListUpdate, isOpen, onOpenChange }: ShoppingListSheetProps) {
+  const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>(initialShoppingList);
+
+  useEffect(() => {
+    setShoppingList(initialShoppingList);
+  }, [initialShoppingList]);
+
 
   const handleGenerateList = () => {
     const newList = generateListFromPlan(weekPlan);
     setShoppingList(newList);
+    if (onShoppingListUpdate) {
+        onShoppingListUpdate(newList);
+    }
+  }
+
+  const handleListChange = (newList: ShoppingListItem[]) => {
+    setShoppingList(newList);
+    if (onShoppingListUpdate) {
+        onShoppingListUpdate(newList);
+    }
   }
 
   return (
@@ -101,7 +120,7 @@ export function ShoppingListSheet({ weekPlan, isOpen, onOpenChange }: ShoppingLi
               </AlertDialogContent>
             </AlertDialog>
             
-            <ShoppingListContent initialList={shoppingList} onListChange={setShoppingList} />
+            <ShoppingListContent initialList={shoppingList} onListChange={handleListChange} />
         </div>
     </>
   );

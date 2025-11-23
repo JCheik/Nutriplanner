@@ -4,27 +4,32 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Recipe } from '@/lib/types';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
-import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
+import { RecipeDialog, DialogState } from '@/components/nutri-planner/recipe-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Logo } from '@/components/icons/logo';
 import type { usePlannerState } from '@/hooks/use-planner-state';
 
 type PlannerState = ReturnType<typeof usePlannerState>;
+
+interface MobileRecipesPageContentProps extends PlannerState {
+    isGuestMode: boolean;
+}
 
 export function MobileRecipesPageContent({
     currentUserRecipes,
     nutriplannerRecipes,
     currentFolders,
     isGuestMode,
-    isLoading,
+    isSaving,
     handleCopyRecipe,
-}: PlannerState) {
+    handleSaveRecipe,
+    handleDeleteRecipe
+}: MobileRecipesPageContentProps) {
     const router = useRouter();
     const { toast } = useToast();
 
-    const [dialogState, setDialogState] = useState<any>({ open: false });
+    const [dialogState, setDialogState] = useState<DialogState>({ open: false });
 
-    const handleRecipeAction = (action: 'view' | 'create' | 'edit', recipe?: Recipe, isNutriPlannerRecipe?: boolean) => {
+    const handleRecipeAction = (action: 'view' | 'create' | 'edit', recipe?: Recipe, isNutriPlannerRecipe: boolean = false) => {
         if (isGuestMode && action !== 'view') {
             toast({
                 variant: 'destructive',
@@ -36,16 +41,22 @@ export function MobileRecipesPageContent({
         setDialogState({ open: true, mode: action, recipe, isNutriPlannerRecipe });
     };
 
-    if (isLoading && !isGuestMode) {
-         return (
-            <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
-                <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
-                <Logo className="h-12 w-12 text-primary animate-pulse" />
-                <p className="text-lg text-muted-foreground">Cargando recetas...</p>
-                </div>
-            </div>
-        );
-    }
+    const handleDialogClose = () => setDialogState({ open: false });
+
+    const handleInternalSave = async (recipeData: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
+        await handleSaveRecipe(recipeData, imageFile, isGlobal, existingId);
+        handleDialogClose();
+    };
+
+    const handleInternalDelete = (recipeId: string, isGlobal: boolean) => {
+        handleDeleteRecipe(recipeId, isGlobal);
+        handleDialogClose();
+    };
+    
+    const handleAddToPlan = () => {
+        router.push(isGuestMode ? '/mobile?guest=true' : '/mobile');
+        toast({ title: 'Selecciona un destino', description: 'Toca una casilla de comida en el planificador para añadir la receta.' });
+    };
 
     return (
         <>
@@ -57,8 +68,8 @@ export function MobileRecipesPageContent({
                     globalFolders={[]}
                     onRecipeAction={handleRecipeAction}
                     onCopyRecipe={handleCopyRecipe}
-                    onAddToPlan={() => router.push(isGuestMode ? '/mobile?guest=true' : '/mobile')}
-                    onFolderCreate={() => {}}
+                    onAddToPlan={handleAddToPlan}
+                    onFolderCreate={() => {}} // Not implemented on mobile
                     onFolderUpdate={() => {}}
                     onFolderDelete={() => {}}
                     onAssignRecipeToFolder={() => {}}
@@ -72,14 +83,15 @@ export function MobileRecipesPageContent({
             </div>
             <RecipeDialog
                 dialogState={dialogState}
-                isSaving={false}
+                isSaving={isSaving}
                 folders={currentFolders}
                 globalFolders={[]}
-                onClose={() => setDialogState({ open: false })}
-                onSave={() => {}}
-                onDelete={() => {}}
+                onClose={handleDialogClose}
+                onSave={handleInternalSave}
+                onDelete={handleInternalDelete}
                 onEdit={handleRecipeAction}
                 onCopy={handleCopyRecipe}
+                isMobile
             />
         </>
     )

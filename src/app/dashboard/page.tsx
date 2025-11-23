@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
-import type { DayPlan, Recipe, Meal, WeekPlan, DialogState, ActiveDropTarget, GlobalFolder } from '@/lib/types';
+import type { Recipe, DialogState, ActiveDropTarget } from '@/lib/types';
 import { PageHeader } from '@/components/layout/page-header';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
 import { MealPlanner } from '@/components/nutri-planner/meal-planner';
@@ -44,6 +44,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     isLoading,
     isSaving,
     activeGoal,
+    user,
     handleDrop,
     handleClearMeal,
     handleRemoveRecipeFromMeal,
@@ -60,7 +61,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     handleNoteSave,
     handleCalorieResultSave,
     handleActiveGoalChange,
-    handleSaveCustomGoal
+    handleSaveCustomGoal,
   } = usePlannerState({ isGuestMode });
 
   // Dialog and UI state
@@ -70,15 +71,15 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
   const [activeDropTarget, setActiveDropTarget] = useState<ActiveDropTarget | null>(null);
   
   // --- Guest Mode Interaction ---
-  const promptToRegister = () => {
+  const promptToRegister = useCallback(() => {
     if (isGuestMode) {
       setIsGuestPromptOpen(true);
       return true; // Indicates that the prompt was shown
     }
     return false; // Indicates that the user is logged in
-  };
+  }, [isGuestMode]);
 
-  const handleRecipeAction = useCallback((action: 'view' | 'create' | 'edit', recipe?: Recipe, isNutriPlannerRecipe: boolean = false, source?: string) => {
+  const handleRecipeAction = useCallback((action: 'view' | 'create' | 'edit', recipe?: Recipe, isNutriPlannerRecipe: boolean = false) => {
     if ((action === 'create' || action === 'edit') && promptToRegister()) {
         return;
     }
@@ -87,13 +88,13 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
       mode: action,
       recipe: recipe || undefined,
       isNutriPlannerRecipe,
-      source
     } as DialogState);
-  }, [isGuestMode]);
+  }, [promptToRegister]);
   
   const handleAddToPlan = (recipe: Recipe) => {
     if (activeDropTarget) {
       handleDrop(activeDropTarget.day, activeDropTarget.mealId, recipe);
+      setActiveDropTarget(null); // Clear target after dropping
     } else {
       toast({
         variant: "destructive",
@@ -101,21 +102,20 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
         description: "Toca una casilla de comida en el planificador antes de añadir una receta.",
       });
     }
-    setActiveDropTarget(null);
   };
 
   const handleDialogClose = useCallback(() => {
     setDialogState({ open: false });
   }, []);
 
-  const handleInternalDeleteRecipe = (recipeId: string, isGlobal: boolean) => {
-    handleDeleteRecipe(recipeId, isGlobal);
-    handleDialogClose();
-  };
-
   const handleInternalSaveRecipe = async (recipeData: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
       await handleSaveRecipe(recipeData, imageFile, isGlobal, existingId);
       handleDialogClose();
+  };
+
+  const handleInternalDeleteRecipe = (recipeId: string, isGlobal: boolean) => {
+    handleDeleteRecipe(recipeId, isGlobal);
+    handleDialogClose();
   };
 
   const dailyTotals = useMemo(() => {
@@ -136,7 +136,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
   }, [currentWeekPlan]);
   
   const handlePanelOpen = (panel: 'goals' | 'shopping-list' | 'sticky-note') => {
-    setActivePanel(panel);
+    setActivePanel(activePanel === panel ? null : panel);
   }
   
   const handlePanelChange = (panel: 'goals' | 'shopping-list' | 'sticky-note', isOpen: boolean) => {
@@ -154,6 +154,8 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     );
   }
 
+  const doNothing = () => {};
+
   return (
     <div className="flex flex-col min-h-screen text-foreground">
       <PageHeader isGuest={isGuestMode} onRegisterClick={onExitGuestMode} />
@@ -166,11 +168,11 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
               activeGoal={activeGoalMacros}
               onDrop={handleDrop}
               onClearMeal={handleClearMeal}
-              onRecipeClick={(recipe) => handleRecipeAction('view', recipe, false, 'meal-planner')}
+              onRecipeClick={(recipe) => handleRecipeAction('view', recipe)}
               onRemoveRecipeFromMeal={handleRemoveRecipeFromMeal}
-              onUpdateMealTitle={promptToRegister() ? () => {} : handleUpdateMealTitle}
-              onAddMeal={promptToRegister() ? () => {} : handleAddMeal}
-              onDeleteMeal={promptToRegister() ? () => {} : handleDeleteMeal}
+              onUpdateMealTitle={isGuestMode ? doNothing : handleUpdateMealTitle}
+              onAddMeal={isGuestMode ? doNothing : handleAddMeal}
+              onDeleteMeal={isGuestMode ? doNothing : handleDeleteMeal}
               activeDropTarget={activeDropTarget}
               onSetDropTarget={setActiveDropTarget}
             />
@@ -180,18 +182,18 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
               userRecipes={currentUserRecipes}
               nutriplannerRecipes={nutriplannerRecipes}
               folders={currentFolders}
-              globalFolders={[]}
+              globalFolders={[]} // This should be populated if admin features are built out
               onRecipeAction={handleRecipeAction}
               onCopyRecipe={handleCopyRecipe}
               onAddToPlan={handleAddToPlan}
-              onFolderCreate={promptToRegister() ? () => {} : handleFolderCreate}
-              onFolderUpdate={promptToRegister() ? () => {} : handleFolderUpdate}
-              onFolderDelete={promptToRegister() ? () => {} : handleFolderDelete}
-              onAssignRecipeToFolder={promptToRegister() ? () => {} : handleAssignRecipeToFolder}
-              onGlobalFolderCreate={() => {}}
-              onGlobalFolderUpdate={() => {}}
-              onGlobalFolderDelete={() => {}}
-              onAssignRecipeToGlobalFolder={() => {}}
+              onFolderCreate={isGuestMode ? doNothing : handleFolderCreate}
+              onFolderUpdate={isGuestMode ? doNothing : handleFolderUpdate}
+              onFolderDelete={isGuestMode ? doNothing : handleFolderDelete}
+              onAssignRecipeToFolder={isGuestMode ? doNothing : handleAssignRecipeToFolder}
+              onGlobalFolderCreate={doNothing}
+              onGlobalFolderUpdate={doNothing}
+              onGlobalFolderDelete={doNothing}
+              onAssignRecipeToGlobalFolder={doNothing}
             />
           </div>
         </div>

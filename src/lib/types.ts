@@ -68,8 +68,8 @@ export interface DailyTotal {
 
 export type DialogState = 
   | { open: false }
-  | { open: true; mode: 'create', isNutriPlannerRecipe?: false, source?: string; }
-  | { open: true; mode: 'view' | 'edit'; recipe: Recipe; isNutriPlannerRecipe?: boolean; source?: string; context?: any; };
+  | { open: true; mode: 'create', isNutriPlannerRecipe?: false; recipe?: undefined; context?: any }
+  | { open: true; mode: 'view' | 'edit'; recipe: Recipe; isNutriPlannerRecipe?: boolean; context?: any };
 
 export type SortCriteria = 
   | 'name-asc' | 'name-desc'
@@ -94,6 +94,14 @@ export interface CalculationResult {
   custom?: GoalMacros;
 }
 
+export interface ShoppingListItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  checked: boolean;
+}
+
 export interface UserProfile {
   name: string;
   email: string;
@@ -101,6 +109,7 @@ export interface UserProfile {
   stickyNote?: string;
   calorieResult?: CalculationResult;
   activeGoalPreference?: GoalType;
+  shoppingList?: ShoppingListItem[];
 }
 
 

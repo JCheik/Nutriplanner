@@ -7,13 +7,7 @@ import Dashboard from './dashboard/page';
 import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-
-const isMobileDevice = () => {
-    if (typeof window === 'undefined') return false;
-    // Simple check, can be improved with more robust libraries if needed.
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-};
+import { useMediaQuery } from '@/hooks/use-media-query';
 
 export default function Home() {
   const { user, loading } = useUser();
@@ -21,18 +15,11 @@ export default function Home() {
   const firestore = useFirestore();
   const [isGuest, setIsGuest] = useState(false);
   const router = useRouter();
-
-  // State to safely check for mobile on client-side
-  const [isMobile, setIsMobile] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    // This check runs only on the client, after hydration, to avoid mismatches.
-    setIsMobile(isMobileDevice());
-  }, []);
+  const isMobile = useMediaQuery("(max-width: 768px)");
 
   useEffect(() => {
     // This effect runs when isMobile or user state changes.
-    if (isMobile === true && user) {
+    if (isMobile && user) {
       router.replace('/mobile');
     }
   }, [user, isMobile, router]);
@@ -57,13 +44,13 @@ export default function Home() {
     setIsGuest(false);
   }
 
-  // Show a generic loader while determining client type or auth state.
-  if (loading || isMobile === null) {
+  // Show a generic loader while determining auth state.
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
           <Logo className="h-12 w-12 text-primary animate-pulse" />
-          <p className="text-lg text-muted-foreground">Cargando tu planificador...</p>
+          <p className="text-lg text-muted-foreground">Cargando...</p>
         </div>
       </div>
     );

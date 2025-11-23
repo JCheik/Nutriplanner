@@ -1,7 +1,6 @@
 'use client';
 
 import { Suspense } from 'react';
-import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
 import { Logo } from '@/components/icons/logo';
 import dynamic from 'next/dynamic';
