@@ -120,23 +120,25 @@ export function MobilePageContent({
                       {meal.recipes && meal.recipes.length > 0 ? (
                         <div className="space-y-2">
                           {meal.recipes.map((recipe: RecipeInstance) => (
-                            <div key={recipe.instanceId} className="h-16 relative group/item">
-                              <RecipeCard
-                                recipe={recipe}
-                                onClick={(e) => { e.stopPropagation(); handleRecipeClick(recipe, meal, recipe.instanceId); }}
-                                isCompact
-                                className="text-sm"
-                              />
+                            <div key={recipe.instanceId} className="flex items-center gap-2">
+                              <div className="h-16 flex-1">
+                                <RecipeCard
+                                  recipe={recipe}
+                                  onClick={(e) => { e.stopPropagation(); handleRecipeClick(recipe, meal, recipe.instanceId); }}
+                                  isCompact
+                                  className="text-sm"
+                                />
+                              </div>
                               <Button
-                                variant="destructive"
+                                variant="ghost"
                                 size="icon"
-                                className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover/item:opacity-100 transition-opacity z-10"
+                                className="text-muted-foreground hover:text-destructive"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     handleRemoveRecipeFromMeal(activeDayName, meal.id, recipe.instanceId);
                                 }}
                               >
-                                <X className="h-3 w-3" />
+                                <X className="h-5 w-5" />
                               </Button>
                             </div>
                           ))}
