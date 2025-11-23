@@ -3,7 +3,7 @@
 // Added to ensure the page is rendered dynamically, as it uses searchParams.
 export const dynamic = 'force-dynamic';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
@@ -86,6 +86,7 @@ function MobilePageContent() {
     if (!selectedMeal) return;
 
     const finalRecipeInstances: RecipeInstance[] = updatedRecipes.map(recipe => {
+      // Preserve existing instanceId if the recipe was already in the meal
       const existing = selectedMeal.recipes.find(r => r.id === recipe.id);
       return existing || { ...recipe, instanceId: self.crypto.randomUUID() };
     });
@@ -125,9 +126,12 @@ function MobilePageContent() {
     if (isGuestMode) {
       setGuestWeekPlan(updatePlan);
     } else if (user && firestore && activeDayPlan) {
-      const updatedMeals = updatePlan(currentWeekPlan).find(d => d.day === activeDayName)?.meals || [];
-      const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', activeDayName);
-      setDoc(dayDocRef, { ...activeDayPlan, meals: updatedMeals }, { merge: true });
+      const updatedPlan = updatePlan(currentWeekPlan);
+      const updatedDay = updatedPlan.find(d => d.day === activeDayName);
+      if (updatedDay) {
+          const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', activeDayName);
+          setDoc(dayDocRef, { ...updatedDay, meals: updatedDay.meals }, { merge: true });
+      }
     }
     
     setDialogState({ open: false });
@@ -231,6 +235,19 @@ function MobilePageContent() {
   );
 }
 
+const MobilePageLoader = () => (
+    <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
+        <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
+          <Logo className="h-12 w-12 text-primary animate-pulse" />
+          <p className="text-lg text-muted-foreground">Cargando...</p>
+        </div>
+    </div>
+);
+
 export default function MobilePage() {
-  return <MobilePageContent />
+  return (
+    <Suspense fallback={<MobilePageLoader />}>
+      <MobilePageContent />
+    </Suspense>
+  );
 }

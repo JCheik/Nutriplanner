@@ -24,6 +24,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { usePlannerState } from '@/hooks/use-planner-state';
 
 const generateListFromPlan = (weekPlan: DayPlan[]): ShoppingListItem[] => {
     const aggregated: Record<string, { name: string; quantity: number; unit: string }> = {};
@@ -54,26 +55,16 @@ function MobileShoppingListPageContent() {
   const isGuestMode = searchParams.get('guest') === 'true';
 
   const { user, loading: userLoading } = useUser();
-  const { firestore } = useFirebase();
+  const { currentWeekPlan, isLoading } = usePlannerState({ isGuestMode });
 
   const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
-
-  // --- Data Fetching ---
-  const [guestWeekPlan] = useState<DayPlan[]>(INITIAL_WEEK_PLAN);
-
-  const weekPlanCollectionRef = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'users', user.uid, 'weekPlan') : null, [firestore, user]);
-  const { data: weekPlanData, isLoading: weekPlanLoading } = useCollection<DayPlan>(weekPlanCollectionRef);
-
-  const currentWeekPlan = useMemo(() => {
-    return isGuestMode ? guestWeekPlan : weekPlanData || [];
-  }, [isGuestMode, guestWeekPlan, weekPlanData]);
   
   const handleGenerateList = () => {
     const newList = generateListFromPlan(currentWeekPlan);
     setShoppingList(newList);
   };
 
-  if (userLoading || (!isGuestMode && weekPlanLoading)) {
+  if (userLoading || isLoading) {
      return (
       <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
         <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
@@ -104,7 +95,7 @@ function MobileShoppingListPageContent() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>¿Sobrescribir lista actual?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Esta acción reemplazará la lista actual con los ingredientes de tu plan de comidas. Los artículos que hayas añadido manually se perderán.
+                    Esta acción reemplazará la lista actual con los ingredientes de tu plan de comidas. Los artículos que hayas añadido manualmente se perderán.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -124,7 +115,10 @@ export default function MobileShoppingListPage() {
     return (
       <Suspense fallback={
             <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
-                <Logo className="h-12 w-12 text-primary animate-pulse" />
+                <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
+                    <Logo className="h-12 w-12 text-primary animate-pulse" />
+                    <p className="text-lg text-muted-foreground">Cargando...</p>
+                </div>
             </div>
         }>
         <MobileShoppingListPageContent />
