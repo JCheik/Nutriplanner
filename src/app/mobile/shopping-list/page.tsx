@@ -38,7 +38,7 @@ export default function MobileShoppingListPage() {
       <MobileShoppingListPageContent 
         currentWeekPlan={currentWeekPlan}
         currentShoppingList={currentShoppingList}
-        handleShoppingListUpdate={handleShoppingListUpdate}
+        onListChange={handleShoppingListUpdate}
       />
     );
 }

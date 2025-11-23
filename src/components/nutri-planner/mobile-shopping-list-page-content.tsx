@@ -20,7 +20,7 @@ import {
 interface MobileShoppingListPageContentProps {
   currentWeekPlan: DayPlan[];
   currentShoppingList: ShoppingListItem[];
-  handleShoppingListUpdate: (list: ShoppingListItem[]) => void;
+  onListChange: (list: ShoppingListItem[]) => void;
 }
 
 const generateListFromPlan = (weekPlan: DayPlan[]): ShoppingListItem[] => {
@@ -48,11 +48,11 @@ const generateListFromPlan = (weekPlan: DayPlan[]): ShoppingListItem[] => {
     })).sort((a, b) => a.name.localeCompare(b.name));
 };
 
-export function MobileShoppingListPageContent({ currentWeekPlan, currentShoppingList, handleShoppingListUpdate }: MobileShoppingListPageContentProps) {
+export function MobileShoppingListPageContent({ currentWeekPlan, currentShoppingList, onListChange }: MobileShoppingListPageContentProps) {
 
   const handleGenerateList = () => {
     const newList = generateListFromPlan(currentWeekPlan);
-    handleShoppingListUpdate(newList);
+    onListChange(newList);
   };
 
   return (
@@ -81,7 +81,7 @@ export function MobileShoppingListPageContent({ currentWeekPlan, currentShopping
             </AlertDialog>
         </div>
       </div>
-      <ShoppingListContent list={currentShoppingList} onListChange={handleShoppingListUpdate} />
+      <ShoppingListContent list={currentShoppingList} onListChange={onListChange} />
     </div>
   );
 }

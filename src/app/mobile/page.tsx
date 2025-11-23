@@ -30,8 +30,6 @@ export default function MobilePage() {
 
     const plannerState = usePlannerState({ isGuestMode });
 
-    // Redirect if not guest and not logged in (logic from previous state)
-    // This needs to be handled within the hook or a client component after loading.
     if (!isGuestMode && !plannerState.isLoading && !plannerState.user) {
         router.replace('/');
         return <MobilePageLoader />;

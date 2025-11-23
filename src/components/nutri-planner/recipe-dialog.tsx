@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, Plus, Copy, Search, Image as ImageIcon, UploadCloud, Globe, Folder as FolderIcon, Trash } from 'lucide-react';
+import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, Plus, Copy, Search, Image as ImageIcon, UploadCloud, Globe, Folder as FolderIcon } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,7 +50,6 @@ interface RecipeDialogProps {
   onDelete?: (recipeId: string, isGlobal: boolean) => void;
   onEdit?: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void;
   onCopy?: (recipe: Recipe) => void;
-  onRemoveFromMeal?: (context: any) => void;
   isMobile?: boolean;
 }
 
@@ -404,7 +403,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
 }
 
 
-function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, onRemoveFromMeal, isNutriPlannerRecipe, context, isMobile }: { recipe: Recipe; folders?: Folder[], globalFolders?: GlobalFolder[], onEdit?: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void; onDelete?: (id: string, isGlobal: boolean) => void; onCopy?: (recipe: Recipe) => void; onRemoveFromMeal?: (context: any) => void; isNutriPlannerRecipe: boolean; context?: any; isMobile?: boolean; }) {
+function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, isNutriPlannerRecipe, isMobile }: { recipe: Recipe; folders?: Folder[], globalFolders?: GlobalFolder[], onEdit?: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void; onDelete?: (id: string, isGlobal: boolean) => void; onCopy?: (recipe: Recipe) => void; isNutriPlannerRecipe: boolean; isMobile?: boolean; }) {
   const { user, claims } = useUser();
   const isAdmin = claims?.admin === true;
   const firestore = useFirestore();
@@ -495,14 +494,8 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
         </ScrollArea>
       </div>
       <DialogFooter className="mt-6 flex flex-row justify-between items-center w-full">
-         {/* --- Left Aligned Buttons --- */}
          <div className="flex gap-2">
-            {onRemoveFromMeal && context?.source === 'mobile-planner' ? (
-                <Button variant="destructive" onClick={() => onRemoveFromMeal(context)}>
-                    <Trash className="mr-2 h-4 w-4" />
-                    Quitar del Plan
-                </Button>
-            ) : (onDelete && canEdit) && (
+            {onDelete && canEdit && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
@@ -523,7 +516,6 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
             )}
          </div>
 
-        {/* --- Right Aligned Buttons --- */}
         <div className='flex gap-2'>
           {isNutriPlannerRecipe && !isMobile && onCopy && (
             <Button onClick={() => onCopy(recipe)}><Copy className="mr-2 h-4 w-4" /> Copiar a Mis Recetas</Button>
@@ -540,7 +532,7 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
 }
 
 
-export function RecipeDialog({ dialogState, isSaving = false, folders, globalFolders, onClose, onSave, onDelete, onEdit, onCopy, onRemoveFromMeal, isMobile }: RecipeDialogProps) {
+export function RecipeDialog({ dialogState, isSaving = false, folders, globalFolders, onClose, onSave, onDelete, onEdit, onCopy, isMobile }: RecipeDialogProps) {
   if (!dialogState.open) return null;
 
   const isViewMode = dialogState.mode === 'view';
@@ -566,9 +558,7 @@ export function RecipeDialog({ dialogState, isSaving = false, folders, globalFol
             onEdit={handleEdit}
             onDelete={onDelete}
             onCopy={onCopy}
-            onRemoveFromMeal={onRemoveFromMeal}
             isNutriPlannerRecipe={!!isNutriPlannerRecipe}
-            context={(dialogState as any).context}
             isMobile={isMobile}
           />
         ) : (
@@ -587,5 +577,3 @@ export function RecipeDialog({ dialogState, isSaving = false, folders, globalFol
     </Dialog>
   );
 }
-
-    

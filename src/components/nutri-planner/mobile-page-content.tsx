@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import type { DayPlan, Meal, Recipe, RecipeInstance } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RecipeCard } from '@/components/nutri-planner/recipe-card';
 import { RecipeDialog, DialogState } from '@/components/nutri-planner/recipe-dialog';
 import { RecipeSelectionDialog } from '@/components/nutri-planner/recipe-selection-dialog';
-import { ChevronLeft, ChevronRight, BookHeart, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { usePlannerState } from '@/hooks/use-planner-state';
@@ -49,18 +49,8 @@ export function MobilePageContent({
     });
   };
   
-  const handleRecipeClick = (recipe: Recipe, meal: Meal, recipeInstanceId: string) => {
-    setDialogState({ 
-      open: true, 
-      mode: 'view', 
-      recipe, 
-      context: { 
-        mealId: meal.id, 
-        recipeInstanceId: recipeInstanceId, 
-        day: activeDayName,
-        source: 'mobile-planner' 
-      } 
-    });
+  const handleRecipeClick = (recipe: Recipe) => {
+    setDialogState({ open: true, mode: 'view', recipe });
   };
 
   const handleMealClick = (meal: Meal) => {
@@ -70,26 +60,19 @@ export function MobilePageContent({
   
   const handleRecipeSelectionSave = (updatedRecipes: Recipe[]) => {
     if (!selectedMeal) return;
-
-    // This is a simplified approach: just add the new ones.
-    // The user can remove them individually.
-    const existingRecipeIds = new Set(selectedMeal.recipes.map(r => r.id));
-
+    
     // Add new recipes
     updatedRecipes.forEach(recipe => {
-        if (!existingRecipeIds.has(recipe.id)) {
-            handleDrop(activeDayName, selectedMeal.id, recipe);
-        }
+        handleDrop(activeDayName, selectedMeal.id, recipe);
     });
     
     setIsRecipeSelectorOpen(false);
     setSelectedMeal(null);
   };
 
-  const handleInternalRemove = (context: any) => {
-    handleRemoveRecipeFromMeal(context.day, context.mealId, context.recipeInstanceId);
-    setDialogState({open: false});
-  }
+  const handleDialogClose = useCallback(() => {
+    setDialogState({ open: false });
+  }, []);
 
   const formattedDate = format(currentDate, "EEEE, d 'de' MMMM", { locale: es });
   const dayMeals = activeDayPlan?.meals || [];
@@ -124,7 +107,7 @@ export function MobilePageContent({
                               <div className="h-16 flex-1">
                                 <RecipeCard
                                   recipe={recipe}
-                                  onClick={(e) => { e.stopPropagation(); handleRecipeClick(recipe, meal, recipe.instanceId); }}
+                                  onClick={(e) => { e.stopPropagation(); handleRecipeClick(recipe); }}
                                   isCompact
                                   className="text-sm"
                                 />
@@ -145,7 +128,6 @@ export function MobilePageContent({
                         </div>
                       ) : (
                         <div className="flex flex-col items-center justify-center h-24 border-2 border-dashed rounded-lg text-center p-2">
-                          <BookHeart className="h-6 w-6 text-muted-foreground mb-1" />
                           <p className="text-sm text-muted-foreground">Toca para añadir recetas</p>
                         </div>
                       )}
@@ -162,8 +144,7 @@ export function MobilePageContent({
 
       <RecipeDialog
         dialogState={dialogState}
-        onClose={() => setDialogState({ open: false })}
-        onRemoveFromMeal={handleInternalRemove}
+        onClose={handleDialogClose}
         isMobile={true}
       />
       
