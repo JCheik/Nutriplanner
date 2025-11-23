@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { RecipeCard } from '@/components/nutri-planner/recipe-card';
 import { RecipeDialog, DialogState } from '@/components/nutri-planner/recipe-dialog';
 import { RecipeSelectionDialog } from '@/components/nutri-planner/recipe-selection-dialog';
-import { ChevronLeft, ChevronRight, BookHeart } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BookHeart, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { usePlannerState } from '@/hooks/use-planner-state';
@@ -71,15 +71,9 @@ export function MobilePageContent({
   const handleRecipeSelectionSave = (updatedRecipes: Recipe[]) => {
     if (!selectedMeal) return;
 
-    const recipeIdsToAdd = new Set(updatedRecipes.map(r => r.id));
+    // This is a simplified approach: just add the new ones.
+    // The user can remove them individually.
     const existingRecipeIds = new Set(selectedMeal.recipes.map(r => r.id));
-
-    // Remove recipes that are no longer selected
-    selectedMeal.recipes.forEach(instance => {
-        if (!recipeIdsToAdd.has(instance.id)) {
-            handleRemoveRecipeFromMeal(activeDayName, selectedMeal.id, instance.instanceId);
-        }
-    });
 
     // Add new recipes
     updatedRecipes.forEach(recipe => {
@@ -126,13 +120,24 @@ export function MobilePageContent({
                       {meal.recipes && meal.recipes.length > 0 ? (
                         <div className="space-y-2">
                           {meal.recipes.map((recipe: RecipeInstance) => (
-                            <div key={recipe.instanceId} className="h-16">
+                            <div key={recipe.instanceId} className="h-16 relative group/item">
                               <RecipeCard
                                 recipe={recipe}
                                 onClick={(e) => { e.stopPropagation(); handleRecipeClick(recipe, meal, recipe.instanceId); }}
                                 isCompact
                                 className="text-sm"
                               />
+                              <Button
+                                variant="destructive"
+                                size="icon"
+                                className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover/item:opacity-100 transition-opacity z-10"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveRecipeFromMeal(activeDayName, meal.id, recipe.instanceId);
+                                }}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
                             </div>
                           ))}
                         </div>

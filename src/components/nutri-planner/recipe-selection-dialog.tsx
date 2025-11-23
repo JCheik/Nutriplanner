@@ -27,7 +27,8 @@ export function RecipeSelectionDialog({ isOpen, onClose, meal, allRecipes, onSav
 
   useEffect(() => {
     if (isOpen) {
-      setSelectedRecipeIds(new Set(meal.recipes.map(r => r.id)));
+      // We only manage newly selected recipes
+      setSelectedRecipeIds(new Set());
     }
   }, [isOpen, meal]);
 
@@ -51,18 +52,20 @@ export function RecipeSelectionDialog({ isOpen, onClose, meal, allRecipes, onSav
 
   const filteredRecipes = useMemo(() => {
     const normalizedQuery = normalizeText(searchQuery);
+    const existingRecipeIdsInMeal = new Set(meal.recipes.map(r => r.id));
+
     return allRecipes.filter(recipe => {
+        if (existingRecipeIdsInMeal.has(recipe.id)) return false; // Don't show recipes already in the meal
         const nameMatch = normalizeText(recipe.name).includes(normalizedQuery);
-        // Add more filters if needed, e.g., by source (user/nutriplanner)
         return nameMatch;
     });
-  }, [searchQuery, allRecipes, activeTab]);
+  }, [searchQuery, allRecipes, activeTab, meal.recipes]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className={cn("max-w-md h-[90vh] flex flex-col bg-glass")}>
         <DialogHeader>
-          <DialogTitle>Seleccionar para {meal.title}</DialogTitle>
+          <DialogTitle>Añadir a {meal.title}</DialogTitle>
           <DialogDescription>
             Elige las recetas que quieres añadir a esta comida.
           </DialogDescription>
@@ -102,7 +105,7 @@ export function RecipeSelectionDialog({ isOpen, onClose, meal, allRecipes, onSav
           <DialogClose asChild>
             <Button variant="outline">Cancelar</Button>
           </DialogClose>
-          <Button onClick={handleSave}>Guardar Cambios</Button>
+          <Button onClick={handleSave}>Añadir Seleccionadas</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
