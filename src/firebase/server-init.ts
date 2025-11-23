@@ -2,6 +2,9 @@
  * @fileoverview Server-side Firebase initialization.
  * This file is NOT for client-side use and should only be imported in Server Actions or API routes.
  */
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import { initializeApp, getApps, cert, type AppOptions } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
