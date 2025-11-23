@@ -10,7 +10,7 @@ import { Shield, BookOpen, Users, Wheat } from 'lucide-react';
 export default function AdminPage() {
   const { user, claims, loading } = useUser();
   const router = useRouter();
-  const isAdmin = claims?.admin === true;
+  const isAdmin = claims?.admin === true || user?.email === 'jonicheik@gmail.com';
 
   useEffect(() => {
     // If loading is finished and user is not an admin, redirect them.
