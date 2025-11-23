@@ -71,20 +71,19 @@ export default function AdminPage() {
                             </CardHeader>
                         </Card>
                     </Link>
-                     <Card className="hover:shadow-lg transition-shadow cursor-pointer border-dashed">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Wheat className="h-5 w-5" />
-                                Base de Datos de Ingredientes
-                            </CardTitle>
-                            <CardDescription>
-                                Limpiar, unificar y gestionar la base de datos de ingredientes.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-muted-foreground">Próximamente...</p>
-                        </CardContent>
-                    </Card>
+                     <Link href="/admin/ingredients" className="hover:shadow-lg transition-shadow rounded-lg">
+                        <Card className="h-full cursor-pointer">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Wheat className="h-5 w-5" />
+                                    Base de Datos de Ingredientes
+                                </CardTitle>
+                                <CardDescription>
+                                    Limpiar, unificar y gestionar la base de datos de ingredientes.
+                                </CardDescription>
+                            </CardHeader>
+                        </Card>
+                    </Link>
                 </div>
             </div>
         </main>

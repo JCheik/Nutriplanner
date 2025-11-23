@@ -74,9 +74,6 @@ function IngredientDatabaseViewer() {
         const canDelete = user && (ingredient.createdBy === user.uid || isAdmin);
         if (canDelete) {
             setIngredientToDelete(ingredient);
-            if (isAdmin && ingredient.createdBy !== user?.uid) {
-                toast({ title: 'Permiso de administrador', description: 'Estás a punto de borrar un ingrediente de otro usuario.' });
-            }
         } else {
              toast({
                 variant: 'destructive',
@@ -91,7 +88,6 @@ function IngredientDatabaseViewer() {
         const { id, ...data } = ingredientData;
         const ingredientRef = doc(firestore, 'ingredients', id);
         
-        // Ensure createdBy is not overwritten if an admin edits
         const finalData = {
             ...data,
             createdBy: ingredientToEdit?.createdBy || user.uid,
@@ -121,9 +117,9 @@ function IngredientDatabaseViewer() {
                         className="pl-10"
                     />
                 </div>
-                <ScrollArea className="h-[60vh] border border-white/10 rounded-md">
+                <ScrollArea className="h-[60vh] border rounded-md">
                 <Table>
-                    <TableHeader className="[&_tr]:border-b-white/10">
+                    <TableHeader>
                     <TableRow>
                         <TableHead>Nombre</TableHead>
                         <TableHead className="text-right">Calorías</TableHead>
@@ -134,7 +130,7 @@ function IngredientDatabaseViewer() {
                         <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                     </TableHeader>
-                    <TableBody className="[&_tr:last-child]:border-0">
+                    <TableBody>
                     {isLoading && (
                         <TableRow>
                             <TableCell colSpan={7} className="text-center">Cargando ingredientes...</TableCell>
@@ -144,7 +140,7 @@ function IngredientDatabaseViewer() {
                         filteredIngredients.map((ingredient) => {
                             const canManage = user && (ingredient.createdBy === user.uid || isAdmin);
                             return (
-                                <TableRow key={ingredient.id} className="[&_td]:py-2 border-b-white/10">
+                                <TableRow key={ingredient.id}>
                                 <TableCell className="font-medium">{ingredient.name}</TableCell>
                                 <TableCell className="text-right">{ingredient.calories}</TableCell>
                                 <TableCell className="text-right">{ingredient.protein}</TableCell>
@@ -152,11 +148,11 @@ function IngredientDatabaseViewer() {
                                 <TableCell className="text-right">{ingredient.fat}</TableCell>
                                 <TableCell className="text-right">{ingredient.fiber || 0}</TableCell>
                                 <TableCell className="text-right">
-                                    <div className="flex justify-end gap-2">
+                                    <div className="flex justify-end gap-1">
                                         <Button variant="ghost" size="icon" onClick={() => handleEditClick(ingredient)} disabled={!canManage}>
                                             <Edit className="h-4 w-4" />
                                         </Button>
-                                         <AlertDialog>
+                                        <AlertDialog>
                                             <AlertDialogTrigger asChild>
                                                 <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteTrigger(ingredient)} disabled={!canManage}>
                                                     <Trash2 className="h-4 w-4" />
@@ -208,7 +204,7 @@ export function IngredientsDialog({ isOpen, onClose }: IngredientsDialogProps) {
         <DialogHeader>
           <DialogTitle>Base de Datos de Ingredientes</DialogTitle>
           <DialogDescription>
-             Esta tabla muestra los datos actuales de la colección <code className="relative rounded bg-black/20 px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold">/ingredients</code> en Firestore.
+             Esta tabla muestra los datos actuales de la colección <code className="bg-muted px-1 py-0.5 rounded">/ingredients</code>.
           </DialogDescription>
         </DialogHeader>
         <div className="mt-4">
