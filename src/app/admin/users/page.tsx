@@ -35,7 +35,7 @@ export default function AdminUsersPage() {
         setLoading(true);
         try {
             const result = await listUsers();
-            if (result.success) {
+            if (result.success && result.users) {
                 setUsers(result.users);
             } else {
                 setError(result.error || 'Ocurrió un error desconocido');

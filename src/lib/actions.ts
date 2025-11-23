@@ -66,7 +66,7 @@ export async function saveRecipe(payload: SaveRecipePayload) {
   }
 }
 
-export async function listUsers() {
+export async function listUsers(): Promise<{ success: boolean; users?: ClientUserRecord[]; error?: string; }> {
     try {
         const { auth } = initializeFirebase();
         const userRecords = await auth.listUsers();
