@@ -22,7 +22,11 @@ export function MobileRecipesPageContent({
     isSaving,
     handleCopyRecipe,
     handleSaveRecipe,
-    handleDeleteRecipe
+    handleDeleteRecipe,
+    handleFolderCreate,
+    handleFolderUpdate,
+    handleFolderDelete,
+    handleAssignRecipeToFolder
 }: MobileRecipesPageContentProps) {
     const router = useRouter();
     const { toast } = useToast();
@@ -69,16 +73,16 @@ export function MobileRecipesPageContent({
                     onRecipeAction={handleRecipeAction}
                     onCopyRecipe={handleCopyRecipe}
                     onAddToPlan={handleAddToPlan}
-                    onFolderCreate={() => {}} // Not implemented on mobile
-                    onFolderUpdate={() => {}}
-                    onFolderDelete={() => {}}
-                    onAssignRecipeToFolder={() => {}}
-                    onGlobalFolderCreate={() => {}}
+                    onFolderCreate={handleFolderCreate}
+                    onFolderUpdate={handleFolderUpdate}
+                    onFolderDelete={handleFolderDelete}
+                    onAssignRecipeToFolder={handleAssignRecipeToFolder}
+                    onGlobalFolderCreate={() => {}} // No admin features on mobile
                     onGlobalFolderUpdate={() => {}}
                     onGlobalFolderDelete={() => {}}
                     onAssignRecipeToGlobalFolder={() => {}}
                     isMobile={true}
-                    initialViewMode="list"
+                    initialViewMode="grid"
                 />
             </div>
             <RecipeDialog

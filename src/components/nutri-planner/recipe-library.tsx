@@ -32,6 +32,12 @@ import { cn, normalizeText } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Label } from '../ui/label';
 import { useUser } from '@/firebase';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 
 
 interface RecipeLibraryProps {
@@ -287,6 +293,94 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isD
   );
 }
 
+const FolderSection = ({
+  folders,
+  globalFolders,
+  activeTab,
+  isAdmin,
+  selectedFolderId,
+  setSelectedFolderId,
+  editingFolderId,
+  setEditingFolderId,
+  editingFolderName,
+  setEditingFolderName,
+  onFolderUpdate,
+  onGlobalFolderUpdate,
+  onFolderDelete,
+  onGlobalFolderDelete,
+  onFolderCreate,
+  onGlobalFolderCreate,
+  handleDragOver,
+  handleDragLeave,
+  handleDrop,
+}: any) => {
+  const currentFolders = activeTab === 'user-recipes' ? folders : globalFolders;
+
+  return (
+    <div className="space-y-1 pr-2">
+      <FolderButton
+        name={activeTab === 'user-recipes' ? "Todas mis Recetas" : "Todas"}
+        icon={Folders}
+        onClick={() => setSelectedFolderId('all')}
+        isSelected={selectedFolderId === 'all'}
+        isEditing={false} onSetEditing={() => { }} tempName="" onSetTempName={() => { }}
+        isDroppable={false}
+      />
+      <FolderButton
+        name="Sin Carpeta"
+        icon={FolderIcon}
+        onClick={() => setSelectedFolderId(null)}
+        isSelected={selectedFolderId === null}
+        isEditing={false} onSetEditing={() => { }} tempName="" onSetTempName={() => { }}
+        isDroppable={true}
+        onDragOver={(e) => handleDragOver(e)}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => handleDrop(e, null)}
+      />
+      {currentFolders.map((folder: Folder) => (
+        <FolderButton
+          key={folder.id}
+          name={folder.name}
+          icon={FolderIcon}
+          onClick={() => setSelectedFolderId(folder.id)}
+          isSelected={selectedFolderId === folder.id}
+          isEditing={editingFolderId === folder.id}
+          onSetEditing={(isEditing: boolean) => setEditingFolderId(isEditing ? folder.id : null)}
+          tempName={editingFolderName}
+          onSetTempName={setEditingFolderName}
+          onUpdate={(newName: string) => activeTab === 'user-recipes' ? onFolderUpdate(folder.id, newName) : onGlobalFolderUpdate(folder.id, newName)}
+          isDroppable={true}
+          onDragOver={(e) => handleDragOver(e)}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, folder.id)}
+        >
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0">
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent className="bg-glass">
+              <AlertDialogHeader>
+                <AlertDialogTitle>¿Borrar carpeta?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Esto no borrará las recetas. Las recetas de esta carpeta se quedarán sin carpeta. ¿Estás seguro?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={() => activeTab === 'user-recipes' ? onFolderDelete(folder.id) : onGlobalFolderDelete(folder.id)}>Sí, borrar</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </FolderButton>
+      ))}
+      {(activeTab === 'user-recipes' || (activeTab === 'nutriplanner-recipes' && isAdmin)) && (
+        <NewFolderPopover onFolderCreate={activeTab === 'user-recipes' ? onFolderCreate : onGlobalFolderCreate} />
+      )}
+    </div>
+  )
+}
 
 export function RecipeLibrary({ 
   userRecipes, 
@@ -386,10 +480,32 @@ export function RecipeLibrary({
     }
   };
   
+  const folderProps = {
+      folders,
+      globalFolders,
+      activeTab,
+      isAdmin,
+      selectedFolderId,
+      setSelectedFolderId,
+      editingFolderId,
+      setEditingFolderId,
+      editingFolderName,
+      setEditingFolderName,
+      onFolderUpdate,
+      onGlobalFolderUpdate,
+      onFolderDelete,
+      onGlobalFolderDelete,
+      onFolderCreate,
+      onGlobalFolderCreate,
+      handleDragOver,
+      handleDragLeave,
+      handleDrop,
+  };
+
   return (
     <>
-      <Card className={cn("flex flex-col bg-glass", isMobile ? 'h-full border-0 shadow-none' : 'h-[500px]')}>
-        <CardHeader className={cn(isMobile && "p-0")}>
+      <Card className={cn("flex flex-col bg-glass", isMobile ? 'h-full border-0 shadow-none bg-transparent' : 'h-[500px]')}>
+        <CardHeader className={cn(isMobile && "p-0 mb-2")}>
           <div className="flex justify-between items-start gap-4">
              {!isMobile && (
               <div>
@@ -404,7 +520,7 @@ export function RecipeLibrary({
         </CardHeader>
         <CardContent className={cn("flex-1 flex flex-col min-h-0", isMobile && "p-0")}>
           <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col min-h-0">
-            <div className="flex justify-between items-center pr-1 border-b">
+            <div className={cn("flex justify-between items-center border-b", isMobile ? "pr-0" : "pr-1")}>
               <TabsList className={cn(isMobile && "flex-1")}>
                 <TabsTrigger value="user-recipes" className={cn(isMobile && "flex-1")}>Mis Recetas</TabsTrigger>
                 <TabsTrigger value="nutriplanner-recipes" className={cn(isMobile && "flex-1")}>NutriPlanner</TabsTrigger>
@@ -423,74 +539,26 @@ export function RecipeLibrary({
                 )}
               </div>
             </div>
-            <div className="flex-1 grid lg:grid-cols-5 mt-2 overflow-hidden gap-4">
+            
+            {isMobile && (
+                 <Accordion type="single" collapsible className="w-full mt-2">
+                    <AccordionItem value="folders">
+                        <AccordionTrigger>
+                            <h3 className="font-semibold text-sm">{activeTab === 'user-recipes' ? 'Mis Carpetas' : 'Carpetas Globales'}</h3>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                           <FolderSection {...folderProps} />
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
+            )}
+
+            <div className={cn("flex-1 grid lg:grid-cols-5 mt-2 overflow-hidden gap-4", isMobile && "grid-cols-1")}>
               {!isMobile && (
                 <div className="col-span-1 border-r pr-2">
                     <h3 className="font-semibold text-sm mb-2 px-2">{activeTab === 'user-recipes' ? 'Mis Carpetas' : 'Carpetas Globales'}</h3>
-                  <ScrollArea className="h-full pr-2">
-                    <div className="space-y-1">
-                      <FolderButton 
-                        name={activeTab === 'user-recipes' ? "Todas mis Recetas" : "Todas"} 
-                        icon={Folders} 
-                        onClick={() => setSelectedFolderId('all')} 
-                        isSelected={selectedFolderId === 'all'}
-                        isEditing={false} onSetEditing={() => {}} tempName="" onSetTempName={() => {}}
-                        isDroppable={false}
-                      />
-                      <FolderButton 
-                        name="Sin Carpeta" 
-                        icon={FolderIcon} 
-                        onClick={() => setSelectedFolderId(null)} 
-                        isSelected={selectedFolderId === null}
-                        isEditing={false} onSetEditing={() => {}} tempName="" onSetTempName={() => {}}
-                        isDroppable={true}
-                        onDragOver={(e) => handleDragOver(e)}
-                        onDragLeave={handleDragLeave}
-                        onDrop={(e) => handleDrop(e, null)}
-                      />
-
-                      {(activeTab === 'user-recipes' ? folders : globalFolders).map(folder => (
-                        <FolderButton 
-                          key={folder.id} 
-                          name={folder.name} 
-                          icon={FolderIcon} 
-                          onClick={() => setSelectedFolderId(folder.id)} 
-                          isSelected={selectedFolderId === folder.id}
-                          isEditing={editingFolderId === folder.id}
-                          onSetEditing={(isEditing) => setEditingFolderId(isEditing ? folder.id : null)}
-                          tempName={editingFolderName}
-                          onSetTempName={setEditingFolderName}
-                          onUpdate={(newName) => activeTab === 'user-recipes' ? onFolderUpdate(folder.id, newName) : onGlobalFolderUpdate(folder.id, newName)}
-                          isDroppable={true}
-                          onDragOver={(e) => handleDragOver(e)}
-                          onDragLeave={handleDragLeave}
-                          onDrop={(e) => handleDrop(e, folder.id)}
-                        >
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0">
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent className="bg-glass">
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>¿Borrar carpeta?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Esto no borrará las recetas. Las recetas de esta carpeta se quedarán sin carpeta. ¿Estás seguro?
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => activeTab === 'user-recipes' ? onFolderDelete(folder.id) : onGlobalFolderDelete(folder.id)}>Sí, borrar</AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </FolderButton>
-                      ))}
-                      {(activeTab === 'user-recipes' || (activeTab === 'nutriplanner-recipes' && isAdmin)) && (
-                        <NewFolderPopover onFolderCreate={activeTab === 'user-recipes' ? onFolderCreate : onGlobalFolderCreate} />
-                      )}
-                    </div>
+                  <ScrollArea className="h-full">
+                    <FolderSection {...folderProps} />
                   </ScrollArea>
                 </div>
               )}
@@ -523,7 +591,7 @@ export function RecipeLibrary({
                         </DropdownMenuRadioGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                     <div className="p-1 border bg-muted rounded-md hidden sm:flex">
+                     <div className="p-1 border bg-muted rounded-md flex">
                         <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('grid')} className="h-8 w-8">
                             <LayoutGrid className="h-4 w-4" />
                         </Button>
