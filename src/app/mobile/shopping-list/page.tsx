@@ -27,12 +27,18 @@ export default function MobileShoppingListPage() {
     const router = useRouter();
     const isGuestMode = searchParams.get('guest') === 'true';
 
-    const plannerState = usePlannerState({ isGuestMode });
+    const { currentWeekPlan, currentShoppingList, handleShoppingListUpdate, isLoading, user } = usePlannerState({ isGuestMode });
 
-    if (!isGuestMode && !plannerState.isLoading && !plannerState.user) {
+    if (!isGuestMode && !isLoading && !user) {
       router.replace('/');
       return <MobilePageLoader />;
     }
 
-    return <MobileShoppingListPageContent {...plannerState} />;
+    return (
+      <MobileShoppingListPageContent 
+        currentWeekPlan={currentWeekPlan}
+        currentShoppingList={currentShoppingList}
+        handleShoppingListUpdate={handleShoppingListUpdate}
+      />
+    );
 }

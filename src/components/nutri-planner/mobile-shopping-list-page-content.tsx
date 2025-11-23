@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import type { DayPlan } from '@/lib/types';
 import { ShoppingListContent, type ShoppingListItem } from '@/components/nutri-planner/shopping-list-content';
 import { Button } from '@/components/ui/button';
@@ -16,9 +16,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import type { usePlannerState } from '@/hooks/use-planner-state';
 
-type PlannerState = ReturnType<typeof usePlannerState>;
+interface MobileShoppingListPageContentProps {
+  currentWeekPlan: DayPlan[];
+  currentShoppingList: ShoppingListItem[];
+  handleShoppingListUpdate: (list: ShoppingListItem[]) => void;
+}
 
 const generateListFromPlan = (weekPlan: DayPlan[]): ShoppingListItem[] => {
     const aggregated: Record<string, { name: string; quantity: number; unit: string }> = {};
@@ -45,23 +48,12 @@ const generateListFromPlan = (weekPlan: DayPlan[]): ShoppingListItem[] => {
     })).sort((a, b) => a.name.localeCompare(b.name));
 };
 
-export function MobileShoppingListPageContent({ currentWeekPlan, currentShoppingList, handleShoppingListUpdate }: PlannerState) {
-  const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>(currentShoppingList || []);
-
-  useEffect(() => {
-    setShoppingList(currentShoppingList || []);
-  }, [currentShoppingList]);
+export function MobileShoppingListPageContent({ currentWeekPlan, currentShoppingList, handleShoppingListUpdate }: MobileShoppingListPageContentProps) {
 
   const handleGenerateList = () => {
     const newList = generateListFromPlan(currentWeekPlan);
-    setShoppingList(newList);
     handleShoppingListUpdate(newList);
   };
-  
-  const handleLocalListChange = (newList: ShoppingListItem[]) => {
-    setShoppingList(newList);
-    handleShoppingListUpdate(newList);
-  }
 
   return (
     <div className="p-4 flex flex-col h-full bg-notebook-paper">
@@ -89,7 +81,7 @@ export function MobileShoppingListPageContent({ currentWeekPlan, currentShopping
             </AlertDialog>
         </div>
       </div>
-      <ShoppingListContent initialList={shoppingList} onListChange={handleLocalListChange} />
+      <ShoppingListContent list={currentShoppingList} onListChange={handleShoppingListUpdate} />
     </div>
   );
 }
