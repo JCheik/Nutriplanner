@@ -1,7 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
-import type { WeekPlan } from '@/lib/types';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -20,27 +19,17 @@ export interface ShoppingListItem {
 }
 
 interface ShoppingListContentProps {
-  initialList: ShoppingListItem[];
+  list: ShoppingListItem[];
   onListChange: (list: ShoppingListItem[]) => void;
 }
 
-export const ShoppingListContent = ({ initialList, onListChange }: ShoppingListContentProps) => {
-  const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>(initialList);
+export const ShoppingListContent = ({ list, onListChange }: ShoppingListContentProps) => {
   const [newItemName, setNewItemName] = useState('');
   const [newItemQty, setNewItemQty] = useState('');
   const [editingItem, setEditingItem] = useState<ShoppingListItem | null>(null);
 
-  useEffect(() => {
-    setShoppingList(initialList);
-  }, [initialList]);
-
-  useEffect(() => {
-    onListChange(shoppingList);
-  }, [shoppingList, onListChange]);
-
-
   const handleToggleCheck = (id: string) => {
-    setShoppingList(prev => prev.map(item => item.id === id ? { ...item, checked: !item.checked } : item));
+    onListChange(list.map(item => item.id === id ? { ...item, checked: !item.checked } : item));
   };
   
   const handleAddItem = () => {
@@ -52,7 +41,7 @@ export const ShoppingListContent = ({ initialList, onListChange }: ShoppingListC
         unit: '', // Manual items might not have a unit
         checked: false,
       };
-      setShoppingList(prev => [...prev, newItem]);
+      onListChange([...list, newItem]);
       setNewItemName('');
       setNewItemQty('');
     }
@@ -60,13 +49,13 @@ export const ShoppingListContent = ({ initialList, onListChange }: ShoppingListC
   
   const handleUpdateItem = () => {
     if (editingItem) {
-        setShoppingList(prev => prev.map(item => item.id === editingItem.id ? editingItem : item));
+        onListChange(list.map(item => item.id === editingItem.id ? editingItem : item));
         setEditingItem(null);
     }
   };
   
   const handleDeleteItem = (id: string) => {
-    setShoppingList(prev => prev.filter(item => item.id !== id));
+    onListChange(list.filter(item => item.id !== id));
   };
   
   const handleEditClick = (item: ShoppingListItem) => {
@@ -102,9 +91,9 @@ export const ShoppingListContent = ({ initialList, onListChange }: ShoppingListC
         </Button>
       </div>
       <ScrollArea className="flex-1 my-4 -mx-6 px-6">
-        {shoppingList.length > 0 ? (
+        {list.length > 0 ? (
           <div className="space-y-3 pr-4">
-            {shoppingList.map(item => (
+            {list.map(item => (
               <div key={item.id} className="flex items-center space-x-3 group">
                 <Checkbox
                   id={item.id}

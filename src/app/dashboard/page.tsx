@@ -33,6 +33,7 @@ interface DashboardProps {
 export default function Dashboard({ isGuestMode = false, onExitGuestMode }: DashboardProps) {
   const { toast } = useToast();
   
+  const plannerState = usePlannerState({ isGuestMode });
   const {
     currentUserRecipes,
     nutriplannerRecipes,
@@ -62,7 +63,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     handleCalorieResultSave,
     handleActiveGoalChange,
     handleSaveCustomGoal,
-  } = usePlannerState({ isGuestMode });
+  } = plannerState;
 
   // Dialog and UI state
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });

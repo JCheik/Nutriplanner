@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import type { WeekPlan } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { ShoppingCart, X, RefreshCw } from 'lucide-react';
@@ -17,11 +16,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { usePlannerState } from '@/hooks/use-planner-state';
 
 interface ShoppingListSheetProps {
   weekPlan: WeekPlan;
-  initialShoppingList?: ShoppingListItem[];
-  onShoppingListUpdate?: (list: ShoppingListItem[]) => void;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
 }
@@ -51,28 +49,13 @@ const generateListFromPlan = (weekPlan: WeekPlan): ShoppingListItem[] => {
     })).sort((a, b) => a.name.localeCompare(b.name));
 };
 
-export function ShoppingListSheet({ weekPlan, initialShoppingList = [], onShoppingListUpdate, isOpen, onOpenChange }: ShoppingListSheetProps) {
-  const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>(initialShoppingList);
+export function ShoppingListSheet({ weekPlan, isOpen, onOpenChange }: ShoppingListSheetProps) {
+    const { currentShoppingList, handleShoppingListUpdate } = usePlannerState();
 
-  useEffect(() => {
-    setShoppingList(initialShoppingList);
-  }, [initialShoppingList]);
-
-
-  const handleGenerateList = () => {
-    const newList = generateListFromPlan(weekPlan);
-    setShoppingList(newList);
-    if (onShoppingListUpdate) {
-        onShoppingListUpdate(newList);
+    const handleGenerateList = () => {
+        const newList = generateListFromPlan(weekPlan);
+        handleShoppingListUpdate(newList);
     }
-  }
-
-  const handleListChange = (newList: ShoppingListItem[]) => {
-    setShoppingList(newList);
-    if (onShoppingListUpdate) {
-        onShoppingListUpdate(newList);
-    }
-  }
 
   return (
     <>
@@ -120,7 +103,7 @@ export function ShoppingListSheet({ weekPlan, initialShoppingList = [], onShoppi
               </AlertDialogContent>
             </AlertDialog>
             
-            <ShoppingListContent initialList={shoppingList} onListChange={handleListChange} />
+            <ShoppingListContent list={currentShoppingList} onListChange={handleShoppingListUpdate} />
         </div>
     </>
   );
