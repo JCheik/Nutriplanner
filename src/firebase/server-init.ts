@@ -1,4 +1,3 @@
-'use server';
 /**
  * @fileoverview Server-side Firebase initialization.
  * This file is NOT for client-side use and should only be imported in Server Actions or API routes.
