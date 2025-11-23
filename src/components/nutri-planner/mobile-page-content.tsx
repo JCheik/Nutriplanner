@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import type { DayPlan, Meal, Recipe, RecipeInstance } from '@/lib/types';
@@ -14,22 +14,20 @@ import { RecipeSelectionDialog } from '@/components/nutri-planner/recipe-selecti
 import { ChevronLeft, ChevronRight, BookHeart } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { usePlannerState } from '@/hooks/use-planner-state';
+import type { usePlannerState } from '@/hooks/use-planner-state';
 
-export function MobilePageContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const isGuestMode = searchParams.get('guest') === 'true';
+type PlannerState = ReturnType<typeof usePlannerState>;
 
-  const {
-    currentUserRecipes,
-    nutriplannerRecipes,
-    currentWeekPlan,
-    isLoading,
-    setGuestWeekPlan
-  } = usePlannerState({ isGuestMode });
+export function MobilePageContent({
+  currentUserRecipes,
+  nutriplannerRecipes,
+  currentWeekPlan,
+  isGuestMode,
+  setGuestWeekPlan,
+  user
+}: PlannerState) {
   
-  const { firestore, user } = useFirebase();
+  const { firestore } = useFirebase();
 
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
@@ -135,7 +133,7 @@ export function MobilePageContent() {
   }, [user, firestore, activeDayName, activeDayPlan, isGuestMode, currentWeekPlan, setGuestWeekPlan]);
 
 
-  if (isLoading || !currentDate) {
+  if (!currentDate) {
      return (
       <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
         <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
@@ -144,11 +142,6 @@ export function MobilePageContent() {
         </div>
       </div>
     );
-  }
-  
-  if (!user && !isGuestMode) {
-     router.replace('/');
-     return null;
   }
   
   const formattedDate = format(currentDate, "EEEE, d 'de' MMMM", { locale: es });

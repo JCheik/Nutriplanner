@@ -1,30 +1,24 @@
 'use client';
 
-import { Suspense } from 'react';
-import dynamic from 'next/dynamic';
-import { Logo } from '@/components/icons/logo';
-
-const MobilePageLoader = () => (
-    <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
-        <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
-            <Logo className="h-12 w-12 text-primary animate-pulse" />
-            <p className="text-lg text-muted-foreground">Cargando recetas...</p>
-        </div>
-    </div>
-);
-
-const MobileRecipesPageContent = dynamic(
-    () => import('@/components/nutri-planner/mobile-recipes-page-content').then(mod => mod.MobileRecipesPageContent),
-    { 
-        ssr: false,
-        loading: () => <MobilePageLoader />
-    }
-);
+import { useSearchParams, useRouter } from 'next/navigation';
+import { usePlannerState } from '@/hooks/use-planner-state';
+import { MobileRecipesPageContent } from '@/components/nutri-planner/mobile-recipes-page-content';
 
 export default function MobileRecipesPage() {
-    return (
-        <Suspense fallback={<MobilePageLoader />}>
-            <MobileRecipesPageContent />
-        </Suspense>
-    );
+    const searchParams = useSearchParams();
+    const router = useRouter();
+    const isGuestMode = searchParams.get('guest') === 'true';
+
+    const plannerState = usePlannerState({ isGuestMode });
+    
+    if (plannerState.isLoading && !isGuestMode) {
+        return null; // Or a loader
+    }
+    
+    if (!isGuestMode && !plannerState.user && !plannerState.isLoading) {
+        router.replace('/');
+        return null;
+    }
+
+    return <MobileRecipesPageContent {...plannerState} />;
 }

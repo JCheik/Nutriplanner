@@ -2,9 +2,11 @@
 
 import { Suspense } from 'react';
 import { useRouter } from 'next/navigation';
-import { MobileNav } from '@/components/layout/mobile-nav';
 import { PageHeader } from '@/components/layout/page-header';
 import { Logo } from '@/components/icons/logo';
+import dynamic from 'next/dynamic';
+
+const MobileNav = dynamic(() => import('@/components/layout/mobile-nav').then(mod => mod.MobileNav), { ssr: false });
 
 const MobilePageLoader = () => (
     <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">

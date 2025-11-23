@@ -1,28 +1,26 @@
 'use client';
 
 import { useState } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { usePlannerState } from '@/hooks/use-planner-state';
+import { useRouter } from 'next/navigation';
 import type { Recipe } from '@/lib/types';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
 import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/icons/logo';
+import type { usePlannerState } from '@/hooks/use-planner-state';
 
-export function MobileRecipesPageContent() {
-    const searchParams = useSearchParams();
+type PlannerState = ReturnType<typeof usePlannerState>;
+
+export function MobileRecipesPageContent({
+    currentUserRecipes,
+    nutriplannerRecipes,
+    currentFolders,
+    isGuestMode,
+    isLoading,
+    handleCopyRecipe,
+}: PlannerState) {
     const router = useRouter();
     const { toast } = useToast();
-    const isGuestMode = searchParams.get('guest') === 'true';
-
-    const {
-        currentUserRecipes,
-        nutriplannerRecipes,
-        currentFolders,
-        isLoading,
-        handleCopyRecipe,
-    } = usePlannerState({ isGuestMode });
-
 
     const [dialogState, setDialogState] = useState<any>({ open: false });
 
@@ -38,7 +36,7 @@ export function MobileRecipesPageContent() {
         setDialogState({ open: true, mode: action, recipe, isNutriPlannerRecipe });
     };
 
-    if (isLoading) {
+    if (isLoading && !isGuestMode) {
          return (
             <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
                 <div className="flex flex-col items-center gap-4 p-8 rounded-lg">

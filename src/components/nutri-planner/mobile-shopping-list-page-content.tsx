@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
 import type { DayPlan } from '@/lib/types';
 import { Logo } from '@/components/icons/logo';
 import { ShoppingListContent, type ShoppingListItem } from '@/components/nutri-planner/shopping-list-content';
@@ -18,7 +17,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { usePlannerState } from '@/hooks/use-planner-state';
+import type { usePlannerState } from '@/hooks/use-planner-state';
+
+type PlannerState = ReturnType<typeof usePlannerState>;
+
 
 const generateListFromPlan = (weekPlan: DayPlan[]): ShoppingListItem[] => {
     const aggregated: Record<string, { name: string; quantity: number; unit: string }> = {};
@@ -43,13 +45,7 @@ const generateListFromPlan = (weekPlan: DayPlan[]): ShoppingListItem[] => {
     })).sort((a, b) => a.name.localeCompare(b.name));
 };
 
-export function MobileShoppingListPageContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const isGuestMode = searchParams.get('guest') === 'true';
-
-  const { currentWeekPlan, isLoading } = usePlannerState({ isGuestMode });
-
+export function MobileShoppingListPageContent({ currentWeekPlan, isLoading, isGuestMode }: PlannerState) {
   const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
   
   const handleGenerateList = () => {
@@ -57,7 +53,7 @@ export function MobileShoppingListPageContent() {
     setShoppingList(newList);
   };
 
-  if (isLoading) {
+  if (isLoading && !isGuestMode) {
      return (
       <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
         <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
@@ -66,11 +62,6 @@ export function MobileShoppingListPageContent() {
         </div>
       </div>
     );
-  }
-  
-  if (!isLoading && !isGuestMode) {
-     router.replace('/');
-     return null;
   }
 
   return (
