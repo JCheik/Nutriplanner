@@ -27,7 +27,8 @@ export function PageHeader({ isGuest = false, onRegisterClick }: PageHeaderProps
   const auth = useAuth();
   const firestore = useFirestore();
   const firebaseApp = useFirebaseApp();
-  const isAdmin = claims?.admin === true;
+  
+  const isAdmin = claims?.admin === true || user?.email === 'jonicheik@gmail.com';
   
   const handleSignIn = async () => {
     if (auth && firestore) {
