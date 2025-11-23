@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
-import { LogOut, User as UserIcon, CheckCircle, UserPlus } from 'lucide-react';
+import { LogOut, User as UserIcon, CheckCircle, UserPlus, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, signInWithGoogle, signOut } from '@/firebase/auth/use-user';
 import { useAuth, useFirestore, useFirebaseApp } from '@/firebase/provider';
@@ -74,6 +74,14 @@ export function PageHeader({ isGuest = false, onRegisterClick }: PageHeaderProps
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              {isAdmin && (
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link href="/admin">
+                    <Shield className="mr-2 h-4 w-4" />
+                    <span>Panel de Administración</span>
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Cerrar sesión</span>
