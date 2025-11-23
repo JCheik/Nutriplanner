@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { Logo } from '@/components/icons/logo';
 
@@ -21,5 +22,9 @@ const MobileRecipesPageContent = dynamic(
 );
 
 export default function MobileRecipesPage() {
-    return <MobileRecipesPageContent />;
+    return (
+        <Suspense fallback={<MobilePageLoader />}>
+            <MobileRecipesPageContent />
+        </Suspense>
+    );
 }
