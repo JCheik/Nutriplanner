@@ -11,6 +11,8 @@ import type { Recipe, BaseIngredient, UserProfile } from '@/lib/types';
 import { RecipeCard } from '@/components/nutri-planner/recipe-card';
 import { RecipeDialog, DialogState } from '@/components/nutri-planner/recipe-dialog';
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 export default function UserDetailPage({ params }: { params: { userId: string } }) {
     const { user: adminUser, claims, loading: adminLoading } = useUser();
@@ -44,6 +46,13 @@ export default function UserDetailPage({ params }: { params: { userId: string } 
         <>
             <main className="flex-1 p-4 sm:p-6 lg:p-8">
                 <div className="max-w-screen-xl mx-auto flex flex-col gap-6">
+                    <div className="flex justify-between items-center">
+                        <CardTitle>Detalles del Usuario</CardTitle>
+                        <Button asChild variant="outline">
+                            <Link href="/admin/users">Volver a la lista</Link>
+                        </Button>
+                    </div>
+
                     <Card>
                         <CardHeader>
                             <div className="flex items-start gap-6">
@@ -54,7 +63,7 @@ export default function UserDetailPage({ params }: { params: { userId: string } 
                                     </AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1">
-                                    <CardTitle className="text-3xl">{userProfile.name}</CardTitle>
+                                    <h2 className="text-3xl font-bold font-headline">{userProfile.name}</h2>
                                     <CardDescription className="flex items-center gap-2 mt-2">
                                         <Mail className="h-4 w-4" /> {userProfile.email}
                                     </CardDescription>
@@ -66,7 +75,7 @@ export default function UserDetailPage({ params }: { params: { userId: string } 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <Card>
                             <CardHeader>
-                                <CardTitle className="flex items-center gap-2"><BookHeart /> Recetas Creadas</CardTitle>
+                                <CardTitle className="flex items-center gap-2 text-xl"><BookHeart /> Recetas Creadas ({userRecipes?.length || 0})</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 {userRecipes && userRecipes.length > 0 ? (
@@ -82,10 +91,10 @@ export default function UserDetailPage({ params }: { params: { userId: string } 
                         </Card>
                         <Card>
                             <CardHeader>
-                                <CardTitle className="flex items-center gap-2"><FileText /> Nota Adhesiva</CardTitle>
+                                <CardTitle className="flex items-center gap-2 text-xl"><FileText /> Nota Adhesiva</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="bg-yellow-100 p-4 rounded-md font-handwriting text-yellow-800">
+                                <div className="bg-yellow-100 p-4 rounded-md font-handwriting text-yellow-800 text-lg">
                                     {userProfile.stickyNote || 'Sin notas.'}
                                 </div>
                             </CardContent>

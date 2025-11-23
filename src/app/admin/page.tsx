@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '@/firebase';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Shield, BookOpen, Users, Wheat } from 'lucide-react';
+import { Shield, BookOpen, Users, Wheat, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 export default function AdminPage() {
   const { user, claims, loading } = useUser();
@@ -22,7 +23,6 @@ export default function AdminPage() {
   if (loading || !isAdmin) {
     return (
       <div className="flex flex-col min-h-screen">
-        <PageHeader />
         <div className="flex-1 flex items-center justify-center">
             <p>Verificando permisos...</p>
         </div>
@@ -32,12 +32,16 @@ export default function AdminPage() {
   
   return (
     <div className="flex flex-col min-h-screen">
-        <PageHeader />
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
             <div className="max-w-screen-xl mx-auto flex flex-col gap-6">
-                <div className="flex items-center gap-3">
-                    <Shield className="h-8 w-8 text-primary" />
-                    <h1 className="text-3xl font-bold font-headline">Panel de Administración</h1>
+                <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <Shield className="h-8 w-8 text-primary" />
+                        <h1 className="text-3xl font-bold font-headline">Panel de Administración</h1>
+                    </div>
+                     <Button asChild variant="outline">
+                        <Link href="/dashboard"><ArrowLeft className="mr-2 h-4 w-4" /> Volver al Dashboard</Link>
+                    </Button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MoreHorizontal, Trash2, User, UserCheck, UserX } from 'lucide-react';
+import { MoreHorizontal, Trash2, User, UserCheck, UserX, ArrowLeft } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
@@ -29,13 +29,18 @@ export default function AdminUsersPage() {
 
     const fetchUsers = async () => {
         setLoading(true);
-        const result = await listUsers();
-        if (result.success) {
-            setUsers(result.users as ClientUserRecord[]);
-        } else {
-            setError(result.error || 'Ocurrió un error desconocido');
+        try {
+            const result = await listUsers();
+            if (result.success) {
+                setUsers(result.users as ClientUserRecord[]);
+            } else {
+                setError(result.error || 'Ocurrió un error desconocido');
+            }
+        } catch (e: any) {
+            setError(e.message || 'Error al conectar con el servidor.');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     useEffect(() => {
@@ -43,12 +48,15 @@ export default function AdminUsersPage() {
     }, []);
 
     const handleSetAdmin = async (uid: string, isAdmin: boolean) => {
+        // Optimistic update
+        setUsers(users.map(u => u.uid === uid ? { ...u, isAdmin } : u));
         const result = await setUserAdmin(uid, isAdmin);
         if (result.success) {
             toast({ title: 'Éxito', description: result.message });
-            fetchUsers(); // Refresh the user list
+            fetchUsers(); // Re-fetch to ensure sync
         } else {
             toast({ variant: 'destructive', title: 'Error', description: result.error });
+            fetchUsers(); // Revert optimistic update on failure
         }
     };
 
@@ -65,9 +73,14 @@ export default function AdminUsersPage() {
     return (
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
             <div className="max-w-screen-xl mx-auto flex flex-col gap-6">
+                 <div className="flex justify-between items-center">
+                    <CardTitle>Administrar Usuarios</CardTitle>
+                    <Button asChild variant="outline">
+                        <Link href="/admin"><ArrowLeft className="mr-2 h-4 w-4" /> Volver al Panel</Link>
+                    </Button>
+                </div>
                 <Card>
                     <CardHeader>
-                        <CardTitle>Administrar Usuarios</CardTitle>
                         <CardDescription>Ver, editar roles y eliminar usuarios de la plataforma.</CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -105,6 +118,7 @@ export default function AdminUsersPage() {
                                                     checked={user.isAdmin}
                                                     onCheckedChange={(checked) => handleSetAdmin(user.uid, checked)}
                                                     aria-label="Hacer administrador"
+                                                    disabled={user.email === 'jonicheik@gmail.com'}
                                                 />
                                             </TableCell>
                                             <TableCell className="text-right">
@@ -121,13 +135,13 @@ export default function AdminUsersPage() {
                                                             <DropdownMenuItem asChild className="cursor-pointer">
                                                                 <Link href={`/admin/users/${user.uid}`}>Ver Detalles</Link>
                                                             </DropdownMenuItem>
-                                                            <DropdownMenuItem onSelect={() => handleSetAdmin(user.uid, !user.isAdmin)} className="cursor-pointer">
+                                                            <DropdownMenuItem onSelect={() => handleSetAdmin(user.uid, !user.isAdmin)} className="cursor-pointer" disabled={user.email === 'jonicheik@gmail.com'}>
                                                                 {user.isAdmin ? <UserX className="mr-2 h-4 w-4" /> : <UserCheck className="mr-2 h-4 w-4" />}
                                                                 {user.isAdmin ? 'Quitar Admin' : 'Hacer Admin'}
                                                             </DropdownMenuItem>
                                                             <DropdownMenuSeparator />
                                                             <AlertDialogTrigger asChild>
-                                                                <DropdownMenuItem className="text-destructive cursor-pointer" onSelect={(e) => e.preventDefault()}>
+                                                                <DropdownMenuItem className="text-destructive cursor-pointer" onSelect={(e) => e.preventDefault()} disabled={user.email === 'jonicheik@gmail.com'}>
                                                                     <Trash2 className="mr-2 h-4 w-4" />
                                                                     Eliminar Usuario
                                                                 </DropdownMenuItem>
@@ -138,7 +152,7 @@ export default function AdminUsersPage() {
                                                         <AlertDialogHeader>
                                                             <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
                                                             <AlertDialogDescription>
-                                                                Esta acción es permanente y eliminará al usuario <span className="font-bold">{user.displayName || user.email}</span> y todos sus datos asociados (recetas, planes, etc.). No se puede deshacer.
+                                                                Esta acción es permanente y eliminará al usuario <span className="font-bold">{user.displayName || user.email}</span> y todos sus datos asociados. No se puede deshacer.
                                                             </AlertDialogDescription>
                                                         </AlertDialogHeader>
                                                         <AlertDialogFooter>
