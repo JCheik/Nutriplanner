@@ -54,20 +54,19 @@ export default function AdminPage() {
                             </CardHeader>
                         </Card>
                     </Link>
-                    <Card className="hover:shadow-lg transition-shadow cursor-pointer border-dashed">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <BookOpen className="h-5 w-5" />
-                                Recetas Globales
-                            </CardTitle>
-                            <CardDescription>
-                                Gestionar las recetas de NutriPlanner y sus carpetas.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-muted-foreground">Próximamente...</p>
-                        </CardContent>
-                    </Card>
+                    <Link href="/admin/recipes" className="hover:shadow-lg transition-shadow rounded-lg">
+                        <Card className="h-full cursor-pointer">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <BookOpen className="h-5 w-5" />
+                                    Recetas Globales
+                                </CardTitle>
+                                <CardDescription>
+                                    Gestionar las recetas de NutriPlanner y sus carpetas.
+                                </CardDescription>
+                            </CardHeader>
+                        </Card>
+                    </Link>
                      <Card className="hover:shadow-lg transition-shadow cursor-pointer border-dashed">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
