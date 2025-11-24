@@ -1,9 +1,8 @@
 'use client';
 
-import { useSearchParams, useRouter } from 'next/navigation';
-import { usePlannerState } from '@/hooks/use-planner-state';
 import dynamic from 'next/dynamic';
 import { Logo } from '@/components/icons/logo';
+import type { usePlannerState } from '@/hooks/use-planner-state';
 
 const MobileShoppingListPageContent = dynamic(() => 
   import('@/components/nutri-planner/mobile-shopping-list-page-content').then(mod => mod.MobileShoppingListPageContent), 
@@ -22,17 +21,14 @@ const MobilePageLoader = () => (
     </div>
 );
 
-export default function MobileShoppingListPage() {
-    const searchParams = useSearchParams();
-    const router = useRouter();
-    const isGuestMode = searchParams.get('guest') === 'true';
+type PlannerState = ReturnType<typeof usePlannerState>;
 
-    const { currentWeekPlan, currentShoppingList, handleShoppingListUpdate, isLoading, user } = usePlannerState({ isGuestMode });
+interface MobileShoppingListPageProps {
+  plannerState: PlannerState;
+}
 
-    if (!isGuestMode && !isLoading && !user) {
-      router.replace('/');
-      return <MobilePageLoader />;
-    }
+export default function MobileShoppingListPage({ plannerState }: MobileShoppingListPageProps) {
+    const { currentWeekPlan, currentShoppingList, handleShoppingListUpdate } = plannerState;
 
     return (
       <MobileShoppingListPageContent 

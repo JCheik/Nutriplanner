@@ -1,9 +1,8 @@
 'use client';
 
-import { useSearchParams, useRouter } from 'next/navigation';
-import { usePlannerState } from '@/hooks/use-planner-state';
 import dynamic from 'next/dynamic';
 import { Logo } from '@/components/icons/logo';
+import type { usePlannerState } from '@/hooks/use-planner-state';
 
 const MobileRecipesPageContent = dynamic(() => 
   import('@/components/nutri-planner/mobile-recipes-page-content').then(mod => mod.MobileRecipesPageContent), 
@@ -22,17 +21,13 @@ const MobilePageLoader = () => (
     </div>
 );
 
-export default function MobileRecipesPage() {
-    const searchParams = useSearchParams();
-    const router = useRouter();
-    const isGuestMode = searchParams.get('guest') === 'true';
+type PlannerState = ReturnType<typeof usePlannerState>;
 
-    const plannerState = usePlannerState({ isGuestMode });
-    
-    if (!isGuestMode && !plannerState.isLoading && !plannerState.user) {
-        router.replace('/');
-        return <MobilePageLoader />;
-    }
+interface MobileRecipesPageProps {
+  plannerState: PlannerState;
+  isGuestMode: boolean;
+}
 
+export default function MobileRecipesPage({ plannerState, isGuestMode }: MobileRecipesPageProps) {
     return <MobileRecipesPageContent {...plannerState} isGuestMode={isGuestMode} />;
 }

@@ -1,11 +1,10 @@
 'use client';
 
-import { useSearchParams, useRouter } from 'next/navigation';
-import { usePlannerState } from '@/hooks/use-planner-state';
 import dynamic from 'next/dynamic';
 import { Logo } from '@/components/icons/logo';
+import type { usePlannerState } from '@/hooks/use-planner-state';
 
-// Dynamically import the content to ensure hooks like useSearchParams are client-side only
+// This is now a simple presenter component.
 const MobilePageContent = dynamic(() => 
   import('@/components/nutri-planner/mobile-page-content').then(mod => mod.MobilePageContent), 
   { 
@@ -23,21 +22,14 @@ const MobilePageLoader = () => (
     </div>
 );
 
-export default function MobilePage() {
-    const searchParams = useSearchParams();
-    const router = useRouter();
-    const isGuestMode = searchParams.get('guest') === 'true';
+type PlannerState = ReturnType<typeof usePlannerState>;
 
-    const plannerState = usePlannerState({ isGuestMode });
+interface MobilePageProps {
+  plannerState: PlannerState;
+  isGuestMode: boolean;
+}
 
-    if (plannerState.isLoading) {
-        return <MobilePageLoader />;
-    }
-
-    if (!isGuestMode && !plannerState.user) {
-        router.replace('/');
-        return <MobilePageLoader />;
-    }
-
+// The page now receives props from the layout.
+export default function MobilePage({ plannerState, isGuestMode }: MobilePageProps) {
     return <MobilePageContent {...plannerState} isGuestMode={isGuestMode} />;
 }
