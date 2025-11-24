@@ -108,61 +108,63 @@ export function IngredientDatabaseManager() {
                 />
             </div>
             <ScrollArea className="h-[400px] border rounded-md">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Nombre</TableHead>
-                            <TableHead className="text-right">Calorías</TableHead>
-                            <TableHead className="text-right">Proteína (g)</TableHead>
-                            <TableHead className="text-right">Carbs (g)</TableHead>
-                            <TableHead className="text-right">Grasa (g)</TableHead>
-                            <TableHead className="text-right">Fibra (g)</TableHead>
-                            <TableHead className="text-right">Acciones</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {isLoading && <TableRow><TableCell colSpan={7} className="text-center">Cargando...</TableCell></TableRow>}
-                        {filteredIngredients.map(ingredient => {
-                            const canManage = user && (ingredient.createdBy === user.uid || isAdmin);
-                            return (
-                                <TableRow key={ingredient.id}>
-                                    <TableCell className="font-medium">{ingredient.name}</TableCell>
-                                    <TableCell className="text-right">{ingredient.calories}</TableCell>
-                                    <TableCell className="text-right">{ingredient.protein}</TableCell>
-                                    <TableCell className="text-right">{ingredient.carbs}</TableCell>
-                                    <TableCell className="text-right">{ingredient.fat}</TableCell>
-                                    <TableCell className="text-right">{ingredient.fiber || 0}</TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex justify-end gap-1">
-                                            <Button variant="ghost" size="icon" onClick={() => handleEditClick(ingredient)} disabled={!canManage}>
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={!canManage}>
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent className="bg-glass">
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            Esta acción eliminará permanentemente el ingrediente "{ingredient.name}".
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => handleDeleteConfirm(ingredient)}>Sí, eliminar</AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            );
-                        })}
-                    </TableBody>
-                </Table>
+                <div className="relative w-full overflow-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Nombre</TableHead>
+                                <TableHead className="text-right">Calorías</TableHead>
+                                <TableHead className="text-right">Proteína (g)</TableHead>
+                                <TableHead className="text-right">Carbs (g)</TableHead>
+                                <TableHead className="text-right">Grasa (g)</TableHead>
+                                <TableHead className="text-right">Fibra (g)</TableHead>
+                                <TableHead className="text-right">Acciones</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {isLoading && <TableRow><TableCell colSpan={7} className="text-center">Cargando...</TableCell></TableRow>}
+                            {filteredIngredients.map(ingredient => {
+                                const canManage = user && (ingredient.createdBy === user.uid || isAdmin);
+                                return (
+                                    <TableRow key={ingredient.id}>
+                                        <TableCell className="font-medium">{ingredient.name}</TableCell>
+                                        <TableCell className="text-right">{ingredient.calories}</TableCell>
+                                        <TableCell className="text-right">{ingredient.protein}</TableCell>
+                                        <TableCell className="text-right">{ingredient.carbs}</TableCell>
+                                        <TableCell className="text-right">{ingredient.fat}</TableCell>
+                                        <TableCell className="text-right">{ingredient.fiber || 0}</TableCell>
+                                        <TableCell className="text-right">
+                                            <div className="flex justify-end gap-1">
+                                                <Button variant="ghost" size="icon" onClick={() => handleEditClick(ingredient)} disabled={!canManage}>
+                                                    <Edit className="h-4 w-4" />
+                                                </Button>
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={!canManage}>
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent className="bg-glass">
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                Esta acción eliminará permanentemente el ingrediente "{ingredient.name}".
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleDeleteConfirm(ingredient)}>Sí, eliminar</AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                </div>
                  {!isLoading && filteredIngredients.length === 0 && (
                     <div className="text-center py-10 text-muted-foreground">
                         No se encontraron ingredientes.
