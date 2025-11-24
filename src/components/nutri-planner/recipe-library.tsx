@@ -27,7 +27,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { IngredientsDialog } from './ingredients-dialog';
 import { cn, normalizeText } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Label } from '../ui/label';
@@ -403,7 +402,6 @@ export function RecipeLibrary({
 }: RecipeLibraryProps) {
   const { claims } = useUser();
   const isAdmin = claims?.admin === true;
-  const [isIngredientsOpen, setIsIngredientsOpen] = useState(false);
   
   const [activeTab, setActiveTab] = useState('user-recipes');
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>('all');
@@ -517,12 +515,6 @@ export function RecipeLibrary({
               </div>
             )}
              <div className="flex items-center gap-2">
-                {!isMobile && (
-                  <Button variant="outline" onClick={() => setIsIngredientsOpen(true)}>
-                    <Database className="mr-2 h-4 w-4" />
-                    Base de Datos
-                  </Button>
-                )}
                 {activeTab === 'user-recipes' && !isMobile && (
                   <Button onClick={() => onRecipeAction('create')}>
                     <PlusCircle className="mr-2 h-4 w-4" />
@@ -621,10 +613,6 @@ export function RecipeLibrary({
           </Tabs>
         </CardContent>
       </Card>
-      <IngredientsDialog 
-        isOpen={isIngredientsOpen}
-        onClose={() => setIsIngredientsOpen(false)}
-      />
     </>
   );
 }
