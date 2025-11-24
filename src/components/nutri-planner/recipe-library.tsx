@@ -516,19 +516,11 @@ export function RecipeLibrary({
                 <CardDescription>Tu colección de recetas y las sugerencias de NutriPlanner.</CardDescription>
               </div>
             )}
-          </div>
-        </CardHeader>
-        <CardContent className={cn("flex-1 flex flex-col min-h-0", isMobile && "p-0")}>
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col min-h-0">
-            <div className={cn("flex justify-between items-center border-b", isMobile ? "pr-0" : "pr-1")}>
-              <TabsList className={cn(isMobile && "flex-1")}>
-                <TabsTrigger value="user-recipes" className={cn(isMobile && "flex-1")}>Mis Recetas</TabsTrigger>
-                <TabsTrigger value="nutriplanner-recipes" className={cn(isMobile && "flex-1")}>NutriPlanner</TabsTrigger>
-              </TabsList>
-              <div className="flex gap-2">
+             <div className="flex items-center gap-2">
                 {!isMobile && (
-                  <Button variant="outline" size="icon" onClick={() => setIsIngredientsOpen(true)}>
-                    <Database className="h-4 w-4" />
+                  <Button variant="outline" onClick={() => setIsIngredientsOpen(true)}>
+                    <Database className="mr-2 h-4 w-4" />
+                    Base de Datos
                   </Button>
                 )}
                 {activeTab === 'user-recipes' && !isMobile && (
@@ -538,6 +530,15 @@ export function RecipeLibrary({
                   </Button>
                 )}
               </div>
+          </div>
+        </CardHeader>
+        <CardContent className={cn("flex-1 flex flex-col min-h-0", isMobile && "p-0")}>
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col min-h-0">
+            <div className={cn("flex justify-between items-center border-b", isMobile ? "pr-0" : "pr-1")}>
+              <TabsList className={cn(isMobile && "flex-1")}>
+                <TabsTrigger value="user-recipes" className={cn(isMobile && "flex-1")}>Mis Recetas</TabsTrigger>
+                <TabsTrigger value="nutriplanner-recipes" className={cn(isMobile && "flex-1")}>NutriPlanner</TabsTrigger>
+              </TabsList>
             </div>
             
             {isMobile && (

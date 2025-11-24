@@ -36,7 +36,6 @@ export function IngredientDatabaseManager() {
     const [searchQuery, setSearchQuery] = useState('');
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [ingredientToEdit, setIngredientToEdit] = useState<BaseIngredient | null>(null);
-    const [ingredientToDelete, setIngredientToDelete] = useState<BaseIngredient | null>(null);
 
     const filteredIngredients = useMemo(() => {
         if (!ingredients) return [];
@@ -64,10 +63,13 @@ export function IngredientDatabaseManager() {
         }
     };
     
-    const handleDeleteTrigger = (ingredient: BaseIngredient) => {
-        const canDelete = user && (ingredient.createdBy === user.uid || isAdmin);
+    const handleDeleteConfirm = (ingredientToDelete: BaseIngredient) => {
+        if (!firestore) return;
+        const canDelete = user && (ingredientToDelete.createdBy === user.uid || isAdmin);
         if (canDelete) {
-            setIngredientToDelete(ingredient);
+            const ingredientRef = doc(firestore, 'ingredients', ingredientToDelete.id);
+            deleteDocumentNonBlocking(ingredientRef);
+            toast({ title: "Ingrediente eliminado", description: `"${ingredientToDelete.name}" ha sido eliminado.` });
         } else {
              toast({
                 variant: 'destructive',
@@ -93,14 +95,6 @@ export function IngredientDatabaseManager() {
         setIsEditOpen(false);
         setIngredientToEdit(null);
     };
-
-    const handleDeleteConfirm = () => {
-        if (!firestore || !ingredientToDelete) return;
-        const ingredientRef = doc(firestore, 'ingredients', ingredientToDelete.id);
-        deleteDocumentNonBlocking(ingredientRef);
-        toast({ title: "Ingrediente eliminado", description: `"${ingredientToDelete.name}" ha sido eliminado.` });
-        setIngredientToDelete(null);
-    }
 
     return (
         <>
@@ -143,26 +137,24 @@ export function IngredientDatabaseManager() {
                                             <Button variant="ghost" size="icon" onClick={() => handleEditClick(ingredient)} disabled={!canManage}>
                                                 <Edit className="h-4 w-4" />
                                             </Button>
-                                            <AlertDialog onOpenChange={() => ingredientToDelete && setIngredientToDelete(null)}>
+                                            <AlertDialog>
                                                 <AlertDialogTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteTrigger(ingredient)} disabled={!canManage}>
+                                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={!canManage}>
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 </AlertDialogTrigger>
-                                                {ingredientToDelete?.id === ingredient.id && (
-                                                    <AlertDialogContent className="bg-glass">
-                                                        <AlertDialogHeader>
-                                                            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                                                            <AlertDialogDescription>
-                                                                Esta acción eliminará permanentemente el ingrediente "{ingredient.name}".
-                                                            </AlertDialogDescription>
-                                                        </AlertDialogHeader>
-                                                        <AlertDialogFooter>
-                                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                            <AlertDialogAction onClick={handleDeleteConfirm}>Sí, eliminar</AlertDialogAction>
-                                                        </AlertDialogFooter>
-                                                    </AlertDialogContent>
-                                                )}
+                                                <AlertDialogContent className="bg-glass">
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Esta acción eliminará permanentemente el ingrediente "{ingredient.name}".
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleDeleteConfirm(ingredient)}>Sí, eliminar</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
                                             </AlertDialog>
                                         </div>
                                     </TableCell>
