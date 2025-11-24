@@ -12,7 +12,7 @@ interface IngredientsDialogProps {
 export function IngredientsDialog({ isOpen, onClose }: IngredientsDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl bg-glass">
+      <DialogContent className="max-w-lg bg-glass">
         <DialogHeader>
           <DialogTitle>Base de Datos de Ingredientes</DialogTitle>
           <DialogDescription>
