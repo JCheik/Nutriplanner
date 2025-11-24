@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { cn } from '@/lib/utils';
 
 export function IngredientDatabaseManager() {
     const { user, claims } = useUser();
@@ -109,7 +110,7 @@ export function IngredientDatabaseManager() {
             </div>
             <ScrollArea className="h-[400px] border rounded-md">
                 <div className="relative w-full overflow-auto">
-                    <Table>
+                    <Table className="min-w-max">
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Nombre</TableHead>
