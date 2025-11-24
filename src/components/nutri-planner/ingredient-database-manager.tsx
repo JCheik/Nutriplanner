@@ -107,7 +107,7 @@ export function IngredientDatabaseManager() {
                     className="pl-10"
                 />
             </div>
-            <ScrollArea className="h-[60vh] border rounded-md">
+            <ScrollArea className="h-[400px] border rounded-md">
                 <Table>
                     <TableHeader>
                         <TableRow>
