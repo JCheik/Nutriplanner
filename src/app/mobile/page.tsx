@@ -30,7 +30,11 @@ export default function MobilePage() {
 
     const plannerState = usePlannerState({ isGuestMode });
 
-    if (!isGuestMode && !plannerState.isLoading && !plannerState.user) {
+    if (plannerState.isLoading) {
+        return <MobilePageLoader />;
+    }
+
+    if (!isGuestMode && !plannerState.user) {
         router.replace('/');
         return <MobilePageLoader />;
     }
