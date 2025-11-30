@@ -27,21 +27,24 @@ export default function DashboardLayout({
   const isGuestMode = searchParams.get('guest') === 'true';
 
   useEffect(() => {
+    // This effect runs only on the client after hydration
     if (!userLoading && !user && !isGuestMode) {
       router.replace('/');
     }
   }, [userLoading, user, isGuestMode, router]);
   
-  if (userLoading || (!user && !isGuestMode)) {
-    return <DashboardLoader />;
-  }
-
+  // Always render the main layout structure.
+  // The content inside will change based on the loading/auth state.
   return (
-    <Suspense fallback={<DashboardLoader />}>
-        <div className="flex flex-col min-h-screen text-foreground">
+    <div className="flex flex-col min-h-screen text-foreground">
+        <Suspense fallback={<DashboardLoader />}>
             <PageHeader isGuest={isGuestMode} onRegisterClick={() => router.push('/')} />
-            {children}
-        </div>
-    </Suspense>
+            {userLoading || (!user && !isGuestMode) ? (
+                <DashboardLoader />
+            ) : (
+                children
+            )}
+        </Suspense>
+    </div>
   );
 }
