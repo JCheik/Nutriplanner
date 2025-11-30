@@ -3,6 +3,9 @@
 import dynamic from 'next/dynamic';
 import { Logo } from '@/components/icons/logo';
 import type { usePlannerState } from '@/hooks/use-planner-state';
+import { usePlannerState as usePlannerStateHook } from '@/hooks/use-planner-state';
+import { useRouter } from 'next/navigation';
+import { PageHeader } from '@/components/layout/page-header';
 
 // This is now a simple presenter component.
 const MobilePageContent = dynamic(() => 
@@ -22,14 +25,33 @@ const MobilePageLoader = () => (
     </div>
 );
 
-type PlannerState = ReturnType<typeof usePlannerState>;
+type PlannerState = ReturnType<typeof usePlannerStateHook>;
 
 interface MobilePageProps {
-  plannerState: PlannerState;
   isGuestMode: boolean;
+  onExitGuestMode: () => void;
 }
 
 // The page now receives props from the layout.
-export default function MobilePage({ plannerState, isGuestMode }: MobilePageProps) {
-    return <MobilePageContent {...plannerState} isGuestMode={isGuestMode} />;
+export default function MobilePage({ isGuestMode, onExitGuestMode }: MobilePageProps) {
+    const plannerState: PlannerState = usePlannerStateHook({ isGuestMode });
+    const router = useRouter();
+    
+    if (plannerState.isLoading) {
+        return <MobilePageLoader />;
+    }
+
+    if (!isGuestMode && !plannerState.user) {
+        router.replace('/');
+        return <MobilePageLoader />;
+    }
+
+    return (
+        <div className="flex flex-col min-h-screen">
+            <PageHeader isGuest={isGuestMode} onRegisterClick={onExitGuestMode} />
+            <main className="flex-1 pb-16">
+                 <MobilePageContent {...plannerState} isGuestMode={isGuestMode} />
+            </main>
+        </div>
+    )
 }

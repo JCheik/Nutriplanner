@@ -1,31 +1,34 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { Home, BookHeart, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useMediaQuery } from '@/hooks/use-media-query';
 
 
 export function MobileNav() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const isGuest = searchParams.get('guest') === 'true';
-
+  const isMobile = useMediaQuery("(max-width: 768px)");
+  
   const navItems = [
-    { href: '/mobile', label: 'Plan', icon: Home },
-    { href: '/mobile/recipes', label: 'Recetas', icon: BookHeart },
-    { href: '/mobile/shopping-list', label: 'Compra', icon: ShoppingCart },
+    { href: '/', label: 'Plan', icon: Home },
+    { href: '/recipes', label: 'Recetas', icon: BookHeart },
+    { href: '/shopping-list', label: 'Compra', icon: ShoppingCart },
   ];
+
+  if (!isMobile) {
+    return null;
+  }
 
   return (
     <div className="fixed bottom-0 left-0 right-0 h-16 bg-background border-t z-50">
       <div className="grid h-full max-w-lg grid-cols-3 mx-auto">
         {navItems.map((item) => {
-          const finalHref = isGuest ? `${item.href}?guest=true` : item.href;
           return (
             <Link
               key={item.label}
-              href={finalHref}
+              href={item.href}
               className={cn(
                 "inline-flex flex-col items-center justify-center px-5 hover:bg-muted group",
                 pathname === item.href ? "text-primary" : "text-muted-foreground"

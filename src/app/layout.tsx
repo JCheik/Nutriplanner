@@ -1,13 +1,26 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
+import { Logo } from '@/components/icons/logo';
+import { MobileNav } from '@/components/layout/mobile-nav';
 
 export const metadata: Metadata = {
   title: 'NutriPlanner',
   description: 'Planifica tus comidas, crea recetas y sigue tu nutrición.',
   manifest: '/manifest.json',
 };
+
+const Loader = () => (
+    <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
+          <Logo className="h-12 w-12 text-primary animate-pulse" />
+          <p className="text-lg text-muted-foreground">Cargando...</p>
+        </div>
+    </div>
+);
+
 
 export default function RootLayout({
   children,
@@ -25,8 +38,11 @@ export default function RootLayout({
         className="font-body antialiased bg-background kitchen-bg"
       >
         <FirebaseClientProvider>
-          {children}
+            <Suspense fallback={<Loader />}>
+                {children}
+            </Suspense>
           <Toaster />
+          <MobileNav />
         </FirebaseClientProvider>
       </body>
     </html>
