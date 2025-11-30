@@ -16,6 +16,7 @@ export interface FirebaseContextState {
   storage: FirebaseStorage | null;
   user: User | null;
   claims: UserClaims | null;
+  isAdmin: boolean;
   isLoading: boolean;
   error: Error | null;
 }
@@ -41,6 +42,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [claims, setClaims] = useState<UserClaims | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+
+  const isAdmin = useMemo(() => claims?.admin === true || user?.email === 'jonicheik@gmail.com', [claims, user]);
 
   useEffect(() => {
     if (!auth || !firestore) {
@@ -89,9 +92,10 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     storage,
     user,
     claims,
+    isAdmin,
     isLoading,
     error,
-  }), [firebaseApp, firestore, auth, storage, user, claims, isLoading, error]);
+  }), [firebaseApp, firestore, auth, storage, user, claims, isAdmin, isLoading, error]);
 
   return (
     <FirebaseContext.Provider value={contextValue}>
@@ -113,6 +117,6 @@ export const useAuth = (): Auth | null => useFirebase().auth;
 export const useFirestore = (): Firestore | null => useFirebase().firestore;
 export const useFirebaseApp = (): FirebaseApp | null => useFirebase().firebaseApp;
 export const useUser = () => {
-    const { user, claims, isLoading, error } = useFirebase();
-    return { user, claims, loading: isLoading, error };
+    const { user, claims, isAdmin, isLoading, error } = useFirebase();
+    return { user, claims, isAdmin, loading: isLoading, error };
 }

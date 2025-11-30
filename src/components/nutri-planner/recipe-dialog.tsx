@@ -63,8 +63,7 @@ const MacroDisplay = ({ label, value, unit, icon: Icon }: { label: string, value
 
 function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitiallyGlobal = false, isSaving, onSave, onCancel, onDelete }: { recipe?: Recipe, folders: Folder[], globalFolders: GlobalFolder[], isInitiallyGlobal?: boolean, isSaving: boolean, onSave: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void, onCancel: () => void, onDelete: (id: string, isGlobal: boolean) => void }) {
   const isEditing = !!initialRecipe;
-  const { user, claims } = useUser();
-  const isAdmin = claims?.admin === true;
+  const { user, isAdmin } = useUser();
   const firestore = useFirestore();
 
   const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);
@@ -404,8 +403,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
 
 
 function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, isNutriPlannerRecipe, isMobile }: { recipe: Recipe; folders?: Folder[], globalFolders?: GlobalFolder[], onEdit?: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void; onDelete?: (id: string, isGlobal: boolean) => void; onCopy?: (recipe: Recipe) => void; isNutriPlannerRecipe: boolean; isMobile?: boolean; }) {
-  const { user, claims } = useUser();
-  const isAdmin = claims?.admin === true;
+  const { user, isAdmin } = useUser();
   const firestore = useFirestore();
 
   const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);

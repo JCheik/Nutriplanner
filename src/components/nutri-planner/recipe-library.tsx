@@ -400,8 +400,7 @@ export function RecipeLibrary({
   isMobile = false,
   initialViewMode = 'grid',
 }: RecipeLibraryProps) {
-  const { claims } = useUser();
-  const isAdmin = claims?.admin === true;
+  const { isAdmin } = useUser();
   
   const [activeTab, setActiveTab] = useState('user-recipes');
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>('all');

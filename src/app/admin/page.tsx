@@ -10,9 +10,8 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
 export default function AdminPage() {
-  const { user, claims, loading } = useUser();
+  const { user, isAdmin, loading } = useUser();
   const router = useRouter();
-  const isAdmin = claims?.admin === true || user?.email === 'jonicheik@gmail.com';
 
   useEffect(() => {
     if (!loading && !isAdmin) {
@@ -71,17 +70,19 @@ export default function AdminPage() {
                             </CardHeader>
                         </Card>
                     </Link>
-                     <Card className="h-full">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Wheat className="h-5 w-5" />
-                                Base de Datos de Ingredientes
-                            </CardTitle>
-                            <CardDescription>
-                                La gestión de ingredientes se realiza al crear o editar una receta.
-                            </CardDescription>
-                        </CardHeader>
-                    </Card>
+                     <Link href="/admin/ingredients" className="hover:shadow-lg transition-shadow rounded-lg">
+                        <Card className="h-full cursor-pointer">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Wheat className="h-5 w-5" />
+                                    Base de Datos de Ingredientes
+                                </CardTitle>
+                                <CardDescription>
+                                    Gestionar la base de datos global de ingredientes.
+                                </CardDescription>
+                            </CardHeader>
+                        </Card>
+                    </Link>
                 </div>
             </div>
         </main>

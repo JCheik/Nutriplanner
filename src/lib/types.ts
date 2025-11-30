@@ -115,7 +115,8 @@ export interface UserProfile {
 
 export interface UserClaims {
   admin?: boolean;
-  // Add other custom claims here
+  // This is where the superuser email check goes
+  email?: string;
 }
 
 export interface ActiveDropTarget {

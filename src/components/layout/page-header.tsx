@@ -23,12 +23,10 @@ interface PageHeaderProps {
 }
 
 export function PageHeader({ isGuest = false, onRegisterClick }: PageHeaderProps) {
-  const { user, claims, loading } = useUser();
+  const { user, isAdmin, loading } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
   const firebaseApp = useFirebaseApp();
-  
-  const isAdmin = claims?.admin === true || user?.email === 'jonicheik@gmail.com';
   
   const handleSignIn = async () => {
     if (auth && firestore) {
