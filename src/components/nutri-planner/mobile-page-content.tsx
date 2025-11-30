@@ -38,6 +38,7 @@ export function MobilePageContent({
   }, [currentDate]);
 
   const activeDayPlan = useMemo(() => {
+    if (!currentWeekPlan) return null;
     return currentWeekPlan.find(d => d.day === activeDayName) || null;
   }, [currentWeekPlan, activeDayName]);
   
@@ -59,7 +60,7 @@ export function MobilePageContent({
   };
   
   const handleRecipeSelectionSave = (updatedRecipes: Recipe[]) => {
-    if (!selectedMeal) return;
+    if (!selectedMeal || !activeDayName) return;
     
     // Add new recipes
     updatedRecipes.forEach(recipe => {
