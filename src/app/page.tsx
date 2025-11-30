@@ -18,12 +18,13 @@ export default function Home() {
   const isMobile = useMediaQuery("(max-width: 768px)");
 
   useEffect(() => {
-    if ((user || isGuest) && isMobile) {
-      const guestQuery = isGuest ? '?guest=true' : '';
-      router.replace(`/mobile${guestQuery}`);
+    // This effect handles redirection after login/guest mode activation
+    if (!loading && (user || isGuest)) {
+      if (isMobile) {
+        router.replace(isGuest ? '/mobile?guest=true' : '/mobile');
+      }
     }
-  }, [user, isGuest, isMobile, router]);
-
+  }, [user, isGuest, isMobile, loading, router]);
 
   const handleSignIn = async () => {
     if (auth && firestore) {
@@ -37,9 +38,9 @@ export default function Home() {
   
   const handleExitGuestMode = () => {
     setIsGuest(false);
-    router.push('/');
   }
 
+  // Loading state for auth
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
@@ -51,22 +52,24 @@ export default function Home() {
     );
   }
 
-  // If mobile, show loader while redirecting
-  if ((user || isGuest) && isMobile) {
-    return (
+  // If user is logged in or in guest mode, decide what to render
+  if (user || isGuest) {
+    // If mobile, show a loader while redirecting (handled by useEffect)
+    if (isMobile) {
+      return (
          <div className="flex items-center justify-center min-h-screen bg-background">
             <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
                 <Logo className="h-12 w-12 text-primary animate-pulse" />
                 <p className="text-lg text-muted-foreground">Cargando vista móvil...</p>
             </div>
         </div>
-    );
-  }
-
-  if (user || isGuest) {
+      );
+    }
+    // If desktop, render the Dashboard directly
     return <Dashboard isGuestMode={isGuest} onExitGuestMode={handleExitGuestMode} />;
   }
 
+  // If no user and not guest, show the login page
   return (
     <div className="flex items-center justify-center min-h-screen">
       <div className="mx-auto w-[350px] space-y-6 text-center">

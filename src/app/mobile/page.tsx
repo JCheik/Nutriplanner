@@ -47,7 +47,13 @@ function MobilePageWrapper() {
     }, [plannerState.isLoading, isGuestMode, plannerState.user, router]);
 
 
-    if (plannerState.isLoading || (!isGuestMode && !plannerState.user)) {
+    if (plannerState.isLoading) {
+        return <MobilePageLoader />;
+    }
+
+    // This check is important. If the useEffect above will trigger a redirect,
+    // we should show a loader to prevent rendering the content for a split second.
+    if (!isGuestMode && !plannerState.user) {
         return <MobilePageLoader />;
     }
 
