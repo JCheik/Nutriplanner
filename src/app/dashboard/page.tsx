@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { Recipe, DialogState, ActiveDropTarget } from '@/lib/types';
-import { PageHeader } from '@/components/layout/page-header';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
 import { MealPlanner } from '@/components/nutri-planner/meal-planner';
 import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
@@ -12,7 +11,6 @@ import { StickyNote } from '@/components/nutri-planner/sticky-note';
 import { FloatingGoals } from '@/components/nutri-planner/floating-goals';
 import { ShoppingListSheet } from '@/components/nutri-planner/shopping-list';
 import { FloatingMenu } from '@/components/nutri-planner/floating-menu';
-import { Logo } from '@/components/icons/logo';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,23 +25,14 @@ import {
 import { useRecipeState } from '@/hooks/use-recipe-state';
 import { useWeekPlanState } from '@/hooks/use-week-plan-state';
 import { useUserProfileState } from '@/hooks/use-user-profile-state';
-import { useUser } from '@/firebase';
 
 
-interface DashboardProps {
-  isGuestMode?: boolean;
-}
-
-export default function Dashboard({ isGuestMode = false }: DashboardProps) {
+export default function Dashboard() {
   const { toast } = useToast();
   const router = useRouter();
-  const { user, loading: userLoading } = useUser();
+  const searchParams = useSearchParams();
   
-  useEffect(() => {
-    if (!userLoading && !user && !isGuestMode) {
-      router.replace('/');
-    }
-  }, [userLoading, user, isGuestMode, router]);
+  const isGuestMode = searchParams.get('guest') === 'true';
   
   // --- Decomposed State Hooks ---
   const recipeState = useRecipeState({ isGuestMode });
@@ -66,7 +55,6 @@ export default function Dashboard({ isGuestMode = false }: DashboardProps) {
 
   const {
     currentWeekPlan,
-    weekPlanLoading,
     handleDrop,
     handleClearMeal,
     handleRemoveRecipeFromMeal,
@@ -87,9 +75,6 @@ export default function Dashboard({ isGuestMode = false }: DashboardProps) {
     handleSaveCustomGoal,
     handleShoppingListUpdate,
   } = userProfileState;
-
-  // --- Combined Loading State ---
-  const isLoading = userLoading || weekPlanLoading;
 
   // Dialog and UI state
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
@@ -185,22 +170,10 @@ export default function Dashboard({ isGuestMode = false }: DashboardProps) {
     setActivePanel(isOpen ? panel : null);
   }
 
-  if (isLoading || (!user && !isGuestMode)) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
-          <Logo className="h-12 w-12 text-primary animate-pulse" />
-          <p className="text-lg text-muted-foreground">Cargando tu planificador...</p>
-        </div>
-      </div>
-    );
-  }
-
   const doNothing = () => {};
 
   return (
-    <div className="flex flex-col min-h-screen text-foreground">
-      <PageHeader isGuest={isGuestMode} onRegisterClick={handleExitGuest} />
+    <>
       <main className="flex-1 p-4 sm:p-6 lg:p-8">
         <div className="max-w-screen-2xl mx-auto flex flex-col gap-6">
           <div className="w-full">
@@ -293,6 +266,6 @@ export default function Dashboard({ isGuestMode = false }: DashboardProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 }

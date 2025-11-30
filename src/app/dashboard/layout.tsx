@@ -5,18 +5,17 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '@/firebase';
 import { Logo } from '@/components/icons/logo';
 import { PageHeader } from '@/components/layout/page-header';
-import { MobileNav } from '@/components/layout/mobile-nav';
 
-const MobileLoader = () => (
+const DashboardLoader = () => (
     <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
           <Logo className="h-12 w-12 text-primary animate-pulse" />
-          <p className="text-lg text-muted-foreground">Cargando...</p>
+          <p className="text-lg text-muted-foreground">Cargando tu planificador...</p>
         </div>
     </div>
 );
 
-export default function MobileLayout({
+export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
@@ -34,17 +33,14 @@ export default function MobileLayout({
   }, [userLoading, user, isGuestMode, router]);
   
   if (userLoading || (!user && !isGuestMode)) {
-    return <MobileLoader />;
+    return <DashboardLoader />;
   }
 
   return (
-    <Suspense fallback={<MobileLoader />}>
-        <div className="flex flex-col min-h-screen">
+    <Suspense fallback={<DashboardLoader />}>
+        <div className="flex flex-col min-h-screen text-foreground">
             <PageHeader isGuest={isGuestMode} onRegisterClick={() => router.push('/')} />
-            <main className="flex-1 pb-16 h-[calc(100vh-4rem)]">
-                {children}
-            </main>
-            <MobileNav />
+            {children}
         </div>
     </Suspense>
   );

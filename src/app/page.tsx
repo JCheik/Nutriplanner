@@ -7,7 +7,6 @@ import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import Dashboard from './dashboard/page';
 
 function AuthContent() {
   const { user, loading } = useUser();
@@ -16,15 +15,19 @@ function AuthContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isMobile = useMediaQuery("(max-width: 768px)");
+  
   const isGuestMode = searchParams.get('guest') === 'true';
 
   useEffect(() => {
     if (loading) return;
 
-    if (user) {
-      router.replace(isMobile ? '/mobile' : '/dashboard');
-    } else if (isGuestMode) {
-      router.replace(isMobile ? '/mobile?guest=true' : '/dashboard?guest=true');
+    if (user || isGuestMode) {
+      const guestQuery = isGuestMode ? '?guest=true' : '';
+      if (isMobile) {
+        router.replace(`/mobile${guestQuery}`);
+      } else {
+        router.replace(`/dashboard${guestQuery}`);
+      }
     }
   }, [user, isGuestMode, isMobile, loading, router]);
 
