@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { Recipe, DialogState, ActiveDropTarget } from '@/lib/types';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
@@ -269,3 +269,5 @@ export default function Dashboard() {
     </>
   );
 }
+
+    

@@ -515,8 +515,10 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
          </div>
 
         <div className='flex gap-2'>
-          {isNutriPlannerRecipe && !isMobile && onCopy && (
-            <Button onClick={() => onCopy(recipe)}><Copy className="mr-2 h-4 w-4" /> Copiar a Mis Recetas</Button>
+          {isNutriPlannerRecipe && onCopy && (
+            <Button onClick={() => onCopy(recipe)}>
+              <Copy className="mr-2 h-4 w-4" /> Copiar a Mis Recetas
+            </Button>
           )}
           {canEdit && onEdit && (
             <Button variant="outline" onClick={() => onEdit(recipe, isNutriPlannerRecipe)}>
@@ -575,3 +577,5 @@ export function RecipeDialog({ dialogState, isSaving = false, folders, globalFol
     </Dialog>
   );
 }
+
+    
