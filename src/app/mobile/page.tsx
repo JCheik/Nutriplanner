@@ -1,11 +1,12 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Logo } from '@/components/icons/logo';
-import type { usePlannerState } from '@/hooks/use-planner-state';
-import { usePlannerState as usePlannerStateHook } from '@/hooks/use-planner-state';
-import { useRouter } from 'next/navigation';
+import { usePlannerState } from '@/hooks/use-planner-state';
+import type { usePlannerState as PlannerStateHook } from '@/hooks/use-planner-state';
 import { PageHeader } from '@/components/layout/page-header';
+import { Suspense } from 'react';
 
 // This is now a simple presenter component.
 const MobilePageContent = dynamic(() => 
@@ -25,18 +26,19 @@ const MobilePageLoader = () => (
     </div>
 );
 
-type PlannerState = ReturnType<typeof usePlannerStateHook>;
+type PlannerState = ReturnType<typeof PlannerStateHook>;
 
-interface MobilePageProps {
-  isGuestMode: boolean;
-  onExitGuestMode: () => void;
-}
-
-// The page now receives props from the layout.
-export default function MobilePage({ isGuestMode, onExitGuestMode }: MobilePageProps) {
-    const plannerState: PlannerState = usePlannerStateHook({ isGuestMode });
+function MobilePageWrapper() {
     const router = useRouter();
-    
+    const searchParams = useSearchParams();
+    const isGuestMode = searchParams.get('guest') === 'true';
+
+    const plannerState: PlannerState = usePlannerState({ isGuestMode });
+
+    const handleExitGuestMode = () => {
+        router.push('/');
+    };
+
     if (plannerState.isLoading) {
         return <MobilePageLoader />;
     }
@@ -48,10 +50,18 @@ export default function MobilePage({ isGuestMode, onExitGuestMode }: MobilePageP
 
     return (
         <div className="flex flex-col min-h-screen">
-            <PageHeader isGuest={isGuestMode} onRegisterClick={onExitGuestMode} />
+            <PageHeader isGuest={isGuestMode} onRegisterClick={handleExitGuestMode} />
             <main className="flex-1 pb-16">
                  <MobilePageContent {...plannerState} isGuestMode={isGuestMode} />
             </main>
         </div>
+    )
+}
+
+export default function MobilePage() {
+    return (
+        <Suspense fallback={<MobilePageLoader />}>
+            <MobilePageWrapper />
+        </Suspense>
     )
 }
