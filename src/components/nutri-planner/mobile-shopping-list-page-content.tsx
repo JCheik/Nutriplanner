@@ -17,11 +17,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-interface MobileShoppingListPageContentProps {
-  currentWeekPlan: DayPlan[];
-  currentShoppingList: ShoppingListItem[];
-  onListChange: (list: ShoppingListItem[]) => void;
-}
+import type { useWeekPlanState } from '@/hooks/use-week-plan-state';
+import type { useUserProfileState } from '@/hooks/use-user-profile-state';
+
+type CombinedState = ReturnType<typeof useWeekPlanState> & ReturnType<typeof useUserProfileState>;
+
+interface MobileShoppingListPageContentProps extends CombinedState {}
 
 const generateListFromPlan = (weekPlan: DayPlan[]): ShoppingListItem[] => {
     const aggregated: Record<string, { name: string; quantity: number; unit: string }> = {};
@@ -48,11 +49,12 @@ const generateListFromPlan = (weekPlan: DayPlan[]): ShoppingListItem[] => {
     })).sort((a, b) => a.name.localeCompare(b.name));
 };
 
-export function MobileShoppingListPageContent({ currentWeekPlan, currentShoppingList, onListChange }: MobileShoppingListPageContentProps) {
+export function MobileShoppingListPageContent({ currentWeekPlan, currentShoppingList, handleShoppingListUpdate }: MobileShoppingListPageContentProps) {
 
   const handleGenerateList = () => {
+    if(!currentWeekPlan) return;
     const newList = generateListFromPlan(currentWeekPlan);
-    onListChange(newList);
+    handleShoppingListUpdate(newList);
   };
 
   return (
@@ -81,7 +83,7 @@ export function MobileShoppingListPageContent({ currentWeekPlan, currentShopping
             </AlertDialog>
         </div>
       </div>
-      <ShoppingListContent list={currentShoppingList} onListChange={onListChange} />
+      <ShoppingListContent list={currentShoppingList} onListChange={handleShoppingListUpdate} />
     </div>
   );
 }

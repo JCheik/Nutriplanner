@@ -10,11 +10,13 @@ import { RecipeSelectionDialog } from '@/components/nutri-planner/recipe-selecti
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import type { usePlannerState } from '@/hooks/use-planner-state';
 
-type PlannerState = ReturnType<typeof usePlannerState>;
+import type { useRecipeState } from '@/hooks/use-recipe-state';
+import type { useWeekPlanState } from '@/hooks/use-week-plan-state';
 
-interface MobilePageContentProps extends PlannerState {
+type CombinedState = ReturnType<typeof useRecipeState> & ReturnType<typeof useWeekPlanState>;
+
+interface MobilePageContentProps extends CombinedState {
   isGuestMode: boolean;
 }
 
@@ -119,7 +121,9 @@ export function MobilePageContent({
                                 className="text-muted-foreground hover:text-destructive"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    handleRemoveRecipeFromMeal(activeDayName, meal.id, recipe.instanceId);
+                                    if(activeDayName) {
+                                      handleRemoveRecipeFromMeal(activeDayName, meal.id, recipe.instanceId);
+                                    }
                                 }}
                               >
                                 <X className="h-5 w-5" />

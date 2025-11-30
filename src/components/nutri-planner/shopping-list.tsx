@@ -16,12 +16,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { usePlannerState } from '@/hooks/use-planner-state';
 
 interface ShoppingListSheetProps {
   weekPlan: WeekPlan;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
+  currentShoppingList: ShoppingListItem[];
+  onListChange: (list: ShoppingListItem[]) => void;
 }
 
 const generateListFromPlan = (weekPlan: WeekPlan): ShoppingListItem[] => {
@@ -49,12 +50,11 @@ const generateListFromPlan = (weekPlan: WeekPlan): ShoppingListItem[] => {
     })).sort((a, b) => a.name.localeCompare(b.name));
 };
 
-export function ShoppingListSheet({ weekPlan, isOpen, onOpenChange }: ShoppingListSheetProps) {
-    const { currentShoppingList, handleShoppingListUpdate } = usePlannerState();
+export function ShoppingListSheet({ weekPlan, isOpen, onOpenChange, currentShoppingList, onListChange }: ShoppingListSheetProps) {
 
     const handleGenerateList = () => {
         const newList = generateListFromPlan(weekPlan);
-        handleShoppingListUpdate(newList);
+        onListChange(newList);
     }
 
   return (
@@ -103,7 +103,7 @@ export function ShoppingListSheet({ weekPlan, isOpen, onOpenChange }: ShoppingLi
               </AlertDialogContent>
             </AlertDialog>
             
-            <ShoppingListContent list={currentShoppingList} onListChange={handleShoppingListUpdate} />
+            <ShoppingListContent list={currentShoppingList} onListChange={onListChange} />
         </div>
     </>
   );

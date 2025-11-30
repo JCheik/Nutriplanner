@@ -12,7 +12,6 @@ import { FloatingGoals } from '@/components/nutri-planner/floating-goals';
 import { ShoppingListSheet } from '@/components/nutri-planner/shopping-list';
 import { FloatingMenu } from '@/components/nutri-planner/floating-menu';
 import { Logo } from '@/components/icons/logo';
-import { usePlannerState } from '@/hooks/use-planner-state';
 import { useRouter } from 'next/navigation';
 import {
   AlertDialog,
@@ -25,6 +24,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+import { useRecipeState } from '@/hooks/use-recipe-state';
+import { useWeekPlanState } from '@/hooks/use-week-plan-state';
+import { useUserProfileState } from '@/hooks/use-user-profile-state';
+import { useUser } from '@/firebase';
+
 
 interface DashboardProps {
   isGuestMode?: boolean;
@@ -34,26 +38,18 @@ interface DashboardProps {
 export default function Dashboard({ isGuestMode = false, onExitGuestMode }: DashboardProps) {
   const { toast } = useToast();
   const router = useRouter();
+  const { user, loading: userLoading } = useUser();
   
-  const plannerState = usePlannerState({ isGuestMode });
+  // --- Decomposed State Hooks ---
+  const recipeState = useRecipeState({ isGuestMode });
+  const weekPlanState = useWeekPlanState({ isGuestMode });
+  const userProfileState = useUserProfileState({ isGuestMode });
+
   const {
     currentUserRecipes,
     nutriplannerRecipes,
     currentFolders,
-    currentWeekPlan,
-    currentStickyNote,
-    currentCalorieResult,
-    activeGoalMacros,
-    isLoading,
     isSaving,
-    activeGoal,
-    user,
-    handleDrop,
-    handleClearMeal,
-    handleRemoveRecipeFromMeal,
-    handleUpdateMealTitle,
-    handleAddMeal,
-    handleDeleteMeal,
     handleSaveRecipe,
     handleDeleteRecipe,
     handleCopyRecipe,
@@ -61,11 +57,34 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     handleFolderDelete,
     handleFolderUpdate,
     handleAssignRecipeToFolder,
+  } = recipeState;
+
+  const {
+    currentWeekPlan,
+    weekPlanLoading,
+    handleDrop,
+    handleClearMeal,
+    handleRemoveRecipeFromMeal,
+    handleUpdateMealTitle,
+    handleAddMeal,
+    handleDeleteMeal,
+  } = weekPlanState;
+
+  const {
+    currentStickyNote,
+    currentCalorieResult,
+    activeGoalMacros,
+    currentShoppingList,
+    activeGoal,
     handleNoteSave,
     handleCalorieResultSave,
     handleActiveGoalChange,
     handleSaveCustomGoal,
-  } = plannerState;
+    handleShoppingListUpdate,
+  } = userProfileState;
+
+  // --- Combined Loading State ---
+  const isLoading = userLoading || weekPlanLoading;
 
   // Dialog and UI state
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
@@ -118,6 +137,16 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
 
   const handleInternalDeleteRecipe = (recipeId: string, isGlobal: boolean) => {
     handleDeleteRecipe(recipeId, isGlobal);
+    // Also remove from the week plan
+    currentWeekPlan.forEach(dayPlan => {
+        dayPlan.meals.forEach(meal => {
+            meal.recipes.forEach(recipeInMeal => {
+                if (recipeInMeal.id === recipeId) {
+                    handleRemoveRecipeFromMeal(dayPlan.day, meal.id, recipeInMeal.instanceId);
+                }
+            });
+        });
+    });
     handleDialogClose();
   };
   
@@ -129,6 +158,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
   };
 
   const dailyTotals = useMemo(() => {
+    if (!currentWeekPlan) return [];
     return currentWeekPlan.map(dayPlan => {
       const totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
       if (Array.isArray(dayPlan.meals)) {
@@ -226,6 +256,8 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
         weekPlan={currentWeekPlan}
         isOpen={activePanel === 'shopping-list'}
         onOpenChange={(isOpen) => handlePanelChange('shopping-list', isOpen)}
+        currentShoppingList={currentShoppingList}
+        onListChange={handleShoppingListUpdate}
       />
       <FloatingGoals
         calorieResult={currentCalorieResult}

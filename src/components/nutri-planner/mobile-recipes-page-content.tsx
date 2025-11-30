@@ -6,9 +6,11 @@ import type { Recipe } from '@/lib/types';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
 import { RecipeDialog, DialogState } from '@/components/nutri-planner/recipe-dialog';
 import { useToast } from '@/hooks/use-toast';
-import type { usePlannerState } from '@/hooks/use-planner-state';
+import type { useRecipeState } from '@/hooks/use-recipe-state';
+import { useWeekPlanState } from '@/hooks/use-week-plan-state';
 
-type PlannerState = ReturnType<typeof usePlannerState>;
+
+type PlannerState = ReturnType<typeof useRecipeState>;
 
 interface MobileRecipesPageContentProps extends PlannerState {
     isGuestMode: boolean;
@@ -30,6 +32,7 @@ export function MobileRecipesPageContent({
 }: MobileRecipesPageContentProps) {
     const router = useRouter();
     const { toast } = useToast();
+    const { currentWeekPlan, handleRemoveRecipeFromMeal } = useWeekPlanState({ isGuestMode });
 
     const [dialogState, setDialogState] = useState<DialogState>({ open: false });
 
@@ -54,6 +57,16 @@ export function MobileRecipesPageContent({
 
     const handleInternalDelete = (recipeId: string, isGlobal: boolean) => {
         handleDeleteRecipe(recipeId, isGlobal);
+        // Also remove from the week plan
+        currentWeekPlan.forEach(dayPlan => {
+            dayPlan.meals.forEach(meal => {
+                meal.recipes.forEach(recipeInMeal => {
+                    if (recipeInMeal.id === recipeId) {
+                        handleRemoveRecipeFromMeal(dayPlan.day, meal.id, recipeInMeal.instanceId);
+                    }
+                });
+            });
+        });
         handleDialogClose();
     };
     
