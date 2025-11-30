@@ -43,11 +43,7 @@ function MobileShoppingListWrapper() {
         }
     }, [isLoading, isGuestMode, user, router]);
 
-    if (isLoading) {
-        return <MobilePageLoader />;
-    }
-
-    if (!isGuestMode && !user) {
+    if (isLoading || (!isGuestMode && !user)) {
         return <MobilePageLoader />;
     }
     

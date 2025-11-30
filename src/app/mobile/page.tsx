@@ -38,23 +38,19 @@ function MobilePageWrapper() {
     
     const isLoading = userLoading || weekPlanState.weekPlanLoading;
 
-    const handleExitGuestMode = () => {
-        router.push('/');
-    };
-
     useEffect(() => {
         if (!isLoading && !isGuestMode && !user) {
             router.replace('/');
         }
     }, [isLoading, isGuestMode, user, router]);
 
-    if (isLoading) {
+    if (isLoading || (!isGuestMode && !user)) {
         return <MobilePageLoader />;
     }
 
-    if (!isGuestMode && !user) {
-        return <MobilePageLoader />;
-    }
+    const handleExitGuestMode = () => {
+        router.push('/');
+    };
 
     const combinedState = {
         ...recipeState,

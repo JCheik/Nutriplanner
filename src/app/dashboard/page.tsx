@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import type { Recipe, DialogState, ActiveDropTarget } from '@/lib/types';
 import { PageHeader } from '@/components/layout/page-header';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
@@ -12,7 +13,6 @@ import { FloatingGoals } from '@/components/nutri-planner/floating-goals';
 import { ShoppingListSheet } from '@/components/nutri-planner/shopping-list';
 import { FloatingMenu } from '@/components/nutri-planner/floating-menu';
 import { Logo } from '@/components/icons/logo';
-import { useRouter } from 'next/navigation';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,13 +32,18 @@ import { useUser } from '@/firebase';
 
 interface DashboardProps {
   isGuestMode?: boolean;
-  onExitGuestMode?: () => void;
 }
 
-export default function Dashboard({ isGuestMode = false, onExitGuestMode }: DashboardProps) {
+export default function Dashboard({ isGuestMode = false }: DashboardProps) {
   const { toast } = useToast();
   const router = useRouter();
   const { user, loading: userLoading } = useUser();
+  
+  useEffect(() => {
+    if (!userLoading && !user && !isGuestMode) {
+      router.replace('/');
+    }
+  }, [userLoading, user, isGuestMode, router]);
   
   // --- Decomposed State Hooks ---
   const recipeState = useRecipeState({ isGuestMode });
@@ -151,9 +156,6 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
   };
   
   const handleExitGuest = () => {
-    if (onExitGuestMode) {
-      onExitGuestMode();
-    }
     router.push('/');
   };
 
@@ -183,7 +185,7 @@ export default function Dashboard({ isGuestMode = false, onExitGuestMode }: Dash
     setActivePanel(isOpen ? panel : null);
   }
 
-  if (isLoading) {
+  if (isLoading || (!user && !isGuestMode)) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center gap-4 p-8 rounded-lg">

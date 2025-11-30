@@ -1,30 +1,33 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useUser, signInWithGoogle } from '@/firebase/auth/use-user';
 import { useAuth, useFirestore } from '@/firebase/provider';
-import Dashboard from './dashboard/page';
 import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useMediaQuery } from '@/hooks/use-media-query';
+import Dashboard from './dashboard/page';
 
-export default function Home() {
+function AuthContent() {
   const { user, loading } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
-  const [isGuest, setIsGuest] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const isMobile = useMediaQuery("(max-width: 768px)");
+  const isGuestMode = searchParams.get('guest') === 'true';
 
   useEffect(() => {
-    // This effect handles redirection after login/guest mode activation
-    if (!loading && (user || isGuest)) {
-      if (isMobile) {
-        router.replace(isGuest ? '/mobile?guest=true' : '/mobile');
-      }
+    if (loading) return;
+
+    if (user) {
+      router.replace(isMobile ? '/mobile' : '/dashboard');
+    } else if (isGuestMode) {
+      router.replace(isMobile ? '/mobile?guest=true' : '/dashboard?guest=true');
     }
-  }, [user, isGuest, isMobile, loading, router]);
+  }, [user, isGuestMode, isMobile, loading, router]);
+
 
   const handleSignIn = async () => {
     if (auth && firestore) {
@@ -33,15 +36,10 @@ export default function Home() {
   };
 
   const handleGuestMode = () => {
-    setIsGuest(true);
+    router.push(isMobile ? '/mobile?guest=true' : '/dashboard?guest=true');
   };
-  
-  const handleExitGuestMode = () => {
-    setIsGuest(false);
-  }
 
-  // Loading state for auth
-  if (loading) {
+  if (loading || user || isGuestMode) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
@@ -50,23 +48,6 @@ export default function Home() {
         </div>
       </div>
     );
-  }
-
-  // If user is logged in or in guest mode, decide what to render
-  if (user || isGuest) {
-    // If mobile, show a loader while redirecting (handled by useEffect)
-    if (isMobile) {
-      return (
-         <div className="flex items-center justify-center min-h-screen bg-background">
-            <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
-                <Logo className="h-12 w-12 text-primary animate-pulse" />
-                <p className="text-lg text-muted-foreground">Cargando vista móvil...</p>
-            </div>
-        </div>
-      );
-    }
-    // If desktop, render the Dashboard directly
-    return <Dashboard isGuestMode={isGuest} onExitGuestMode={handleExitGuestMode} />;
   }
 
   // If no user and not guest, show the login page
@@ -105,4 +86,20 @@ export default function Home() {
       </div>
     </div>
   );
+}
+
+
+export default function Home() {
+  return (
+    <Suspense fallback={
+       <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
+          <Logo className="h-12 w-12 text-primary animate-pulse" />
+          <p className="text-lg text-muted-foreground">Cargando...</p>
+        </div>
+      </div>
+    }>
+      <AuthContent />
+    </Suspense>
+  )
 }

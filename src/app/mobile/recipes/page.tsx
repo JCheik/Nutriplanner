@@ -39,11 +39,7 @@ function MobileRecipesWrapper() {
         }
     }, [userLoading, isGuestMode, user, router]);
 
-    if (userLoading) {
-        return <MobilePageLoader />;
-    }
-
-    if (!isGuestMode && !user) {
+    if (userLoading || (!isGuestMode && !user)) {
         return <MobilePageLoader />;
     }
 
