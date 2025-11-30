@@ -6,7 +6,7 @@ import { Logo } from '@/components/icons/logo';
 import { usePlannerState } from '@/hooks/use-planner-state';
 import type { usePlannerState as PlannerStateHook } from '@/hooks/use-planner-state';
 import { PageHeader } from '@/components/layout/page-header';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 
 // This is now a simple presenter component.
 const MobilePageContent = dynamic(() => 
@@ -39,12 +39,15 @@ function MobilePageWrapper() {
         router.push('/');
     };
 
-    if (plannerState.isLoading) {
-        return <MobilePageLoader />;
-    }
+    useEffect(() => {
+        // Redirect if not guest and not logged in, but only after initial loading is done.
+        if (!plannerState.isLoading && !isGuestMode && !plannerState.user) {
+            router.replace('/');
+        }
+    }, [plannerState.isLoading, isGuestMode, plannerState.user, router]);
 
-    if (!isGuestMode && !plannerState.user) {
-        router.replace('/');
+
+    if (plannerState.isLoading || (!isGuestMode && !plannerState.user)) {
         return <MobilePageLoader />;
     }
 
