@@ -9,7 +9,7 @@ import { PlusCircle, Search, Edit, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { RecipeDialog, DialogState } from '@/components/nutri-planner/recipe-dialog';
 import { RecipeCard } from '@/components/nutri-planner/recipe-card';
-import { usePlannerState } from '@/hooks/use-planner-state';
+import { useRecipeState } from '@/hooks/use-recipe-state';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 
@@ -18,7 +18,7 @@ export default function AdminRecipesPage() {
     const { toast } = useToast();
 
     // Directly use the planner state hooks for actions, even though we get data differently.
-    const { isSaving, handleSaveRecipe, handleDeleteRecipe } = usePlannerState();
+    const { isSaving, handleSaveRecipe } = useRecipeState();
 
     const globalRecipesRef = useMemoFirebase(
         () => (firestore ? collection(firestore, 'nutriplanner_recipes') : null),
