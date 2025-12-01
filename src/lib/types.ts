@@ -127,10 +127,18 @@ export interface ActiveDropTarget {
   mealId: string;
 }
 
+const MacrosSchema = z.object({
+  calories: z.number(),
+  protein: z.number(),
+  carbs: z.number(),
+  fat: z.number(),
+});
+
 // Types for Recipe Chat Flow
 export const RecipeChatInputSchema = z.object({
   history: z.array(z.custom<MessageData>()),
   message: z.string(),
+  nutritionalGoal: MacrosSchema.optional(),
 });
 export type RecipeChatInput = z.infer<typeof RecipeChatInputSchema>;
 

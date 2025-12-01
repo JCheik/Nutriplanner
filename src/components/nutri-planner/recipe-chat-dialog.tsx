@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sparkles, LoaderCircle, Send, Bot, User, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { Recipe, RecipeChatInput, RecipeChatOutput } from '@/lib/types';
+import type { Recipe, RecipeChatInput, RecipeChatOutput, GoalMacros } from '@/lib/types';
 import type { MessageData } from 'genkit';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -17,6 +17,7 @@ interface RecipeChatDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onRecipeGenerated: (recipe: Omit<Recipe, 'id'>) => void;
+  nutritionalGoal: GoalMacros | null;
 }
 
 // Simple markdown to HTML for bold and lists
@@ -27,7 +28,7 @@ const formatMessage = (text: string) => {
 }
 
 
-export function RecipeChatDialog({ isOpen, onClose, onRecipeGenerated }: RecipeChatDialogProps) {
+export function RecipeChatDialog({ isOpen, onClose, onRecipeGenerated, nutritionalGoal }: RecipeChatDialogProps) {
   const [messages, setMessages] = useState<MessageData[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -80,10 +81,16 @@ export function RecipeChatDialog({ isOpen, onClose, onRecipeGenerated }: RecipeC
     setIsLoading(true);
 
     try {
-      const responseText = await recipeChat({
+      const chatInput: RecipeChatInput = {
         history: messages,
         message: input,
-      });
+      };
+
+      if (nutritionalGoal) {
+        chatInput.nutritionalGoal = nutritionalGoal;
+      }
+
+      const responseText = await recipeChat(chatInput);
 
       const potentialRecipe = tryParseJson(responseText);
 

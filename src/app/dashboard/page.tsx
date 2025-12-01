@@ -250,6 +250,7 @@ export default function DashboardPage() {
         isOpen={activePanel === 'ai-chat'}
         onClose={() => handlePanelChange('ai-chat', false)}
         onRecipeGenerated={handleAiRecipeGenerated}
+        nutritionalGoal={activeGoalMacros}
       />
 
       <ShoppingListSheet
