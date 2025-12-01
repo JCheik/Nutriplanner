@@ -20,7 +20,7 @@ export type RecipeGenerationInput = z.infer<typeof RecipeGenerationInputSchema>;
 const IngredientSchema = z.object({
     name: z.string().describe('The name of the ingredient.'),
     quantity: z.number().describe('The amount of the ingredient.'),
-    unit: z.string().describe('The unit of measurement for the quantity (e.g., "g", "ml", "taza").'),
+    unit: z.string().describe('The unit of measurement for the quantity (e.g., "g", "ml", "cup").'),
 });
 
 const RecipeGenerationOutputSchema = z.object({
@@ -71,7 +71,7 @@ const recipeGeneratorFlow = ai.defineFlow(
         },
     });
     
-    const output = llmResponse.output();
+    const output = llmResponse.output;
     if (!output) {
       throw new Error('Failed to generate recipe from prompt');
     }
