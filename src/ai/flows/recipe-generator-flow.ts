@@ -10,6 +10,8 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { getFirestore } from 'firebase-admin/firestore';
+import { initializeFirebase } from '@/firebase/server-init';
 
 const RecipeGenerationInputSchema = z.object({
   prompt: z.string().describe('The user\'s request for a recipe (e.g., "a high-protein vegan breakfast").'),
@@ -51,10 +53,22 @@ const recipeGeneratorFlow = ai.defineFlow(
   },
   async ({ prompt }) => {
     
+    // Initialize Firebase Admin to get Firestore access on the server
+    initializeFirebase();
+    const firestore = getFirestore();
+    
+    // Fetch the list of available ingredients from Firestore
+    const ingredientsSnapshot = await firestore.collection('ingredients').get();
+    const availableIngredients = ingredientsSnapshot.docs.map(doc => doc.data().name);
+    const availableIngredientsString = availableIngredients.join(', ');
+
     const llmResponse = await ai.generate({
         model: 'googleai/gemini-2.5-flash',
         prompt: `Eres un chef experto y nutricionista. Tu tarea es generar una receta basada en la petición de un usuario.
         TODA la respuesta, incluyendo nombres, descripciones e instrucciones, DEBE estar en ESPAÑOL.
+
+        MUY IMPORTANTE: Debes usar SOLAMENTE los ingredientes de la siguiente lista para crear la receta:
+        Lista de Ingredientes Disponibles: ${availableIngredientsString}
 
         Petición del usuario: ${prompt}
 
@@ -65,11 +79,11 @@ const recipeGeneratorFlow = ai.defineFlow(
           "name": "string (en español)",
           "description": "string (en español)",
           "instructions": "string (en español, con saltos de línea para los pasos)",
-          "ingredients": [ { "name": "string (en español)", "quantity": number, "unit": "string" } ],
-          "calories": number,
-          "protein": number,
-          "carbs": number,
-          "fat": number,
+          "ingredients": [ { "name": "string (nombre exacto de la lista)", "quantity": number, "unit": "string (g, ml, o unidad)" } ],
+          "calories": number (calculado basado en los ingredientes),
+          "protein": number (calculado basado en los ingredientes),
+          "carbs": number (calculado basado en los ingredientes),
+          "fat": number (calculado basado en los ingredientes),
           "imageHint": "string (dos o tres palabras clave en inglés para un generador de imágenes)"
         }`,
     });
