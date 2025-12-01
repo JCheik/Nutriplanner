@@ -16,38 +16,48 @@ const MobileLoader = () => (
     </div>
 );
 
+function MobileAuthGuard({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, loading: userLoading } = useUser();
+  const isGuestMode = searchParams.get('guest') === 'true';
+
+  useEffect(() => {
+    if (!userLoading && !user && !isGuestMode) {
+      router.replace('/');
+    }
+  }, [userLoading, user, isGuestMode, router]);
+
+  if (userLoading || (!user && !isGuestMode)) {
+    return <MobileLoader />;
+  }
+  
+  return <>{children}</>;
+}
+
 export default function MobileLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, loading: userLoading } = useUser();
-
   const isGuestMode = searchParams.get('guest') === 'true';
-
-  useEffect(() => {
-    // This effect runs only on the client after hydration
-    if (!userLoading && !user && !isGuestMode) {
-      router.replace('/');
-    }
-  }, [userLoading, user, isGuestMode, router]);
   
-  // Always render the main layout structure.
-  // The content inside will change based on the loading/auth state.
   return (
     <div className="flex flex-col min-h-screen">
-        <Suspense fallback={<MobileLoader />}>
-            <PageHeader isGuest={isGuestMode} onRegisterClick={() => router.push('/')} />
-            <main className="flex-1 pb-16 h-[calc(100vh-4rem)]">
-                {userLoading || (!user && !isGuestMode) ? (
-                    <MobileLoader />
-                ) : (
-                    children
-                )}
-            </main>
-            <MobileNav />
+        <PageHeader isGuest={isGuestMode} onRegisterClick={() => {
+          const router = useRouter();
+          router.push('/');
+        }} />
+        <main className="flex-1 pb-16 h-[calc(100vh-4rem)]">
+          <Suspense fallback={<MobileLoader/>}>
+            <MobileAuthGuard>
+              {children}
+            </MobileAuthGuard>
+          </Suspense>
+        </main>
+        <Suspense>
+         <MobileNav />
         </Suspense>
     </div>
   );

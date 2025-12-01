@@ -1,19 +1,16 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useRecipeState } from '@/hooks/use-recipe-state';
 import { MobileRecipesPageContent } from '@/components/nutri-planner/mobile-recipes-page-content';
 import { Logo } from '@/components/icons/logo';
 import { useUser } from '@/firebase';
-import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus, Sparkles } from 'lucide-react';
 import { RecipeDialog, DialogState } from '@/components/nutri-planner/recipe-dialog';
 import { RecipeChatDialog } from '@/components/nutri-planner/recipe-chat-dialog';
 import type { Recipe } from '@/lib/types';
-import { FloatingMenu } from '@/components/nutri-planner/floating-menu';
-
 
 const MobilePageLoader = () => (
     <div className="flex items-center justify-center h-full">

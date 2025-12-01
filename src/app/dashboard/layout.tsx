@@ -15,35 +15,44 @@ const DashboardLoader = () => (
     </div>
 );
 
+function AuthGuard({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, loading: userLoading } = useUser();
+  const isGuestMode = searchParams.get('guest') === 'true';
+
+  useEffect(() => {
+    if (!userLoading && !user && !isGuestMode) {
+      router.replace('/');
+    }
+  }, [userLoading, user, isGuestMode, router]);
+
+  if (userLoading || (!user && !isGuestMode)) {
+    return <DashboardLoader />;
+  }
+
+  return <>{children}</>;
+}
+
+
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, loading: userLoading } = useUser();
-
   const isGuestMode = searchParams.get('guest') === 'true';
 
-  useEffect(() => {
-    // This effect runs only on the client after hydration
-    if (!userLoading && !user && !isGuestMode) {
-      router.replace('/');
-    }
-  }, [userLoading, user, isGuestMode, router]);
-  
-  // Always render the main layout structure.
-  // The content inside will change based on the loading/auth state.
   return (
     <div className="flex flex-col min-h-screen text-foreground">
+        <PageHeader isGuest={isGuestMode} onRegisterClick={() => {
+            const router = useRouter();
+            router.push('/');
+        }} />
         <Suspense fallback={<DashboardLoader />}>
-            <PageHeader isGuest={isGuestMode} onRegisterClick={() => router.push('/')} />
-            {userLoading || (!user && !isGuestMode) ? (
-                <DashboardLoader />
-            ) : (
-                children
-            )}
+            <AuthGuard>
+                {children}
+            </AuthGuard>
         </Suspense>
     </div>
   );
