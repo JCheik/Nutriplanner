@@ -57,24 +57,31 @@ const recipeGeneratorFlow = ai.defineFlow(
 
         User request: ${prompt}
 
-        Generate a complete recipe that includes:
-        1.  A creative and fitting name for the dish.
-        2.  A short, enticing description.
-        3.  A list of ingredients with quantities and units (e.g., grams, ml, cups).
-        4.  Clear, step-by-step instructions.
-        5.  An estimated nutritional breakdown for the total recipe (calories, protein, carbs, fat).
-        6.  A simple two or three-word hint for an AI image generator.
-
-        Ensure the output is in the specified JSON format. Be realistic with nutritional estimates.`,
-        output: {
-            schema: RecipeGenerationOutputSchema,
-        },
+        You MUST respond with a valid JSON object that conforms to the following structure. Do not include any text, markdown, or formatting outside of the JSON object.
+        
+        The JSON structure required is:
+        {
+          "name": "string",
+          "description": "string",
+          "instructions": "string (with newlines for steps)",
+          "ingredients": [ { "name": "string", "quantity": number, "unit": "string" } ],
+          "calories": number,
+          "protein": number,
+          "carbs": number,
+          "fat": number,
+          "imageHint": "string (two or three words)"
+        }`,
     });
     
-    const output = llmResponse.output;
-    if (!output) {
-      throw new Error('Failed to generate recipe from prompt');
+    try {
+        const jsonText = llmResponse.text.replace(/```json/g, '').replace(/```/g, '').trim();
+        const output = JSON.parse(jsonText);
+        // Validate the parsed object against the Zod schema to be safe
+        return RecipeGenerationOutputSchema.parse(output);
+    } catch (e) {
+        console.error("Failed to parse LLM response as JSON:", e);
+        console.error("LLM Raw Response:", llmResponse.text);
+        throw new Error('Failed to generate a valid recipe structure from AI.');
     }
-    return output;
   }
 );
