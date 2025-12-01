@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { RecipeCard } from './recipe-card';
-import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Database, Folder as FolderIcon, Plus, Trash2, Folders, Edit, Check, LayoutGrid, List } from 'lucide-react';
+import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Database, Folder as FolderIcon, Plus, Trash2, Folders, Edit, Check, LayoutGrid, List, Sparkles } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -37,6 +37,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import { AiRecipeGeneratorDialog } from './ai-recipe-generator-dialog';
 
 
 interface RecipeLibraryProps {
@@ -55,6 +56,7 @@ interface RecipeLibraryProps {
   onGlobalFolderUpdate: (id: string, name: string) => void;
   onGlobalFolderDelete: (id: string) => void;
   onAssignRecipeToGlobalFolder: (recipeId: string, folderId: string | null) => void;
+  onAiRecipeGenerated: (recipe: Omit<Recipe, 'id'>) => void;
   isMobile?: boolean;
   initialViewMode?: 'grid' | 'list';
 }
@@ -397,6 +399,7 @@ export function RecipeLibrary({
   onGlobalFolderUpdate,
   onGlobalFolderDelete,
   onAssignRecipeToGlobalFolder,
+  onAiRecipeGenerated,
   isMobile = false,
   initialViewMode = 'grid',
 }: RecipeLibraryProps) {
@@ -411,6 +414,8 @@ export function RecipeLibrary({
   const [filterQuery, setFilterQuery] = useState('');
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(initialViewMode);
+
+  const [isAiDialogOpen, setIsAiDialogOpen] = useState(false);
 
 
   const recipesInSelectedFolder = useMemo(() => {
@@ -515,10 +520,16 @@ export function RecipeLibrary({
             )}
              <div className="flex items-center gap-2">
                 {activeTab === 'user-recipes' && !isMobile && (
-                  <Button onClick={() => onRecipeAction('create')}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Nueva Receta
-                  </Button>
+                  <>
+                    <Button variant="outline" onClick={() => setIsAiDialogOpen(true)}>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Generar con IA
+                    </Button>
+                    <Button onClick={() => onRecipeAction('create')}>
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Nueva Receta
+                    </Button>
+                  </>
                 )}
               </div>
           </div>
@@ -612,6 +623,11 @@ export function RecipeLibrary({
           </Tabs>
         </CardContent>
       </Card>
+      <AiRecipeGeneratorDialog
+        isOpen={isAiDialogOpen}
+        onClose={() => setIsAiDialogOpen(false)}
+        onRecipeGenerated={onAiRecipeGenerated}
+      />
     </>
   );
 }

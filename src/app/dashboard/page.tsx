@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { Recipe, DialogState, ActiveDropTarget } from '@/lib/types';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
@@ -25,15 +25,25 @@ import {
 import { useRecipeState } from '@/hooks/use-recipe-state';
 import { useWeekPlanState } from '@/hooks/use-week-plan-state';
 import { useUserProfileState } from '@/hooks/use-user-profile-state';
+import { useUser } from '@/firebase';
 
 
-export default function Dashboard() {
+export default function DashboardPage() {
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user, loading: userLoading } = useUser();
   
   const isGuestMode = searchParams.get('guest') === 'true';
   
+  useEffect(() => {
+    // This effect runs only on the client after hydration
+    if (!userLoading && !user && !isGuestMode) {
+      router.replace('/');
+    }
+  }, [userLoading, user, isGuestMode, router]);
+
+
   // --- Decomposed State Hooks ---
   const recipeState = useRecipeState({ isGuestMode });
   const weekPlanState = useWeekPlanState({ isGuestMode });
@@ -170,49 +180,56 @@ export default function Dashboard() {
     setActivePanel(isOpen ? panel : null);
   }
 
+  const handleAiRecipeGenerated = (recipe: Omit<Recipe, 'id'>) => {
+    setDialogState({
+      open: true,
+      mode: 'create',
+      recipe: recipe as Recipe, // Treat it as a full recipe for pre-filling
+    });
+  };
+
   const doNothing = () => {};
 
   return (
-    <>
-      <main className="flex-1 p-4 sm:p-6 lg:p-8">
-        <div className="max-w-screen-2xl mx-auto flex flex-col gap-6">
-          <div className="w-full">
-            <MealPlanner
-              weekPlan={currentWeekPlan}
-              dailyTotals={dailyTotals}
-              activeGoal={activeGoalMacros}
-              onDrop={handleDrop}
-              onClearMeal={handleClearMeal}
-              onRecipeClick={(recipe) => handleRecipeAction('view', recipe)}
-              onRemoveRecipeFromMeal={handleRemoveRecipeFromMeal}
-              onUpdateMealTitle={isGuestMode ? doNothing : handleUpdateMealTitle}
-              onAddMeal={isGuestMode ? doNothing : handleAddMeal}
-              onDeleteMeal={isGuestMode ? doNothing : handleDeleteMeal}
-              activeDropTarget={activeDropTarget}
-              onSetDropTarget={setActiveDropTarget}
-            />
-          </div>
-          <div className="grid grid-cols-1 gap-6">
-            <RecipeLibrary 
-              userRecipes={currentUserRecipes}
-              nutriplannerRecipes={nutriplannerRecipes}
-              folders={currentFolders}
-              globalFolders={[]} // This should be populated if admin features are built out
-              onRecipeAction={handleRecipeAction}
-              onCopyRecipe={handleCopyRecipe}
-              onAddToPlan={handleAddToPlan}
-              onFolderCreate={isGuestMode ? doNothing : handleFolderCreate}
-              onFolderUpdate={isGuestMode ? doNothing : handleFolderUpdate}
-              onFolderDelete={isGuestMode ? doNothing : handleFolderDelete}
-              onAssignRecipeToFolder={isGuestMode ? doNothing : handleAssignRecipeToFolder}
-              onGlobalFolderCreate={doNothing}
-              onGlobalFolderUpdate={doNothing}
-              onGlobalFolderDelete={doNothing}
-              onAssignRecipeToGlobalFolder={doNothing}
-            />
-          </div>
+    <div className="flex-1 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-screen-2xl mx-auto flex flex-col gap-6">
+        <div className="w-full">
+          <MealPlanner
+            weekPlan={currentWeekPlan}
+            dailyTotals={dailyTotals}
+            activeGoal={activeGoalMacros}
+            onDrop={handleDrop}
+            onClearMeal={handleClearMeal}
+            onRecipeClick={(recipe) => handleRecipeAction('view', recipe)}
+            onRemoveRecipeFromMeal={handleRemoveRecipeFromMeal}
+            onUpdateMealTitle={isGuestMode ? doNothing : handleUpdateMealTitle}
+            onAddMeal={isGuestMode ? doNothing : handleAddMeal}
+            onDeleteMeal={isGuestMode ? doNothing : handleDeleteMeal}
+            activeDropTarget={activeDropTarget}
+            onSetDropTarget={setActiveDropTarget}
+          />
         </div>
-      </main>
+        <div className="grid grid-cols-1 gap-6">
+          <RecipeLibrary 
+            userRecipes={currentUserRecipes}
+            nutriplannerRecipes={nutriplannerRecipes}
+            folders={currentFolders}
+            globalFolders={[]} // This should be populated if admin features are built out
+            onRecipeAction={handleRecipeAction}
+            onCopyRecipe={handleCopyRecipe}
+            onAddToPlan={handleAddToPlan}
+            onFolderCreate={isGuestMode ? doNothing : handleFolderCreate}
+            onFolderUpdate={isGuestMode ? doNothing : handleFolderUpdate}
+            onFolderDelete={isGuestMode ? doNothing : handleFolderDelete}
+            onAssignRecipeToFolder={isGuestMode ? doNothing : handleAssignRecipeToFolder}
+            onGlobalFolderCreate={doNothing}
+            onGlobalFolderUpdate={doNothing}
+            onGlobalFolderDelete={doNothing}
+            onAssignRecipeToGlobalFolder={doNothing}
+            onAiRecipeGenerated={handleAiRecipeGenerated}
+          />
+        </div>
+      </div>
       <RecipeDialog
         dialogState={dialogState}
         isSaving={isSaving}
@@ -250,24 +267,22 @@ export default function Dashboard() {
         onOpenChange={(isOpen) => handlePanelChange('sticky-note', isOpen)}
       />
 
-       <AlertDialog open={isGuestPromptOpen} onOpenChange={setIsGuestPromptOpen}>
-        <AlertDialogContent className="bg-glass">
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Quieres guardar tus cambios?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Estás en modo invitado. Para guardar tus recetas y planes de comidas, necesitas iniciar sesión.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setIsGuestPromptOpen(false)}>Seguir como invitado</AlertDialogCancel>
-            <AlertDialogAction onClick={handleExitGuest}>
-              Ir a la página de registro
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+      <AlertDialog open={isGuestPromptOpen} onOpenChange={setIsGuestPromptOpen}>
+      <AlertDialogContent className="bg-glass">
+        <AlertDialogHeader>
+          <AlertDialogTitle>¿Quieres guardar tus cambios?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Estás en modo invitado. Para guardar tus recetas y planes de comidas, necesitas iniciar sesión.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setIsGuestPromptOpen(false)}>Seguir como invitado</AlertDialogCancel>
+          <AlertDialogAction onClick={handleExitGuest}>
+            Ir a la página de registro
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </div>
   );
 }
-
-    

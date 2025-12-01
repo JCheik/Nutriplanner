@@ -62,7 +62,7 @@ const MacroDisplay = ({ label, value, unit, icon: Icon }: { label: string, value
 );
 
 function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitiallyGlobal = false, isSaving, onSave, onCancel, onDelete }: { recipe?: Recipe, folders: Folder[], globalFolders: GlobalFolder[], isInitiallyGlobal?: boolean, isSaving: boolean, onSave: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void, onCancel: () => void, onDelete: (id: string, isGlobal: boolean) => void }) {
-  const isEditing = !!initialRecipe;
+  const isEditing = !!initialRecipe && !!initialRecipe.id;
   const { user, isAdmin } = useUser();
   const firestore = useFirestore();
 
@@ -95,12 +95,11 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
 
   useEffect(() => {
     if (initialRecipe) {
-        setName(initialRecipe.name);
+        setName(initialRecipe.name || '');
         setDescription(initialRecipe.description || '');
         setInstructions(initialRecipe.instructions || '');
-        // When editing, ensure ingredients are in the clean format.
-        setIngredients(initialRecipe.ingredients.map(ing => ({
-            id: ing.id,
+        setIngredients(initialRecipe.ingredients?.map(ing => ({
+            id: ing.id || self.crypto.randomUUID(),
             name: ing.name,
             quantity: ing.quantity,
             unit: ing.unit,
@@ -143,6 +142,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
       instructions,
       ingredients, // Already in clean format { id, name, quantity, unit }
       folderId: folderId === 'none' ? null : folderId,
+      imageHint: initialRecipe?.imageHint, // Preserve AI hint
       ...calculatedTotals
     };
 
@@ -157,9 +157,8 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
   const addIngredient = () => {
     if (!selectedIngredient) return;
 
-    // Only store reference data, not the macros
     const newIng: Ingredient = {
-      id: self.crypto.randomUUID(), // Unique instance ID for this ingredient in this recipe
+      id: self.crypto.randomUUID(),
       name: selectedIngredient.name,
       quantity: Number(newIngredientQty) || 100,
       unit: 'g',
@@ -177,10 +176,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
   const handleNewIngredientSave = (newIngredientData: Omit<BaseIngredient, 'id'> & { createdBy: string }) => {
     if (!ingredientsCollectionRef) return;
     
-    // Optimistically add to UI while it saves in the background
     addDocumentNonBlocking(ingredientsCollectionRef, newIngredientData).then(docRef => {
-        // After saving, you could update the ingredientDB or re-fetch,
-        // but for now, optimistic update is enough.
         if (docRef) {
           const newOptimisticIngredient: BaseIngredient = { ...newIngredientData, id: docRef.id };
           setSelectedIngredient(newOptimisticIngredient);
@@ -536,6 +532,8 @@ export function RecipeDialog({ dialogState, isSaving = false, folders, globalFol
   if (!dialogState.open) return null;
 
   const isViewMode = dialogState.mode === 'view';
+  // A special case for AI-generated recipes which are technically "create" mode but come with pre-filled data.
+  const isCreateWithData = dialogState.mode === 'create' && dialogState.recipe;
   const isNutriPlannerRecipe = isViewMode && dialogState.isNutriPlannerRecipe;
 
   const handleEdit = (recipe: Recipe) => {
@@ -563,7 +561,7 @@ export function RecipeDialog({ dialogState, isSaving = false, folders, globalFol
           />
         ) : (
           <RecipeForm
-            recipe={dialogState.mode === 'edit' ? dialogState.recipe : undefined}
+            recipe={dialogState.mode === 'edit' || isCreateWithData ? dialogState.recipe : undefined}
             folders={folders || []}
             globalFolders={globalFolders || []}
             isInitiallyGlobal={dialogState.mode === 'edit' ? dialogState.isNutriPlannerRecipe : false}
@@ -577,5 +575,3 @@ export function RecipeDialog({ dialogState, isSaving = false, folders, globalFol
     </Dialog>
   );
 }
-
-    

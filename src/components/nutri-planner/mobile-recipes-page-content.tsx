@@ -14,6 +14,7 @@ type PlannerState = ReturnType<typeof useRecipeState>;
 
 interface MobileRecipesPageContentProps extends PlannerState {
     isGuestMode: boolean;
+    onAiRecipeGenerated: (recipe: Omit<Recipe, 'id'>) => void;
 }
 
 export function MobileRecipesPageContent({
@@ -28,7 +29,8 @@ export function MobileRecipesPageContent({
     handleFolderCreate,
     handleFolderUpdate,
     handleFolderDelete,
-    handleAssignRecipeToFolder
+    handleAssignRecipeToFolder,
+    onAiRecipeGenerated,
 }: MobileRecipesPageContentProps) {
     const router = useRouter();
     const { toast } = useToast();
@@ -94,6 +96,7 @@ export function MobileRecipesPageContent({
                     onGlobalFolderUpdate={() => {}}
                     onGlobalFolderDelete={() => {}}
                     onAssignRecipeToGlobalFolder={() => {}}
+                    onAiRecipeGenerated={onAiRecipeGenerated}
                     isMobile={true}
                     initialViewMode="grid"
                 />
