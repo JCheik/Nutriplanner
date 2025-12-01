@@ -1,6 +1,7 @@
 /**
- * @fileoverview Este archivo inicializa la configuración de Genkit
- * con el plugin de Google AI y exporta el objeto 'ai' configurado.
+ * @fileoverview This file initializes the Genkit AI singleton and configures it with the Google AI plugin.
+ *
+ * It exports a configured `ai` object.
  */
 
 import {genkit} from 'genkit';
@@ -9,7 +10,7 @@ import {googleAI} from '@genkit-ai/google-genai';
 export const ai = genkit({
   plugins: [
     googleAI({
-      apiVersion: 'v1beta',
+      apiVersion: 'v1',
     }),
   ],
   logLevel: 'debug',

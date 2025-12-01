@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A flow for generating recipes using AI.
@@ -9,7 +10,6 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import type { Ingredient } from '@/lib/types';
 
 const RecipeGenerationInputSchema = z.object({
   prompt: z.string().describe('The user\'s request for a recipe (e.g., "a high-protein vegan breakfast").'),
@@ -38,43 +38,43 @@ export type RecipeGenerationOutput = z.infer<typeof RecipeGenerationOutputSchema
 
 // This is the function that will be called from the client
 export async function generateRecipe(input: RecipeGenerationInput): Promise<RecipeGenerationOutput> {
-  // Directly call the flow function with the prompt text
-  return await recipeGeneratorFlow(input.prompt);
+  // Directly call the flow function with the input object
+  return await recipeGeneratorFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'recipeGeneratorPrompt',
-  input: {schema: z.string()},
-  output: {schema: RecipeGenerationOutputSchema},
-  model: 'googleai/gemini-1.5-flash',
-  prompt: `You are an expert chef and nutritionist. Your task is to generate a recipe based on a user's request.
-
-  User request: {{{prompt}}}
-
-  Generate a complete recipe that includes:
-  1.  A creative and fitting name for the dish.
-  2.  A short, enticing description.
-  3.  A list of ingredients with quantities and units (e.g., grams, ml, cups).
-  4.  Clear, step-by-step instructions.
-  5.  An estimated nutritional breakdown for the total recipe (calories, protein, carbs, fat).
-  6.  A simple two or three-word hint for an AI image generator.
-
-  Ensure the output is in the specified JSON format. Be realistic with nutritional estimates.`,
-});
 
 const recipeGeneratorFlow = ai.defineFlow(
   {
     name: 'recipeGeneratorFlow',
-    inputSchema: z.string(),
+    inputSchema: RecipeGenerationInputSchema,
     outputSchema: RecipeGenerationOutputSchema,
   },
-  async promptText => {
-    const {output} = await prompt(promptText);
+  async ({ prompt }) => {
+    
+    const llmResponse = await ai.generate({
+        model: 'googleai/gemini-1.5-flash',
+        prompt: `You are an expert chef and nutritionist. Your task is to generate a recipe based on a user's request.
+
+        User request: ${prompt}
+
+        Generate a complete recipe that includes:
+        1.  A creative and fitting name for the dish.
+        2.  A short, enticing description.
+        3.  A list of ingredients with quantities and units (e.g., grams, ml, cups).
+        4.  Clear, step-by-step instructions.
+        5.  An estimated nutritional breakdown for the total recipe (calories, protein, carbs, fat).
+        6.  A simple two or three-word hint for an AI image generator.
+
+        Ensure the output is in the specified JSON format. Be realistic with nutritional estimates.`,
+        output: {
+            schema: RecipeGenerationOutputSchema,
+        },
+    });
+    
+    const output = llmResponse.output();
     if (!output) {
       throw new Error('Failed to generate recipe from prompt');
     }
-    // The output from the prompt is already in the correct format as defined by RecipeGenerationOutputSchema
-    // The transformation to add a client-side ID is better handled on the client when the recipe is being used.
     return output;
   }
 );
