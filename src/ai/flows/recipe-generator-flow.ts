@@ -38,9 +38,8 @@ export type RecipeGenerationOutput = z.infer<typeof RecipeGenerationOutputSchema
 
 // This is the function that will be called from the client
 export async function generateRecipe(input: RecipeGenerationInput): Promise<RecipeGenerationOutput> {
-  const recipeGenFlow = ai.getFlow('recipeGeneratorFlow');
-  const response = await recipeGenFlow.run(input.prompt);
-  return response.output!;
+  // Directly call the flow function with the prompt text
+  return await recipeGeneratorFlow(input.prompt);
 }
 
 const prompt = ai.definePrompt({
@@ -73,15 +72,8 @@ const recipeGeneratorFlow = ai.defineFlow(
     if (!output) {
       throw new Error('Failed to generate recipe from prompt');
     }
-    // Transform ingredients to match the application's Ingredient type
-    const transformedIngredients = output.ingredients.map(ing => ({
-      ...ing,
-      id: self.crypto.randomUUID(), // Add the required 'id' field
-    }));
-
-    return {
-      ...output,
-      ingredients: transformedIngredients,
-    };
+    // The output from the prompt is already in the correct format as defined by RecipeGenerationOutputSchema
+    // The transformation to add a client-side ID is better handled on the client when the recipe is being used.
+    return output;
   }
 );
