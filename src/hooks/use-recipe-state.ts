@@ -13,16 +13,12 @@ import { saveRecipe as saveRecipeAction } from '@/lib/actions';
 import { NUTRIPLANNER_RECIPES_DATA } from '@/lib/data';
 import type { Recipe, Folder } from '@/lib/types';
 
-interface UseRecipeStateProps {
-  isGuestMode?: boolean;
-}
 
-export function useRecipeState({ isGuestMode = false }: UseRecipeStateProps = {}) {
+export function useRecipeState() {
   const { toast } = useToast();
   const { user } = useUser();
   const firestore = useFirestore();
 
-  const [guestRecipes, setGuestRecipes] = useState<Recipe[]>(NUTRIPLANNER_RECIPES_DATA);
   const [isSaving, setIsSaving] = useState(false);
 
   // --- Firestore Data ---
@@ -33,21 +29,11 @@ export function useRecipeState({ isGuestMode = false }: UseRecipeStateProps = {}
   const { data: folders } = useCollection<Folder>(foldersCollectionRef);
 
   // --- Memoized Data Sources ---
-  const currentUserRecipes = useMemo(() => isGuestMode ? guestRecipes : (userRecipes || []), [isGuestMode, guestRecipes, userRecipes]);
-  const currentFolders = useMemo(() => isGuestMode ? [] : (folders || []), [isGuestMode, folders]);
+  const currentUserRecipes = useMemo(() => userRecipes || [], [userRecipes]);
+  const currentFolders = useMemo(() => folders || [], [folders]);
   
   // --- Handlers ---
   const handleSaveRecipe = async (recipeData: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
-    if (isGuestMode) {
-      const newRecipe = { ...recipeData, id: existingId || self.crypto.randomUUID() } as Recipe;
-      if (existingId) {
-        setGuestRecipes(guestRecipes.map(r => r.id === existingId ? newRecipe : r));
-      } else {
-        setGuestRecipes([...guestRecipes, newRecipe]);
-      }
-      toast({ title: '¡Receta guardada (invitado)!', description: `${newRecipe.name} se ha guardado en esta sesión.` });
-      return;
-    }
     if (!user) return;
 
     setIsSaving(true);
@@ -66,31 +52,16 @@ export function useRecipeState({ isGuestMode = false }: UseRecipeStateProps = {}
   };
 
   const handleDeleteRecipe = useCallback(async (recipeId: string, isGlobal: boolean) => {
-    if (isGuestMode) {
-      setGuestRecipes(recipes => recipes.filter(r => r.id !== recipeId));
-      toast({ title: 'Receta eliminada (invitado)' });
-      return;
-    }
-
     if (!user || !firestore || !userRecipesCollectionRef) return;
     
-    // Non-blocking delete for UI responsiveness
     deleteDocumentNonBlocking(doc(userRecipesCollectionRef, recipeId));
 
-    // We still need to find a good way to clean up recipes from weekPlan without coupling hooks.
-    // For now, this action is isolated to just deleting the recipe document.
-    // A more advanced system might use a pub/sub model or a batch update in a server function.
     toast({ title: 'Receta eliminada', description: 'La receta se ha eliminado de tu librería.' });
 
-  }, [user, firestore, userRecipesCollectionRef, toast, isGuestMode]);
+  }, [user, firestore, userRecipesCollectionRef, toast]);
 
 
   const handleCopyRecipe = useCallback((recipe: Recipe) => {
-    if (isGuestMode) {
-      setGuestRecipes(prev => [...prev, { ...recipe, id: self.crypto.randomUUID() }]);
-      toast({ title: '¡Receta Copiada (invitado)!', description: `${recipe.name} ha sido añadida a "Mis Recetas" para esta sesión.` });
-      return;
-    }
     if (!user || !userRecipesCollectionRef) return;
     
     const { id, folderId, ...recipeData } = recipe; // Exclude original ID and folder
@@ -98,17 +69,17 @@ export function useRecipeState({ isGuestMode = false }: UseRecipeStateProps = {}
     addDocumentNonBlocking(userRecipesCollectionRef, { ...recipeData, id: newRecipeRef.id, folderId: null });
 
     toast({ title: '¡Receta Copiada!', description: `${recipe.name} ha sido añadida a "Mis Recetas".` });
-  }, [user, userRecipesCollectionRef, toast, isGuestMode]);
+  }, [user, userRecipesCollectionRef, toast]);
 
 
   const handleFolderCreate = useCallback((name: string) => {
-    if (isGuestMode || !user || !foldersCollectionRef) return;
+    if (!user || !foldersCollectionRef) return;
     addDocumentNonBlocking(foldersCollectionRef, { name, userId: user.uid });
     toast({ title: 'Carpeta creada', description: `La carpeta "${name}" ha sido creada.` });
-  }, [user, foldersCollectionRef, isGuestMode, toast]);
+  }, [user, foldersCollectionRef, toast]);
 
   const handleFolderDelete = useCallback(async (id: string) => {
-    if (isGuestMode || !user || !firestore) return;
+    if (!user || !firestore) return;
     
     deleteDocumentNonBlocking(doc(firestore, 'users', user.uid, 'folders', id));
 
@@ -119,18 +90,18 @@ export function useRecipeState({ isGuestMode = false }: UseRecipeStateProps = {}
     
     await batch.commit();
     toast({ title: 'Carpeta eliminada' });
-  }, [user, firestore, userRecipes, isGuestMode, toast]);
+  }, [user, firestore, userRecipes, toast]);
   
   const handleFolderUpdate = useCallback((id: string, name: string) => {
-    if (isGuestMode || !user || !firestore) return;
+    if (!user || !firestore) return;
     updateDocumentNonBlocking(doc(firestore, 'users', user.uid, 'folders', id), { name });
-  }, [user, firestore, isGuestMode]);
+  }, [user, firestore]);
 
   const handleAssignRecipeToFolder = useCallback((recipeId: string, folderId: string | null) => {
-    if (isGuestMode || !user || !firestore) return;
+    if (!user || !firestore) return;
     updateDocumentNonBlocking(doc(firestore, 'users', user.uid, 'recipes', recipeId), { folderId });
     toast({ title: 'Receta movida' });
-  }, [user, firestore, isGuestMode, toast]);
+  }, [user, firestore, toast]);
 
   return {
     isSaving,

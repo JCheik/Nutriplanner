@@ -1,7 +1,6 @@
 'use client';
 
 import { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { useRecipeState } from '@/hooks/use-recipe-state';
 import { useWeekPlanState } from '@/hooks/use-week-plan-state';
 import { MobilePageContent } from '@/components/nutri-planner/mobile-page-content';
@@ -17,18 +16,15 @@ const MobilePageLoader = () => (
 );
 
 function MobilePageWrapper() {
-    const searchParams = useSearchParams();
-    const isGuestMode = searchParams.get('guest') === 'true';
-
-    const recipeState = useRecipeState({ isGuestMode });
-    const weekPlanState = useWeekPlanState({ isGuestMode });
+    const recipeState = useRecipeState();
+    const weekPlanState = useWeekPlanState();
     
     const combinedState = {
         ...recipeState,
         ...weekPlanState,
     };
 
-    return <MobilePageContent {...combinedState} isGuestMode={isGuestMode} />;
+    return <MobilePageContent {...combinedState} />;
 }
 
 export default function MobilePage() {

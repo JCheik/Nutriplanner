@@ -13,7 +13,6 @@ import { useWeekPlanState } from '@/hooks/use-week-plan-state';
 type PlannerState = ReturnType<typeof useRecipeState>;
 
 interface MobileRecipesPageContentProps extends PlannerState {
-    isGuestMode: boolean;
     onAiRecipeGenerated: (recipe: Omit<Recipe, 'id'>) => void;
     onAiChatOpen: () => void;
 }
@@ -22,7 +21,6 @@ export function MobileRecipesPageContent({
     currentUserRecipes,
     nutriplannerRecipes,
     currentFolders,
-    isGuestMode,
     isSaving,
     handleCopyRecipe,
     handleSaveRecipe,
@@ -36,19 +34,11 @@ export function MobileRecipesPageContent({
 }: MobileRecipesPageContentProps) {
     const router = useRouter();
     const { toast } = useToast();
-    const { currentWeekPlan, handleRemoveRecipeFromMeal } = useWeekPlanState({ isGuestMode });
+    const { currentWeekPlan, handleRemoveRecipeFromMeal } = useWeekPlanState();
 
     const [dialogState, setDialogState] = useState<DialogState>({ open: false });
 
     const handleRecipeAction = (action: 'view' | 'create' | 'edit', recipe?: Recipe, isNutriPlannerRecipe: boolean = false) => {
-        if (isGuestMode && action !== 'view') {
-            toast({
-                variant: 'destructive',
-                title: 'Función no disponible',
-                description: 'Inicia sesión para crear o editar recetas.',
-            });
-            return;
-        }
         setDialogState({ open: true, mode: action, recipe, isNutriPlannerRecipe });
     };
 
@@ -75,7 +65,7 @@ export function MobileRecipesPageContent({
     };
     
     const handleAddToPlan = () => {
-        router.push(isGuestMode ? '/mobile?guest=true' : '/mobile');
+        router.push('/mobile');
         toast({ title: 'Selecciona un destino', description: 'Toca una casilla de comida en el planificador para añadir la receta.' });
     };
 

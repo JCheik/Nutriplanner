@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useUser } from '@/firebase';
 import { Logo } from '@/components/icons/logo';
 import { PageHeader } from '@/components/layout/page-header';
@@ -17,38 +17,29 @@ const DashboardLoader = () => (
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { user, loading: userLoading } = useUser();
-  const isGuestMode = searchParams.get('guest') === 'true';
 
   useEffect(() => {
-    if (!userLoading && !user && !isGuestMode) {
+    if (!userLoading && !user) {
       router.replace('/');
     }
-  }, [userLoading, user, isGuestMode, router]);
+  }, [userLoading, user, router]);
 
-  if (userLoading || (!user && !isGuestMode)) {
+  if (userLoading || !user) {
     return <DashboardLoader />;
   }
 
   return <>{children}</>;
 }
 
-
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const searchParams = useSearchParams();
-  const isGuestMode = searchParams.get('guest') === 'true';
-
   return (
     <div className="flex flex-col min-h-screen text-foreground">
-        <PageHeader isGuest={isGuestMode} onRegisterClick={() => {
-            const router = useRouter();
-            router.push('/');
-        }} />
+        <PageHeader />
         <Suspense fallback={<DashboardLoader />}>
             <AuthGuard>
                 {children}

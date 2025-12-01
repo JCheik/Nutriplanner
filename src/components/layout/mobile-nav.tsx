@@ -1,23 +1,19 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { Home, BookHeart, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from '@/hooks/use-media-query';
 
 export function MobileNav() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const isMobile = useMediaQuery("(max-width: 768px)");
-  
-  const isGuest = searchParams.get('guest') === 'true';
-  const guestQuery = isGuest ? '?guest=true' : '';
 
   const navItems = [
-    { href: `/mobile${guestQuery}`, label: 'Plan', icon: Home },
-    { href: `/mobile/recipes${guestQuery}`, label: 'Recetas', icon: BookHeart },
-    { href: `/mobile/shopping-list${guestQuery}`, label: 'Compra', icon: ShoppingCart },
+    { href: `/mobile`, label: 'Plan', icon: Home },
+    { href: `/mobile/recipes`, label: 'Recetas', icon: BookHeart },
+    { href: `/mobile/shopping-list`, label: 'Compra', icon: ShoppingCart },
   ];
 
   const isMobileRoute = pathname.startsWith('/mobile');
@@ -35,7 +31,7 @@ export function MobileNav() {
             href={item.href}
             className={cn(
               "inline-flex flex-col items-center justify-center px-5 hover:bg-muted group",
-              pathname === item.href.split('?')[0] ? "text-primary" : "text-muted-foreground"
+              pathname === item.href ? "text-primary" : "text-muted-foreground"
             )}
           >
             <item.icon className="w-5 h-5 mb-1" />

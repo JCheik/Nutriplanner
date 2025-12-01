@@ -17,12 +17,9 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 
 
-interface PageHeaderProps {
-  isGuest?: boolean;
-  onRegisterClick?: () => void;
-}
+interface PageHeaderProps {}
 
-export function PageHeader({ isGuest = false, onRegisterClick }: PageHeaderProps) {
+export function PageHeader({}: PageHeaderProps) {
   const { user, isAdmin, loading } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
@@ -43,14 +40,6 @@ export function PageHeader({ isGuest = false, onRegisterClick }: PageHeaderProps
   const renderUserAuth = () => {
     if (loading) {
       return <div className="h-10 w-24 rounded-md bg-muted animate-pulse" />;
-    }
-    if (isGuest) {
-      return (
-        <Button onClick={onRegisterClick}>
-          <UserPlus className="mr-2 h-4 w-4" />
-          Crear Cuenta para Guardar
-        </Button>
-      );
     }
     if (user) {
        return (

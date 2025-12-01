@@ -1,7 +1,6 @@
 'use client';
 
 import { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { useWeekPlanState } from '@/hooks/use-week-plan-state';
 import { useUserProfileState } from '@/hooks/use-user-profile-state';
 import { MobileShoppingListPageContent } from '@/components/nutri-planner/mobile-shopping-list-page-content';
@@ -17,11 +16,8 @@ const MobilePageLoader = () => (
 );
 
 function MobileShoppingListWrapper() {
-    const searchParams = useSearchParams();
-    const isGuestMode = searchParams.get('guest') === 'true';
-
-    const weekPlanState = useWeekPlanState({ isGuestMode });
-    const userProfileState = useUserProfileState({ isGuestMode });
+    const weekPlanState = useWeekPlanState();
+    const userProfileState = useUserProfileState();
     
     const combinedState = {
         ...weekPlanState,

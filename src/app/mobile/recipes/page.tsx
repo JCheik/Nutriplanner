@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useState, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useRecipeState } from '@/hooks/use-recipe-state';
 import { MobileRecipesPageContent } from '@/components/nutri-planner/mobile-recipes-page-content';
 import { Logo } from '@/components/icons/logo';
@@ -22,18 +22,16 @@ const MobilePageLoader = () => (
 );
 
 function MobileRecipesWrapper() {
-    const searchParams = useSearchParams();
     const router = useRouter();
     const { user, loading: userLoading } = useUser();
-    const isGuestMode = searchParams.get('guest') === 'true';
 
     useEffect(() => {
-        if (!userLoading && !user && !isGuestMode) {
+        if (!userLoading && !user) {
             router.replace('/');
         }
-    }, [userLoading, user, isGuestMode, router]);
+    }, [userLoading, user, router]);
 
-    const recipeState = useRecipeState({ isGuestMode });
+    const recipeState = useRecipeState();
 
     const [dialogState, setDialogState] = useState<DialogState>({ open: false });
     const [activePanel, setActivePanel] = useState<'ai-chat' | null>(null);
@@ -55,7 +53,7 @@ function MobileRecipesWrapper() {
         if (panel === 'ai-chat') {
             setActivePanel(activePanel === 'ai-chat' ? null : 'ai-chat');
         } else if (panel === 'shopping-list') {
-            router.push(isGuestMode ? '/mobile/shopping-list?guest=true' : '/mobile/shopping-list');
+            router.push('/mobile/shopping-list');
         }
     }
   
@@ -71,7 +69,6 @@ function MobileRecipesWrapper() {
         <>
             <MobileRecipesPageContent
                 {...recipeState}
-                isGuestMode={isGuestMode}
                 onAiRecipeGenerated={handleAiRecipeGenerated}
                 onAiChatOpen={() => handlePanelOpen('ai-chat')}
             />

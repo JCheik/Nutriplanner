@@ -40,16 +40,9 @@ const removeRecipeFromMeal = (plan: WeekPlan, day: string, mealId: string, recip
   );
 };
 
-interface UseWeekPlanStateProps {
-  isGuestMode?: boolean;
-}
-
-export function useWeekPlanState({ isGuestMode = false }: UseWeekPlanStateProps = {}) {
+export function useWeekPlanState() {
   const { user } = useUser();
   const { firestore } = useFirebase();
-
-  // --- Guest State ---
-  const [guestWeekPlan, setGuestWeekPlan] = useState<WeekPlan>(INITIAL_WEEK_PLAN);
 
   // --- Firestore Data ---
   const weekPlanCollectionRef = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'users', user.uid, 'weekPlan') : null, [firestore, user]);
@@ -57,7 +50,6 @@ export function useWeekPlanState({ isGuestMode = false }: UseWeekPlanStateProps 
   
   // --- Memoized Data Source ---
   const currentWeekPlan = useMemo(() => {
-    if (isGuestMode) return guestWeekPlan;
     if (weekPlanData === null) return INITIAL_WEEK_PLAN; // Return initial plan while loading or if no data
     
     const planMap = new Map(weekPlanData.map(day => [day.day, day]));
@@ -71,14 +63,14 @@ export function useWeekPlanState({ isGuestMode = false }: UseWeekPlanStateProps 
       }
       return initialDay;
     });
-  }, [isGuestMode, guestWeekPlan, weekPlanData]);
+  }, [weekPlanData]);
 
   // --- Helper for Firestore Day Updates ---
   const updateDayPlanInFirestore = useCallback((day: string, updatedDayData: DayPlan) => {
-    if (isGuestMode || !user || !firestore) return;
+    if (!user || !firestore) return;
     const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
     setDocumentNonBlocking(dayDocRef, updatedDayData, { merge: true });
-  }, [isGuestMode, user, firestore]);
+  }, [user, firestore]);
 
   // --- Handlers ---
   const handleDrop = useCallback((day: string, mealId: string, droppedRecipe: Recipe) => {
@@ -86,44 +78,38 @@ export function useWeekPlanState({ isGuestMode = false }: UseWeekPlanStateProps 
     const updatedPlan = addRecipeToMeal(planToUpdate, day, mealId, droppedRecipe);
     const updatedDay = updatedPlan.find(d => d.day === day);
 
-    if (isGuestMode) {
-      setGuestWeekPlan(updatedPlan);
-    } else if (updatedDay) {
+    if (updatedDay) {
       updateDayPlanInFirestore(day, updatedDay);
     }
-  }, [isGuestMode, currentWeekPlan, updateDayPlanInFirestore]);
+  }, [currentWeekPlan, updateDayPlanInFirestore]);
   
   const handleClearMeal = useCallback((day: string, mealId: string) => {
     const updatedPlan = clearMealRecipes(currentWeekPlan, day, mealId);
     const updatedDay = updatedPlan.find(d => d.day === day);
-    if (isGuestMode) {
-      setGuestWeekPlan(updatedPlan);
-    } else if (updatedDay) {
+    if (updatedDay) {
       updateDayPlanInFirestore(day, updatedDay);
     }
-  }, [isGuestMode, currentWeekPlan, updateDayPlanInFirestore]);
+  }, [currentWeekPlan, updateDayPlanInFirestore]);
   
   const handleRemoveRecipeFromMeal = useCallback((day: string, mealId: string, recipeInstanceId: string) => {
     const updatedPlan = removeRecipeFromMeal(currentWeekPlan, day, mealId, recipeInstanceId);
     const updatedDay = updatedPlan.find(d => d.day === day);
-    if (isGuestMode) {
-      setGuestWeekPlan(updatedPlan);
-    } else if (updatedDay) {
+    if (updatedDay) {
       updateDayPlanInFirestore(day, updatedDay);
     }
-  }, [isGuestMode, currentWeekPlan, updateDayPlanInFirestore]);
+  }, [currentWeekPlan, updateDayPlanInFirestore]);
 
   const handleUpdateMealTitle = useCallback((day: string, mealId: string, newTitle: string) => {
-    if (isGuestMode || !user || !firestore) return;
+    if (!user || !firestore) return;
     const targetDay = currentWeekPlan.find(d => d.day === day);
     if (targetDay) {
       const updatedMeals = targetDay.meals.map(meal => meal.id === mealId ? { ...meal, title: newTitle } : meal);
       updateDayPlanInFirestore(day, { ...targetDay, meals: updatedMeals });
     }
-  }, [user, firestore, currentWeekPlan, isGuestMode, updateDayPlanInFirestore]);
+  }, [user, firestore, currentWeekPlan, updateDayPlanInFirestore]);
 
   const handleAddMeal = useCallback((day: string, index: number) => {
-    if (isGuestMode || !user || !firestore) return;
+    if (!user || !firestore) return;
     const targetDay = currentWeekPlan.find(d => d.day === day);
     if (targetDay) {
       const newMeal: Meal = { id: `meal-${self.crypto.randomUUID()}`, title: 'Nueva Comida', recipes: [] };
@@ -131,16 +117,16 @@ export function useWeekPlanState({ isGuestMode = false }: UseWeekPlanStateProps 
       updatedMeals.splice(index, 0, newMeal);
       updateDayPlanInFirestore(day, { ...targetDay, meals: updatedMeals });
     }
-  }, [user, firestore, currentWeekPlan, isGuestMode, updateDayPlanInFirestore]);
+  }, [user, firestore, currentWeekPlan, updateDayPlanInFirestore]);
 
   const handleDeleteMeal = useCallback((day: string, mealId: string) => {
-    if (isGuestMode || !user || !firestore) return;
+    if (!user || !firestore) return;
     const targetDay = currentWeekPlan.find(d => d.day === day);
     if (targetDay) {
       const updatedMeals = targetDay.meals.filter(meal => meal.id !== mealId);
       updateDayPlanInFirestore(day, { ...targetDay, meals: updatedMeals });
     }
-  }, [user, firestore, currentWeekPlan, isGuestMode, updateDayPlanInFirestore]);
+  }, [user, firestore, currentWeekPlan, updateDayPlanInFirestore]);
 
   return {
     currentWeekPlan,

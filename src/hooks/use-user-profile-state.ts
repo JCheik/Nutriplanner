@@ -6,18 +6,9 @@ import { doc } from 'firebase/firestore';
 import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import type { UserProfile, CalculationResult, GoalType, ShoppingListItem } from '@/lib/types';
 
-interface UseUserProfileStateProps {
-  isGuestMode?: boolean;
-}
-
-export function useUserProfileState({ isGuestMode = false }: UseUserProfileStateProps = {}) {
+export function useUserProfileState() {
   const { user } = useUser();
   const { firestore } = useFirebase();
-
-  // --- Guest State ---
-  const [guestStickyNote, setGuestStickyNote] = useState('¡Bienvenido a NutriPlanner! Usa esta nota para apuntar lo que quieras.');
-  const [guestCalorieResult, setGuestCalorieResult] = useState<CalculationResult | null>(null);
-  const [guestShoppingList, setGuestShoppingList] = useState<ShoppingListItem[]>([]);
 
   // --- Firestore Data ---
   const userProfileRef = useMemoFirebase(() => (user && firestore) ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
@@ -27,39 +18,35 @@ export function useUserProfileState({ isGuestMode = false }: UseUserProfileState
   const [activeGoal, setActiveGoal] = useState<GoalType>('maintenance');
 
   useEffect(() => {
-    if (!isGuestMode && userProfile?.activeGoalPreference) {
+    if (userProfile?.activeGoalPreference) {
       setActiveGoal(userProfile.activeGoalPreference);
     } else {
       setActiveGoal('maintenance');
     }
-  }, [userProfile, isGuestMode]);
+  }, [userProfile]);
 
   // --- Memoized Data Sources ---
-  const currentStickyNote = useMemo(() => isGuestMode ? guestStickyNote : (userProfile?.stickyNote || ''), [isGuestMode, guestStickyNote, userProfile]);
-  const currentCalorieResult = useMemo(() => isGuestMode ? guestCalorieResult : (userProfile?.calorieResult || null), [isGuestMode, guestCalorieResult, userProfile]);
+  const currentStickyNote = useMemo(() => userProfile?.stickyNote || '', [userProfile]);
+  const currentCalorieResult = useMemo(() => userProfile?.calorieResult || null, [userProfile]);
   const activeGoalMacros = useMemo(() => currentCalorieResult && activeGoal ? currentCalorieResult[activeGoal] : null, [currentCalorieResult, activeGoal]);
-  const currentShoppingList = useMemo(() => isGuestMode ? guestShoppingList : (userProfile?.shoppingList || []), [isGuestMode, guestShoppingList, userProfile]);
+  const currentShoppingList = useMemo(() => userProfile?.shoppingList || [], [userProfile]);
 
   // --- Handlers ---
   const handleNoteSave = useCallback((content: string) => {
-    if (isGuestMode) {
-      setGuestStickyNote(content);
-    } else if (userProfileRef) {
+    if (userProfileRef) {
       updateDocumentNonBlocking(userProfileRef, { stickyNote: content });
     }
-  }, [userProfileRef, isGuestMode]);
+  }, [userProfileRef]);
 
   const handleCalorieResultSave = useCallback((result: CalculationResult) => {
-    if (isGuestMode) {
-      setGuestCalorieResult(result);
-    } else if (userProfileRef) {
+    if (userProfileRef) {
       updateDocumentNonBlocking(userProfileRef, { calorieResult: result });
     }
-  }, [userProfileRef, isGuestMode]);
+  }, [userProfileRef]);
 
   const handleActiveGoalChange = (goal: GoalType) => {
     setActiveGoal(goal);
-    if (!isGuestMode && userProfileRef) {
+    if (userProfileRef) {
       updateDocumentNonBlocking(userProfileRef, { activeGoalPreference: goal });
     }
   };
@@ -76,12 +63,10 @@ export function useUserProfileState({ isGuestMode = false }: UseUserProfileState
   };
   
   const handleShoppingListUpdate = useCallback((list: ShoppingListItem[]) => {
-    if (isGuestMode) {
-      setGuestShoppingList(list);
-    } else if (userProfileRef) {
+    if (userProfileRef) {
       updateDocumentNonBlocking(userProfileRef, { shoppingList: list });
     }
-  }, [userProfileRef, isGuestMode]);
+  }, [userProfileRef]);
 
   return {
     currentStickyNote,

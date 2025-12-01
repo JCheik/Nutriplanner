@@ -5,7 +5,7 @@ import { useUser, signInWithGoogle } from '@/firebase/auth/use-user';
 import { useAuth, useFirestore } from '@/firebase/provider';
 import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useMediaQuery } from '@/hooks/use-media-query';
 
 function AuthContent() {
@@ -13,23 +13,19 @@ function AuthContent() {
   const auth = useAuth();
   const firestore = useFirestore();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const isMobile = useMediaQuery("(max-width: 768px)");
-  
-  const isGuestMode = searchParams.get('guest') === 'true';
 
   useEffect(() => {
     if (loading) return;
 
-    if (user || isGuestMode) {
-      const guestQuery = isGuestMode ? '?guest=true' : '';
+    if (user) {
       if (isMobile) {
-        router.replace(`/mobile${guestQuery}`);
+        router.replace(`/mobile`);
       } else {
-        router.replace(`/dashboard${guestQuery}`);
+        router.replace(`/dashboard`);
       }
     }
-  }, [user, isGuestMode, isMobile, loading, router]);
+  }, [user, isMobile, loading, router]);
 
 
   const handleSignIn = async () => {
@@ -38,11 +34,7 @@ function AuthContent() {
     }
   };
 
-  const handleGuestMode = () => {
-    router.push(isMobile ? '/mobile?guest=true' : '/dashboard?guest=true');
-  };
-
-  if (loading || user || isGuestMode) {
+  if (loading || user) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
@@ -53,7 +45,7 @@ function AuthContent() {
     );
   }
 
-  // If no user and not guest, show the login page
+  // If no user, show the login page
   return (
     <div className="flex items-center justify-center min-h-screen">
       <div className="mx-auto w-[350px] space-y-6 text-center">
@@ -76,14 +68,6 @@ function AuthContent() {
               <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 126 23.4 172.9 61.9l-76.2 64.5C308.6 106.5 280.4 96 248 96c-84.3 0-152.3 67.8-152.3 152s68 152 152.3 152c92.8 0 140.3-61.5 143.8-92.6H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
             </svg>
             Iniciar Sesión con Google
-          </Button>
-          <Button
-            onClick={handleGuestMode}
-            className="w-full h-11 text-base"
-            size="lg"
-            variant="secondary"
-          >
-            Continuar como Invitado
           </Button>
         </div>
       </div>

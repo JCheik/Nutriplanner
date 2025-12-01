@@ -16,15 +16,12 @@ import type { useWeekPlanState } from '@/hooks/use-week-plan-state';
 
 type CombinedState = ReturnType<typeof useRecipeState> & ReturnType<typeof useWeekPlanState>;
 
-interface MobilePageContentProps extends CombinedState {
-  isGuestMode: boolean;
-}
+interface MobilePageContentProps extends CombinedState {}
 
 export function MobilePageContent({
   currentUserRecipes,
   nutriplannerRecipes,
   currentWeekPlan,
-  isGuestMode,
   handleDrop,
   handleRemoveRecipeFromMeal
 }: MobilePageContentProps) {
