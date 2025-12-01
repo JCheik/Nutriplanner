@@ -53,23 +53,24 @@ const recipeGeneratorFlow = ai.defineFlow(
     
     const llmResponse = await ai.generate({
         model: 'googleai/gemini-1.0-pro',
-        prompt: `You are an expert chef and nutritionist. Your task is to generate a recipe based on a user's request.
+        prompt: `Eres un chef experto y nutricionista. Tu tarea es generar una receta basada en la petición de un usuario.
+        TODA la respuesta, incluyendo nombres, descripciones e instrucciones, DEBE estar en ESPAÑOL.
 
-        User request: ${prompt}
+        Petición del usuario: ${prompt}
 
-        You MUST respond with a valid JSON object that conforms to the following structure. Do not include any text, markdown, or formatting outside of the JSON object.
+        DEBES responder con un objeto JSON válido que se ajuste a la siguiente estructura. No incluyas ningún texto, markdown o formato fuera del objeto JSON.
         
-        The JSON structure required is:
+        La estructura JSON requerida es:
         {
-          "name": "string",
-          "description": "string",
-          "instructions": "string (with newlines for steps)",
-          "ingredients": [ { "name": "string", "quantity": number, "unit": "string" } ],
+          "name": "string (en español)",
+          "description": "string (en español)",
+          "instructions": "string (en español, con saltos de línea para los pasos)",
+          "ingredients": [ { "name": "string (en español)", "quantity": number, "unit": "string" } ],
           "calories": number,
           "protein": number,
           "carbs": number,
           "fat": number,
-          "imageHint": "string (two or three words)"
+          "imageHint": "string (dos o tres palabras clave en inglés para un generador de imágenes)"
         }`,
     });
     
