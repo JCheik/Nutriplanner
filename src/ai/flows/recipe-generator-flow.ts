@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview A flow for generating recipes using AI.
@@ -52,7 +51,7 @@ const recipeGeneratorFlow = ai.defineFlow(
   async ({ prompt }) => {
     
     const llmResponse = await ai.generate({
-        model: 'googleai/gemini-1.5-flash',
+        model: 'googleai/gemini-2.5-flash',
         prompt: `Eres un chef experto y nutricionista. Tu tarea es generar una receta basada en la petición de un usuario.
         TODA la respuesta, incluyendo nombres, descripciones e instrucciones, DEBE estar en ESPAÑOL.
 

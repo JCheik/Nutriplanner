@@ -39,7 +39,7 @@ export function useRecipeState({ isGuestMode = false }: UseRecipeStateProps = {}
   // --- Handlers ---
   const handleSaveRecipe = async (recipeData: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
     if (isGuestMode) {
-      const newRecipe = { ...recipeData, id: existingId || self.crypto.randomUUID() };
+      const newRecipe = { ...recipeData, id: existingId || self.crypto.randomUUID() } as Recipe;
       if (existingId) {
         setGuestRecipes(guestRecipes.map(r => r.id === existingId ? newRecipe : r));
       } else {

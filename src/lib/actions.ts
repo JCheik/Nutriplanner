@@ -2,7 +2,7 @@
 
 import { initializeFirebase } from '@/firebase/server-init';
 import type { Recipe } from '@/lib/types';
-import { doc, collection, setDoc, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, collection, setDoc, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { UserRecord } from 'firebase-admin/auth';
 
@@ -44,7 +44,7 @@ export async function saveRecipe(payload: SaveRecipePayload) {
     let finalImageUrl = recipeData.imageUrl || '';
 
     if (imageFile) {
-      const imagePath = `recipes/${recipeId}.${imageFile.name.split('.').pop()}`;
+      const imagePath = `recipes/${userId}/${recipeId}.${imageFile.name.split('.').pop()}`;
       const imageStorageRef = ref(storage, imagePath);
       const snapshot = await uploadBytes(imageStorageRef, imageFile);
       finalImageUrl = await getDownloadURL(snapshot.ref);
@@ -129,22 +129,25 @@ async function deleteUserRelatedData(uid: string) {
     for (const sub of subcollections) {
         const subCollectionRef = collection(userDocRef, sub);
         const snapshot = await getDocs(subCollectionRef);
-        snapshot.forEach(async (doc) => {
-            await deleteDoc(doc.ref);
+        const batch = writeBatch(firestore);
+        snapshot.forEach(async (docSnapshot) => {
+            batch.delete(docSnapshot.ref);
             // If recipes have images, delete them from storage
-            if (sub === 'recipes' && doc.data().imageUrl) {
+            if (sub === 'recipes' && docSnapshot.data().imageUrl) {
                 try {
-                    const url = doc.data().imageUrl;
+                    const url = docSnapshot.data().imageUrl;
+                    // Create a reference from the HTTPS URL
                     const imageRef = ref(storage, url);
                     await deleteObject(imageRef);
                 } catch (storageError: any) {
                     // Ignore "object not found" errors, as the image might not exist
                     if (storageError.code !== 'storage/object-not-found') {
-                        console.error(`Failed to delete image for recipe ${doc.id}:`, storageError);
+                        console.error(`Failed to delete image for recipe ${docSnapshot.id}:`, storageError);
                     }
                 }
             }
         });
+        await batch.commit();
     }
 
     // Finally, delete the main user document

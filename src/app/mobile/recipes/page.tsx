@@ -99,6 +99,7 @@ function MobileRecipesWrapper() {
                 isOpen={activePanel === 'ai-chat'}
                 onClose={() => handlePanelChange('ai-chat', false)}
                 onRecipeGenerated={handleAiRecipeGenerated}
+                nutritionalGoal={null} // Mobile view does not have active goals context, can be added later
             />
         </>
     );
