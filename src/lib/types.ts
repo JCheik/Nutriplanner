@@ -1,3 +1,6 @@
+import { MessageData } from 'genkit';
+import { z } from 'zod';
+
 export interface Macros {
   calories: number;
   protein: number;
@@ -123,3 +126,13 @@ export interface ActiveDropTarget {
   day: string;
   mealId: string;
 }
+
+// Types for Recipe Chat Flow
+export const RecipeChatInputSchema = z.object({
+  history: z.array(z.custom<MessageData>()),
+  message: z.string(),
+});
+export type RecipeChatInput = z.infer<typeof RecipeChatInputSchema>;
+
+export const RecipeChatOutputSchema = z.string();
+export type RecipeChatOutput = z.infer<typeof RecipeChatOutputSchema>;

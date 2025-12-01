@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sparkles, LoaderCircle, Send, Bot, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { Recipe } from '@/lib/types';
+import type { Recipe, RecipeChatInput, RecipeChatOutput } from '@/lib/types';
 import type { MessageData } from 'genkit';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';

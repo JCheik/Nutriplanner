@@ -4,17 +4,9 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
 import { MessageData } from 'genkit';
+import { RecipeChatInput, RecipeChatInputSchema, RecipeChatOutput, RecipeChatOutputSchema } from '@/lib/types';
 
-export const RecipeChatInputSchema = z.object({
-  history: z.array(z.custom<MessageData>()),
-  message: z.string(),
-});
-export type RecipeChatInput = z.infer<typeof RecipeChatInputSchema>;
-
-export const RecipeChatOutputSchema = z.string();
-export type RecipeChatOutput = z.infer<typeof RecipeChatOutputSchema>;
 
 export async function recipeChat(input: RecipeChatInput): Promise<RecipeChatOutput> {
   return await recipeChatFlow(input);
