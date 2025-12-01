@@ -173,12 +173,17 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
     setIngredients(prev => prev.filter(i => i.id !== id));
   };
   
-  const handleNewIngredientSave = (newIngredientData: Omit<BaseIngredient, 'id'> & { createdBy: string }) => {
-    if (!ingredientsCollectionRef) return;
+  const handleNewIngredientSave = (ingredientData: Omit<BaseIngredient, 'id' | 'createdBy'>) => {
+    if (!ingredientsCollectionRef || !user) return;
     
-    addDocumentNonBlocking(ingredientsCollectionRef, newIngredientData).then(docRef => {
+    const newIngredientWithUser: Omit<BaseIngredient, 'id'> & { createdBy: string } = {
+        ...ingredientData,
+        createdBy: user.uid,
+    };
+    
+    addDocumentNonBlocking(ingredientsCollectionRef, newIngredientWithUser).then(docRef => {
         if (docRef) {
-          const newOptimisticIngredient: BaseIngredient = { ...newIngredientData, id: docRef.id };
+          const newOptimisticIngredient: BaseIngredient = { ...newIngredientWithUser, id: docRef.id };
           setSelectedIngredient(newOptimisticIngredient);
         }
     });
