@@ -3,8 +3,9 @@
 import { initializeFirebase } from '@/firebase/server-init';
 import type { Recipe } from '@/lib/types';
 import { doc, collection, setDoc, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { UserRecord } from 'firebase-admin/auth';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { getAuth as getAdminAuth, UserRecord } from 'firebase-admin/auth';
+import { getApp } from 'firebase-admin/app';
 
 interface SaveRecipePayload {
   recipeData: Omit<Recipe, 'id'>;
@@ -34,7 +35,10 @@ export async function saveRecipe(payload: SaveRecipePayload) {
     return { success: false, error: 'User not authenticated.' };
   }
 
-  const { firestore, storage } = initializeFirebase();
+  // We need to use the client-compatible SDK for storage operations from server actions
+  // as Firebase Admin SDK Storage is not directly web-compatible for uploads like this.
+  const { firestore } = initializeFirebase();
+  const { storage } = getSdks(getApp());
 
   try {
     const targetCollectionPath = isGlobal ? 'nutriplanner_recipes' : `users/${userId}/recipes`;
@@ -44,7 +48,8 @@ export async function saveRecipe(payload: SaveRecipePayload) {
     let finalImageUrl = recipeData.imageUrl || '';
 
     if (imageFile) {
-      const imagePath = `recipes/${userId}/${recipeId}.${imageFile.name.split('.').pop()}`;
+      // Use client-sdk's getStorage for this part
+      const imagePath = `recipes/${isGlobal ? 'global' : userId}/${recipeId}.${imageFile.name.split('.').pop()}`;
       const imageStorageRef = ref(storage, imagePath);
       const snapshot = await uploadBytes(imageStorageRef, imageFile);
       finalImageUrl = await getDownloadURL(snapshot.ref);
@@ -120,7 +125,8 @@ const mapUserRecord = (user: UserRecord): ClientUserRecord => ({
 
 // Helper for manual data deletion
 async function deleteUserRelatedData(uid: string) {
-    const { firestore, storage } = initializeFirebase();
+    const { firestore } = initializeFirebase();
+    const { storage } = getSdks(getApp());
     const userDocRef = doc(firestore, 'users', uid);
 
     // Array of sub-collection names to delete

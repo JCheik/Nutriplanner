@@ -5,19 +5,18 @@ import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { Recipe } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, Edit, Trash2 } from 'lucide-react';
+import { PlusCircle, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { RecipeDialog, DialogState } from '@/components/nutri-planner/recipe-dialog';
 import { RecipeCard } from '@/components/nutri-planner/recipe-card';
 import { useRecipeState } from '@/hooks/use-recipe-state';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
+import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export default function AdminRecipesPage() {
     const firestore = useFirestore();
     const { toast } = useToast();
-
-    // Directly use the planner state hooks for actions, even though we get data differently.
     const { isSaving, handleSaveRecipe } = useRecipeState();
 
     const globalRecipesRef = useMemoFirebase(
@@ -38,12 +37,12 @@ export default function AdminRecipesPage() {
             open: true,
             mode: action,
             recipe: recipe,
-            isNutriPlannerRecipe: true, // Always true in this context
+            isNutriPlannerRecipe: true,
         });
     };
     
     const handleSave = async (recipeData: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
-        if (!isGlobal) { // Double-check, should always be true here
+        if (!isGlobal) {
             toast({ variant: "destructive", title: "Error", description: "Solo se pueden guardar recetas globales desde este panel." });
             return;
         }
@@ -52,10 +51,10 @@ export default function AdminRecipesPage() {
     };
 
     const handleDelete = (recipeId: string) => {
-        // Here, we can't use the planner's delete as it assumes user recipes.
-        // We'll need a specific admin action later, for now we can stub it.
-        toast({ title: 'Info', description: 'La eliminación de recetas globales requiere una acción de servidor específica (próximamente).' });
-        console.log(`TODO: Implement admin-level delete for global recipe ${recipeId}`);
+        if (!firestore) return;
+        const docRef = doc(firestore, 'nutriplanner_recipes', recipeId);
+        deleteDocumentNonBlocking(docRef);
+        toast({ title: 'Receta global eliminada' });
         setDialogState({ open: false });
     };
 
