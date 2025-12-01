@@ -37,7 +37,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { AiRecipeGeneratorDialog } from './ai-recipe-generator-dialog';
+import { RecipeChatDialog } from './recipe-chat-dialog';
 
 
 interface RecipeLibraryProps {
@@ -415,7 +415,7 @@ export function RecipeLibrary({
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(initialViewMode);
 
-  const [isAiDialogOpen, setIsAiDialogOpen] = useState(false);
+  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
 
 
   const recipesInSelectedFolder = useMemo(() => {
@@ -521,9 +521,9 @@ export function RecipeLibrary({
              <div className="flex items-center gap-2">
                 {activeTab === 'user-recipes' && !isMobile && (
                   <>
-                    <Button variant="outline" onClick={() => setIsAiDialogOpen(true)}>
+                    <Button variant="outline" onClick={() => setIsAiChatOpen(true)}>
                       <Sparkles className="mr-2 h-4 w-4" />
-                      Generar con IA
+                      Asistente de Recetas
                     </Button>
                     <Button onClick={() => onRecipeAction('create')}>
                       <PlusCircle className="mr-2 h-4 w-4" />
@@ -623,9 +623,9 @@ export function RecipeLibrary({
           </Tabs>
         </CardContent>
       </Card>
-      <AiRecipeGeneratorDialog
-        isOpen={isAiDialogOpen}
-        onClose={() => setIsAiDialogOpen(false)}
+      <RecipeChatDialog
+        isOpen={isAiChatOpen}
+        onClose={() => setIsAiChatOpen(false)}
         onRecipeGenerated={onAiRecipeGenerated}
       />
     </>

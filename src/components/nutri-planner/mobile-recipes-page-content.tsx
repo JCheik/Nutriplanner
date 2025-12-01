@@ -8,6 +8,7 @@ import { RecipeDialog, DialogState } from '@/components/nutri-planner/recipe-dia
 import { useToast } from '@/hooks/use-toast';
 import type { useRecipeState } from '@/hooks/use-recipe-state';
 import { useWeekPlanState } from '@/hooks/use-week-plan-state';
+import { RecipeChatDialog } from './recipe-chat-dialog';
 
 
 type PlannerState = ReturnType<typeof useRecipeState>;

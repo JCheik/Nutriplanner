@@ -10,7 +10,7 @@ import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus, Sparkles } from 'lucide-react';
 import { RecipeDialog, DialogState } from '@/components/nutri-planner/recipe-dialog';
-import { AiRecipeGeneratorDialog } from '@/components/nutri-planner/ai-recipe-generator-dialog';
+import { RecipeChatDialog } from '@/components/nutri-planner/recipe-chat-dialog';
 import type { Recipe } from '@/lib/types';
 
 
@@ -38,7 +38,7 @@ function MobileRecipesWrapper() {
     const recipeState = useRecipeState({ isGuestMode });
 
     const [dialogState, setDialogState] = useState<DialogState>({ open: false });
-    const [isAiDialogOpen, setIsAiDialogOpen] = useState(false);
+    const [isAiChatOpen, setIsAiChatOpen] = useState(false);
 
     const handleAiRecipeGenerated = (recipe: Omit<Recipe, 'id'>) => {
         setDialogState({
@@ -65,7 +65,7 @@ function MobileRecipesWrapper() {
                 onAiRecipeGenerated={handleAiRecipeGenerated}
             />
             <div className="fixed bottom-20 right-4 z-40 flex flex-col gap-3">
-                <Button className="rounded-full h-14 w-14 shadow-lg" size="icon" onClick={() => setIsAiDialogOpen(true)}>
+                <Button className="rounded-full h-14 w-14 shadow-lg" size="icon" onClick={() => setIsAiChatOpen(true)}>
                     <Sparkles className="h-7 w-7" />
                 </Button>
                 <Button className="rounded-full h-14 w-14 shadow-lg" size="icon" onClick={() => setDialogState({ open: true, mode: 'create' })}>
@@ -84,9 +84,9 @@ function MobileRecipesWrapper() {
                 onCopy={recipeState.handleCopyRecipe}
                 isMobile
             />
-            <AiRecipeGeneratorDialog
-                isOpen={isAiDialogOpen}
-                onClose={() => setIsAiDialogOpen(false)}
+            <RecipeChatDialog
+                isOpen={isAiChatOpen}
+                onClose={() => setIsAiChatOpen(false)}
                 onRecipeGenerated={handleAiRecipeGenerated}
             />
         </>
