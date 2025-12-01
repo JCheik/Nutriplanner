@@ -2,17 +2,18 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, X, Target, ShoppingCart, StickyNoteIcon } from 'lucide-react';
+import { Plus, X, Target, ShoppingCart, StickyNoteIcon, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface FloatingMenuProps {
-  onPanelOpen: (panel: 'goals' | 'shopping-list' | 'sticky-note') => void;
+  onPanelOpen: (panel: 'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat') => void;
 }
 
 const menuItems = [
   { panel: 'goals', icon: Target, label: 'Objetivos', color: 'bg-primary hover:bg-primary/90 text-primary-foreground' },
   { panel: 'shopping-list', icon: ShoppingCart, label: 'Compra', color: 'bg-accent hover:bg-accent/90 text-accent-foreground' },
   { panel: 'sticky-note', icon: StickyNoteIcon, label: 'Notas', color: 'bg-secondary hover:bg-secondary/80 text-secondary-foreground' },
+  { panel: 'ai-chat', icon: Sparkles, label: 'Asistente IA', color: 'bg-blue-500 hover:bg-blue-500/90 text-white' },
 ];
 
 export function FloatingMenu({ onPanelOpen }: FloatingMenuProps) {
@@ -20,7 +21,7 @@ export function FloatingMenu({ onPanelOpen }: FloatingMenuProps) {
 
   const handleToggle = () => setIsOpen(prev => !prev);
   
-  const handleItemClick = (panel: 'goals' | 'shopping-list' | 'sticky-note') => {
+  const handleItemClick = (panel: 'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat') => {
     onPanelOpen(panel);
     setIsOpen(false);
   };

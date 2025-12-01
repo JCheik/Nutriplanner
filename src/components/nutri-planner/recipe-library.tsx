@@ -37,8 +37,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { RecipeChatDialog } from './recipe-chat-dialog';
-
 
 interface RecipeLibraryProps {
   userRecipes: Recipe[];
@@ -57,6 +55,7 @@ interface RecipeLibraryProps {
   onGlobalFolderDelete: (id: string) => void;
   onAssignRecipeToGlobalFolder: (recipeId: string, folderId: string | null) => void;
   onAiRecipeGenerated: (recipe: Omit<Recipe, 'id'>) => void;
+  onAiChatOpen: () => void;
   isMobile?: boolean;
   initialViewMode?: 'grid' | 'list';
 }
@@ -400,6 +399,7 @@ export function RecipeLibrary({
   onGlobalFolderDelete,
   onAssignRecipeToGlobalFolder,
   onAiRecipeGenerated,
+  onAiChatOpen,
   isMobile = false,
   initialViewMode = 'grid',
 }: RecipeLibraryProps) {
@@ -414,9 +414,6 @@ export function RecipeLibrary({
   const [filterQuery, setFilterQuery] = useState('');
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(initialViewMode);
-
-  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
-
 
   const recipesInSelectedFolder = useMemo(() => {
     const sourceRecipes = activeTab === 'user-recipes' ? userRecipes : nutriplannerRecipes;
@@ -520,16 +517,10 @@ export function RecipeLibrary({
             )}
              <div className="flex items-center gap-2">
                 {activeTab === 'user-recipes' && !isMobile && (
-                  <>
-                    <Button variant="outline" onClick={() => setIsAiChatOpen(true)}>
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Asistente de Recetas
-                    </Button>
-                    <Button onClick={() => onRecipeAction('create')}>
-                      <PlusCircle className="mr-2 h-4 w-4" />
-                      Nueva Receta
-                    </Button>
-                  </>
+                  <Button onClick={() => onRecipeAction('create')}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Nueva Receta
+                  </Button>
                 )}
               </div>
           </div>
@@ -623,11 +614,6 @@ export function RecipeLibrary({
           </Tabs>
         </CardContent>
       </Card>
-      <RecipeChatDialog
-        isOpen={isAiChatOpen}
-        onClose={() => setIsAiChatOpen(false)}
-        onRecipeGenerated={onAiRecipeGenerated}
-      />
     </>
   );
 }

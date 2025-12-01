@@ -8,7 +8,6 @@ import { RecipeDialog, DialogState } from '@/components/nutri-planner/recipe-dia
 import { useToast } from '@/hooks/use-toast';
 import type { useRecipeState } from '@/hooks/use-recipe-state';
 import { useWeekPlanState } from '@/hooks/use-week-plan-state';
-import { RecipeChatDialog } from './recipe-chat-dialog';
 
 
 type PlannerState = ReturnType<typeof useRecipeState>;
@@ -16,6 +15,7 @@ type PlannerState = ReturnType<typeof useRecipeState>;
 interface MobileRecipesPageContentProps extends PlannerState {
     isGuestMode: boolean;
     onAiRecipeGenerated: (recipe: Omit<Recipe, 'id'>) => void;
+    onAiChatOpen: () => void;
 }
 
 export function MobileRecipesPageContent({
@@ -32,6 +32,7 @@ export function MobileRecipesPageContent({
     handleFolderDelete,
     handleAssignRecipeToFolder,
     onAiRecipeGenerated,
+    onAiChatOpen,
 }: MobileRecipesPageContentProps) {
     const router = useRouter();
     const { toast } = useToast();
@@ -98,6 +99,7 @@ export function MobileRecipesPageContent({
                     onGlobalFolderDelete={() => {}}
                     onAssignRecipeToGlobalFolder={() => {}}
                     onAiRecipeGenerated={onAiRecipeGenerated}
+                    onAiChatOpen={onAiChatOpen}
                     isMobile={true}
                     initialViewMode="grid"
                 />

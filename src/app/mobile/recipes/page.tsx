@@ -12,6 +12,7 @@ import { Plus, Sparkles } from 'lucide-react';
 import { RecipeDialog, DialogState } from '@/components/nutri-planner/recipe-dialog';
 import { RecipeChatDialog } from '@/components/nutri-planner/recipe-chat-dialog';
 import type { Recipe } from '@/lib/types';
+import { FloatingMenu } from '@/components/nutri-planner/floating-menu';
 
 
 const MobilePageLoader = () => (
@@ -38,7 +39,7 @@ function MobileRecipesWrapper() {
     const recipeState = useRecipeState({ isGuestMode });
 
     const [dialogState, setDialogState] = useState<DialogState>({ open: false });
-    const [isAiChatOpen, setIsAiChatOpen] = useState(false);
+    const [activePanel, setActivePanel] = useState<'ai-chat' | null>(null);
 
     const handleAiRecipeGenerated = (recipe: Omit<Recipe, 'id'>) => {
         setDialogState({
@@ -53,6 +54,18 @@ function MobileRecipesWrapper() {
         setDialogState({ open: false });
     };
 
+    const handlePanelOpen = (panel: 'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat') => {
+        if (panel === 'ai-chat') {
+            setActivePanel(activePanel === 'ai-chat' ? null : 'ai-chat');
+        } else if (panel === 'shopping-list') {
+            router.push(isGuestMode ? '/mobile/shopping-list?guest=true' : '/mobile/shopping-list');
+        }
+    }
+  
+    const handlePanelChange = (panel: 'ai-chat', isOpen: boolean) => {
+      setActivePanel(isOpen ? panel : null);
+    }
+
     if (userLoading) {
         return <MobilePageLoader />;
     }
@@ -63,11 +76,9 @@ function MobileRecipesWrapper() {
                 {...recipeState}
                 isGuestMode={isGuestMode}
                 onAiRecipeGenerated={handleAiRecipeGenerated}
+                onAiChatOpen={() => handlePanelOpen('ai-chat')}
             />
             <div className="fixed bottom-20 right-4 z-40 flex flex-col gap-3">
-                <Button className="rounded-full h-14 w-14 shadow-lg" size="icon" onClick={() => setIsAiChatOpen(true)}>
-                    <Sparkles className="h-7 w-7" />
-                </Button>
                 <Button className="rounded-full h-14 w-14 shadow-lg" size="icon" onClick={() => setDialogState({ open: true, mode: 'create' })}>
                     <Plus className="h-8 w-8" />
                 </Button>
@@ -85,8 +96,8 @@ function MobileRecipesWrapper() {
                 isMobile
             />
             <RecipeChatDialog
-                isOpen={isAiChatOpen}
-                onClose={() => setIsAiChatOpen(false)}
+                isOpen={activePanel === 'ai-chat'}
+                onClose={() => handlePanelChange('ai-chat', false)}
                 onRecipeGenerated={handleAiRecipeGenerated}
             />
         </>

@@ -2,17 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { recipeChat } from '@/ai/flows/recipe-chat-flow';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sparkles, LoaderCircle, Send, Bot, User } from 'lucide-react';
+import { Sparkles, LoaderCircle, Send, Bot, User, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Recipe, RecipeChatInput, RecipeChatOutput } from '@/lib/types';
 import type { MessageData } from 'genkit';
@@ -47,6 +40,8 @@ export function RecipeChatDialog({ isOpen, onClose, onRecipeGenerated }: RecipeC
       setMessages([
         { role: 'model', content: [{ text: '¡Hola! Soy NutriBot. ¿Qué te apetece cocinar hoy? Puedo ayudarte a crear una receta desde cero.' }] }
       ]);
+    } else if (!isOpen) {
+        setMessages([]);
     }
   }, [isOpen]);
 
@@ -117,21 +112,32 @@ export function RecipeChatDialog({ isOpen, onClose, onRecipeGenerated }: RecipeC
       setIsLoading(false);
     }
   };
+  
+  if (!isOpen) {
+    return null;
+  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if(!open) { setMessages([]); onClose(); }}}>
-      <DialogContent className="bg-glass max-w-lg h-[80vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-6 w-6 text-primary" />
-            Asistente de Recetas
-          </DialogTitle>
-          <DialogDescription>
-            Chatea con NutriBot para crear una nueva receta paso a paso.
-          </DialogDescription>
-        </DialogHeader>
+    <div className={cn(
+        'fixed bottom-24 right-8 w-[420px] h-[70vh] rounded-lg shadow-2xl transform transition-all duration-300 ease-in-out z-50 origin-bottom-right bg-glass border flex flex-col',
+        isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
+      )}>
+        <div className="flex justify-between items-center p-4 border-b">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary"/>
+                Asistente de Recetas
+            </h2>
+            <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={onClose}
+            >
+                <X className="h-5 w-5" />
+            </Button>
+        </div>
         
-        <ScrollArea className="flex-1 my-4 p-4 border rounded-lg bg-background/50" ref={scrollAreaRef}>
+        <ScrollArea className="flex-1 my-4 p-4 rounded-lg" ref={scrollAreaRef}>
             <div className="space-y-6">
                 {messages.map((msg, index) => (
                     <div key={index} className={cn("flex items-start gap-3", msg.role === 'user' ? 'justify-end' : 'justify-start')}>
@@ -166,7 +172,7 @@ export function RecipeChatDialog({ isOpen, onClose, onRecipeGenerated }: RecipeC
             </div>
         </ScrollArea>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 p-4 border-t">
             <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -178,7 +184,6 @@ export function RecipeChatDialog({ isOpen, onClose, onRecipeGenerated }: RecipeC
                 <Send className="h-5 w-5" />
             </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
   );
 }

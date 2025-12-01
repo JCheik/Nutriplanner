@@ -26,6 +26,7 @@ import { useRecipeState } from '@/hooks/use-recipe-state';
 import { useWeekPlanState } from '@/hooks/use-week-plan-state';
 import { useUserProfileState } from '@/hooks/use-user-profile-state';
 import { useUser } from '@/firebase';
+import { RecipeChatDialog } from '@/components/nutri-planner/recipe-chat-dialog';
 
 
 export default function DashboardPage() {
@@ -88,7 +89,7 @@ export default function DashboardPage() {
 
   // Dialog and UI state
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
-  const [activePanel, setActivePanel] = useState<'goals' | 'shopping-list' | 'sticky-note' | null>(null);
+  const [activePanel, setActivePanel] = useState<'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat' | null>(null);
   const [isGuestPromptOpen, setIsGuestPromptOpen] = useState(false);
   const [activeDropTarget, setActiveDropTarget] = useState<ActiveDropTarget | null>(null);
   
@@ -172,11 +173,11 @@ export default function DashboardPage() {
     });
   }, [currentWeekPlan]);
   
-  const handlePanelOpen = (panel: 'goals' | 'shopping-list' | 'sticky-note') => {
+  const handlePanelOpen = (panel: 'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat') => {
     setActivePanel(activePanel === panel ? null : panel);
   }
   
-  const handlePanelChange = (panel: 'goals' | 'shopping-list' | 'sticky-note', isOpen: boolean) => {
+  const handlePanelChange = (panel: 'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat', isOpen: boolean) => {
     setActivePanel(isOpen ? panel : null);
   }
 
@@ -227,6 +228,7 @@ export default function DashboardPage() {
             onGlobalFolderDelete={doNothing}
             onAssignRecipeToGlobalFolder={doNothing}
             onAiRecipeGenerated={handleAiRecipeGenerated}
+            onAiChatOpen={() => handlePanelOpen('ai-chat')}
           />
         </div>
       </div>
@@ -243,6 +245,12 @@ export default function DashboardPage() {
       />
       
       <FloatingMenu onPanelOpen={handlePanelOpen} />
+      
+      <RecipeChatDialog
+        isOpen={activePanel === 'ai-chat'}
+        onClose={() => handlePanelChange('ai-chat', false)}
+        onRecipeGenerated={handleAiRecipeGenerated}
+      />
 
       <ShoppingListSheet
         weekPlan={currentWeekPlan}
