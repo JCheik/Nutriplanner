@@ -52,7 +52,7 @@ const recipeGeneratorFlow = ai.defineFlow(
   async ({ prompt }) => {
     
     const llmResponse = await ai.generate({
-        model: 'googleai/gemini-pro',
+        model: 'googleai/gemini-1.5-flash',
         prompt: `You are an expert chef and nutritionist. Your task is to generate a recipe based on a user's request.
 
         User request: ${prompt}
