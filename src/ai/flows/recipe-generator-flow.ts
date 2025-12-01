@@ -10,7 +10,6 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { getFirestore } from 'firebase-admin/firestore';
 import { initializeFirebase } from '@/firebase/server-init';
 
 const RecipeGenerationInputSchema = z.object({
@@ -54,8 +53,7 @@ const recipeGeneratorFlow = ai.defineFlow(
   async ({ prompt }) => {
     
     // Initialize Firebase Admin to get Firestore access on the server
-    initializeFirebase();
-    const firestore = getFirestore();
+    const { firestore } = initializeFirebase();
     
     // Fetch the list of available ingredients from Firestore
     const ingredientsSnapshot = await firestore.collection('ingredients').get();
