@@ -46,6 +46,7 @@ const prompt = ai.definePrompt({
   name: 'recipeGeneratorPrompt',
   input: {schema: z.string()},
   output: {schema: RecipeGenerationOutputSchema},
+  model: 'googleai/gemini-1.5-flash-preview',
   prompt: `You are an expert chef and nutritionist. Your task is to generate a recipe based on a user's request.
 
   User request: {{{prompt}}}
