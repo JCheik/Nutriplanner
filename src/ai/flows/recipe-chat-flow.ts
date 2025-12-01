@@ -47,7 +47,7 @@ Ejemplo de cómo debe ser tu respuesta FINAL (solo el JSON):
 `;
 
     const llmResponse = await ai.generate({
-      model: 'googleai/gemini-1.5-flash',
+      model: 'googleai/gemini-2.5-flash',
       history: [
           { role: 'system', content: [{ text: systemPrompt }] },
           ...history
