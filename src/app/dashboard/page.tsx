@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import type { Recipe, DialogState, ActiveDropTarget } from '@/lib/types';
+import type { Recipe, DialogState, ActiveDropTarget, Meal } from '@/lib/types';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
 import { MealPlanner } from '@/components/nutri-planner/meal-planner';
 import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
@@ -16,6 +16,7 @@ import { useWeekPlanState } from '@/hooks/use-week-plan-state';
 import { useUserProfileState } from '@/hooks/use-user-profile-state';
 import { useUser } from '@/firebase';
 import { RecipeChatDialog } from '@/components/nutri-planner/recipe-chat-dialog';
+import { RecipeSelectionDialog } from '@/components/nutri-planner/recipe-selection-dialog';
 
 
 export default function DashboardPage() {
@@ -77,6 +78,9 @@ export default function DashboardPage() {
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
   const [activePanel, setActivePanel] = useState<'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat' | null>(null);
   const [activeDropTarget, setActiveDropTarget] = useState<ActiveDropTarget | null>(null);
+  const [isRecipeSelectorOpen, setIsRecipeSelectorOpen] = useState(false);
+  const [selectedMealForAddition, setSelectedMealForAddition] = useState<Meal | null>(null);
+
 
   const handleRecipeAction = useCallback((action: 'view' | 'create' | 'edit', recipe?: Recipe, isNutriPlannerRecipe: boolean = false) => {
     setDialogState({
@@ -122,6 +126,23 @@ export default function DashboardPage() {
         });
     });
     handleDialogClose();
+  };
+
+  const handleMealSlotClick = (day: string, meal: Meal) => {
+      setActiveDropTarget({ day: day, mealId: meal.id });
+      setSelectedMealForAddition(meal);
+      setIsRecipeSelectorOpen(true);
+  };
+
+  const handleRecipeSelectionSave = (selectedRecipes: Recipe[]) => {
+    if (!selectedMealForAddition || !activeDropTarget) return;
+
+    selectedRecipes.forEach(recipe => {
+        handleDrop(activeDropTarget.day, selectedMealForAddition.id, recipe);
+    });
+
+    setIsRecipeSelectorOpen(false);
+    setSelectedMealForAddition(null);
   };
 
   const dailyTotals = useMemo(() => {
@@ -175,6 +196,7 @@ export default function DashboardPage() {
             onDeleteMeal={handleDeleteMeal}
             activeDropTarget={activeDropTarget}
             onSetDropTarget={setActiveDropTarget}
+            onMealSlotClick={handleMealSlotClick}
           />
         </div>
         <div className="grid grid-cols-1 gap-6">
@@ -242,6 +264,15 @@ export default function DashboardPage() {
         isOpen={activePanel === 'sticky-note'}
         onOpenChange={(isOpen) => handlePanelChange('sticky-note', isOpen)}
       />
+      {selectedMealForAddition && (
+        <RecipeSelectionDialog
+          isOpen={isRecipeSelectorOpen}
+          onClose={() => setIsRecipeSelectorOpen(false)}
+          meal={selectedMealForAddition}
+          allRecipes={[...currentUserRecipes, ...nutriplannerRecipes]}
+          onSave={handleRecipeSelectionSave}
+        />
+      )}
     </div>
   );
 }

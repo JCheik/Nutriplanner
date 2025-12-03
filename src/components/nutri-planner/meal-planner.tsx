@@ -23,6 +23,7 @@ interface MealPlannerProps {
   onDeleteMeal: (day: string, mealId: string) => void;
   activeDropTarget: ActiveDropTarget | null;
   onSetDropTarget: (target: ActiveDropTarget | null) => void;
+  onMealSlotClick?: (day: string, meal: Meal) => void;
 }
 
 interface MealSlotProps {
@@ -37,6 +38,7 @@ interface MealSlotProps {
   onDeleteMeal: (day: string, mealId: string) => void;
   isActiveDropTarget: boolean;
   onSetDropTarget: (target: ActiveDropTarget | null) => void;
+  onMealSlotClick?: (day: string, meal: Meal) => void;
 }
 
 const getMacroColorClass = (current: number, target: number | undefined): string => {
@@ -84,7 +86,7 @@ const DailyTotalsRow = ({ totals, goal, className }: { totals: Macros, goal: Goa
 );
 
 
-function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onDeleteMeal, isActiveDropTarget, onSetDropTarget }: MealSlotProps) {
+function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onDeleteMeal, isActiveDropTarget, onSetDropTarget, onMealSlotClick }: MealSlotProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(meal.title);
 
@@ -118,7 +120,11 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
   };
 
   const handleSlotClick = () => {
-    onSetDropTarget({ day, mealId: meal.id });
+    if (onMealSlotClick) {
+        onMealSlotClick(day, meal);
+    } else {
+        onSetDropTarget({ day, mealId: meal.id });
+    }
   };
 
   const hasRecipes = meal.recipes.length > 0;
@@ -205,7 +211,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
                 ))}
             </div>
         ) : (
-          <p className="text-xs text-center text-muted-foreground px-2">Arrastra una receta aquí</p>
+          <p className="text-xs text-center text-muted-foreground px-2">Arrastra o haz clic para añadir recetas</p>
         )}
       </div>
     </div>
@@ -228,7 +234,7 @@ function AddMealButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget }: MealPlannerProps) {
+export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget, onMealSlotClick }: MealPlannerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const plannerRef = useRef<HTMLDivElement>(null);
 
@@ -289,6 +295,7 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                        onDeleteMeal={onDeleteMeal}
                        isActiveDropTarget={activeDropTarget?.day === dayPlan.day && activeDropTarget?.mealId === meal.id}
                        onSetDropTarget={onSetDropTarget}
+                       onMealSlotClick={onMealSlotClick}
                      />
                      {isEditing && <AddMealButton onClick={() => onAddMeal(dayPlan.day, index + 1)} />}
                   </React.Fragment>
