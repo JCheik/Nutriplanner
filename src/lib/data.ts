@@ -1,21 +1,5 @@
 'use client';
 import type { Recipe, WeekPlan, Meal, DayPlan, Ingredient } from './types';
-import { PlaceHolderImages } from './placeholder-images';
-
-const findImage = (hint: string) => PlaceHolderImages.find(img => img.imageHint.includes(hint));
-
-// Simplified ingredient creation. The full ingredient data is in the global collection.
-// This just defines what part of the ingredient is in the recipe itself.
-const createRecipeIngredient = (
-    name: string,
-    quantity: number,
-    unit: string,
-): Ingredient => ({
-    id: `ing-${name.toLowerCase().replace(/ /g, '-')}-${Math.random()}`,
-    name,
-    quantity,
-    unit,
-});
 
 export const NUTRIPLANNER_RECIPES_DATA: Recipe[] = [];
 

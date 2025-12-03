@@ -10,7 +10,6 @@ import {
   updateDocumentNonBlocking,
 } from '@/firebase/non-blocking-updates';
 import { saveRecipe as saveRecipeAction } from '@/lib/actions';
-import { NUTRIPLANNER_RECIPES_DATA } from '@/lib/data';
 import type { Recipe, Folder } from '@/lib/types';
 
 
@@ -106,7 +105,7 @@ export function useRecipeState() {
   return {
     isSaving,
     currentUserRecipes,
-    nutriplannerRecipes: NUTRIPLANNER_RECIPES_DATA, // This is static global data
+    nutriplannerRecipes: [], // This is static global data
     currentFolders,
     handleSaveRecipe,
     handleDeleteRecipe,
