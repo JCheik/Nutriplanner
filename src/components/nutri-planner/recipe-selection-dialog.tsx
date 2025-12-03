@@ -84,18 +84,16 @@ export function RecipeSelectionDialog({ isOpen, onClose, meal, allRecipes, onSav
         <ScrollArea className="flex-1 -mx-6">
             <div className="px-6 space-y-2">
                 {filteredRecipes.map(recipe => (
-                    <div key={recipe.id} onClick={() => handleToggleRecipe(recipe.id)} className="flex items-center gap-4 p-2 rounded-lg cursor-pointer hover:bg-muted/50">
-                       <div className="w-24 h-16 flex-shrink-0">
-                         <RecipeCard recipe={recipe} isCompact />
-                       </div>
-                       <div className="flex-1 min-w-0">
-                          <p className="text-xs text-muted-foreground">{Math.round(recipe.calories)} kcal</p>
-                       </div>
+                     <div key={recipe.id} onClick={() => handleToggleRecipe(recipe.id)} className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-muted/50 border">
                         <Checkbox
-                            checked={selectedRecipeIds.has(recipe.id)}
-                            onCheckedChange={() => handleToggleRecipe(recipe.id)}
-                        />
-                    </div>
+                             checked={selectedRecipeIds.has(recipe.id)}
+                             onCheckedChange={() => handleToggleRecipe(recipe.id)}
+                             className="h-5 w-5"
+                         />
+                        <div className="flex-1 min-w-0">
+                           <RecipeCard recipe={recipe} isListView onClick={() => {}} />
+                        </div>
+                     </div>
                 ))}
             </div>
         </ScrollArea>
