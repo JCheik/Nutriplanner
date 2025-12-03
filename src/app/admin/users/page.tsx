@@ -154,7 +154,7 @@ export default function AdminUsersPage() {
                                                     </DropdownMenu>
                                                      <AlertDialogContent className="bg-glass">
                                                         <AlertDialogHeader>
-                                                            <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
+                                                            <AlertDialogTitle>¿Estás absolutely seguro?</AlertDialogTitle>
                                                             <AlertDialogDescription>
                                                                 Esta acción es permanente y eliminará al usuario <span className="font-bold">{user.displayName || user.email}</span> y todos sus datos asociados. No se puede deshacer.
                                                             </AlertDialogDescription>
