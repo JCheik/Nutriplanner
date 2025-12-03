@@ -306,3 +306,5 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
     </Card>
   );
 }
+
+    
