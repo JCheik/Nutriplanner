@@ -88,6 +88,7 @@ export function RecipeSelectionDialog({ isOpen, onClose, meal, allRecipes, onSav
                         <Checkbox
                              checked={selectedRecipeIds.has(recipe.id)}
                              onCheckedChange={() => handleToggleRecipe(recipe.id)}
+                             onClick={(e) => e.stopPropagation()}
                              className="h-5 w-5"
                          />
                         <div className="flex-1 min-w-0">
