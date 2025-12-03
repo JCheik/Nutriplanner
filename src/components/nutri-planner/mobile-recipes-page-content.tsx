@@ -104,7 +104,7 @@ export function MobileRecipesPageContent({
                 onDelete={handleInternalDelete}
                 onEdit={handleRecipeAction}
                 onCopy={handleCopyRecipe}
-                isMobile
+isMobile
             />
         </>
     )

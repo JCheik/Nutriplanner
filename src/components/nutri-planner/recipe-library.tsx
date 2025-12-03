@@ -54,7 +54,6 @@ interface RecipeLibraryProps {
   onGlobalFolderUpdate: (id: string, name: string) => void;
   onGlobalFolderDelete: (id: string) => void;
   onAssignRecipeToGlobalFolder: (recipeId: string, folderId: string | null) => void;
-  onAiRecipeGenerated: (recipe: Omit<Recipe, 'id'>) => void;
   onAiChatOpen: () => void;
   isMobile?: boolean;
   initialViewMode?: 'grid' | 'list';
@@ -398,7 +397,6 @@ export function RecipeLibrary({
   onGlobalFolderUpdate,
   onGlobalFolderDelete,
   onAssignRecipeToGlobalFolder,
-  onAiRecipeGenerated,
   onAiChatOpen,
   isMobile = false,
   initialViewMode = 'grid',
@@ -517,10 +515,16 @@ export function RecipeLibrary({
             )}
              <div className="flex items-center gap-2">
                 {activeTab === 'user-recipes' && !isMobile && (
-                  <Button onClick={() => onRecipeAction('create')}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Nueva Receta
-                  </Button>
+                  <>
+                    <Button variant="outline" onClick={onAiChatOpen}>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Asistente IA
+                    </Button>
+                    <Button onClick={() => onRecipeAction('create')}>
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Nueva Receta
+                    </Button>
+                  </>
                 )}
               </div>
           </div>
