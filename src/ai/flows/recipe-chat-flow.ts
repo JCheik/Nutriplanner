@@ -2,21 +2,78 @@
 /**
  * @fileOverview A conversational flow for helping users create recipes.
  */
-
 import { ai } from '@/ai/genkit';
+import { z } from 'zod';
 import { MessageData } from 'genkit';
-import { RecipeChatInput, RecipeChatInputSchema, RecipeChatOutput, RecipeChatOutputSchema } from '@/lib/types';
+import { RecipeChatInputSchema, RecipeChatOutputSchema, RecipeSchema } from '@/lib/types';
+import type { RecipeChatInput, RecipeChatOutput, Recipe } from '@/lib/types';
 
 
 export async function recipeChat(input: RecipeChatInput): Promise<RecipeChatOutput> {
+  if (input.generateThree) {
+    return await recipeSuggestionsFlow(input) as RecipeChatOutput;
+  }
   return await recipeChatFlow(input);
 }
+
+
+const RecipeArraySchema = z.array(
+  RecipeSchema.omit({ 
+    id: true, 
+    folderId: true,
+    imageUrl: true, 
+  })
+);
+
+
+const recipeSuggestionsFlow = ai.defineFlow(
+  {
+    name: 'recipeSuggestionsFlow',
+    inputSchema: RecipeChatInputSchema,
+    outputSchema: RecipeArraySchema,
+  },
+  async ({ message, nutritionalGoal }) => {
+
+    const prompt = `
+      Eres un asistente de cocina experto. El usuario quiere ideas de recetas.
+      Basado en la siguiente preferencia del usuario: "${message}".
+      ${nutritionalGoal ? `IMPORTANTE: El usuario tiene un objetivo nutricional diario. Intenta que CADA receta se ajuste a una porción razonable de estas macros: Calorías: ${nutritionalGoal.calories}, Proteínas: ${nutritionalGoal.protein}g, Carbohidratos: ${nutritionalGoal.carbs}g, Grasas: ${nutritionalGoal.fat}g. No tiene que ser exacto, pero sí una buena contribución a su día.` : ''}
+      
+      Tu ÚNICA Y EXCLUSIVA tarea es generar un array JSON con TRES (3) objetos de receta distintos.
+      
+      Cada objeto de receta en el array debe contener:
+      - name: string (El nombre de la receta)
+      - description: string (Una descripción corta y atractiva)
+      - instructions: string (Los pasos de la preparación, separados por saltos de línea '\\n')
+      - ingredients: Un array de objetos, donde cada objeto tiene 'name' (string), 'quantity' (number), y 'unit' (string).
+      - calories: number (Estimación total de calorías)
+      - protein: number (Estimación total de proteína en gramos)
+      - carbs: number (Estimación total de carbohidratos en gramos)
+      - fat: number (Estimación total de grasa en gramos)
+      - imageHint: string (Dos o tres palabras clave en inglés para un generador de imágenes, ej: "lemon chicken", "greek salad")
+      
+      NO incluyas NINGÚN texto, saludo, explicación o markdown antes o después del array JSON.
+      Tu respuesta DEBE empezar con '[' y terminar con ']'.
+    `;
+
+    const llmResponse = await ai.generate({
+      model: 'googleai/gemini-2.5-flash',
+      prompt: prompt,
+      output: {
+        schema: RecipeArraySchema,
+      },
+    });
+
+    return llmResponse.output || [];
+  }
+);
+
 
 const recipeChatFlow = ai.defineFlow(
   {
     name: 'recipeChatFlow',
     inputSchema: RecipeChatInputSchema,
-    outputSchema: RecipeChatOutputSchema,
+    outputSchema: z.string(),
   },
   async ({ history, message, nutritionalGoal }) => {
     const systemPrompt = `Eres un asistente de cocina y nutricionista amable y servicial llamado NutriBot. Tu propósito es ayudar al usuario a crear una receta específica para su planificador de comidas.

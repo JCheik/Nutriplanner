@@ -5,7 +5,7 @@ import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { Recipe } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search } from 'lucide-react';
+import { PlusCircle, Search, ArrowLeft } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { RecipeDialog, DialogState } from '@/components/nutri-planner/recipe-dialog';
 import { RecipeCard } from '@/components/nutri-planner/recipe-card';
@@ -13,6 +13,7 @@ import { useRecipeState } from '@/hooks/use-recipe-state';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import Link from 'next/link';
 
 export default function AdminRecipesPage() {
     const firestore = useFirestore();
@@ -63,11 +64,17 @@ export default function AdminRecipesPage() {
         <>
             <main className="flex-1 p-4 sm:p-6 lg:p-8">
                 <div className="max-w-screen-xl mx-auto flex flex-col gap-6">
+                    <div className="flex justify-between items-center">
+                        <CardTitle>Recetas Globales</CardTitle>
+                        <Button asChild variant="outline">
+                            <Link href="/admin"><ArrowLeft className="mr-2 h-4 w-4" /> Volver al Panel</Link>
+                        </Button>
+                    </div>
                     <Card>
                         <CardHeader>
                             <div className="flex justify-between items-center">
                                 <div>
-                                    <CardTitle>Recetas Globales de NutriPlanner</CardTitle>
+                                    <CardTitle>Recetas de NutriPlanner</CardTitle>
                                     <CardDescription>Crear, ver y editar las recetas disponibles para todos los usuarios.</CardDescription>
                                 </div>
                                 <Button onClick={() => handleRecipeAction('create')}>

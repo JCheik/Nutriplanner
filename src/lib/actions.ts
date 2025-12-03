@@ -35,10 +35,7 @@ export async function saveRecipe(payload: SaveRecipePayload) {
     return { success: false, error: 'User not authenticated.' };
   }
 
-  // We need to use the client-compatible SDK for storage operations from server actions
-  // as Firebase Admin SDK Storage is not directly web-compatible for uploads like this.
-  const { firestore } = initializeFirebase();
-  const { storage } = getSdks(getApp());
+  const { firestore, storage } = initializeFirebase();
 
   try {
     const targetCollectionPath = isGlobal ? 'nutriplanner_recipes' : `users/${userId}/recipes`;
@@ -48,7 +45,6 @@ export async function saveRecipe(payload: SaveRecipePayload) {
     let finalImageUrl = recipeData.imageUrl || '';
 
     if (imageFile) {
-      // Use client-sdk's getStorage for this part
       const imagePath = `recipes/${isGlobal ? 'global' : userId}/${recipeId}.${imageFile.name.split('.').pop()}`;
       const imageStorageRef = ref(storage, imagePath);
       const snapshot = await uploadBytes(imageStorageRef, imageFile);
@@ -95,14 +91,14 @@ export async function setUserAdmin(uid: string, isAdmin: boolean) {
 
 export async function deleteUserAccount(uid: string) {
     try {
-        const { auth, firestore } = initializeFirebase();
+        const { auth, firestore, storage } = initializeFirebase();
         
         // This will trigger the 'delete' extension if installed, which should clean up Firestore/Storage.
         // If not, we have to do it manually.
         await auth.deleteUser(uid);
         
         // Manual cleanup as a fallback
-        await deleteUserRelatedData(uid);
+        await deleteUserRelatedData(uid, firestore, storage);
         
         return { success: true, message: 'Usuario y todos sus datos han sido eliminados.' };
     } catch (error: any) {
@@ -124,9 +120,7 @@ const mapUserRecord = (user: UserRecord): ClientUserRecord => ({
 });
 
 // Helper for manual data deletion
-async function deleteUserRelatedData(uid: string) {
-    const { firestore } = initializeFirebase();
-    const { storage } = getSdks(getApp());
+async function deleteUserRelatedData(uid: string, firestore: FirebaseFirestore.Firestore, storage: any) {
     const userDocRef = doc(firestore, 'users', uid);
 
     // Array of sub-collection names to delete

@@ -6,11 +6,12 @@ import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import type { BaseIngredient } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, Edit } from 'lucide-react';
+import { Trash2, Edit, ArrowLeft } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { NewIngredientDialog } from '@/components/nutri-planner/new-ingredient-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import Link from 'next/link';
 
 export default function AdminIngredientsPage() {
     const firestore = useFirestore();
@@ -53,9 +54,15 @@ export default function AdminIngredientsPage() {
         <>
             <main className="flex-1 p-4 sm:p-6 lg:p-8">
                 <div className="max-w-screen-xl mx-auto flex flex-col gap-6">
+                    <div className="flex justify-between items-center">
+                        <CardTitle>Ingredientes Globales</CardTitle>
+                        <Button asChild variant="outline">
+                            <Link href="/admin"><ArrowLeft className="mr-2 h-4 w-4" /> Volver al Panel</Link>
+                        </Button>
+                    </div>
                     <Card>
                         <CardHeader>
-                            <CardTitle>Base de Datos de Ingredientes Global</CardTitle>
+                            <CardTitle>Base de Datos de Ingredientes</CardTitle>
                             <CardDescription>
                                 Ver y gestionar todos los ingredientes en la base de datos compartida.
                             </CardDescription>

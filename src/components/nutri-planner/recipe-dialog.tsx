@@ -93,30 +93,26 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
   const [selectedIngredient, setSelectedIngredient] = useState<BaseIngredient | null>(null);
   const [newIngredientQty, setNewIngredientQty] = useState<number | string>(100);
 
-  useEffect(() => {
-    if (initialRecipe) {
-        setName(initialRecipe.name || '');
-        setDescription(initialRecipe.description || '');
-        setInstructions(initialRecipe.instructions || '');
-        setIngredients(initialRecipe.ingredients?.map(ing => ({
-            id: ing.id || self.crypto.randomUUID(),
-            name: ing.name,
-            quantity: ing.quantity,
-            unit: ing.unit,
-        })) || []);
-        setImageUrl(initialRecipe.imageUrl || '');
-        setFolderId(initialRecipe.folderId || 'none');
-    } else {
-        setName('');
-        setDescription('');
-        setInstructions('');
-        setIngredients([]);
-        setImageUrl('');
-        setFolderId('none');
-    }
+  const resetForm = useCallback(() => {
+    setName(initialRecipe?.name || '');
+    setDescription(initialRecipe?.description || '');
+    setInstructions(initialRecipe?.instructions || '');
+    setIngredients(initialRecipe?.ingredients?.map(ing => ({
+        id: ing.id || self.crypto.randomUUID(),
+        name: ing.name,
+        quantity: ing.quantity,
+        unit: ing.unit,
+    })) || []);
+    setImageUrl(initialRecipe?.imageUrl || '');
+    setFolderId(initialRecipe?.folderId || 'none');
     setSaveAsGlobal(isInitiallyGlobal);
     setImageFile(null);
   }, [initialRecipe, isInitiallyGlobal]);
+
+  useEffect(() => {
+    resetForm();
+  }, [resetForm]);
+
 
   const calculatedTotals = useMemo(() => {
     return ingredients.reduce((acc, ing) => {
