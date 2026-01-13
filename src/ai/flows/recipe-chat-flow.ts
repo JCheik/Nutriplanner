@@ -9,9 +9,9 @@ import { RecipeChatInputSchema, RecipeChatOutputSchema, RecipeSchema } from '@/l
 import type { RecipeChatInput, RecipeChatOutput, Recipe } from '@/lib/types';
 
 
-export async function recipeChat(input: RecipeChatInput): Promise<RecipeChatOutput> {
+export async function recipeChat(input: RecipeChatInput): Promise<RecipeChatOutput | Recipe[]> {
   if (input.generateThree) {
-    return await recipeSuggestionsFlow(input) as RecipeChatOutput;
+    return await recipeSuggestionsFlow(input);
   }
   return await recipeChatFlow(input);
 }
@@ -45,7 +45,7 @@ const recipeSuggestionsFlow = ai.defineFlow(
       - name: string (El nombre de la receta)
       - description: string (Una descripción corta y atractiva)
       - instructions: string (Los pasos de la preparación, separados por saltos de línea '\\n')
-      - ingredients: Un array de objetos, donde cada objeto tiene 'name' (string), 'quantity' (number), y 'unit' (string).
+      - ingredients: Un array de objetos, donde cada objeto tiene 'id' (un UUID aleatorio), 'name' (string), 'quantity' (number), y 'unit' (string).
       - calories: number (Estimación total de calorías)
       - protein: number (Estimación total de proteína en gramos)
       - carbs: number (Estimación total de carbohidratos en gramos)
@@ -93,10 +93,10 @@ Ejemplo de cómo debe ser tu respuesta FINAL (solo el JSON):
   "description": "Un plato de pollo jugoso y sabroso con un toque cítrico, perfecto para una cena entre semana.",
   "instructions": "1. Sazona el pollo con sal y pimienta.\\n2. Calienta el aceite en una sartén a fuego medio-alto.\\n3. Dora el pollo por ambos lados.\\n4. Añade el zumo de limón y el caldo, y cocina a fuego lento hasta que el pollo esté hecho.",
   "ingredients": [
-    { "name": "Pechuga de pollo", "quantity": 200, "unit": "g" },
-    { "name": "Aceite de oliva", "quantity": 15, "unit": "ml" },
-    { "name": "Zumo de limón", "quantity": 30, "unit": "ml" },
-    { "name": "Caldo de pollo", "quantity": 100, "unit": "ml" }
+    { "id": "b3f4c1a-c1f-4b1a-9c1d-1e1f1e1f1e1f", "name": "Pechuga de pollo", "quantity": 200, "unit": "g" },
+    { "id": "a1b2c3d-d4e-5f6a-7b8c-9d0e1f2a3b4c", "name": "Aceite de oliva", "quantity": 15, "unit": "ml" },
+    { "id": "f2a3b4c-c5d-6e7f-8a9b-0c1d2e3f4a5b", "name": "Zumo de limón", "quantity": 30, "unit": "ml" },
+    { "id": "d4e5f6a-a7b-8c9d-0e1f-2a3b4c5d6e7f", "name": "Caldo de pollo", "quantity": 100, "unit": "ml" }
   ],
   "calories": 350,
   "protein": 40,

@@ -18,12 +18,14 @@ export interface BaseIngredient extends Macros {
 
 // An ingredient within a recipe no longer stores its own macros.
 // It references a BaseIngredient via its name.
-export interface Ingredient {
-  id: string; // This is an instance ID, unique within the recipe
-  name: string;
-  quantity: number;
-  unit: string;
-}
+const IngredientSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  quantity: z.number(),
+  unit: z.string(),
+});
+export type Ingredient = z.infer<typeof IngredientSchema>;
+
 
 export interface Folder {
   id: string;
@@ -36,16 +38,25 @@ export interface GlobalFolder {
   name: string;
 }
 
-export interface Recipe extends Macros {
-  id: string;
-  name: string;
-  description: string;
-  instructions: string;
-  ingredients: Ingredient[];
-  imageUrl?: string;
-  imageHint?: string;
-  folderId?: string | null; // Allow null
-}
+const MacrosSchema = z.object({
+  calories: z.number(),
+  protein: z.number(),
+  carbs: z.number(),
+  fat: z.number(),
+});
+
+export const RecipeSchema = MacrosSchema.extend({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  instructions: z.string(),
+  ingredients: z.array(IngredientSchema),
+  imageUrl: z.string().optional(),
+  imageHint: z.string().optional(),
+  folderId: z.string().nullable().optional(),
+});
+export type Recipe = z.infer<typeof RecipeSchema>;
+
 
 export interface RecipeInstance extends Recipe {
   instanceId: string;
@@ -127,17 +138,12 @@ export interface ActiveDropTarget {
   mealId: string;
 }
 
-const MacrosSchema = z.object({
-  calories: z.number(),
-  protein: z.number(),
-  carbs: z.number(),
-  fat: z.number(),
-});
 
 // Types for Recipe Chat Flow
 export const RecipeChatInputSchema = z.object({
   history: z.array(z.custom<MessageData>()),
   message: z.string(),
+  generateThree: z.boolean().optional(),
   nutritionalGoal: MacrosSchema.optional(),
 });
 export type RecipeChatInput = z.infer<typeof RecipeChatInputSchema>;
