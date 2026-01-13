@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { DialogState as DialogStateBase, Recipe, Ingredient, Folder, GlobalFolder, BaseIngredient } from '@/lib/types';
 import { useUser, useFirestore, useMemoFirebase } from '@/firebase/index';
 import { useCollection } from '@/firebase/firestore/use-collection';
