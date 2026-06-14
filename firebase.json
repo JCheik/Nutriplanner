@@ -1,0 +1,23 @@
+{
+  "apphosting": {
+    "backendId": "studio",
+    "ignore": [
+      "node_modules",
+      ".git",
+      ".agents",
+      ".idx",
+      "firebase-debug.log",
+      "firebase-debug.*.log",
+      "functions"
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "storage": [
+    {
+      "bucket": "studio-7693548881-4e207.firebasestorage.app",
+      "rules": "storage.rules"
+    }
+  ]
+}

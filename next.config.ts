@@ -34,8 +34,9 @@ pathname: '/**',
     ],
   },
   experimental: {
-    // This is to allow cross-origin requests from the Firebase Studio dev environment.
-    allowedDevOrigins: ["*.cloudworkstations.dev"],
+    serverActions: {
+      allowedOrigins: ["*.cloudworkstations.dev"],
+    }
   },
 };
 

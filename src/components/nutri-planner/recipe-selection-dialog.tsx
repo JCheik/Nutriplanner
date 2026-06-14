@@ -54,7 +54,15 @@ export function RecipeSelectionDialog({ isOpen, onClose, meal, allRecipes, onSav
     const normalizedQuery = normalizeText(searchQuery);
     const existingRecipeIdsInMeal = new Set(meal.recipes.map(r => r.id));
 
-    return allRecipes.filter(recipe => {
+    // Deduplicate recipes by ID (user recipes override global ones with the same ID)
+    const uniqueRecipesMap = new Map<string, Recipe>();
+    allRecipes.forEach(recipe => {
+      if (!uniqueRecipesMap.has(recipe.id)) {
+        uniqueRecipesMap.set(recipe.id, recipe);
+      }
+    });
+
+    return Array.from(uniqueRecipesMap.values()).filter(recipe => {
         if (existingRecipeIdsInMeal.has(recipe.id)) return false; // Don't show recipes already in the meal
         const nameMatch = normalizeText(recipe.name).includes(normalizedQuery);
         return nameMatch;

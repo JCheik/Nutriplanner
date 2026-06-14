@@ -41,6 +41,7 @@ export default function DashboardPage() {
     currentUserRecipes,
     nutriplannerRecipes,
     currentFolders,
+    globalFolders,
     isSaving,
     handleSaveRecipe,
     handleDeleteRecipe,
@@ -49,6 +50,10 @@ export default function DashboardPage() {
     handleFolderDelete,
     handleFolderUpdate,
     handleAssignRecipeToFolder,
+    handleGlobalFolderCreate,
+    handleGlobalFolderDelete,
+    handleGlobalFolderUpdate,
+    handleAssignRecipeToGlobalFolder,
   } = recipeState;
 
   const {
@@ -186,7 +191,7 @@ export default function DashboardPage() {
           <MealPlanner
             weekPlan={currentWeekPlan}
             dailyTotals={dailyTotals}
-            activeGoal={activeGoalMacros}
+            activeGoal={activeGoalMacros || null}
             onDrop={handleDrop}
             onClearMeal={handleClearMeal}
             onRecipeClick={(recipe) => handleRecipeAction('view', recipe)}
@@ -204,7 +209,7 @@ export default function DashboardPage() {
             userRecipes={currentUserRecipes}
             nutriplannerRecipes={nutriplannerRecipes}
             folders={currentFolders}
-            globalFolders={[]} // This should be populated if admin features are built out
+            globalFolders={globalFolders}
             onRecipeAction={handleRecipeAction}
             onCopyRecipe={handleCopyRecipe}
             onAddToPlan={handleAddToPlan}
@@ -212,10 +217,10 @@ export default function DashboardPage() {
             onFolderUpdate={handleFolderUpdate}
             onFolderDelete={handleFolderDelete}
             onAssignRecipeToFolder={handleAssignRecipeToFolder}
-            onGlobalFolderCreate={() => {}}
-            onGlobalFolderUpdate={() => {}}
-            onGlobalFolderDelete={() => {}}
-            onAssignRecipeToGlobalFolder={() => {}}
+            onGlobalFolderCreate={handleGlobalFolderCreate}
+            onGlobalFolderUpdate={handleGlobalFolderUpdate}
+            onGlobalFolderDelete={handleGlobalFolderDelete}
+            onAssignRecipeToGlobalFolder={handleAssignRecipeToGlobalFolder}
             onAiRecipeGenerated={handleAiRecipeGenerated}
             onAiChatOpen={() => handlePanelOpen('ai-chat')}
           />
@@ -225,7 +230,7 @@ export default function DashboardPage() {
         dialogState={dialogState}
         isSaving={isSaving}
         folders={currentFolders}
-        globalFolders={[]}
+        globalFolders={globalFolders}
         onClose={handleDialogClose}
         onSave={handleInternalSaveRecipe}
         onDelete={handleInternalDeleteRecipe}
@@ -239,7 +244,7 @@ export default function DashboardPage() {
         isOpen={activePanel === 'ai-chat'}
         onClose={() => handlePanelChange('ai-chat', false)}
         onRecipeGenerated={handleAiRecipeGenerated}
-        nutritionalGoal={activeGoalMacros}
+        nutritionalGoal={activeGoalMacros || null}
       />
 
       <ShoppingListSheet
@@ -256,7 +261,7 @@ export default function DashboardPage() {
         onOpenChange={(isOpen) => handlePanelChange('goals', isOpen)}
         onGoalSelect={handleActiveGoalChange}
         onSaveCustomGoal={handleSaveCustomGoal}
-        activeGoal={activeGoal}
+        activeGoal={activeGoal || null}
       />
       <StickyNote
         initialContent={currentStickyNote}

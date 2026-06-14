@@ -8,14 +8,28 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { getAuth } from 'firebase-admin/auth';
 
-// Reconstruct the service account from individual environment variables
-// This is more secure and flexible than parsing a whole JSON string.
-const serviceAccount = {
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-  // The private key must be properly formatted. Firebase hosting environments
-  // often require replacing newline characters.
-  privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+// Reconstruct the service account from individual environment variables or JSON string
+let serviceAccount: { projectId?: string; clientEmail?: string; privateKey?: string } | undefined = undefined;
+
+if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+  try {
+    const parsed = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    serviceAccount = {
+      projectId: parsed.project_id,
+      clientEmail: parsed.client_email,
+      privateKey: parsed.private_key?.replace(/\\n/g, '\n'),
+    };
+  } catch (e) {
+    console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON:', e);
+  }
+}
+
+if (!serviceAccount) {
+  serviceAccount = {
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+  };
 }
 
 // Check if the essential service account properties are available.

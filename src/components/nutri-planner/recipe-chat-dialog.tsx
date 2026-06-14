@@ -90,7 +90,11 @@ export function RecipeChatDialog({ isOpen, onClose, onRecipeGenerated, nutrition
         chatInput.nutritionalGoal = nutritionalGoal;
       }
 
-      const responseText = await recipeChat(chatInput);
+      const responseData = await recipeChat(chatInput);
+      if (typeof responseData !== 'string') {
+        throw new Error('Unexpected response type');
+      }
+      const responseText = responseData;
 
       const potentialRecipe = tryParseJson(responseText);
 

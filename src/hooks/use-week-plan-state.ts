@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useUser, useCollection, useFirebase, useMemoFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { updateDayPlanTransaction } from '@/firebase/firestore-operations';
 import { INITIAL_WEEK_PLAN, DAY_ORDER } from '@/lib/data';
 import type { WeekPlan, Recipe, Meal, DayPlan, RecipeInstance } from '@/lib/types';
 
@@ -65,68 +65,74 @@ export function useWeekPlanState() {
     });
   }, [weekPlanData]);
 
-  // --- Helper for Firestore Day Updates ---
-  const updateDayPlanInFirestore = useCallback((day: string, updatedDayData: DayPlan) => {
+  const updateDayPlanInFirestore = useCallback(async (day: string, modifierFn: (dayPlan: DayPlan) => DayPlan) => {
     if (!user || !firestore) return;
-    const dayDocRef = doc(firestore, 'users', user.uid, 'weekPlan', day);
-    setDocumentNonBlocking(dayDocRef, updatedDayData, { merge: true });
+    try {
+      await updateDayPlanTransaction(firestore, user.uid, day, modifierFn);
+    } catch (error) {
+      console.error("Failed to update day plan:", error);
+    }
   }, [user, firestore]);
 
   // --- Handlers ---
   const handleDrop = useCallback((day: string, mealId: string, droppedRecipe: Recipe) => {
-    const planToUpdate = currentWeekPlan;
-    const updatedPlan = addRecipeToMeal(planToUpdate, day, mealId, droppedRecipe);
-    const updatedDay = updatedPlan.find(d => d.day === day);
-
-    if (updatedDay) {
-      updateDayPlanInFirestore(day, updatedDay);
-    }
-  }, [currentWeekPlan, updateDayPlanInFirestore]);
+    updateDayPlanInFirestore(day, (currentDayPlan) => {
+      // Use helper to add recipe, returning a new WeekPlan with 1 item, then extract the day.
+      // Or we can just modify the day directly here to avoid mapping over WeekPlan.
+      const newRecipeInstance: RecipeInstance = { ...droppedRecipe, instanceId: self.crypto.randomUUID() };
+      return {
+        ...currentDayPlan,
+        meals: currentDayPlan.meals.map(meal => 
+          meal.id === mealId ? { ...meal, recipes: [...meal.recipes, newRecipeInstance] } : meal
+        )
+      };
+    });
+  }, [updateDayPlanInFirestore]);
   
   const handleClearMeal = useCallback((day: string, mealId: string) => {
-    const updatedPlan = clearMealRecipes(currentWeekPlan, day, mealId);
-    const updatedDay = updatedPlan.find(d => d.day === day);
-    if (updatedDay) {
-      updateDayPlanInFirestore(day, updatedDay);
-    }
-  }, [currentWeekPlan, updateDayPlanInFirestore]);
+    updateDayPlanInFirestore(day, (currentDayPlan) => ({
+      ...currentDayPlan,
+      meals: currentDayPlan.meals.map(meal => 
+        meal.id === mealId ? { ...meal, recipes: [] } : meal
+      )
+    }));
+  }, [updateDayPlanInFirestore]);
   
   const handleRemoveRecipeFromMeal = useCallback((day: string, mealId: string, recipeInstanceId: string) => {
-    const updatedPlan = removeRecipeFromMeal(currentWeekPlan, day, mealId, recipeInstanceId);
-    const updatedDay = updatedPlan.find(d => d.day === day);
-    if (updatedDay) {
-      updateDayPlanInFirestore(day, updatedDay);
-    }
-  }, [currentWeekPlan, updateDayPlanInFirestore]);
+    updateDayPlanInFirestore(day, (currentDayPlan) => ({
+      ...currentDayPlan,
+      meals: currentDayPlan.meals.map(meal => {
+        if (meal.id !== mealId) return meal;
+        const updatedRecipes = meal.recipes.filter(r => r.instanceId !== recipeInstanceId);
+        return { ...meal, recipes: updatedRecipes };
+      })
+    }));
+  }, [updateDayPlanInFirestore]);
 
   const handleUpdateMealTitle = useCallback((day: string, mealId: string, newTitle: string) => {
-    if (!user || !firestore) return;
-    const targetDay = currentWeekPlan.find(d => d.day === day);
-    if (targetDay) {
-      const updatedMeals = targetDay.meals.map(meal => meal.id === mealId ? { ...meal, title: newTitle } : meal);
-      updateDayPlanInFirestore(day, { ...targetDay, meals: updatedMeals });
-    }
-  }, [user, firestore, currentWeekPlan, updateDayPlanInFirestore]);
+    updateDayPlanInFirestore(day, (currentDayPlan) => ({
+      ...currentDayPlan,
+      meals: currentDayPlan.meals.map(meal => 
+        meal.id === mealId ? { ...meal, title: newTitle } : meal
+      )
+    }));
+  }, [updateDayPlanInFirestore]);
 
   const handleAddMeal = useCallback((day: string, index: number) => {
-    if (!user || !firestore) return;
-    const targetDay = currentWeekPlan.find(d => d.day === day);
-    if (targetDay) {
+    updateDayPlanInFirestore(day, (currentDayPlan) => {
       const newMeal: Meal = { id: `meal-${self.crypto.randomUUID()}`, title: 'Nueva Comida', recipes: [] };
-      const updatedMeals = [...targetDay.meals];
+      const updatedMeals = [...currentDayPlan.meals];
       updatedMeals.splice(index, 0, newMeal);
-      updateDayPlanInFirestore(day, { ...targetDay, meals: updatedMeals });
-    }
-  }, [user, firestore, currentWeekPlan, updateDayPlanInFirestore]);
+      return { ...currentDayPlan, meals: updatedMeals };
+    });
+  }, [updateDayPlanInFirestore]);
 
   const handleDeleteMeal = useCallback((day: string, mealId: string) => {
-    if (!user || !firestore) return;
-    const targetDay = currentWeekPlan.find(d => d.day === day);
-    if (targetDay) {
-      const updatedMeals = targetDay.meals.filter(meal => meal.id !== mealId);
-      updateDayPlanInFirestore(day, { ...targetDay, meals: updatedMeals });
-    }
-  }, [user, firestore, currentWeekPlan, updateDayPlanInFirestore]);
+    updateDayPlanInFirestore(day, (currentDayPlan) => ({
+      ...currentDayPlan,
+      meals: currentDayPlan.meals.filter(meal => meal.id !== mealId)
+    }));
+  }, [updateDayPlanInFirestore]);
 
   return {
     currentWeekPlan,

@@ -2,10 +2,9 @@
 
 import { initializeFirebase } from '@/firebase/server-init';
 import type { Recipe } from '@/lib/types';
-import { doc, collection, setDoc, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { getAuth as getAdminAuth, UserRecord } from 'firebase-admin/auth';
-import { getApp } from 'firebase-admin/app';
+import { UserRecord } from 'firebase-admin/auth';
+import { Storage } from 'firebase-admin/storage';
+import { Firestore } from 'firebase-admin/firestore';
 
 interface SaveRecipePayload {
   recipeData: Omit<Recipe, 'id'>;
@@ -39,16 +38,28 @@ export async function saveRecipe(payload: SaveRecipePayload) {
 
   try {
     const targetCollectionPath = isGlobal ? 'nutriplanner_recipes' : `users/${userId}/recipes`;
-    const targetCollectionRef = collection(firestore, targetCollectionPath);
+    const targetCollectionRef = firestore.collection(targetCollectionPath);
     
-    const recipeId = existingId || doc(targetCollectionRef).id;
+    const docRef = existingId ? targetCollectionRef.doc(existingId) : targetCollectionRef.doc();
+    const recipeId = docRef.id;
+
     let finalImageUrl = recipeData.imageUrl || '';
 
     if (imageFile) {
-      const imagePath = `recipes/${isGlobal ? 'global' : userId}/${recipeId}.${imageFile.name.split('.').pop()}`;
-      const imageStorageRef = ref(storage, imagePath);
-      const snapshot = await uploadBytes(imageStorageRef, imageFile);
-      finalImageUrl = await getDownloadURL(snapshot.ref);
+      const extension = imageFile.name.split('.').pop() || 'jpg';
+      const imagePath = `recipes/${isGlobal ? 'global' : userId}/${recipeId}.${extension}`;
+      
+      const bucket = storage.bucket(); 
+      const file = bucket.file(imagePath);
+      
+      const arrayBuffer = await imageFile.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      
+      await file.save(buffer, {
+          metadata: { contentType: imageFile.type }
+      });
+      await file.makePublic();
+      finalImageUrl = file.publicUrl();
     }
 
     const recipeToSave: Recipe = {
@@ -57,8 +68,7 @@ export async function saveRecipe(payload: SaveRecipePayload) {
       imageUrl: finalImageUrl,
     };
     
-    const recipeRef = doc(targetCollectionRef, recipeId);
-    await setDoc(recipeRef, recipeToSave, { merge: true });
+    await docRef.set(recipeToSave, { merge: true });
 
     return { success: true, recipeName: recipeToSave.name };
   } catch (error: any) {
@@ -120,30 +130,30 @@ const mapUserRecord = (user: UserRecord): ClientUserRecord => ({
 });
 
 // Helper for manual data deletion
-async function deleteUserRelatedData(uid: string, firestore: FirebaseFirestore.Firestore, storage: any) {
-    const userDocRef = doc(firestore, 'users', uid);
+async function deleteUserRelatedData(uid: string, firestore: Firestore, storage: Storage) {
+    const userDocRef = firestore.collection('users').doc(uid);
 
     // Array of sub-collection names to delete
     const subcollections = ['recipes', 'folders', 'weekPlan', 'meal_plans'];
 
     for (const sub of subcollections) {
-        const subCollectionRef = collection(userDocRef, sub);
-        const snapshot = await getDocs(subCollectionRef);
-        const batch = writeBatch(firestore);
+        const subCollectionRef = userDocRef.collection(sub);
+        const snapshot = await subCollectionRef.get();
+        const batch = firestore.batch();
         snapshot.forEach(async (docSnapshot) => {
             batch.delete(docSnapshot.ref);
             // If recipes have images, delete them from storage
             if (sub === 'recipes' && docSnapshot.data().imageUrl) {
                 try {
                     const url = docSnapshot.data().imageUrl;
-                    // Create a reference from the HTTPS URL
-                    const imageRef = ref(storage, url);
-                    await deleteObject(imageRef);
-                } catch (storageError: any) {
-                    // Ignore "object not found" errors, as the image might not exist
-                    if (storageError.code !== 'storage/object-not-found') {
-                        console.error(`Failed to delete image for recipe ${docSnapshot.id}:`, storageError);
+                    const bucket = storage.bucket();
+                    const urlPrefix = `https://storage.googleapis.com/${bucket.name}/`;
+                    if (url.startsWith(urlPrefix)) {
+                        const path = decodeURIComponent(url.replace(urlPrefix, ''));
+                        await bucket.file(path).delete();
                     }
+                } catch (storageError: any) {
+                    console.error(`Failed to delete image for recipe ${docSnapshot.id}:`, storageError);
                 }
             }
         });
@@ -151,5 +161,5 @@ async function deleteUserRelatedData(uid: string, firestore: FirebaseFirestore.F
     }
 
     // Finally, delete the main user document
-    await deleteDoc(userDocRef);
+    await userDocRef.delete();
 }

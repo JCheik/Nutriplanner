@@ -12,13 +12,13 @@ import { RecipeCard } from '@/components/nutri-planner/recipe-card';
 import { useRecipeState } from '@/hooks/use-recipe-state';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { deleteDoc } from 'firebase/firestore';
 import Link from 'next/link';
 
 export default function AdminRecipesPage() {
     const firestore = useFirestore();
     const { toast } = useToast();
-    const { isSaving, handleSaveRecipe } = useRecipeState();
+    const { isSaving, handleSaveRecipe, globalFolders } = useRecipeState();
 
     const globalRecipesRef = useMemoFirebase(
         () => (firestore ? collection(firestore, 'nutriplanner_recipes') : null),
@@ -34,12 +34,20 @@ export default function AdminRecipesPage() {
     );
 
     const handleRecipeAction = (action: 'view' | 'create' | 'edit', recipe?: Recipe) => {
-        setDialogState({
-            open: true,
-            mode: action,
-            recipe: recipe,
-            isNutriPlannerRecipe: true,
-        });
+        if (action === 'create') {
+            setDialogState({
+                open: true,
+                mode: 'create',
+                isNutriPlannerRecipe: true,
+            });
+        } else if (recipe) {
+            setDialogState({
+                open: true,
+                mode: action,
+                recipe: recipe,
+                isNutriPlannerRecipe: true,
+            });
+        }
     };
     
     const handleSave = async (recipeData: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
@@ -51,11 +59,15 @@ export default function AdminRecipesPage() {
         setDialogState({ open: false });
     };
 
-    const handleDelete = (recipeId: string) => {
+    const handleDelete = async (recipeId: string) => {
         if (!firestore) return;
-        const docRef = doc(firestore, 'nutriplanner_recipes', recipeId);
-        deleteDocumentNonBlocking(docRef);
-        toast({ title: 'Receta global eliminada' });
+        try {
+            const docRef = doc(firestore, 'nutriplanner_recipes', recipeId);
+            await deleteDoc(docRef);
+            toast({ title: 'Receta global eliminada' });
+        } catch (e) {
+            toast({ variant: "destructive", title: "Error", description: "No se pudo eliminar la receta." });
+        }
         setDialogState({ open: false });
     };
 
@@ -119,7 +131,7 @@ export default function AdminRecipesPage() {
                 dialogState={dialogState}
                 isSaving={isSaving}
                 folders={[]} // No user folders in this context
-                globalFolders={[]} // TODO: Populate global folders
+                globalFolders={globalFolders}
                 onClose={() => setDialogState({ open: false })}
                 onSave={handleSave}
                 onDelete={handleDelete}

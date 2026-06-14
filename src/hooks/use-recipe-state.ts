@@ -4,13 +4,10 @@ import { useState, useCallback, useMemo } from 'react';
 import { useUser, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import {
-  addDocumentNonBlocking,
-  deleteDocumentNonBlocking,
-  updateDocumentNonBlocking,
-} from '@/firebase/non-blocking-updates';
+import { deleteFolderAndUnlinkRecipes, copyRecipeToUser } from '@/firebase/firestore-operations';
+import { addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { saveRecipe as saveRecipeAction } from '@/lib/actions';
-import type { Recipe, Folder } from '@/lib/types';
+import type { Recipe, Folder, GlobalFolder } from '@/lib/types';
 
 
 export function useRecipeState() {
@@ -27,9 +24,17 @@ export function useRecipeState() {
   const foldersCollectionRef = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'users', user.uid, 'folders') : null, [firestore, user]);
   const { data: folders } = useCollection<Folder>(foldersCollectionRef);
 
+  const globalRecipesCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'nutriplanner_recipes') : null, [firestore]);
+  const { data: globalRecipes } = useCollection<Recipe>(globalRecipesCollectionRef);
+
+  const globalFoldersCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'nutriplanner_folders') : null, [firestore]);
+  const { data: globalFolders } = useCollection<GlobalFolder>(globalFoldersCollectionRef);
+
   // --- Memoized Data Sources ---
   const currentUserRecipes = useMemo(() => userRecipes || [], [userRecipes]);
   const currentFolders = useMemo(() => folders || [], [folders]);
+  const nutriplannerRecipes = useMemo(() => globalRecipes || [], [globalRecipes]);
+  const currentGlobalFolders = useMemo(() => globalFolders || [], [globalFolders]);
   
   // --- Handlers ---
   const handleSaveRecipe = async (recipeData: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
@@ -53,60 +58,117 @@ export function useRecipeState() {
   const handleDeleteRecipe = useCallback(async (recipeId: string, isGlobal: boolean) => {
     if (!user || !firestore || !userRecipesCollectionRef) return;
     
-    deleteDocumentNonBlocking(doc(userRecipesCollectionRef, recipeId));
-
-    toast({ title: 'Receta eliminada', description: 'La receta se ha eliminado de tu librería.' });
-
+    try {
+      await deleteDoc(doc(userRecipesCollectionRef, recipeId));
+      toast({ title: 'Receta eliminada', description: 'La receta se ha eliminado de tu librería.' });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: 'No se pudo eliminar la receta.' });
+    }
   }, [user, firestore, userRecipesCollectionRef, toast]);
 
 
-  const handleCopyRecipe = useCallback((recipe: Recipe) => {
-    if (!user || !userRecipesCollectionRef) return;
+  const handleCopyRecipe = useCallback(async (recipe: Recipe) => {
+    if (!user || !firestore) return;
     
     const { id, folderId, ...recipeData } = recipe; // Exclude original ID and folder
-    const newRecipeRef = doc(userRecipesCollectionRef); // Let Firestore generate ID
-    addDocumentNonBlocking(userRecipesCollectionRef, { ...recipeData, id: newRecipeRef.id, folderId: null });
+    
+    try {
+      await copyRecipeToUser(firestore, user.uid, recipeData);
+      toast({ title: '¡Receta Copiada!', description: `${recipe.name} ha sido añadida a "Mis Recetas".` });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: 'No se pudo copiar la receta.' });
+    }
+  }, [user, firestore, toast]);
 
-    toast({ title: '¡Receta Copiada!', description: `${recipe.name} ha sido añadida a "Mis Recetas".` });
-  }, [user, userRecipesCollectionRef, toast]);
 
-
-  const handleFolderCreate = useCallback((name: string) => {
+  const handleFolderCreate = useCallback(async (name: string) => {
     if (!user || !foldersCollectionRef) return;
-    addDocumentNonBlocking(foldersCollectionRef, { name, userId: user.uid });
-    toast({ title: 'Carpeta creada', description: `La carpeta "${name}" ha sido creada.` });
+    try {
+      await addDoc(foldersCollectionRef, { name, userId: user.uid });
+      toast({ title: 'Carpeta creada', description: `La carpeta "${name}" ha sido creada.` });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: 'No se pudo crear la carpeta.' });
+    }
   }, [user, foldersCollectionRef, toast]);
 
   const handleFolderDelete = useCallback(async (id: string) => {
     if (!user || !firestore) return;
     
-    deleteDocumentNonBlocking(doc(firestore, 'users', user.uid, 'folders', id));
-
-    const batch = writeBatch(firestore);
-    (userRecipes?.filter(r => r.folderId === id) || []).forEach(recipe => {
-      batch.update(doc(firestore, 'users', user.uid, 'recipes', recipe.id), { folderId: null });
-    });
-    
-    await batch.commit();
-    toast({ title: 'Carpeta eliminada' });
+    try {
+      const linkedRecipeIds = userRecipes?.filter(r => r.folderId === id).map(r => r.id) || [];
+      await deleteFolderAndUnlinkRecipes(firestore, user.uid, id, false, linkedRecipeIds);
+      toast({ title: 'Carpeta eliminada' });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: 'No se pudo eliminar la carpeta.' });
+    }
   }, [user, firestore, userRecipes, toast]);
   
-  const handleFolderUpdate = useCallback((id: string, name: string) => {
+  const handleFolderUpdate = useCallback(async (id: string, name: string) => {
     if (!user || !firestore) return;
-    updateDocumentNonBlocking(doc(firestore, 'users', user.uid, 'folders', id), { name });
-  }, [user, firestore]);
+    try {
+      await updateDoc(doc(firestore, 'users', user.uid, 'folders', id), { name });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: 'No se pudo actualizar la carpeta.' });
+    }
+  }, [user, firestore, toast]);
 
-  const handleAssignRecipeToFolder = useCallback((recipeId: string, folderId: string | null) => {
+  const handleAssignRecipeToFolder = useCallback(async (recipeId: string, folderId: string | null) => {
     if (!user || !firestore) return;
-    updateDocumentNonBlocking(doc(firestore, 'users', user.uid, 'recipes', recipeId), { folderId });
-    toast({ title: 'Receta movida' });
+    try {
+      await updateDoc(doc(firestore, 'users', user.uid, 'recipes', recipeId), { folderId });
+      toast({ title: 'Receta movida' });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: 'No se pudo mover la receta.' });
+    }
+  }, [user, firestore, toast]);
+
+  const handleGlobalFolderCreate = useCallback(async (name: string) => {
+    if (!user || !globalFoldersCollectionRef) return;
+    try {
+      await addDoc(globalFoldersCollectionRef, { name });
+      toast({ title: 'Carpeta global creada', description: `La carpeta "${name}" ha sido creada.` });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: 'No se pudo crear la carpeta global.' });
+    }
+  }, [user, globalFoldersCollectionRef, toast]);
+
+  const handleGlobalFolderDelete = useCallback(async (id: string) => {
+    if (!user || !firestore) return;
+    
+    try {
+      const linkedRecipeIds = globalRecipes?.filter(r => r.folderId === id).map(r => r.id) || [];
+      await deleteFolderAndUnlinkRecipes(firestore, user.uid, id, true, linkedRecipeIds);
+      toast({ title: 'Carpeta global eliminada' });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: 'No se pudo eliminar la carpeta global.' });
+    }
+  }, [user, firestore, globalRecipes, toast]);
+  
+  const handleGlobalFolderUpdate = useCallback(async (id: string, name: string) => {
+    if (!user || !firestore) return;
+    try {
+      await updateDoc(doc(firestore, 'nutriplanner_folders', id), { name });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: 'No se pudo actualizar la carpeta global.' });
+    }
+  }, [user, firestore, toast]);
+
+  const handleAssignRecipeToGlobalFolder = useCallback(async (recipeId: string, folderId: string | null) => {
+    if (!user || !firestore) return;
+    try {
+      await updateDoc(doc(firestore, 'nutriplanner_recipes', recipeId), { folderId });
+      toast({ title: 'Receta movida' });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: 'No se pudo mover la receta.' });
+    }
   }, [user, firestore, toast]);
 
   return {
     isSaving,
     currentUserRecipes,
-    nutriplannerRecipes: [], // This is static global data
+    nutriplannerRecipes,
     currentFolders,
+    globalFolders: currentGlobalFolders,
     handleSaveRecipe,
     handleDeleteRecipe,
     handleCopyRecipe,
@@ -114,5 +176,9 @@ export function useRecipeState() {
     handleFolderDelete,
     handleFolderUpdate,
     handleAssignRecipeToFolder,
+    handleGlobalFolderCreate,
+    handleGlobalFolderDelete,
+    handleGlobalFolderUpdate,
+    handleAssignRecipeToGlobalFolder,
   };
 }

@@ -2,8 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useUser, useDoc, useFirebase, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
-import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { doc, updateDoc } from 'firebase/firestore';
 import type { UserProfile, CalculationResult, GoalType, ShoppingListItem } from '@/lib/types';
 
 export function useUserProfileState() {
@@ -32,22 +31,28 @@ export function useUserProfileState() {
   const currentShoppingList = useMemo(() => userProfile?.shoppingList || [], [userProfile]);
 
   // --- Handlers ---
-  const handleNoteSave = useCallback((content: string) => {
+  const handleNoteSave = useCallback(async (content: string) => {
     if (userProfileRef) {
-      updateDocumentNonBlocking(userProfileRef, { stickyNote: content });
+      try {
+        await updateDoc(userProfileRef, { stickyNote: content });
+      } catch(e) { console.error("Error saving sticky note", e) }
     }
   }, [userProfileRef]);
 
-  const handleCalorieResultSave = useCallback((result: CalculationResult) => {
+  const handleCalorieResultSave = useCallback(async (result: CalculationResult) => {
     if (userProfileRef) {
-      updateDocumentNonBlocking(userProfileRef, { calorieResult: result });
+      try {
+        await updateDoc(userProfileRef, { calorieResult: result });
+      } catch(e) { console.error("Error saving calorie result", e) }
     }
   }, [userProfileRef]);
 
-  const handleActiveGoalChange = (goal: GoalType) => {
+  const handleActiveGoalChange = async (goal: GoalType) => {
     setActiveGoal(goal);
     if (userProfileRef) {
-      updateDocumentNonBlocking(userProfileRef, { activeGoalPreference: goal });
+      try {
+        await updateDoc(userProfileRef, { activeGoalPreference: goal });
+      } catch(e) { console.error("Error saving goal", e) }
     }
   };
 
@@ -62,9 +67,11 @@ export function useUserProfileState() {
     handleCalorieResultSave(newResult);
   };
   
-  const handleShoppingListUpdate = useCallback((list: ShoppingListItem[]) => {
+  const handleShoppingListUpdate = useCallback(async (list: ShoppingListItem[]) => {
     if (userProfileRef) {
-      updateDocumentNonBlocking(userProfileRef, { shoppingList: list });
+      try {
+        await updateDoc(userProfileRef, { shoppingList: list });
+      } catch(e) { console.error("Error saving shopping list", e) }
     }
   }, [userProfileRef]);
 

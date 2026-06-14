@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-type EditableIngredient = Partial<Omit<BaseIngredient, 'id' | 'createdBy'>> & { id?: string; createdBy?: string };
+export type EditableIngredient = Omit<BaseIngredient, 'id' | 'createdBy'> & { id?: string; createdBy?: string };
 
 interface NewIngredientDialogProps {
   isOpen: boolean;

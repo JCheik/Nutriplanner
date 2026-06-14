@@ -1,5 +1,5 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, use } from 'react';
 import { useUser, useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,15 +14,16 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
-export default function UserDetailPage({ params }: { params: { userId: string } }) {
+export default function UserDetailPage({ params }: { params: Promise<{ userId: string }> }) {
+    const { userId } = use(params);
     const { user: adminUser, claims, loading: adminLoading } = useUser();
     const firestore = useFirestore();
     const [dialogState, setDialogState] = useState<DialogState>({ open: false });
 
     // Memoize Firestore references
-    const userProfileRef = useMemoFirebase(() => (firestore) ? doc(firestore, 'users', params.userId) : null, [firestore, params.userId]);
-    const userRecipesRef = useMemoFirebase(() => (firestore) ? collection(firestore, 'users', params.userId, 'recipes') : null, [firestore, params.userId]);
-    const userIngredientsRef = useMemoFirebase(() => (firestore) ? collection(firestore, 'users', params.userId, 'ingredients') : null, [firestore, params.userId]);
+    const userProfileRef = useMemoFirebase(() => (firestore) ? doc(firestore, 'users', userId) : null, [firestore, userId]);
+    const userRecipesRef = useMemoFirebase(() => (firestore) ? collection(firestore, 'users', userId, 'recipes') : null, [firestore, userId]);
+    const userIngredientsRef = useMemoFirebase(() => (firestore) ? collection(firestore, 'users', userId, 'ingredients') : null, [firestore, userId]);
 
     const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userProfileRef);
     const { data: userRecipes, isLoading: recipesLoading } = useCollection<Recipe>(userRecipesRef);

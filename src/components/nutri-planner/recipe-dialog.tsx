@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { DialogState as DialogStateBase, Recipe, Ingredient, Folder, GlobalFolder, BaseIngredient } from '@/lib/types';
 import { useUser, useFirestore, useMemoFirebase } from '@/firebase/index';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { addDoc } from 'firebase/firestore';
 import { collection } from 'firebase/firestore';
 import {
   Dialog,
@@ -31,7 +31,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { NewIngredientDialog } from './new-ingredient-dialog';
+import { NewIngredientDialog, EditableIngredient } from './new-ingredient-dialog';
 import { Card, CardContent } from '../ui/card';
 import Image from 'next/image';
 import { Switch } from '../ui/switch';
@@ -61,7 +61,7 @@ const MacroDisplay = ({ label, value, unit, icon: Icon }: { label: string, value
   </div>
 );
 
-function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitiallyGlobal = false, isSaving, onSave, onCancel, onDelete }: { recipe?: Recipe, folders: Folder[], globalFolders: GlobalFolder[], isInitiallyGlobal?: boolean, isSaving: boolean, onSave: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void, onCancel: () => void, onDelete: (id: string, isGlobal: boolean) => void }) {
+function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitiallyGlobal = false, isSaving, onSave, onCancel, onDelete }: { recipe?: Partial<Recipe>, folders: Folder[], globalFolders: GlobalFolder[], isInitiallyGlobal?: boolean, isSaving: boolean, onSave: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void, onCancel: () => void, onDelete: (id: string, isGlobal: boolean) => void }) {
   const isEditing = !!initialRecipe && !!initialRecipe.id;
   const { user, isAdmin } = useUser();
   const firestore = useFirestore();
@@ -169,7 +169,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
     setIngredients(prev => prev.filter(i => i.id !== id));
   };
   
-  const handleNewIngredientSave = (ingredientData: Omit<BaseIngredient, 'id' | 'createdBy'>) => {
+  const handleNewIngredientSave = (ingredientData: EditableIngredient) => {
     if (!ingredientsCollectionRef || !user) return;
     
     const newIngredientWithUser: Omit<BaseIngredient, 'id'> & { createdBy: string } = {
@@ -177,7 +177,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
         createdBy: user.uid,
     };
     
-    addDocumentNonBlocking(ingredientsCollectionRef, newIngredientWithUser).then(docRef => {
+    addDoc(ingredientsCollectionRef, newIngredientWithUser).then(docRef => {
         if (docRef) {
           const newOptimisticIngredient: BaseIngredient = { ...newIngredientWithUser, id: docRef.id };
           setSelectedIngredient(newOptimisticIngredient);
@@ -377,7 +377,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => onDelete(initialRecipe.id, saveAsGlobal)}>Borrar</AlertDialogAction>
+                  <AlertDialogAction onClick={() => onDelete(initialRecipe?.id as string, saveAsGlobal)}>Borrar</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>

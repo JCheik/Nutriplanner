@@ -107,7 +107,7 @@ export function MobilePageContent({
                               <div className="h-16 flex-1">
                                 <RecipeCard
                                   recipe={recipe}
-                                  onClick={(e) => { e.stopPropagation(); handleRecipeClick(recipe); }}
+                                  onClick={() => handleRecipeClick(recipe)}
                                   isCompact
                                   className="text-sm"
                                 />

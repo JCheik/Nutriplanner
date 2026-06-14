@@ -21,6 +21,7 @@ export function MobileRecipesPageContent({
     currentUserRecipes,
     nutriplannerRecipes,
     currentFolders,
+    globalFolders,
     isSaving,
     handleCopyRecipe,
     handleSaveRecipe,
@@ -39,7 +40,11 @@ export function MobileRecipesPageContent({
     const [dialogState, setDialogState] = useState<DialogState>({ open: false });
 
     const handleRecipeAction = (action: 'view' | 'create' | 'edit', recipe?: Recipe, isNutriPlannerRecipe: boolean = false) => {
-        setDialogState({ open: true, mode: action, recipe, isNutriPlannerRecipe });
+        if (action === 'create') {
+            setDialogState({ open: true, mode: 'create', isNutriPlannerRecipe });
+        } else if (recipe) {
+            setDialogState({ open: true, mode: action, recipe, isNutriPlannerRecipe });
+        }
     };
 
     const handleDialogClose = () => setDialogState({ open: false });
@@ -76,7 +81,7 @@ export function MobileRecipesPageContent({
                     userRecipes={currentUserRecipes}
                     nutriplannerRecipes={nutriplannerRecipes}
                     folders={currentFolders}
-                    globalFolders={[]}
+                    globalFolders={globalFolders}
                     onRecipeAction={handleRecipeAction}
                     onCopyRecipe={handleCopyRecipe}
                     onAddToPlan={handleAddToPlan}
@@ -98,11 +103,11 @@ export function MobileRecipesPageContent({
                 dialogState={dialogState}
                 isSaving={isSaving}
                 folders={currentFolders}
-                globalFolders={[]}
+                globalFolders={globalFolders}
                 onClose={handleDialogClose}
                 onSave={handleInternalSave}
                 onDelete={handleInternalDelete}
-                onEdit={handleRecipeAction}
+                onEdit={(recipe, isNutri) => handleRecipeAction('edit', recipe, isNutri)}
                 onCopy={handleCopyRecipe}
 isMobile
             />

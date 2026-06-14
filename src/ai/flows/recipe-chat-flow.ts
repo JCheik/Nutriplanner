@@ -9,7 +9,7 @@ import { RecipeChatInputSchema, RecipeChatOutputSchema, RecipeSchema } from '@/l
 import type { RecipeChatInput, RecipeChatOutput, Recipe } from '@/lib/types';
 
 
-export async function recipeChat(input: RecipeChatInput): Promise<RecipeChatOutput | Recipe[]> {
+export async function recipeChat(input: RecipeChatInput): Promise<RecipeChatOutput | any[]> {
   if (input.generateThree) {
     return await recipeSuggestionsFlow(input);
   }
@@ -108,11 +108,11 @@ Ejemplo de cómo debe ser tu respuesta FINAL (solo el JSON):
 
     const llmResponse = await ai.generate({
       model: 'googleai/gemini-2.5-flash',
-      history: [
+      messages: [
           { role: 'system', content: [{ text: systemPrompt }] },
-          ...history
+          ...history,
+          { role: 'user', content: [{ text: message }] }
       ],
-      prompt: message,
     });
     
     return llmResponse.text;

@@ -59,7 +59,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         if (firebaseUser) {
           try {
             const idTokenResult: IdTokenResult = await firebaseUser.getIdTokenResult();
-            const finalClaims: UserClaims = { ...idTokenResult.claims };
+            const finalClaims: UserClaims = { ...idTokenResult.claims } as UserClaims;
 
             setUser(firebaseUser);
             setClaims(finalClaims);

@@ -57,6 +57,7 @@ interface RecipeLibraryProps {
   onAiChatOpen: () => void;
   isMobile?: boolean;
   initialViewMode?: 'grid' | 'list';
+  onAiRecipeGenerated?: (recipe: Omit<Recipe, 'id'>) => void;
 }
 
 const sortOptions: { value: SortCriteria; label: string }[] = [

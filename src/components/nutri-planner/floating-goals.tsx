@@ -147,15 +147,15 @@ const TargetGoalsDisplay = ({ result, onCalculate, onGoalSelect, activeGoal, onS
                 </TabsList>
                 <TabsContent value="loss" className="mt-4 flex-1">
                      <GoalHeader title="Objetivo: Perder Peso" />
-                    <GoalCard icon={TrendingDown} goal={result.loss} isActive={activeGoal === 'loss'} />
+                    <GoalCard title="Perder Peso" icon={TrendingDown} goal={result.loss} isActive={activeGoal === 'loss'} />
                 </TabsContent>
                 <TabsContent value="maintenance" className="mt-4 flex-1">
                      <GoalHeader title="Objetivo: Mantenimiento" />
-                    <GoalCard icon={Weight} goal={result.maintenance} isActive={activeGoal === 'maintenance'} />
+                    <GoalCard title="Mantenimiento" icon={Weight} goal={result.maintenance} isActive={activeGoal === 'maintenance'} />
                 </TabsContent>
                 <TabsContent value="gain" className="mt-4 flex-1">
                     <GoalHeader title="Objetivo: Ganar Músculo" />
-                    <GoalCard icon={TrendingUp} goal={result.gain} isActive={activeGoal === 'gain'} />
+                    <GoalCard title="Ganar Músculo" icon={TrendingUp} goal={result.gain} isActive={activeGoal === 'gain'} />
                 </TabsContent>
                 <TabsContent value="custom" className="mt-4 flex-1">
                    <CustomGoalEditor goal={result.custom} onSave={handleCustomSave} />
