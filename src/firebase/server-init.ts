@@ -48,12 +48,15 @@ const adminConfig: AppOptions = {
  */
 export function initializeFirebase() {
   if (!getApps().length) {
-    // Only attempt to initialize if we have a service account.
-    // This prevents errors in environments where server-side credentials are not configured.
     if (hasServiceAccount) {
       initializeApp(adminConfig);
     } else {
-      console.warn('Firebase Admin SDK not initialized. Missing service account credentials.');
+      // No explicit credentials — on Firebase App Hosting, ADC is provided automatically
+      // by the runtime. Omitting `credential` lets the SDK pick it up via ADC.
+      initializeApp({
+        projectId: serviceAccount?.projectId || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+      });
     }
   }
   

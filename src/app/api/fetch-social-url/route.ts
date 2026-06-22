@@ -1,4 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyAuth } from '@/lib/verify-auth';
+
+// Domains this proxy is allowed to fetch. Prevents SSRF against internal services.
+const ALLOWED_DOMAINS = new Set([
+  'instagram.com',
+  'tiktok.com',
+  'youtube.com',
+  'youtu.be',
+  'twitter.com',
+  'x.com',
+  'facebook.com',
+  'pinterest.com',
+]);
+
+function isAllowedDomain(hostname: string): boolean {
+  const normalized = hostname.toLowerCase().replace(/^www\./, '');
+  // Exact match or subdomain (e.g. vm.tiktok.com)
+  return (
+    ALLOWED_DOMAINS.has(normalized) ||
+    [...ALLOWED_DOMAINS].some((d) => normalized.endsWith(`.${d}`))
+  );
+}
 
 function extractMeta(html: string, property: string): string | null {
   const regexes = [
@@ -24,6 +46,8 @@ function decodeEntities(s: string): string {
 
 export async function POST(req: NextRequest) {
   try {
+    await verifyAuth(req);
+
     const { url } = await req.json() as { url: string };
 
     if (!url || typeof url !== 'string') {
@@ -31,8 +55,18 @@ export async function POST(req: NextRequest) {
     }
 
     const parsed = new URL(url);
-    if (!['http:', 'https:'].includes(parsed.protocol)) {
-      return NextResponse.json({ success: false, error: 'Protocolo no permitido' }, { status: 400 });
+    if (parsed.protocol !== 'https:') {
+      return NextResponse.json({ success: false, error: 'Solo se permiten URLs HTTPS' }, { status: 400 });
+    }
+
+    if (!isAllowedDomain(parsed.hostname)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Dominio no permitido. Dominios aceptados: Instagram, TikTok, YouTube, Twitter/X, Facebook, Pinterest.`,
+        },
+        { status: 403 }
+      );
     }
 
     const res = await fetch(url, {
@@ -76,6 +110,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, title, description, videoUrl, imageUrl });
   } catch (err: unknown) {
+    const status = (err as { status?: number }).status;
+    if (status === 401) {
+      return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 401 });
+    }
     const msg = err instanceof Error ? err.message : 'Error al acceder a la URL';
     return NextResponse.json({ success: false, error: msg });
   }

@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Target, ShoppingCart, StickyNoteIcon, Sparkles, Camera, Link2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ElementType } from 'react';
-
-type PanelType = 'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat' | 'empty-fridge' | 'recipe-import';
+import type { PanelType } from '@/lib/types';
 
 interface FloatingMenuProps {
   onPanelOpen: (panel: PanelType) => void;

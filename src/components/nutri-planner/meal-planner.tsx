@@ -6,10 +6,21 @@ import type { WeekPlan, Recipe, DailyTotal, Macros, GoalMacros, Meal, ActiveDrop
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RecipeCard } from './recipe-card';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, X, Flame, Plus, Edit, Check, Download, Sparkles } from 'lucide-react';
+import { CalendarDays, X, Flame, Plus, Edit, Check, Download, Sparkles, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '../ui/input';
 import { dragStore } from '@/lib/drag-store';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface MealPlannerProps {
   weekPlan: WeekPlan;
@@ -17,6 +28,8 @@ interface MealPlannerProps {
   activeGoal: GoalMacros | null;
   onDrop: (day: string, mealId: string, recipe: Recipe) => void;
   onClearMeal: (day: string, mealId: string) => void;
+  onClearDay: (day: string) => void;
+  onClearWeek: () => void;
   onRecipeClick: (recipe: Recipe) => void;
   onRemoveRecipeFromMeal: (day: string, mealId:string, recipeInstanceId: string) => void;
   onUpdateMealTitle: (day: string, mealId: string, newTitle: string) => void;
@@ -310,7 +323,7 @@ function AddMealButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget, onMealSlotClick, onAutocomplete, isAutocompleting, onUpdateServingsEaten }: MealPlannerProps) {
+export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onClearDay, onClearWeek, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget, onMealSlotClick, onAutocomplete, isAutocompleting, onUpdateServingsEaten }: MealPlannerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [hoveredSlot, setHoveredSlot] = useState<{day: string, mealId: string} | null>(null);
   const plannerRef = useRef<HTMLDivElement>(null);
@@ -341,15 +354,38 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
             <CardDescription>Arrastra y suelta recetas de tu biblioteca para planificar tu semana.</CardDescription>
         </div>
         <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="text-primary border-primary hover:bg-primary/10"
               onClick={onAutocomplete}
               disabled={isAutocompleting}
+              data-tour="autocomplete"
             >
               <Sparkles className={cn("mr-2 h-4 w-4", isAutocompleting && "animate-spin")} />
               {isAutocompleting ? 'Pensando...' : 'Autocompletar'}
             </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive" data-tour="clear-plan">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Limpiar semana
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="bg-glass">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Limpiar toda la semana?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Se eliminarán todas las recetas de todos los días. Esta acción no se puede deshacer.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={onClearWeek} className="bg-destructive hover:bg-destructive/90">
+                    Sí, limpiar todo
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <Button variant="outline" size="icon" onClick={handleDownloadImage}>
               <Download className="h-4 w-4" />
             </Button>
@@ -361,9 +397,41 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
       </CardHeader>
       <CardContent ref={plannerRef} className="pb-4">
         <div className="printable-area flex gap-2">
-          {weekPlan.map((dayPlan) => (
+          {weekPlan.map((dayPlan) => {
+            const dayHasRecipes = dayPlan.meals.some(m => m.recipes.length > 0);
+            return (
             <div key={dayPlan.day} className="flex-1 flex flex-col gap-2">
-                <h3 className="font-semibold text-center text-lg text-card-foreground mb-2">{dayPlan.day}</h3>
+                <div className="flex items-center justify-center gap-1 mb-2 group/day">
+                  <h3 className="font-semibold text-center text-lg text-card-foreground">{dayPlan.day}</h3>
+                  {dayHasRecipes && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 opacity-0 group-hover/day:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                          title={`Limpiar ${dayPlan.day}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="bg-glass">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>¿Limpiar {dayPlan.day}?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Se eliminarán todas las recetas de {dayPlan.day}. Esta acción no se puede deshacer.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => onClearDay(dayPlan.day)} className="bg-destructive hover:bg-destructive/90">
+                            Sí, limpiar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                </div>
                 
                 {isEditing && <AddMealButton onClick={() => onAddMeal(dayPlan.day, 0)} />}
 
@@ -404,7 +472,8 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                   className="p-3 mt-auto rounded-xl bg-background/80 border print:hidden"
                 />
             </div>
-          ))}
+            );
+          })}
         </div>
       </CardContent>
     </Card>

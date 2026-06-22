@@ -140,6 +140,14 @@ export interface ActiveDropTarget {
   mealId: string;
 }
 
+export type PanelType =
+  | 'goals'
+  | 'shopping-list'
+  | 'sticky-note'
+  | 'ai-chat'
+  | 'empty-fridge'
+  | 'recipe-import';
+
 
 // Types for Recipe Chat Flow
 export const RecipeChatInputSchema = z.object({

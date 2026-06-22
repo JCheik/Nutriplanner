@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { parseFridgeImageFlow } from '@/ai/flows/parse-fridge-image-flow';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -59,6 +59,12 @@ export function EmptyFridgeScanner({
   const [hasScanned, setHasScanned] = useState(false);
   const [savedRecipeIds, setSavedRecipeIds] = useState<Record<string, boolean>>({});
   const [savingIndex, setSavingIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+    };
+  }, [imagePreview]);
 
   const resetScanner = () => {
     setImageFile(null);

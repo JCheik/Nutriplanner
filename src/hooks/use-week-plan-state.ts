@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { useUser, useCollection, useFirebase, useMemoFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { updateDayPlanTransaction } from '@/firebase/firestore-operations';
@@ -65,13 +65,19 @@ export function useWeekPlanState() {
     });
   }, [weekPlanData]);
 
-  const updateDayPlanInFirestore = useCallback(async (day: string, modifierFn: (dayPlan: DayPlan) => DayPlan) => {
+  // Per-day write queue: serializes concurrent writes to the same day.
+  // Writes to different days are independent and run in parallel.
+  const pendingWritesByDayRef = useRef<Map<string, Promise<void>>>(new Map());
+
+  const updateDayPlanInFirestore = useCallback((day: string, modifierFn: (dayPlan: DayPlan) => DayPlan) => {
     if (!user || !firestore) return;
-    try {
-      await updateDayPlanTransaction(firestore, user.uid, day, modifierFn);
-    } catch (error) {
-      console.error("Failed to update day plan:", error);
-    }
+
+    const pending = pendingWritesByDayRef.current.get(day) ?? Promise.resolve();
+    const next = pending
+      .then(() => updateDayPlanTransaction(firestore, user.uid, day, modifierFn))
+      .catch((error) => console.error(`Failed to update day plan (${day}):`, error));
+
+    pendingWritesByDayRef.current.set(day, next);
   }, [user, firestore]);
 
   // --- Handlers ---
@@ -147,11 +153,29 @@ export function useWeekPlanState() {
     }));
   }, [updateDayPlanInFirestore]);
 
+  const handleClearDay = useCallback((day: string) => {
+    updateDayPlanInFirestore(day, (currentDayPlan) => ({
+      ...currentDayPlan,
+      meals: currentDayPlan.meals.map(meal => ({ ...meal, recipes: [] })),
+    }));
+  }, [updateDayPlanInFirestore]);
+
+  const handleClearWeek = useCallback(() => {
+    currentWeekPlan.forEach(dayPlan => {
+      updateDayPlanInFirestore(dayPlan.day, (currentDayPlan) => ({
+        ...currentDayPlan,
+        meals: currentDayPlan.meals.map(meal => ({ ...meal, recipes: [] })),
+      }));
+    });
+  }, [currentWeekPlan, updateDayPlanInFirestore]);
+
   return {
     currentWeekPlan,
     weekPlanLoading,
     handleDrop,
     handleClearMeal,
+    handleClearDay,
+    handleClearWeek,
     handleRemoveRecipeFromMeal,
     handleUpdateMealTitle,
     handleAddMeal,

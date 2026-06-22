@@ -9,7 +9,6 @@ import { MobileNav } from '@/components/layout/mobile-nav';
 export const metadata: Metadata = {
   title: 'NutriPlanner',
   description: 'Planifica tus comidas, crea recetas y sigue tu nutrición.',
-  manifest: '/manifest.json',
 };
 
 const Loader = () => (

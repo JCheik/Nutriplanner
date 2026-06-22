@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo, type DragEvent, type KeyboardEvent } from 'react';
+import { useState, useMemo, useRef, useEffect, type DragEvent, type KeyboardEvent } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import type { Recipe, SortCriteria, Folder, GlobalFolder } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -211,86 +212,128 @@ function NewFolderPopover({ onFolderCreate }: { onFolderCreate: (name: string) =
   );
 }
 
+function getColumnCount(width: number): number {
+  if (width < 640) return 2;
+  if (width < 768) return 2;
+  if (width < 1024) return 3;
+  if (width < 1280) return 4;
+  return 5;
+}
+
 function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isDraggable, isNutriPlanner = false, isMobile, viewMode }: { recipes: Recipe[], onRecipeClick: (recipe: Recipe, isNutriPlanner?: boolean) => void, onCopyClick?: (recipe: Recipe) => void, onAddToPlanClick?: (recipe: Recipe) => void, isDraggable: boolean, isNutriPlanner?: boolean, isMobile: boolean, viewMode: 'grid' | 'list' }) {
-  
-  const handleCardClick = (recipe: Recipe) => {
-      onRecipeClick(recipe, isNutriPlanner);
-  };
+  const parentRef = useRef<HTMLDivElement>(null);
+  const [columnCount, setColumnCount] = useState(4);
+
+  useEffect(() => {
+    const el = parentRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(entries => {
+      setColumnCount(getColumnCount(entries[0].contentRect.width));
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const cols = viewMode === 'grid' ? columnCount : 1;
+
+  // Group recipes into rows for the virtualizer
+  const rows = useMemo(() => {
+    const result: Recipe[][] = [];
+    for (let i = 0; i < recipes.length; i += cols) {
+      result.push(recipes.slice(i, i + cols));
+    }
+    return result;
+  }, [recipes, cols]);
+
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => viewMode === 'grid' ? 220 : 88,
+    overscan: 3,
+    measureElement: el => el.getBoundingClientRect().height,
+  });
+
+  if (recipes.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-border rounded-lg h-[250px]">
+        <p className="font-semibold">No se encontraron recetas</p>
+        <p className="text-sm text-muted-foreground">Prueba a cambiar el filtro o crea una nueva receta.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className={cn(
-      "h-full pr-1",
-      viewMode === 'grid' ? "grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3" : "flex flex-col gap-3"
-    )}>
-      {recipes.length > 0 ? (
-        recipes.map(recipe => (
-          <div key={recipe.id} className="group flex items-center gap-2">
+    <div ref={parentRef} className="h-full overflow-auto pr-1">
+      <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative' }}>
+        {rowVirtualizer.getVirtualItems().map(virtualRow => {
+          const rowRecipes = rows[virtualRow.index];
+          return (
+            <div
+              key={virtualRow.key}
+              data-index={virtualRow.index}
+              ref={rowVirtualizer.measureElement}
+              style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${virtualRow.start}px)` }}
+            >
               {viewMode === 'grid' ? (
-                <div className="aspect-square w-full relative">
-                  <RecipeCard 
-                    recipe={recipe} 
-                    isDraggable={isDraggable && !isMobile}
-                    onClick={() => handleCardClick(recipe)}
-                  />
-                  {onCopyClick && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => { e.stopPropagation(); onCopyClick(recipe);}}
-                      className="absolute top-1 right-1 z-10 h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity bg-background/50 hover:bg-background/80"
-                      aria-label="Copiar a Mis Recetas"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  )}
-                  {onAddToPlanClick && isMobile && (
-                     <Button
-                        onClick={(e) => { e.stopPropagation(); onAddToPlanClick(recipe);}}
-                        className="absolute bottom-2 right-2 z-10 h-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                        size="sm"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                  )}
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: '12px', paddingBottom: '12px' }}>
+                  {rowRecipes.map(recipe => (
+                    <div key={recipe.id} className="group aspect-square relative">
+                      <RecipeCard
+                        recipe={recipe}
+                        isDraggable={isDraggable && !isMobile}
+                        onClick={() => onRecipeClick(recipe, isNutriPlanner)}
+                      />
+                      {onCopyClick && (
+                        <Button variant="ghost" size="icon"
+                          onClick={(e) => { e.stopPropagation(); onCopyClick(recipe); }}
+                          className="absolute top-1 right-1 z-10 h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity bg-background/50 hover:bg-background/80"
+                          aria-label="Copiar a Mis Recetas"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {onAddToPlanClick && isMobile && (
+                        <Button onClick={(e) => { e.stopPropagation(); onAddToPlanClick(recipe); }}
+                          className="absolute bottom-2 right-2 z-10 h-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" size="sm">
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
                 </div>
               ) : (
-                <div className="w-full relative">
-                  <RecipeCard 
-                    recipe={recipe} 
-                    isDraggable={isDraggable && !isMobile}
-                    isListView
-                    onClick={() => handleCardClick(recipe)}
-                  />
-                   {onCopyClick && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => { e.stopPropagation(); onCopyClick(recipe);}}
-                      className="absolute top-1/2 -translate-y-1/2 right-2 z-10 h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity bg-background/50 hover:bg-background/80"
-                      aria-label="Copiar a Mis Recetas"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  )}
-                  {onAddToPlanClick && isMobile && (
-                     <Button
-                        onClick={(e) => { e.stopPropagation(); onAddToPlanClick(recipe);}}
-                        className="absolute top-1/2 -translate-y-1/2 right-12 z-10 h-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                        size="sm"
-                      >
-                        Añadir
-                      </Button>
-                  )}
+                <div className="flex flex-col gap-3 pb-3">
+                  {rowRecipes.map(recipe => (
+                    <div key={recipe.id} className="group relative">
+                      <RecipeCard
+                        recipe={recipe}
+                        isDraggable={isDraggable && !isMobile}
+                        isListView
+                        onClick={() => onRecipeClick(recipe, isNutriPlanner)}
+                      />
+                      {onCopyClick && (
+                        <Button variant="ghost" size="icon"
+                          onClick={(e) => { e.stopPropagation(); onCopyClick(recipe); }}
+                          className="absolute top-1/2 -translate-y-1/2 right-2 z-10 h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity bg-background/50 hover:bg-background/80"
+                          aria-label="Copiar a Mis Recetas"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {onAddToPlanClick && isMobile && (
+                        <Button onClick={(e) => { e.stopPropagation(); onAddToPlanClick(recipe); }}
+                          className="absolute top-1/2 -translate-y-1/2 right-12 z-10 h-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" size="sm">
+                          Añadir
+                        </Button>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
-          </div>
-        ))
-      ) : (
-        <div className={cn("flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-border rounded-lg h-[250px]", viewMode === 'grid' ? 'col-span-full' : 'w-full')}>
-          <p className="font-semibold">No se encontraron recetas</p>
-          <p className="text-sm text-muted-foreground">Prueba a cambiar el filtro o crea una nueva receta.</p>
-        </div>
-      )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -544,7 +587,7 @@ export function RecipeLibrary({
              <div className="flex items-center gap-2">
                 {activeTab === 'user-recipes' && !isMobile && (
                   <>
-                    <Button variant="outline" onClick={onRecipeImportOpen}>
+                    <Button variant="outline" onClick={onRecipeImportOpen} data-tour="recipe-import">
                       <Link2 className="mr-2 h-4 w-4" />
                       Importar URL
                     </Button>
@@ -654,18 +697,16 @@ export function RecipeLibrary({
 
                 </div>
                 <div className="flex-1 mt-2 min-h-0">
-                  <ScrollArea className="h-full">
-                    <RecipeList 
-                        recipes={filteredAndSortedRecipes}
-                        onRecipeClick={(recipe, isNutri) => onRecipeAction('view', recipe, isNutri)}
-                        onCopyClick={onCopyRecipe}
-                        onAddToPlanClick={onAddToPlan}
-                        isDraggable={activeTab === 'user-recipes' || (activeTab === 'nutriplanner-recipes' && isAdmin)}
-                        isNutriPlanner={activeTab === 'nutriplanner-recipes'}
-                        isMobile={isMobile}
-                        viewMode={viewMode}
-                      />
-                  </ScrollArea>
+                  <RecipeList
+                    recipes={filteredAndSortedRecipes}
+                    onRecipeClick={(recipe, isNutri) => onRecipeAction('view', recipe, isNutri)}
+                    onCopyClick={onCopyRecipe}
+                    onAddToPlanClick={onAddToPlan}
+                    isDraggable={activeTab === 'user-recipes' || (activeTab === 'nutriplanner-recipes' && isAdmin)}
+                    isNutriPlanner={activeTab === 'nutriplanner-recipes'}
+                    isMobile={isMobile}
+                    viewMode={viewMode}
+                  />
                 </div>
               </div>
             </div>

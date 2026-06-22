@@ -41,18 +41,34 @@ export const autocompleteWeekFlow = ai.defineFlow(
       servings: r.servings ?? 1,
     }));
 
+    // Extract only the empty slots the AI needs to fill, with their title visible
+    const emptySlots = (weekPlan as WeekPlan).flatMap(dayPlan =>
+      dayPlan.meals
+        .filter(meal => meal.recipes.length === 0)
+        .map(meal => ({ day: dayPlan.day, mealId: meal.id, mealTitle: meal.title }))
+    );
+
+    // Already-filled meals for repetition context
+    const filledEntries = (weekPlan as WeekPlan).flatMap(dayPlan =>
+      dayPlan.meals.flatMap(meal =>
+        meal.recipes.map(r => `${dayPlan.day} / ${meal.title}: ${r.name}`)
+      )
+    );
+
+    if (emptySlots.length === 0) return [];
+
     const repetitionRule =
       preferences.allowRepetition === 'no_repeat'
-        ? 'IMPORTANT: Each recipe can only appear ONCE across the entire week. Do not repeat any recipe.'
+        ? 'Each recipe can only appear ONCE across the entire week. Do not repeat any recipe.'
         : preferences.allowRepetition === 'max_twice'
         ? 'Each recipe can appear at most 2 times across the entire week.'
         : 'There is no restriction on recipe repetition.';
 
     const priorityRule =
       preferences.priority === 'goal' && activeGoal
-        ? `IMPORTANT: The user has a daily nutritional goal of ${activeGoal.calories} kcal and ${activeGoal.protein}g protein.
+        ? `The user has a daily nutritional goal of ${activeGoal.calories} kcal and ${activeGoal.protein}g protein.
 Try to select recipes for each day so that the SUM of calories across all meals stays within ±${preferences.goalMarginPercent ?? 15}% of the daily goal (${Math.round(activeGoal.calories * (1 - (preferences.goalMarginPercent ?? 15) / 100))}–${Math.round(activeGoal.calories * (1 + (preferences.goalMarginPercent ?? 15) / 100))} kcal).
-Distribute calories intelligently: breakfast ~25%, lunch ~40%, dinner ~30%, snacks ~5%.`
+Distribute calories intelligently: breakfast ~25%, lunch ~35%, dinner ~30%, snacks ~10%.`
         : preferences.priority === 'protein'
         ? 'Prioritize recipes with the highest protein per serving.'
         : 'Prioritize recipes with the lowest calories per serving.';
@@ -62,27 +78,38 @@ Distribute calories intelligently: breakfast ~25%, lunch ~40%, dinner ~30%, snac
       : '';
 
     const prompt = `
-You are an expert nutritionist AI. Your task is to auto-complete a user's weekly meal plan.
+You are an expert nutritionist AI. Fill the empty meal slots in a user's weekly plan.
 
-Here is the current week plan. Only fill meals where the recipes array is EMPTY:
-${JSON.stringify(weekPlan)}
+SLOTS TO FILL (each has a mealTitle indicating the meal type):
+${JSON.stringify(emptySlots, null, 2)}
 
-Here are the available recipes with per-serving nutrition:
-${JSON.stringify(simplifiedRecipes)}
+ALREADY FILLED meals (for repetition context):
+${filledEntries.length > 0 ? filledEntries.join('\n') : 'None yet.'}
 
-Rules you MUST follow:
-1. ${repetitionRule}
-2. ${priorityRule}
-${restrictionRule ? `3. ${restrictionRule}` : ''}
+AVAILABLE RECIPES:
+${JSON.stringify(simplifiedRecipes, null, 2)}
 
-For EVERY meal that has an empty recipes array, select EXACTLY ONE recipe ID from the available list.
+RULES — follow ALL of them:
 
-Return a JSON array of objects. Each object must have:
-- day: the day of the week (e.g. "Lunes")
-- mealId: the id of the meal slot
-- recipeId: the id of the chosen recipe
+1. MEAL-TIME APPROPRIATENESS (MANDATORY):
+   Match the recipe to the mealTitle context. Use the recipe NAME to judge suitability:
+   - "Desayuno" / "Breakfast" / morning → eggs, oatmeal, yogurt, toast, fruit, cereals, smoothies, pancakes, granola, porridge.
+     NEVER assign burgers, stews, pasta dishes, rice with meat, or heavy dinners to breakfast.
+   - "Almuerzo" / "Comida" / "Lunch" → pasta, rice, salads, soups, wraps, sandwiches, moderate portions.
+   - "Cena" / "Dinner" / "Supper" / evening → proteins with vegetables, fish, lighter pasta/rice, grilled meats, stir-fries.
+     NEVER assign cereals, porridge, or clearly breakfast-only foods to dinner.
+   - "Merienda" / "Snack" / "Tentempié" → fruit, nuts, protein bars, yogurt, small bites, energy balls.
+   - Any custom title → use best judgment based on the name context.
+   When in doubt about a recipe's meal type, choose based on its name, ingredients, and caloric density.
 
-DO NOT return any text or markdown, ONLY the JSON array.
+2. REPETITION: ${repetitionRule}
+
+3. NUTRITION: ${priorityRule}
+
+${restrictionRule ? `4. RESTRICTIONS: ${restrictionRule}` : ''}
+
+For EVERY slot in the list above, select EXACTLY ONE recipeId from the available recipes.
+Return ONLY a JSON array. Each element: { "day": string, "mealId": string, "recipeId": string }
     `.trim();
 
     const response = await ai.generate({

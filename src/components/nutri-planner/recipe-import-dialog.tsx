@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -18,9 +18,7 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { collection, addDoc } from 'firebase/firestore';
 import { useFirebase, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { importRecipeFlow } from '@/ai/flows/import-recipe-flow';
-import { estimateIngredientMacrosFlow } from '@/ai/flows/estimate-ingredient-macros-flow';
-import { validateRecipeFlow } from '@/ai/flows/validate-recipe-flow';
+import { importRecipeFlow, type UnifiedRecipe } from '@/ai/flows/import-recipe-flow';
 import { normalizeText } from '@/lib/utils';
 import type { Recipe, BaseIngredient } from '@/lib/types';
 import { Link2, Loader2, CheckCircle2, AlertTriangle, Sparkles, Download, Info, Video, X } from 'lucide-react';
@@ -32,28 +30,6 @@ import { cn } from '@/lib/utils';
 // 'reviewing' → ingredient review
 // 'creating'  → saving to Firestore
 type ImportStep = 'input' | 'fetching' | 'analyzing' | 'reviewing' | 'creating';
-
-interface ImportedRecipe {
-  name: string;
-  description: string;
-  instructions: string;
-  ingredients: { id: string; name: string; quantity: number; unit: string }[];
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  servings: number;
-  imageHint?: string;
-}
-
-interface EstimatedIngredient {
-  name: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  fiber: number;
-}
 
 interface MissingIngredient {
   name: string;
@@ -118,12 +94,54 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
   const [videoUrlKind, setVideoUrlKind] = useState<'none' | 'youtube' | 'cdn'>('none');
   const [cachedVideoUrl, setCachedVideoUrl] = useState<string | undefined>();
   const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [extractedRecipe, setExtractedRecipe] = useState<ImportedRecipe | null>(null);
+  const [extractedRecipe, setExtractedRecipe] = useState<UnifiedRecipe | null>(null);
   const [foundIngredients, setFoundIngredients] = useState<string[]>([]);
   const [missingIngredients, setMissingIngredients] = useState<MissingIngredient[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [cdnFallbackOccurred, setCdnFallbackOccurred] = useState(false);
+  const [progressSteps, setProgressSteps] = useState<string[]>([]);
+  const [progressStep, setProgressStep] = useState(0);
+  const progressTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const isCancelledRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      progressTimersRef.current.forEach(clearTimeout);
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
+  const startProgress = (steps: string[], cumulativeDelays: number[]) => {
+    progressTimersRef.current.forEach(clearTimeout);
+    progressTimersRef.current = [];
+    setProgressSteps(steps);
+    setProgressStep(0);
+    cumulativeDelays.forEach((delay, i) => {
+      progressTimersRef.current.push(setTimeout(() => setProgressStep(i + 1), delay));
+    });
+  };
+
+  const clearProgress = () => {
+    progressTimersRef.current.forEach(clearTimeout);
+    progressTimersRef.current = [];
+  };
+
+  const handleCancelAnalysis = () => {
+    isCancelledRef.current = true;
+    abortControllerRef.current?.abort();
+    clearProgress();
+    setProgressSteps([]);
+    setProgressStep(0);
+    setStep('input');
+  };
 
   const isYouTubeUrl = (u: string) => /youtube\.com|youtu\.be/i.test(u);
+
+  const getAuthToken = async (): Promise<string> => {
+    if (!user) throw new Error('Debes iniciar sesión para usar esta función.');
+    return user.getIdToken();
+  };
 
   const handleFetchUrl = async () => {
     if (!url.trim()) return;
@@ -144,12 +162,20 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
     setCachedVideoUrl(undefined);
 
     try {
+      const token = await getAuthToken();
       const res = await fetch('/api/fetch-social-url', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ url: url.trim() }),
       });
       const pageData = await res.json();
+
+      if (!res.ok || pageData.success === false) {
+        setFetchStatus('warn');
+        setFetchStatusMsg(pageData.error || 'Error al acceder a la URL. Pega el texto manualmente o sube el vídeo.');
+        setStep('input');
+        return;
+      }
 
       const parts: string[] = [];
       if (pageData.title) parts.push(pageData.title);
@@ -188,196 +214,106 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
   };
 
   const handleAnalyze = async () => {
-    if (!videoFile && !recipeText.trim()) return;
+    if (!videoFile && !cachedVideoUrl && !recipeText.trim()) return;
     setError(null);
+    setCdnFallbackOccurred(false);
     setStep('analyzing');
+    isCancelledRef.current = false;
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     try {
-      // 1. Extract recipe — priority: uploaded file > URL video > text only
-      let recipe: ImportedRecipe;
+      const token = await getAuthToken();
+      if (isCancelledRef.current) return;
+      let recipe: UnifiedRecipe;
 
       if (videoFile) {
-        // Uploaded video file → Google File API
+        startProgress(
+          ['Subiendo vídeo al servidor', 'Google procesando el vídeo', 'Gemini extrayendo la receta'],
+          [10000, 35000]
+        );
         const fd = new FormData();
         fd.append('video', videoFile);
         if (recipeText.trim()) fd.append('caption', recipeText.trim());
-
-        const res = await fetch('/api/analyze-video', { method: 'POST', body: fd });
-        const data = await res.json();
-        if (!data.success) throw new Error(data.error || 'Error al analizar el vídeo.');
-        recipe = data.recipe as ImportedRecipe;
-
-      } else if (cachedVideoUrl && (videoUrlKind === 'youtube' || videoUrlKind === 'cdn')) {
-        // URL-based video → try direct Gemini analysis (YouTube always works; CDN might)
         const res = await fetch('/api/analyze-video', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+          body: fd,
+        });
+        if (isCancelledRef.current) return;
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Error al analizar el vídeo.');
+        recipe = data.recipe as UnifiedRecipe;
+
+      } else if (cachedVideoUrl && (videoUrlKind === 'youtube' || videoUrlKind === 'cdn')) {
+        startProgress(
+          ['Analizando vídeo con Gemini', 'Extrayendo receta y macros'],
+          [10000]
+        );
+        const res = await fetch('/api/analyze-video', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          signal: controller.signal,
           body: JSON.stringify({ videoUrl: cachedVideoUrl, caption: recipeText.trim() }),
         });
+        if (isCancelledRef.current) return;
         const data = await res.json();
-
         if (data.success) {
-          recipe = data.recipe as ImportedRecipe;
+          recipe = data.recipe as UnifiedRecipe;
         } else if (videoUrlKind === 'cdn') {
-          // CDN URL failed (probably auth-protected) → fall back to text analysis
-          console.warn('CDN video URL not accessible to Gemini, falling back to text.');
-          recipe = await importRecipeFlow({
-            url: url.trim() || undefined,
-            caption: recipeText.trim(),
-          });
+          setCdnFallbackOccurred(true);
+          recipe = await importRecipeFlow({ url: url.trim() || undefined, caption: recipeText.trim() });
+          if (isCancelledRef.current) return;
         } else {
           throw new Error(data.error || 'No se pudo analizar el vídeo desde la URL.');
         }
 
       } else {
-        // Text only
-        recipe = await importRecipeFlow({
-          url: url.trim() || undefined,
-          caption: recipeText.trim(),
-        });
+        startProgress(
+          ['Extrayendo receta con IA', 'Verificando ingredientes y macros'],
+          [8000]
+        );
+        recipe = await importRecipeFlow({ url: url.trim() || undefined, caption: recipeText.trim() });
+        if (isCancelledRef.current) return;
       }
 
       setExtractedRecipe(recipe);
 
-      const dbMap = new Map(
-        (ingredientDB || []).map((i) => [normalizeText(i.name), i])
-      );
-
+      const dbMap = new Map((ingredientDB || []).map((i) => [normalizeText(i.name), i]));
       const found: string[] = [];
-      const missingNames: { name: string; quantity: number; unit: string }[] = [];
+      const missing: MissingIngredient[] = [];
 
       for (const ing of recipe.ingredients) {
         if (dbMap.has(normalizeText(ing.name))) {
           found.push(ing.name);
         } else {
-          missingNames.push({ name: ing.name, quantity: ing.quantity, unit: ing.unit });
+          missing.push({
+            name: ing.name,
+            quantity: ing.quantity,
+            unit: ing.unit,
+            calories: Math.round(ing.calories),
+            protein: Math.round(ing.protein),
+            carbs: Math.round(ing.carbs),
+            fat: Math.round(ing.fat),
+            fiber: Math.round(ing.fiber),
+            selected: true,
+            corrected: ing.corrected,
+            note: ing.note,
+          });
         }
       }
 
       setFoundIngredients(found);
-
-      if (missingNames.length > 0) {
-        // 2. Estimate per-100g macros for missing ingredients
-        const estimated: EstimatedIngredient[] = await estimateIngredientMacrosFlow({
-          ingredientNames: missingNames.map((m) => m.name),
-        });
-
-        const rawMissing = missingNames.map((m) => {
-          const est = estimated.find(
-            (e) => normalizeText(e.name) === normalizeText(m.name)
-          ) || { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, name: m.name };
-          return {
-            name: m.name,
-            quantity: m.quantity,
-            unit: m.unit,
-            calories: Math.round(est.calories),
-            protein: Math.round(est.protein),
-            carbs: Math.round(est.carbs),
-            fat: Math.round(est.fat),
-            fiber: Math.round(est.fiber),
-            isMissing: true,
-          };
-        });
-
-        // 3. Validate & correct (quantities + per-100g values)
-        const allIngredientsToValidate = [
-          ...recipe.ingredients
-            .filter((ing) => dbMap.has(normalizeText(ing.name)))
-            .map((ing) => ({
-              name: ing.name,
-              quantity: ing.quantity,
-              unit: ing.unit,
-              calories: 0,
-              protein: 0,
-              carbs: 0,
-              fat: 0,
-              fiber: 0,
-              isMissing: false,
-            })),
-          ...rawMissing,
-        ];
-
-        const validated = await validateRecipeFlow({ ingredients: allIngredientsToValidate });
-
-        // Apply corrected quantities back to the found list too (update recipe state)
-        const correctedFoundQtys = new Map<string, { quantity: number; unit: string }>();
-        for (const v of validated) {
-          if (!rawMissing.find((m) => normalizeText(m.name) === normalizeText(v.name))) {
-            correctedFoundQtys.set(normalizeText(v.name), { quantity: v.quantity, unit: v.unit });
-          }
-        }
-        if (correctedFoundQtys.size > 0) {
-          setExtractedRecipe((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              ingredients: prev.ingredients.map((ing) => {
-                const fix = correctedFoundQtys.get(normalizeText(ing.name));
-                return fix ? { ...ing, ...fix } : ing;
-              }),
-            };
-          });
-        }
-
-        // Build final missing list from validated results
-        const missing: MissingIngredient[] = rawMissing.map((m) => {
-          const v = validated.find((r) => normalizeText(r.name) === normalizeText(m.name));
-          if (!v) return { ...m, selected: true };
-          return {
-            name: m.name,
-            quantity: v.quantity,
-            unit: v.unit,
-            calories: Math.round(v.calories),
-            protein: Math.round(v.protein),
-            carbs: Math.round(v.carbs),
-            fat: Math.round(v.fat),
-            fiber: Math.round(v.fiber),
-            selected: true,
-            corrected: v.corrected,
-            note: v.note,
-          };
-        });
-
-        setMissingIngredients(missing);
-      } else {
-        // Still validate quantities for found-only recipes
-        const allIngredientsToValidate = recipe.ingredients.map((ing) => ({
-          name: ing.name,
-          quantity: ing.quantity,
-          unit: ing.unit,
-          calories: 0,
-          protein: 0,
-          carbs: 0,
-          fat: 0,
-          fiber: 0,
-          isMissing: false,
-        }));
-
-        const validated = await validateRecipeFlow({ ingredients: allIngredientsToValidate });
-        const correctedQtys = new Map(
-          validated.filter((v) => v.corrected).map((v) => [
-            normalizeText(v.name),
-            { quantity: v.quantity, unit: v.unit },
-          ])
-        );
-        if (correctedQtys.size > 0) {
-          setExtractedRecipe((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              ingredients: prev.ingredients.map((ing) => {
-                const fix = correctedQtys.get(normalizeText(ing.name));
-                return fix ? { ...ing, ...fix } : ing;
-              }),
-            };
-          });
-        }
-        setMissingIngredients([]);
-      }
-
+      setMissingIngredients(missing);
+      clearProgress();
       setStep('reviewing');
     } catch (err) {
+      if (isCancelledRef.current || (err instanceof DOMException && err.name === 'AbortError')) {
+        return;
+      }
       console.error('Import error:', err);
+      clearProgress();
       setError('No se pudo analizar la receta. Asegúrate de que el texto incluye ingredientes y pasos.');
       setStep('input');
     }
@@ -406,7 +342,10 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
         name: extractedRecipe.name,
         description: extractedRecipe.description,
         instructions: extractedRecipe.instructions,
-        ingredients: extractedRecipe.ingredients,
+        // Strip per-100g fields — Recipe.ingredients only stores id/name/quantity/unit
+        ingredients: extractedRecipe.ingredients.map(({ id, name, quantity, unit }) => ({
+          id, name, quantity, unit,
+        })),
         calories: extractedRecipe.calories,
         protein: extractedRecipe.protein,
         carbs: extractedRecipe.carbs,
@@ -425,6 +364,11 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
   };
 
   const handleClose = () => {
+    isCancelledRef.current = true;
+    abortControllerRef.current?.abort();
+    clearProgress();
+    setProgressSteps([]);
+    setProgressStep(0);
     setStep('input');
     setUrl('');
     setRecipeText('');
@@ -437,6 +381,7 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
     setFoundIngredients([]);
     setMissingIngredients([]);
     setError(null);
+    setCdnFallbackOccurred(false);
     onClose();
   };
 
@@ -458,17 +403,8 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
 
   const isLoadingStep = step === 'fetching' || step === 'analyzing' || step === 'creating';
   const canAnalyze = !!videoFile || !!cachedVideoUrl || recipeText.trim().length > 0;
-
-  const loadingMessage =
-    step === 'fetching'
-      ? 'Obteniendo contenido del post...'
-      : step === 'analyzing'
-      ? videoFile
-        ? 'Subiendo vídeo y analizando con IA... (puede tardar 30-60 s)'
-        : videoUrlKind !== 'none'
-        ? 'Analizando vídeo desde URL...'
-        : 'Analizando y verificando la receta con IA...'
-      : 'Guardando ingredientes nuevos...';
+  const simpleLoadingMessage =
+    step === 'fetching' ? 'Obteniendo contenido del post...' : 'Guardando ingredientes nuevos...';
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
@@ -483,11 +419,62 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
           </DialogDescription>
         </DialogHeader>
 
-        {/* LOADING */}
-        {isLoadingStep && (
+        {/* LOADING — simple spinner for fetch/create */}
+        {(step === 'fetching' || step === 'creating') && (
           <div className="flex flex-col items-center justify-center gap-4 py-12">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">{loadingMessage}</p>
+            <p className="text-sm text-muted-foreground">{simpleLoadingMessage}</p>
+          </div>
+        )}
+
+        {/* ANALYZING — stepper with granular progress */}
+        {step === 'analyzing' && (
+          <div className="flex flex-col items-center justify-center gap-6 py-10">
+            <Loader2 className="h-9 w-9 animate-spin text-primary" />
+
+            <div className="space-y-3 text-center">
+              <p className="text-sm font-medium">
+                {progressSteps[progressStep] ?? 'Procesando...'}
+              </p>
+
+              {/* Step dots */}
+              {progressSteps.length > 1 && (
+                <div className="flex items-center justify-center gap-2">
+                  {progressSteps.map((_, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div
+                        className={cn(
+                          'rounded-full transition-all duration-700',
+                          i < progressStep
+                            ? 'h-2 w-6 bg-primary'
+                            : i === progressStep
+                            ? 'h-2 w-6 bg-primary/50 animate-pulse'
+                            : 'h-1.5 w-1.5 bg-muted-foreground/30'
+                        )}
+                      />
+                      {i < progressSteps.length - 1 && (
+                        <div
+                          className={cn(
+                            'h-px w-5 transition-colors duration-700',
+                            i < progressStep ? 'bg-primary' : 'bg-muted-foreground/20'
+                          )}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <p className="text-xs text-muted-foreground">
+                {videoFile
+                  ? 'Los vídeos pueden tardar hasta 60 segundos'
+                  : 'Esto puede tardar unos segundos'}
+              </p>
+            </div>
+
+            <Button variant="outline" size="sm" onClick={handleCancelAnalysis}>
+              Cancelar
+            </Button>
           </div>
         )}
 
@@ -636,6 +623,16 @@ Cuanto más detallado sea el texto, mejor resultado obtendrá la IA."
                 <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                   {error}
+                </div>
+              )}
+
+              {cdnFallbackOccurred && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    El vídeo del post no era accesible directamente — la receta se extrajo del{' '}
+                    <strong>texto de la publicación</strong>. Para un análisis más preciso, descarga el vídeo y súbelo manualmente.
+                  </span>
                 </div>
               )}
 

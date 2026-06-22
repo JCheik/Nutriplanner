@@ -1,238 +1,45 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import type { Recipe, DialogState, ActiveDropTarget, Meal } from '@/lib/types';
+import { useDashboard } from '@/hooks/use-dashboard';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
 import { MealPlanner } from '@/components/nutri-planner/meal-planner';
 import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
-import { useToast } from '@/hooks/use-toast';
 import { StickyNote } from '@/components/nutri-planner/sticky-note';
 import { FloatingGoals } from '@/components/nutri-planner/floating-goals';
 import { ShoppingListSheet } from '@/components/nutri-planner/shopping-list';
 import { FloatingMenu } from '@/components/nutri-planner/floating-menu';
-import { useRecipeState } from '@/hooks/use-recipe-state';
-import { useWeekPlanState } from '@/hooks/use-week-plan-state';
-import { useUserProfileState } from '@/hooks/use-user-profile-state';
-import { useUser } from '@/firebase';
 import { RecipeChatDialog } from '@/components/nutri-planner/recipe-chat-dialog';
 import { RecipeSelectionDialog } from '@/components/nutri-planner/recipe-selection-dialog';
 import { EmptyFridgeScanner } from '@/components/nutri-planner/empty-fridge-scanner';
 import { OnboardingTour } from '@/components/nutri-planner/onboarding-tour';
 import { RecipeImportDialog } from '@/components/nutri-planner/recipe-import-dialog';
-import { autocompleteWeekFlow } from '@/ai/flows/autocomplete-flow';
-import { AutocompletePreferencesDialog, type AutocompletePreferences } from '@/components/nutri-planner/autocomplete-preferences-dialog';
-
+import { AutocompletePreferencesDialog } from '@/components/nutri-planner/autocomplete-preferences-dialog';
 
 export default function DashboardPage() {
-  const { toast } = useToast();
-  const router = useRouter();
-  const { user, loading: userLoading } = useUser();
-  
-  useEffect(() => {
-    // This effect runs only on the client after hydration
-    if (!userLoading && !user) {
-      router.replace('/');
-    }
-  }, [userLoading, user, router]);
-
-
-  // --- Decomposed State Hooks ---
-  const recipeState = useRecipeState();
-  const weekPlanState = useWeekPlanState();
-  const userProfileState = useUserProfileState();
-
   const {
-    currentUserRecipes,
-    nutriplannerRecipes,
-    currentFolders,
-    globalFolders,
-    isSaving,
-    handleSaveRecipe,
-    handleDeleteRecipe,
-    handleCopyRecipe,
-    handleFolderCreate,
-    handleFolderDelete,
-    handleFolderUpdate,
-    handleAssignRecipeToFolder,
-    handleGlobalFolderCreate,
-    handleGlobalFolderDelete,
-    handleGlobalFolderUpdate,
-    handleAssignRecipeToGlobalFolder,
-  } = recipeState;
-
-  const {
-    currentWeekPlan,
-    handleDrop,
-    handleClearMeal,
-    handleRemoveRecipeFromMeal,
-    handleUpdateMealTitle,
-    handleAddMeal,
-    handleDeleteMeal,
-    handleUpdateServingsEaten,
-  } = weekPlanState;
-
-  const {
-    currentStickyNote,
-    currentCalorieResult,
-    activeGoalMacros,
-    currentShoppingList,
-    activeGoal,
-    handleNoteSave,
-    handleCalorieResultSave,
-    handleActiveGoalChange,
-    handleSaveCustomGoal,
-    handleShoppingListUpdate,
-  } = userProfileState;
-
-  // Dialog and UI state
-  const [dialogState, setDialogState] = useState<DialogState>({ open: false });
-  const [activePanel, setActivePanel] = useState<'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat' | 'empty-fridge' | 'recipe-import' | null>(null);
-  const [activeDropTarget, setActiveDropTarget] = useState<ActiveDropTarget | null>(null);
-  const [isRecipeSelectorOpen, setIsRecipeSelectorOpen] = useState(false);
-  const [selectedMealForAddition, setSelectedMealForAddition] = useState<Meal | null>(null);
-  const [isAutocompleting, setIsAutocompleting] = useState(false);
-  const [isPreferencesDialogOpen, setIsPreferencesDialogOpen] = useState(false);
-
-
-  const handleRecipeAction = useCallback((action: 'view' | 'create' | 'edit', recipe?: Recipe, isNutriPlannerRecipe: boolean = false) => {
-    setDialogState({
-      open: true,
-      mode: action,
-      recipe: recipe || undefined,
-      isNutriPlannerRecipe,
-    } as DialogState);
-  }, []);
-  
-  const handleAddToPlan = (recipe: Recipe) => {
-    if (activeDropTarget) {
-      handleDrop(activeDropTarget.day, activeDropTarget.mealId, recipe);
-      setActiveDropTarget(null); // Clear target after dropping
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Selecciona un destino",
-        description: "Toca una casilla de comida en el planificador antes de añadir una receta.",
-      });
-    }
-  };
-
-  const handleDialogClose = useCallback(() => {
-    setDialogState({ open: false });
-  }, []);
-
-  const handleInternalSaveRecipe = async (recipeData: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
-      await handleSaveRecipe(recipeData, imageFile, isGlobal, existingId);
-      handleDialogClose();
-  };
-
-  const handleInternalDeleteRecipe = (recipeId: string, isGlobal: boolean) => {
-    handleDeleteRecipe(recipeId, isGlobal);
-    // Also remove from the week plan
-    currentWeekPlan.forEach(dayPlan => {
-        dayPlan.meals.forEach(meal => {
-            meal.recipes.forEach(recipeInMeal => {
-                if (recipeInMeal.id === recipeId) {
-                    handleRemoveRecipeFromMeal(dayPlan.day, meal.id, recipeInMeal.instanceId);
-                }
-            });
-        });
-    });
-    handleDialogClose();
-  };
-
-  const handleMealSlotClick = (day: string, meal: Meal) => {
-      setActiveDropTarget({ day: day, mealId: meal.id });
-      setSelectedMealForAddition(meal);
-      setIsRecipeSelectorOpen(true);
-  };
-
-  const handleRecipeSelectionSave = (selectedRecipes: Recipe[]) => {
-    if (!selectedMealForAddition || !activeDropTarget) return;
-
-    selectedRecipes.forEach(recipe => {
-        handleDrop(activeDropTarget.day, selectedMealForAddition.id, recipe);
-    });
-
-    setIsRecipeSelectorOpen(false);
-    setSelectedMealForAddition(null);
-  };
-
-  const dailyTotals = useMemo(() => {
-    if (!currentWeekPlan) return [];
-    return currentWeekPlan.map(dayPlan => {
-      const totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
-      if (Array.isArray(dayPlan.meals)) {
-        dayPlan.meals.forEach(meal => {
-          meal.recipes.forEach(recipe => {
-            const servingsEaten = recipe.servingsEaten ?? 1;
-            const totalServings = recipe.servings ?? 1;
-            const scale = servingsEaten / totalServings;
-            totals.calories += recipe.calories * scale;
-            totals.protein += recipe.protein * scale;
-            totals.carbs += recipe.carbs * scale;
-            totals.fat += recipe.fat * scale;
-          });
-        });
-      }
-      return { day: dayPlan.day, totals };
-    });
-  }, [currentWeekPlan]);
-  
-  const handlePanelOpen = (panel: 'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat' | 'empty-fridge' | 'recipe-import') => {
-    setActivePanel(activePanel === panel ? null : panel);
-  };
-
-  const handlePanelChange = (panel: 'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat' | 'empty-fridge' | 'recipe-import', isOpen: boolean) => {
-    setActivePanel(isOpen ? panel : null);
-  };
-
-  const handleAiRecipeGenerated = (recipe: Omit<Recipe, 'id'>) => {
-    setDialogState({
-      open: true,
-      mode: 'create',
-      recipe: recipe as Recipe, // Treat it as a full recipe for pre-filling
-    });
-  };
-
-  const handleAutocompleteWeek = () => {
-    setIsPreferencesDialogOpen(true);
-  };
-
-  const handleRunAutocomplete = async (preferences: AutocompletePreferences) => {
-    setIsPreferencesDialogOpen(false);
-    try {
-      setIsAutocompleting(true);
-      const availableRecipes = [...currentUserRecipes, ...nutriplannerRecipes];
-
-      const placements = await autocompleteWeekFlow({
-        weekPlan: currentWeekPlan,
-        availableRecipes,
-        activeGoal: activeGoalMacros || null,
-        preferences,
-      });
-
-      if (placements && Array.isArray(placements)) {
-        placements.forEach(p => {
-          const recipe = availableRecipes.find(r => r.id === p.recipeId);
-          if (recipe) handleDrop(p.day, p.mealId, recipe);
-        });
-        toast({
-          title: 'Semana autocompletada',
-          description: 'Se han rellenado los huecos vacíos de tu planificador.',
-        });
-      }
-    } catch (e) {
-      console.error(e);
-      toast({
-        variant: 'destructive',
-        title: 'Error al autocompletar',
-        description: 'No se pudo generar el plan semanal completo.',
-      });
-    } finally {
-      setIsAutocompleting(false);
-    }
-  };
+    // Recipe state
+    currentUserRecipes, nutriplannerRecipes, currentFolders, globalFolders, isSaving,
+    handleSaveRecipe, handleDeleteRecipe, handleCopyRecipe,
+    handleFolderCreate, handleFolderDelete, handleFolderUpdate, handleAssignRecipeToFolder,
+    handleGlobalFolderCreate, handleGlobalFolderDelete, handleGlobalFolderUpdate, handleAssignRecipeToGlobalFolder,
+    // Week plan state
+    currentWeekPlan, dailyTotals,
+    handleDrop, handleClearMeal, handleClearDay, handleClearWeek, handleRemoveRecipeFromMeal,
+    handleUpdateMealTitle, handleAddMeal, handleDeleteMeal, handleUpdateServingsEaten,
+    // User profile state
+    currentStickyNote, currentCalorieResult, activeGoalMacros, currentShoppingList, activeGoal,
+    handleNoteSave, handleCalorieResultSave, handleActiveGoalChange, handleSaveCustomGoal, handleShoppingListUpdate,
+    // UI state
+    dialogState, activePanel, activeDropTarget, setActiveDropTarget,
+    isRecipeSelectorOpen, setIsRecipeSelectorOpen, selectedMealForAddition,
+    isAutocompleting, isPreferencesDialogOpen, setIsPreferencesDialogOpen,
+    // Handlers
+    handleRecipeAction, handleDialogClose, handleAddToPlan,
+    handleInternalSaveRecipe, handleInternalDeleteRecipe,
+    handleMealSlotClick, handleRecipeSelectionSave,
+    handlePanelOpen, handlePanelChange,
+    handleAiRecipeGenerated, handleAutocompleteWeek, handleRunAutocomplete,
+  } = useDashboard();
 
   return (
     <div className="flex-1 p-4 sm:p-6 lg:p-8">
@@ -244,6 +51,8 @@ export default function DashboardPage() {
             activeGoal={activeGoalMacros || null}
             onDrop={handleDrop}
             onClearMeal={handleClearMeal}
+            onClearDay={handleClearDay}
+            onClearWeek={handleClearWeek}
             onRecipeClick={(recipe) => handleRecipeAction('view', recipe)}
             onRemoveRecipeFromMeal={handleRemoveRecipeFromMeal}
             onUpdateMealTitle={handleUpdateMealTitle}
@@ -258,7 +67,7 @@ export default function DashboardPage() {
           />
         </div>
         <div className="grid grid-cols-1 gap-6" data-tour="recipe-library">
-          <RecipeLibrary 
+          <RecipeLibrary
             userRecipes={currentUserRecipes}
             nutriplannerRecipes={nutriplannerRecipes}
             folders={currentFolders}
@@ -281,6 +90,7 @@ export default function DashboardPage() {
           />
         </div>
       </div>
+
       <RecipeDialog
         dialogState={dialogState}
         isSaving={isSaving}
@@ -292,7 +102,7 @@ export default function DashboardPage() {
         onEdit={(recipe, isGlobal) => handleRecipeAction('edit', recipe, isGlobal)}
         onCopy={handleCopyRecipe}
       />
-      
+
       <FloatingMenu onPanelOpen={handlePanelOpen} />
 
       <OnboardingTour />
@@ -304,7 +114,7 @@ export default function DashboardPage() {
         isLoading={isAutocompleting}
         hasGoal={!!activeGoalMacros}
       />
-      
+
       <RecipeChatDialog
         isOpen={activePanel === 'ai-chat'}
         onClose={() => handlePanelChange('ai-chat', false)}
@@ -334,6 +144,7 @@ export default function DashboardPage() {
         currentShoppingList={currentShoppingList}
         onListChange={handleShoppingListUpdate}
       />
+
       <FloatingGoals
         calorieResult={currentCalorieResult}
         onCalorieResultSave={handleCalorieResultSave}
@@ -343,12 +154,14 @@ export default function DashboardPage() {
         onSaveCustomGoal={handleSaveCustomGoal}
         activeGoal={activeGoal || null}
       />
+
       <StickyNote
         initialContent={currentStickyNote}
         onSave={handleNoteSave}
         isOpen={activePanel === 'sticky-note'}
         onOpenChange={(isOpen) => handlePanelChange('sticky-note', isOpen)}
       />
+
       {selectedMealForAddition && (
         <RecipeSelectionDialog
           isOpen={isRecipeSelectorOpen}

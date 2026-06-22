@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyAuth } from '@/lib/verify-auth';
 
 export const maxDuration = 120;
 
@@ -12,6 +13,12 @@ const RECIPE_SCHEMA = {
     name: { type: 'string' },
     description: { type: 'string' },
     instructions: { type: 'string' },
+    servings: { type: 'number' },
+    imageHint: { type: 'string' },
+    calories: { type: 'number' },
+    protein: { type: 'number' },
+    carbs: { type: 'number' },
+    fat: { type: 'number' },
     ingredients: {
       type: 'array',
       items: {
@@ -21,38 +28,45 @@ const RECIPE_SCHEMA = {
           name: { type: 'string' },
           quantity: { type: 'number' },
           unit: { type: 'string' },
+          calories: { type: 'number' },
+          protein: { type: 'number' },
+          carbs: { type: 'number' },
+          fat: { type: 'number' },
+          fiber: { type: 'number' },
+          corrected: { type: 'boolean' },
+          note: { type: 'string' },
         },
-        required: ['id', 'name', 'quantity', 'unit'],
+        required: ['id', 'name', 'quantity', 'unit', 'calories', 'protein', 'carbs', 'fat', 'fiber', 'corrected'],
       },
     },
-    calories: { type: 'number' },
-    protein: { type: 'number' },
-    carbs: { type: 'number' },
-    fat: { type: 'number' },
-    servings: { type: 'number' },
-    imageHint: { type: 'string' },
   },
   required: ['name', 'description', 'instructions', 'ingredients', 'calories', 'protein', 'carbs', 'fat', 'servings'],
 };
 
 const PROMPT = (caption: string) => `Eres un chef nutricionista experto. Analiza el vídeo adjunto — escucha el audio (cantidades, nombres de ingredientes, pasos), lee cualquier texto en pantalla y observa los ingredientes y técnicas visibles.
 
-${caption ? `Texto adicional del post:\n${caption}\n\n` : ''}REGLAS:
+${caption ? `Texto adicional del post:\n${caption}\n\n` : ''}INSTRUCCIONES:
 1. Prioriza lo que ves y oyes en el vídeo. Usa el texto solo como complemento.
 2. Extrae TODOS los ingredientes mencionados o mostrados, con cantidades exactas si se indican.
-3. Si no se especifican cantidades, usa estimaciones razonables para ese plato.
-4. Los macros deben ser del total de la receta completa (no por ración).
-5. Nombres de ingredientes en español, simples (ej: "pechuga de pollo", "arroz blanco").
+3. Para cada ingrediente, estima sus valores nutricionales POR 100g/100ml.
+4. Auto-revisa las estimaciones con las referencias de abajo. Si corriges algo → corrected=true y nota breve. Si todo está bien → corrected=false.
+5. Los macros TOTALES = suma de (cantidad/100 × macros_por_100g) para cada ingrediente.
+
+REFERENCIAS (por 100g):
+- Aceites: 700–900 kcal | Frutos secos: 500–700 kcal
+- Especias secas (pimienta, paprika, etc.): 200–380 kcal — 1–10g, NUNCA >20g en receta
+- Sal: 0 kcal | Azúcar: 400 kcal | Miel: 300 kcal
+- Carnes/pescado: 100–350 kcal | Huevo: ~150 kcal
+- Lácteos (leche/yogur): 40–100 kcal | Queso: 200–400 kcal
+- Legumbres crudas: 300–380 kcal; cocidas: 100–150 kcal
+- Cereales/pasta/arroz crudos: 330–380 kcal; cocidos: 120–180 kcal
+- Frutas: 30–80 kcal | Verduras: 15–50 kcal (patata: ~80 kcal)
 
 Devuelve:
-- name: nombre de la receta
-- description: descripción corta y apetecible (1-2 frases)
-- instructions: pasos numerados separados por \\n
-- ingredients: array. Cada uno: id ("ing-1","ing-2"...), name, quantity (número), unit (g/ml/ud/taza/cucharada...)
-- calories: kcal totales de toda la receta
-- protein, carbs, fat: gramos totales
-- servings: número de raciones que produce
-- imageHint: 2-3 palabras en inglés para búsqueda de imagen`;
+- name, description (1-2 frases), instructions (pasos con \\n), servings, imageHint (2-3 palabras inglés)
+- calories, protein, carbs, fat: totales de la receta completa
+- ingredients: cada uno con id ("ing-1"...), name (español), quantity (corregida), unit,
+  calories/protein/carbs/fat/fiber (POR 100g), corrected (boolean), note (si corrected=true)`;
 
 async function callGemini(parts: object[], caption: string) {
   const res = await fetch(
@@ -158,6 +172,8 @@ export async function POST(req: NextRequest) {
   let fileName: string | undefined;
 
   try {
+    await verifyAuth(req);
+
     // ── Mode A: URL-based (JSON body) ─────────────────────────────────────
     if (contentType.includes('application/json')) {
       const { videoUrl, caption = '' } = await req.json() as { videoUrl: string; caption?: string };
@@ -198,6 +214,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, recipe, source: 'upload' });
 
   } catch (err: unknown) {
+    const status = (err as { status?: number }).status;
+    if (status === 401) {
+      return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 401 });
+    }
     const msg = err instanceof Error ? err.message : 'Error al analizar el vídeo.';
     console.error('analyze-video error:', msg);
     return NextResponse.json({ success: false, error: msg }, { status: 500 });
