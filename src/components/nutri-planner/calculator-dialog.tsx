@@ -13,6 +13,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Flame, Target, Weight, TrendingDown, TrendingUp, Calculator, EggFried, Wheat, Droplets } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 import type { Macros, CalculationResult, CalculatorInputs } from '@/lib/types';
+
+const INPUTS_STORAGE_KEY = 'nutriplanner-calculator-inputs';
+
+function loadStoredInputs(): CalculatorInputs | null {
+  try {
+    const raw = localStorage.getItem(INPUTS_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as CalculatorInputs) : null;
+  } catch {
+    return null;
+  }
+}
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Progress } from '../ui/progress';
@@ -154,12 +165,11 @@ export function CalculatorDialog({ isOpen, onClose, onCalculate, initialResult }
   });
 
   useEffect(() => {
-    if (isOpen && initialResult) {
-      setResult(initialResult);
-      if (initialResult.inputs) {
-        form.reset(initialResult.inputs);
-      }
-    }
+    if (!isOpen) return;
+    if (initialResult) setResult(initialResult);
+    // Priority: saved inputs from Firestore → localStorage → leave empty
+    const inputsToRestore = initialResult?.inputs ?? loadStoredInputs();
+    if (inputsToRestore) form.reset(inputsToRestore);
   }, [isOpen, initialResult, form]);
 
   const onSubmit: SubmitHandler<FormValues> = (data) => {
@@ -182,6 +192,8 @@ export function CalculatorDialog({ isOpen, onClose, onCalculate, initialResult }
       height: data.height,
       activityLevel: data.activityLevel,
     };
+
+    try { localStorage.setItem(INPUTS_STORAGE_KEY, JSON.stringify(inputs)); } catch {}
 
     const newResult = {
       bmr: Math.round(bmr),
