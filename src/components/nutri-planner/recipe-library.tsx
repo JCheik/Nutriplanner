@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { RecipeCard } from './recipe-card';
-import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Database, Folder as FolderIcon, Plus, Trash2, Folders, Edit, Check, LayoutGrid, List, Sparkles, Camera } from 'lucide-react';
+import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Database, Folder as FolderIcon, Plus, Trash2, Folders, Edit, Check, LayoutGrid, List, Sparkles, Camera, Link2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -56,6 +56,7 @@ interface RecipeLibraryProps {
   onAssignRecipeToGlobalFolder: (recipeId: string, folderId: string | null) => void;
   onAiChatOpen: () => void;
   onEmptyFridgeOpen?: () => void;
+  onRecipeImportOpen?: () => void;
   isMobile?: boolean;
   initialViewMode?: 'grid' | 'list';
   onAiRecipeGenerated?: (recipe: Omit<Recipe, 'id'>) => void;
@@ -401,6 +402,7 @@ export function RecipeLibrary({
   onAssignRecipeToGlobalFolder,
   onAiChatOpen,
   onEmptyFridgeOpen,
+  onRecipeImportOpen,
   isMobile = false,
   initialViewMode = 'grid',
 }: RecipeLibraryProps) {
@@ -542,7 +544,11 @@ export function RecipeLibrary({
              <div className="flex items-center gap-2">
                 {activeTab === 'user-recipes' && !isMobile && (
                   <>
-                     <Button variant="outline" onClick={onEmptyFridgeOpen} data-tour="fridge-scanner">
+                    <Button variant="outline" onClick={onRecipeImportOpen}>
+                      <Link2 className="mr-2 h-4 w-4" />
+                      Importar URL
+                    </Button>
+                    <Button variant="outline" onClick={onEmptyFridgeOpen} data-tour="fridge-scanner">
                       <Camera className="mr-2 h-4 w-4" />
                       Escanear Nevera
                     </Button>

@@ -19,6 +19,7 @@ import { RecipeChatDialog } from '@/components/nutri-planner/recipe-chat-dialog'
 import { RecipeSelectionDialog } from '@/components/nutri-planner/recipe-selection-dialog';
 import { EmptyFridgeScanner } from '@/components/nutri-planner/empty-fridge-scanner';
 import { OnboardingTour } from '@/components/nutri-planner/onboarding-tour';
+import { RecipeImportDialog } from '@/components/nutri-planner/recipe-import-dialog';
 import { autocompleteWeekFlow } from '@/ai/flows/autocomplete-flow';
 import { AutocompletePreferencesDialog, type AutocompletePreferences } from '@/components/nutri-planner/autocomplete-preferences-dialog';
 
@@ -86,7 +87,7 @@ export default function DashboardPage() {
 
   // Dialog and UI state
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
-  const [activePanel, setActivePanel] = useState<'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat' | 'empty-fridge' | null>(null);
+  const [activePanel, setActivePanel] = useState<'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat' | 'empty-fridge' | 'recipe-import' | null>(null);
   const [activeDropTarget, setActiveDropTarget] = useState<ActiveDropTarget | null>(null);
   const [isRecipeSelectorOpen, setIsRecipeSelectorOpen] = useState(false);
   const [selectedMealForAddition, setSelectedMealForAddition] = useState<Meal | null>(null);
@@ -178,13 +179,13 @@ export default function DashboardPage() {
     });
   }, [currentWeekPlan]);
   
-  const handlePanelOpen = (panel: 'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat' | 'empty-fridge') => {
+  const handlePanelOpen = (panel: 'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat' | 'empty-fridge' | 'recipe-import') => {
     setActivePanel(activePanel === panel ? null : panel);
-  }
-  
-  const handlePanelChange = (panel: 'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat' | 'empty-fridge', isOpen: boolean) => {
+  };
+
+  const handlePanelChange = (panel: 'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat' | 'empty-fridge' | 'recipe-import', isOpen: boolean) => {
     setActivePanel(isOpen ? panel : null);
-  }
+  };
 
   const handleAiRecipeGenerated = (recipe: Omit<Recipe, 'id'>) => {
     setDialogState({
@@ -276,6 +277,7 @@ export default function DashboardPage() {
             onAiRecipeGenerated={handleAiRecipeGenerated}
             onAiChatOpen={() => handlePanelOpen('ai-chat')}
             onEmptyFridgeOpen={() => handlePanelOpen('empty-fridge')}
+            onRecipeImportOpen={() => handlePanelOpen('recipe-import')}
           />
         </div>
       </div>
@@ -317,6 +319,12 @@ export default function DashboardPage() {
         nutritionalGoal={activeGoalMacros || null}
         onSaveRecipe={handleSaveRecipe}
         isSavingRecipe={isSaving}
+      />
+
+      <RecipeImportDialog
+        isOpen={activePanel === 'recipe-import'}
+        onClose={() => handlePanelChange('recipe-import', false)}
+        onRecipeImported={handleAiRecipeGenerated}
       />
 
       <ShoppingListSheet
