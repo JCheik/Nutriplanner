@@ -18,14 +18,42 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { collection, addDoc } from 'firebase/firestore';
 import { useFirebase, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { importRecipeFlow, type ImportedRecipe } from '@/ai/flows/import-recipe-flow';
-import { estimateIngredientMacrosFlow, type EstimatedIngredient } from '@/ai/flows/estimate-ingredient-macros-flow';
+import { importRecipeFlow } from '@/ai/flows/import-recipe-flow';
+import { estimateIngredientMacrosFlow } from '@/ai/flows/estimate-ingredient-macros-flow';
+import { validateRecipeFlow } from '@/ai/flows/validate-recipe-flow';
 import { normalizeText } from '@/lib/utils';
 import type { Recipe, BaseIngredient } from '@/lib/types';
-import { Link2, Loader2, CheckCircle2, AlertTriangle, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
+import { Link2, Loader2, CheckCircle2, AlertTriangle, Sparkles, Download, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-type ImportStep = 'input' | 'loading' | 'reviewing' | 'creating';
+// 'input'     → URL + textarea
+// 'fetching'  → getting page content from URL
+// 'analyzing' → AI processing
+// 'reviewing' → ingredient review
+// 'creating'  → saving to Firestore
+type ImportStep = 'input' | 'fetching' | 'analyzing' | 'reviewing' | 'creating';
+
+interface ImportedRecipe {
+  name: string;
+  description: string;
+  instructions: string;
+  ingredients: { id: string; name: string; quantity: number; unit: string }[];
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  servings: number;
+  imageHint?: string;
+}
+
+interface EstimatedIngredient {
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+}
 
 interface MissingIngredient {
   name: string;
@@ -37,6 +65,8 @@ interface MissingIngredient {
   fat: number;
   fiber: number;
   selected: boolean;
+  corrected?: boolean;
+  note?: string;
 }
 
 interface RecipeImportDialogProps {
@@ -81,56 +111,70 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
 
   const [step, setStep] = useState<ImportStep>('input');
   const [url, setUrl] = useState('');
-  const [manualText, setManualText] = useState('');
-  const [showManualText, setShowManualText] = useState(false);
-  const [statusMessage, setStatusMessage] = useState('');
+  const [recipeText, setRecipeText] = useState('');
+  const [fetchStatus, setFetchStatus] = useState<'idle' | 'ok' | 'warn'>('idle');
+  const [fetchStatusMsg, setFetchStatusMsg] = useState('');
+  const [cachedVideoUrl, setCachedVideoUrl] = useState<string | undefined>();
   const [extractedRecipe, setExtractedRecipe] = useState<ImportedRecipe | null>(null);
   const [foundIngredients, setFoundIngredients] = useState<string[]>([]);
   const [missingIngredients, setMissingIngredients] = useState<MissingIngredient[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const handleAnalyze = async () => {
-    const hasUrl = url.trim().length > 0;
-    const hasText = manualText.trim().length > 0;
-    if (!hasUrl && !hasText) return;
-
-    setError(null);
-    setStep('loading');
+  const handleFetchUrl = async () => {
+    if (!url.trim()) return;
+    setStep('fetching');
+    setFetchStatus('idle');
+    setFetchStatusMsg('');
 
     try {
-      let caption: string | undefined;
-      let videoUrl: string | undefined;
-      let imageUrl: string | undefined;
+      const res = await fetch('/api/fetch-social-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: url.trim() }),
+      });
+      const pageData = await res.json();
 
-      if (hasUrl) {
-        setStatusMessage('Accediendo a la publicación...');
-        const res = await fetch('/api/fetch-social-url', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: url.trim() }),
+      const parts: string[] = [];
+      if (pageData.title) parts.push(pageData.title);
+      if (pageData.description) parts.push(pageData.description);
+      const extracted = parts.join('\n\n');
+
+      if (extracted.length > 30) {
+        setRecipeText((prev) => {
+          const existing = prev.trim();
+          return existing ? `${extracted}\n\n${existing}` : extracted;
         });
-        const pageData = await res.json();
-        if (pageData.success) {
-          caption = [pageData.title, pageData.description].filter(Boolean).join('\n') || undefined;
-          videoUrl = pageData.videoUrl || undefined;
-          imageUrl = pageData.imageUrl || undefined;
-        }
+        setCachedVideoUrl(pageData.videoUrl || undefined);
+        setFetchStatus('ok');
+        setFetchStatusMsg('Texto extraído. Revísalo y añade más detalles si es necesario.');
+      } else {
+        setFetchStatus('warn');
+        setFetchStatusMsg(
+          'No se pudo extraer texto útil del post (Instagram y TikTok limitan el acceso). Pega el texto de la receta manualmente.'
+        );
       }
+    } catch {
+      setFetchStatus('warn');
+      setFetchStatusMsg('Error al acceder a la URL. Pega el texto manualmente.');
+    }
 
-      if (hasText) {
-        caption = hasUrl && caption ? `${caption}\n\n${manualText.trim()}` : manualText.trim();
-      }
+    setStep('input');
+  };
 
-      setStatusMessage('Analizando con IA...');
+  const handleAnalyze = async () => {
+    if (!recipeText.trim()) return;
+    setError(null);
+    setStep('analyzing');
+
+    try {
+      // 1. Extract recipe structure from text
       const recipe = await importRecipeFlow({
-        url: hasUrl ? url.trim() : undefined,
-        caption,
-        videoUrl,
-        imageUrl,
+        url: url.trim() || undefined,
+        caption: recipeText.trim(),
+        videoUrl: cachedVideoUrl,
       });
 
       setExtractedRecipe(recipe);
-      setStatusMessage('Verificando ingredientes en la base de datos...');
 
       const dbMap = new Map(
         (ingredientDB || []).map((i) => [normalizeText(i.name), i])
@@ -150,12 +194,12 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
       setFoundIngredients(found);
 
       if (missingNames.length > 0) {
-        setStatusMessage('Estimando macros de ingredientes nuevos...');
+        // 2. Estimate per-100g macros for missing ingredients
         const estimated: EstimatedIngredient[] = await estimateIngredientMacrosFlow({
           ingredientNames: missingNames.map((m) => m.name),
         });
 
-        const missing: MissingIngredient[] = missingNames.map((m) => {
+        const rawMissing = missingNames.map((m) => {
           const est = estimated.find(
             (e) => normalizeText(e.name) === normalizeText(m.name)
           ) || { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, name: m.name };
@@ -168,21 +212,110 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
             carbs: Math.round(est.carbs),
             fat: Math.round(est.fat),
             fiber: Math.round(est.fiber),
+            isMissing: true,
+          };
+        });
+
+        // 3. Validate & correct (quantities + per-100g values)
+        const allIngredientsToValidate = [
+          ...recipe.ingredients
+            .filter((ing) => dbMap.has(normalizeText(ing.name)))
+            .map((ing) => ({
+              name: ing.name,
+              quantity: ing.quantity,
+              unit: ing.unit,
+              calories: 0,
+              protein: 0,
+              carbs: 0,
+              fat: 0,
+              fiber: 0,
+              isMissing: false,
+            })),
+          ...rawMissing,
+        ];
+
+        const validated = await validateRecipeFlow({ ingredients: allIngredientsToValidate });
+
+        // Apply corrected quantities back to the found list too (update recipe state)
+        const correctedFoundQtys = new Map<string, { quantity: number; unit: string }>();
+        for (const v of validated) {
+          if (!rawMissing.find((m) => normalizeText(m.name) === normalizeText(v.name))) {
+            correctedFoundQtys.set(normalizeText(v.name), { quantity: v.quantity, unit: v.unit });
+          }
+        }
+        if (correctedFoundQtys.size > 0) {
+          setExtractedRecipe((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              ingredients: prev.ingredients.map((ing) => {
+                const fix = correctedFoundQtys.get(normalizeText(ing.name));
+                return fix ? { ...ing, ...fix } : ing;
+              }),
+            };
+          });
+        }
+
+        // Build final missing list from validated results
+        const missing: MissingIngredient[] = rawMissing.map((m) => {
+          const v = validated.find((r) => normalizeText(r.name) === normalizeText(m.name));
+          if (!v) return { ...m, selected: true };
+          return {
+            name: m.name,
+            quantity: v.quantity,
+            unit: v.unit,
+            calories: Math.round(v.calories),
+            protein: Math.round(v.protein),
+            carbs: Math.round(v.carbs),
+            fat: Math.round(v.fat),
+            fiber: Math.round(v.fiber),
             selected: true,
+            corrected: v.corrected,
+            note: v.note,
           };
         });
 
         setMissingIngredients(missing);
       } else {
+        // Still validate quantities for found-only recipes
+        const allIngredientsToValidate = recipe.ingredients.map((ing) => ({
+          name: ing.name,
+          quantity: ing.quantity,
+          unit: ing.unit,
+          calories: 0,
+          protein: 0,
+          carbs: 0,
+          fat: 0,
+          fiber: 0,
+          isMissing: false,
+        }));
+
+        const validated = await validateRecipeFlow({ ingredients: allIngredientsToValidate });
+        const correctedQtys = new Map(
+          validated.filter((v) => v.corrected).map((v) => [
+            normalizeText(v.name),
+            { quantity: v.quantity, unit: v.unit },
+          ])
+        );
+        if (correctedQtys.size > 0) {
+          setExtractedRecipe((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              ingredients: prev.ingredients.map((ing) => {
+                const fix = correctedQtys.get(normalizeText(ing.name));
+                return fix ? { ...ing, ...fix } : ing;
+              }),
+            };
+          });
+        }
         setMissingIngredients([]);
       }
 
       setStep('reviewing');
     } catch (err) {
       console.error('Import error:', err);
-      setError(
-        'No se pudo importar la receta. Comprueba la URL o añade el texto de la publicación manualmente.'
-      );
+      setError('No se pudo analizar la receta. Asegúrate de que el texto incluye ingredientes y pasos.');
       setStep('input');
     }
   };
@@ -231,8 +364,10 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
   const handleClose = () => {
     setStep('input');
     setUrl('');
-    setManualText('');
-    setShowManualText(false);
+    setRecipeText('');
+    setFetchStatus('idle');
+    setFetchStatusMsg('');
+    setCachedVideoUrl(undefined);
     setExtractedRecipe(null);
     setFoundIngredients([]);
     setMissingIngredients([]);
@@ -256,8 +391,15 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
     );
   };
 
-  const isLoading = step === 'loading' || step === 'creating';
-  const canAnalyze = url.trim().length > 0 || manualText.trim().length > 0;
+  const isLoadingStep = step === 'fetching' || step === 'analyzing' || step === 'creating';
+  const canAnalyze = recipeText.trim().length > 0;
+
+  const loadingMessage =
+    step === 'fetching'
+      ? 'Obteniendo texto del post...'
+      : step === 'analyzing'
+      ? 'Analizando e verificando la receta con IA...'
+      : 'Guardando ingredientes nuevos...';
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
@@ -265,20 +407,18 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Link2 className="h-5 w-5" />
-            Importar receta desde URL
+            Importar receta desde post
           </DialogTitle>
           <DialogDescription>
-            Pega el enlace de un post de Instagram o TikTok y la IA extraerá la receta automáticamente.
+            Pega el texto del post (ingredientes + pasos). Usa la URL para extraerlo automáticamente.
           </DialogDescription>
         </DialogHeader>
 
         {/* LOADING */}
-        {isLoading && (
+        {isLoadingStep && (
           <div className="flex flex-col items-center justify-center gap-4 py-12">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">
-              {step === 'creating' ? 'Guardando ingredientes nuevos...' : statusMessage}
-            </p>
+            <p className="text-sm text-muted-foreground">{loadingMessage}</p>
           </div>
         )}
 
@@ -292,43 +432,63 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label>Enlace de la publicación</Label>
+            {/* URL row */}
+            <div className="space-y-1.5">
+              <Label>URL del post (opcional)</Label>
               <div className="flex gap-2">
                 <Input
                   placeholder="https://www.instagram.com/p/... o https://www.tiktok.com/..."
                   value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && canAnalyze && handleAnalyze()}
-                  autoFocus
+                  onChange={(e) => {
+                    setUrl(e.target.value);
+                    setFetchStatus('idle');
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && url.trim() && handleFetchUrl()}
                 />
+                <Button
+                  variant="outline"
+                  onClick={handleFetchUrl}
+                  disabled={!url.trim()}
+                  className="shrink-0"
+                >
+                  <Download className="mr-1.5 h-4 w-4" />
+                  Extraer texto
+                </Button>
               </div>
+              {fetchStatus === 'ok' && (
+                <p className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  {fetchStatusMsg}
+                </p>
+              )}
+              {fetchStatus === 'warn' && (
+                <p className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  {fetchStatusMsg}
+                </p>
+              )}
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowManualText((v) => !v)}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {showManualText ? (
-                <ChevronUp className="h-3.5 w-3.5" />
-              ) : (
-                <ChevronDown className="h-3.5 w-3.5" />
-              )}
-              ¿No funciona la URL? Añade el texto de la publicación manualmente
-            </button>
+            {/* Text area — always visible, main input */}
+            <div className="space-y-1.5">
+              <Label>
+                Texto de la receta{' '}
+                <span className="font-normal text-muted-foreground">(ingredientes, cantidades y pasos)</span>
+              </Label>
+              <Textarea
+                placeholder="Pega aquí el texto del post: ingredientes con cantidades, pasos de preparación...
 
-            {showManualText && (
-              <div className="space-y-2">
-                <Label>Texto / caption del post</Label>
-                <Textarea
-                  placeholder="Pega aquí la descripción, ingredientes o instrucciones del post..."
-                  value={manualText}
-                  onChange={(e) => setManualText(e.target.value)}
-                  rows={5}
-                />
-              </div>
-            )}
+Cuanto más detallado sea el texto, mejor resultado obtendrá la IA."
+                value={recipeText}
+                onChange={(e) => setRecipeText(e.target.value)}
+                rows={9}
+                className="resize-none text-sm"
+                autoFocus={!url}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                La IA extrae la receta a partir de este texto. Cuantos más detalles incluyas, más precisos serán los macros.
+              </p>
+            </div>
           </div>
         )}
 
@@ -349,9 +509,7 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
                   <div>
                     <h3 className="font-semibold text-base">{extractedRecipe.name}</h3>
                     {extractedRecipe.description && (
-                      <p className="text-sm text-muted-foreground mt-0.5">
-                        {extractedRecipe.description}
-                      </p>
+                      <p className="text-sm text-muted-foreground mt-0.5">{extractedRecipe.description}</p>
                     )}
                   </div>
                   {extractedRecipe.servings && (
@@ -402,8 +560,7 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground pl-6">
-                    Estos ingredientes no están en tu base de datos. Revisa los macros estimados por IA
-                    (por 100g) antes de guardarlos.
+                    No están en tu base de datos. Revisa los macros estimados por IA (por 100g) y ajusta si es necesario.
                   </p>
 
                   <div className="space-y-2 pl-2">
@@ -425,10 +582,24 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
                             onClick={(e) => e.stopPropagation()}
                           />
                           <span className="text-sm font-medium">{ing.name}</span>
+                          {ing.corrected && (
+                            <span
+                              title={ing.note || 'Corregido por IA'}
+                              className="flex items-center gap-1 text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded-full px-2 py-0.5 cursor-help"
+                            >
+                              <Info className="h-3 w-3" />
+                              Corregido
+                            </span>
+                          )}
                           <span className="text-xs text-muted-foreground ml-auto">
                             {ing.quantity} {ing.unit}
                           </span>
                         </div>
+                        {ing.corrected && ing.note && (
+                          <p className="text-[11px] text-amber-600 dark:text-amber-400 pl-7">
+                            {ing.note}
+                          </p>
+                        )}
 
                         {ing.selected && (
                           <div className="flex gap-2 pt-1">
@@ -458,9 +629,7 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
                               onChange={(v) => updateMissingMacro(index, 'fiber', v)}
                             />
                             <div className="flex items-end pb-1">
-                              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                                / 100g
-                              </span>
+                              <span className="text-[10px] text-muted-foreground whitespace-nowrap">/ 100g</span>
                             </div>
                           </div>
                         )}
@@ -474,7 +643,7 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
         )}
 
         {/* FOOTER */}
-        {!isLoading && (
+        {!isLoadingStep && (
           <DialogFooter className="gap-2 pt-2 border-t">
             <Button variant="outline" onClick={handleClose}>
               Cancelar
@@ -483,14 +652,17 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
             {step === 'input' && (
               <Button onClick={handleAnalyze} disabled={!canAnalyze}>
                 <Sparkles className="mr-2 h-4 w-4" />
-                Analizar receta
+                Analizar con IA
               </Button>
             )}
 
             {step === 'reviewing' && (
-              <Button onClick={handleConfirm}>
-                Importar receta
-              </Button>
+              <>
+                <Button variant="outline" onClick={() => setStep('input')}>
+                  Editar texto
+                </Button>
+                <Button onClick={handleConfirm}>Importar receta</Button>
+              </>
             )}
           </DialogFooter>
         )}
