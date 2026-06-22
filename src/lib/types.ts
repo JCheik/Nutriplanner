@@ -102,12 +102,21 @@ export interface GoalMacros extends Macros {
 
 export type GoalType = 'loss' | 'maintenance' | 'gain' | 'custom';
 
+export interface CalculatorInputs {
+  gender: 'male' | 'female';
+  age: number;
+  weight: number;
+  height: number;
+  activityLevel: 'sedentary' | 'light' | 'moderate' | 'very' | 'extra';
+}
+
 export interface CalculationResult {
   bmr: number;
   maintenance: GoalMacros;
   loss: GoalMacros;
   gain: GoalMacros;
   custom?: GoalMacros;
+  inputs?: CalculatorInputs;
 }
 
 export interface ShoppingListItem {

@@ -24,6 +24,15 @@ const AutocompleteOutputSchema = z.array(z.object({
   recipeId: z.string(),
 }));
 
+function getMealCalorieRatio(mealTitle: string): number {
+  const t = mealTitle.toLowerCase();
+  if (t.includes('desayuno') || t.includes('breakfast') || t.includes('mañana')) return 0.25;
+  if (t.includes('almuerzo') || t.includes('comida') || t.includes('lunch')) return 0.35;
+  if (t.includes('cena') || t.includes('dinner') || t.includes('supper')) return 0.30;
+  if (t.includes('merienda') || t.includes('snack') || t.includes('tentempié')) return 0.10;
+  return 0.25;
+}
+
 export const autocompleteWeekFlow = ai.defineFlow(
   {
     name: 'autocompleteWeekFlow',
@@ -41,11 +50,21 @@ export const autocompleteWeekFlow = ai.defineFlow(
       servings: r.servings ?? 1,
     }));
 
-    // Extract only the empty slots the AI needs to fill, with their title visible
+    // Extract empty slots with per-slot calorie/protein targets derived from the daily goal
+    const goal = activeGoal as GoalMacros | null;
     const emptySlots = (weekPlan as WeekPlan).flatMap(dayPlan =>
       dayPlan.meals
         .filter(meal => meal.recipes.length === 0)
-        .map(meal => ({ day: dayPlan.day, mealId: meal.id, mealTitle: meal.title }))
+        .map(meal => {
+          const ratio = getMealCalorieRatio(meal.title);
+          return {
+            day: dayPlan.day,
+            mealId: meal.id,
+            mealTitle: meal.title,
+            targetCalories: goal ? Math.round(goal.calories * ratio) : null,
+            targetProtein: goal ? Math.round(goal.protein * ratio) : null,
+          };
+        })
     );
 
     // Already-filled meals for repetition context
@@ -64,14 +83,16 @@ export const autocompleteWeekFlow = ai.defineFlow(
         ? 'Each recipe can appear at most 2 times across the entire week.'
         : 'There is no restriction on recipe repetition.';
 
+    const margin = preferences.goalMarginPercent ?? 15;
     const priorityRule =
-      preferences.priority === 'goal' && activeGoal
-        ? `The user has a daily nutritional goal of ${activeGoal.calories} kcal and ${activeGoal.protein}g protein.
-Try to select recipes for each day so that the SUM of calories across all meals stays within ±${preferences.goalMarginPercent ?? 15}% of the daily goal (${Math.round(activeGoal.calories * (1 - (preferences.goalMarginPercent ?? 15) / 100))}–${Math.round(activeGoal.calories * (1 + (preferences.goalMarginPercent ?? 15) / 100))} kcal).
-Distribute calories intelligently: breakfast ~25%, lunch ~35%, dinner ~30%, snacks ~10%.`
+      preferences.priority === 'goal' && goal
+        ? `Each slot already has a pre-computed "targetCalories" and "targetProtein" (derived from the daily goal of ${goal.calories} kcal / ${goal.protein}g protein split proportionally by meal type).
+For EACH slot independently, choose the recipe whose caloriesPerServing is CLOSEST to that slot's targetCalories (within ±${margin}% if possible).
+If no recipe fits within the margin, pick the closest one rather than leaving the slot empty.
+Do NOT try to balance across all meals simultaneously — just minimise the gap for each individual slot.`
         : preferences.priority === 'protein'
-        ? 'Prioritize recipes with the highest protein per serving.'
-        : 'Prioritize recipes with the lowest calories per serving.';
+        ? 'Prioritize recipes with the highest proteinPerServing.'
+        : 'Prioritize recipes with the lowest caloriesPerServing.';
 
     const restrictionRule = preferences.dietaryRestrictions
       ? `The user has the following dietary restrictions: "${preferences.dietaryRestrictions}". Only suggest recipes that comply.`

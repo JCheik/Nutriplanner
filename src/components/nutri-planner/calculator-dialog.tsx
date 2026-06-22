@@ -12,7 +12,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Flame, Target, Weight, TrendingDown, TrendingUp, Calculator, EggFried, Wheat, Droplets } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
-import type { Macros, CalculationResult } from '@/lib/types';
+import type { Macros, CalculationResult, CalculatorInputs } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Progress } from '../ui/progress';
@@ -154,10 +154,13 @@ export function CalculatorDialog({ isOpen, onClose, onCalculate, initialResult }
   });
 
   useEffect(() => {
-    if(isOpen && initialResult) {
-        setResult(initialResult);
+    if (isOpen && initialResult) {
+      setResult(initialResult);
+      if (initialResult.inputs) {
+        form.reset(initialResult.inputs);
+      }
     }
-  }, [isOpen, initialResult]);
+  }, [isOpen, initialResult, form]);
 
   const onSubmit: SubmitHandler<FormValues> = (data) => {
     let bmr: number;
@@ -172,11 +175,20 @@ export function CalculatorDialog({ isOpen, onClose, onCalculate, initialResult }
     const lossCalories = maintenanceCalories * 0.8; // 20% deficit
     const gainCalories = maintenanceCalories * 1.1; // 10% surplus
 
+    const inputs: CalculatorInputs = {
+      gender: data.gender,
+      age: data.age,
+      weight: data.weight,
+      height: data.height,
+      activityLevel: data.activityLevel,
+    };
+
     const newResult = {
       bmr: Math.round(bmr),
       maintenance: calculateMacros(maintenanceCalories, data.weight),
       loss: calculateMacros(lossCalories, data.weight),
       gain: calculateMacros(gainCalories, data.weight),
+      inputs,
     };
     
     setResult(newResult);
