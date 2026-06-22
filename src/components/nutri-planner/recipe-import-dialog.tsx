@@ -114,6 +114,8 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
   const [recipeText, setRecipeText] = useState('');
   const [fetchStatus, setFetchStatus] = useState<'idle' | 'ok' | 'warn'>('idle');
   const [fetchStatusMsg, setFetchStatusMsg] = useState('');
+  // 'none' = no video URL found, 'youtube' = YouTube (direct works), 'cdn' = social CDN (might work)
+  const [videoUrlKind, setVideoUrlKind] = useState<'none' | 'youtube' | 'cdn'>('none');
   const [cachedVideoUrl, setCachedVideoUrl] = useState<string | undefined>();
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [extractedRecipe, setExtractedRecipe] = useState<ImportedRecipe | null>(null);
@@ -121,11 +123,25 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
   const [missingIngredients, setMissingIngredients] = useState<MissingIngredient[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  const isYouTubeUrl = (u: string) => /youtube\.com|youtu\.be/i.test(u);
+
   const handleFetchUrl = async () => {
     if (!url.trim()) return;
+
+    // YouTube: no page fetch needed, Gemini handles it directly
+    if (isYouTubeUrl(url.trim())) {
+      setCachedVideoUrl(url.trim());
+      setVideoUrlKind('youtube');
+      setFetchStatus('ok');
+      setFetchStatusMsg('YouTube detectado — Gemini analizará el vídeo directamente.');
+      return;
+    }
+
     setStep('fetching');
     setFetchStatus('idle');
     setFetchStatusMsg('');
+    setVideoUrlKind('none');
+    setCachedVideoUrl(undefined);
 
     try {
       const res = await fetch('/api/fetch-social-url', {
@@ -145,18 +161,27 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
           const existing = prev.trim();
           return existing ? `${extracted}\n\n${existing}` : extracted;
         });
-        setCachedVideoUrl(pageData.videoUrl || undefined);
+      }
+
+      if (pageData.videoUrl) {
+        setCachedVideoUrl(pageData.videoUrl);
+        setVideoUrlKind('cdn');
+        setFetchStatus('ok');
+        setFetchStatusMsg(
+          extracted.length > 30
+            ? 'Texto extraído y URL de vídeo encontrada. Prueba a analizar sin descarga.'
+            : 'URL de vídeo encontrada. Prueba a analizar sin descarga.'
+        );
+      } else if (extracted.length > 30) {
         setFetchStatus('ok');
         setFetchStatusMsg('Texto extraído. Revísalo y añade más detalles si es necesario.');
       } else {
         setFetchStatus('warn');
-        setFetchStatusMsg(
-          'No se pudo extraer texto útil del post (Instagram y TikTok limitan el acceso). Pega el texto de la receta manualmente.'
-        );
+        setFetchStatusMsg('No se pudo extraer contenido del post. Pega el texto manualmente o sube el vídeo.');
       }
     } catch {
       setFetchStatus('warn');
-      setFetchStatusMsg('Error al acceder a la URL. Pega el texto manualmente.');
+      setFetchStatusMsg('Error al acceder a la URL. Pega el texto manualmente o sube el vídeo.');
     }
 
     setStep('input');
@@ -168,10 +193,11 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
     setStep('analyzing');
 
     try {
-      // 1. Extract recipe — from video file or from text
+      // 1. Extract recipe — priority: uploaded file > URL video > text only
       let recipe: ImportedRecipe;
 
       if (videoFile) {
+        // Uploaded video file → Google File API
         const fd = new FormData();
         fd.append('video', videoFile);
         if (recipeText.trim()) fd.append('caption', recipeText.trim());
@@ -180,11 +206,34 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Error al analizar el vídeo.');
         recipe = data.recipe as ImportedRecipe;
+
+      } else if (cachedVideoUrl && (videoUrlKind === 'youtube' || videoUrlKind === 'cdn')) {
+        // URL-based video → try direct Gemini analysis (YouTube always works; CDN might)
+        const res = await fetch('/api/analyze-video', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ videoUrl: cachedVideoUrl, caption: recipeText.trim() }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          recipe = data.recipe as ImportedRecipe;
+        } else if (videoUrlKind === 'cdn') {
+          // CDN URL failed (probably auth-protected) → fall back to text analysis
+          console.warn('CDN video URL not accessible to Gemini, falling back to text.');
+          recipe = await importRecipeFlow({
+            url: url.trim() || undefined,
+            caption: recipeText.trim(),
+          });
+        } else {
+          throw new Error(data.error || 'No se pudo analizar el vídeo desde la URL.');
+        }
+
       } else {
+        // Text only
         recipe = await importRecipeFlow({
           url: url.trim() || undefined,
           caption: recipeText.trim(),
-          videoUrl: cachedVideoUrl,
         });
       }
 
@@ -381,6 +430,7 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
     setRecipeText('');
     setFetchStatus('idle');
     setFetchStatusMsg('');
+    setVideoUrlKind('none');
     setCachedVideoUrl(undefined);
     setVideoFile(null);
     setExtractedRecipe(null);
@@ -407,14 +457,16 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
   };
 
   const isLoadingStep = step === 'fetching' || step === 'analyzing' || step === 'creating';
-  const canAnalyze = !!videoFile || recipeText.trim().length > 0;
+  const canAnalyze = !!videoFile || !!cachedVideoUrl || recipeText.trim().length > 0;
 
   const loadingMessage =
     step === 'fetching'
-      ? 'Obteniendo texto del post...'
+      ? 'Obteniendo contenido del post...'
       : step === 'analyzing'
       ? videoFile
         ? 'Subiendo vídeo y analizando con IA... (puede tardar 30-60 s)'
+        : videoUrlKind !== 'none'
+        ? 'Analizando vídeo desde URL...'
         : 'Analizando y verificando la receta con IA...'
       : 'Guardando ingredientes nuevos...';
 
@@ -533,6 +585,16 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
                 <p className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   {fetchStatusMsg}
+                  {videoUrlKind === 'youtube' && (
+                    <span className="ml-1 bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 rounded-full px-2 py-0.5 text-[10px] font-medium">
+                      YouTube
+                    </span>
+                  )}
+                  {videoUrlKind === 'cdn' && (
+                    <span className="ml-1 bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20 rounded-full px-2 py-0.5 text-[10px] font-medium">
+                      vídeo encontrado
+                    </span>
+                  )}
                 </p>
               )}
               {fetchStatus === 'warn' && (
