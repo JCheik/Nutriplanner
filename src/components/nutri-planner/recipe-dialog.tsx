@@ -37,6 +37,8 @@ import Image from 'next/image';
 import { Switch } from '../ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { normalizeText, cn } from '@/lib/utils';
+import { CookingModeDialog } from './cooking-mode-dialog';
+import { ChefHat } from 'lucide-react';
 
 export type DialogState = DialogStateBase;
 
@@ -131,15 +133,25 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
 
   const handleSave = async () => {
     if (!name || !onSave) return;
-    
+
+    // If the DB-calculated totals are zero (e.g. AI-generated ingredients not in the DB),
+    // fall back to the macros that the AI already provided so we don't zero them out.
+    const hasDbMacros = calculatedTotals.calories > 0 || calculatedTotals.protein > 0;
+    const macros = hasDbMacros ? calculatedTotals : {
+      calories: initialRecipe?.calories ?? 0,
+      protein: initialRecipe?.protein ?? 0,
+      carbs: initialRecipe?.carbs ?? 0,
+      fat: initialRecipe?.fat ?? 0,
+    };
+
     const recipeData: Omit<Recipe, 'id' | 'imageUrl'> & { imageUrl?: string; folderId?: string | null } = {
       name,
       description,
       instructions,
-      ingredients, // Already in clean format { id, name, quantity, unit }
+      ingredients,
       folderId: folderId === 'none' ? null : folderId,
-      imageHint: initialRecipe?.imageHint, // Preserve AI hint
-      ...calculatedTotals
+      imageHint: initialRecipe?.imageHint,
+      ...macros
     };
 
     onSave(recipeData as Omit<Recipe, 'id'>, imageFile, saveAsGlobal, initialRecipe?.id);
@@ -402,6 +414,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
 function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, isNutriPlannerRecipe, isMobile }: { recipe: Recipe; folders?: Folder[], globalFolders?: GlobalFolder[], onEdit?: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void; onDelete?: (id: string, isGlobal: boolean) => void; onCopy?: (recipe: Recipe) => void; isNutriPlannerRecipe: boolean; isMobile?: boolean; }) {
   const { user, isAdmin } = useUser();
   const firestore = useFirestore();
+  const [isCookingModeOpen, setIsCookingModeOpen] = useState(false);
 
   const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);
   const { data: ingredientDB } = useCollection<BaseIngredient>(ingredientsCollectionRef);
@@ -512,9 +525,13 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
          </div>
 
         <div className='flex gap-2'>
-          {isNutriPlannerRecipe && onCopy && (
-            <Button onClick={() => onCopy(recipe)}>
-              <Copy className="mr-2 h-4 w-4" /> Copiar a Mis Recetas
+          <Button variant="default" onClick={() => setIsCookingModeOpen(true)}>
+            <ChefHat className="mr-2 h-4 w-4" /> Cocinar
+          </Button>
+          {/* Note: if 'isNutriPlannerRecipe' is true, we ONLY show the copy button (which behaves like clone) when 'onCopy' is available. Wait, we want to clone ANY recipe. The user requested 'Clone' button universally. */}
+          {onCopy && (
+            <Button variant="outline" onClick={() => onCopy(recipe)}>
+              <Copy className="mr-2 h-4 w-4" /> Clonar / Usar Plantilla
             </Button>
           )}
           {canEdit && onEdit && (
@@ -524,6 +541,12 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
           )}
         </div>
       </DialogFooter>
+
+      <CookingModeDialog 
+        recipe={recipe} 
+        isOpen={isCookingModeOpen} 
+        onClose={() => setIsCookingModeOpen(false)} 
+      />
     </>
   )
 }

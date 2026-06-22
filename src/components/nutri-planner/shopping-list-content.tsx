@@ -6,8 +6,25 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { PlusCircle, Trash2, Pencil, ShoppingCart } from 'lucide-react';
+import { PlusCircle, Trash2, Pencil, ShoppingCart, Tag } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+const CATEGORIES = {
+  'Frutas y Verduras': ['tomate', 'cebolla', 'ajo', 'lechuga', 'pimiento', 'zanahoria', 'patata', 'brocoli', 'espinaca', 'manzana', 'platano', 'naranja', 'limon', 'limón', 'fresa', 'uva', 'aguacate', 'champiñon', 'calabacin'],
+  'Carnes y Pescados': ['pollo', 'ternera', 'cerdo', 'pavo', 'carne', 'jamón', 'salmon', 'salmón', 'atun', 'atún', 'merluza', 'pescado'],
+  'Lácteos y Huevos': ['leche', 'queso', 'yogur', 'mantequilla', 'nata', 'huevo'],
+  'Despensa': ['arroz', 'pasta', 'pan', 'avena', 'harina', 'macarrones', 'fideos', 'azucar', 'sal', 'pimienta', 'oregano', 'aceite', 'vinagre', 'caldo', 'salsa', 'lenteja', 'garbanzo'],
+};
+
+const getCategory = (itemName: string) => {
+  const lowerName = itemName.toLowerCase();
+  for (const [category, keywords] of Object.entries(CATEGORIES)) {
+    if (keywords.some(kw => lowerName.includes(kw))) {
+      return category;
+    }
+  }
+  return 'Otros';
+};
 
 
 export interface ShoppingListItem {
@@ -92,51 +109,68 @@ export const ShoppingListContent = ({ list, onListChange }: ShoppingListContentP
       </div>
       <ScrollArea className="flex-1 my-4 -mx-6 px-6">
         {list.length > 0 ? (
-          <div className="space-y-3 pr-4">
-            {list.map(item => (
-              <div key={item.id} className="flex items-center space-x-3 group">
-                <Checkbox
-                  id={item.id}
-                  checked={item.checked}
-                  onCheckedChange={() => handleToggleCheck(item.id)}
-                  className="border-primary/50"
-                />
-                <div className="flex-1">
-                  {editingItem?.id === item.id ? (
-                    <div className="flex gap-2">
-                      <Input
-                        value={editingItem.quantity}
-                        type="number"
-                        onChange={(e) => setEditingItem({ ...editingItem, quantity: parseFloat(e.target.value) || 0 })}
-                        className="h-8 w-20 font-handwriting text-lg"
-                      />
-                      <Input
-                        value={editingItem.name}
-                        onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
-                        className="h-8 font-handwriting text-lg"
-                      />
-                      <Button size="sm" onClick={handleUpdateItem}>Guardar</Button>
-                    </div>
-                  ) : (
-                    <Label
-                      htmlFor={item.id}
-                      className={cn(
-                        "text-lg font-handwriting text-foreground/80",
-                        item.checked && 'line-through text-muted-foreground'
+          <div className="space-y-6 pr-4">
+            {Object.entries(
+              list.reduce((acc, item) => {
+                const cat = getCategory(item.name);
+                if (!acc[cat]) acc[cat] = [];
+                acc[cat].push(item);
+                return acc;
+              }, {} as Record<string, ShoppingListItem[]>)
+            )
+            .sort(([catA], [catB]) => catA.localeCompare(catB))
+            .map(([category, items]) => (
+              <div key={category} className="space-y-3">
+                <h4 className="font-semibold text-sm text-primary flex items-center gap-2 border-b border-primary/20 pb-1">
+                  <Tag className="h-3 w-3" />
+                  {category}
+                </h4>
+                {items.map(item => (
+                  <div key={item.id} className="flex items-center space-x-3 group ml-1">
+                    <Checkbox
+                      id={item.id}
+                      checked={item.checked}
+                      onCheckedChange={() => handleToggleCheck(item.id)}
+                      className="border-primary/50"
+                    />
+                    <div className="flex-1">
+                      {editingItem?.id === item.id ? (
+                        <div className="flex gap-2">
+                          <Input
+                            value={editingItem.quantity}
+                            type="number"
+                            onChange={(e) => setEditingItem({ ...editingItem, quantity: parseFloat(e.target.value) || 0 })}
+                            className="h-8 w-20 font-handwriting text-lg"
+                          />
+                          <Input
+                            value={editingItem.name}
+                            onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
+                            className="h-8 font-handwriting text-lg"
+                          />
+                          <Button size="sm" onClick={handleUpdateItem}>Guardar</Button>
+                        </div>
+                      ) : (
+                        <Label
+                          htmlFor={item.id}
+                          className={cn(
+                            "text-lg font-handwriting text-foreground/80 cursor-pointer",
+                            item.checked && 'line-through text-muted-foreground'
+                          )}
+                        >
+                          <span className="font-bold">{item.quantity > 0 ? item.quantity.toFixed(0) : ''}{item.unit}</span> {item.name}
+                        </Label>
                       )}
-                    >
-                      <span className="font-bold">{item.quantity > 0 ? item.quantity.toFixed(0) : ''}{item.unit}</span> {item.name}
-                    </Label>
-                  )}
-                </div>
-                 <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditClick(item)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(item.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                 </div>
+                    </div>
+                     <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditClick(item)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(item.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                     </div>
+                  </div>
+                ))}
               </div>
             ))}
           </div>

@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { RecipeCard } from './recipe-card';
-import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Database, Folder as FolderIcon, Plus, Trash2, Folders, Edit, Check, LayoutGrid, List, Sparkles } from 'lucide-react';
+import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Database, Folder as FolderIcon, Plus, Trash2, Folders, Edit, Check, LayoutGrid, List, Sparkles, Camera } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -55,6 +55,7 @@ interface RecipeLibraryProps {
   onGlobalFolderDelete: (id: string) => void;
   onAssignRecipeToGlobalFolder: (recipeId: string, folderId: string | null) => void;
   onAiChatOpen: () => void;
+  onEmptyFridgeOpen?: () => void;
   isMobile?: boolean;
   initialViewMode?: 'grid' | 'list';
   onAiRecipeGenerated?: (recipe: Omit<Recipe, 'id'>) => void;
@@ -399,6 +400,7 @@ export function RecipeLibrary({
   onGlobalFolderDelete,
   onAssignRecipeToGlobalFolder,
   onAiChatOpen,
+  onEmptyFridgeOpen,
   isMobile = false,
   initialViewMode = 'grid',
 }: RecipeLibraryProps) {
@@ -411,8 +413,17 @@ export function RecipeLibrary({
   const [editingFolderName, setEditingFolderName] = useState('');
 
   const [filterQuery, setFilterQuery] = useState('');
+  const [activePillFilters, setActivePillFilters] = useState<string[]>([]);
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(initialViewMode);
+
+  const togglePillFilter = (filter: string) => {
+    setActivePillFilters(prev => 
+      prev.includes(filter) 
+        ? prev.filter(f => f !== filter)
+        : [...prev, filter]
+    );
+  };
 
   const recipesInSelectedFolder = useMemo(() => {
     const sourceRecipes = activeTab === 'user-recipes' ? userRecipes : nutriplannerRecipes;
@@ -423,11 +434,25 @@ export function RecipeLibrary({
 
   const filteredAndSortedRecipes = useMemo(() => {
     return (recipesInSelectedFolder || []).filter(recipe => {
+      // 1. Text Search Filter
       const normalizedQuery = normalizeText(filterQuery);
-      if (!normalizedQuery) return true;
-      const nameMatch = normalizeText(recipe.name).includes(normalizedQuery);
-      const ingredientMatch = (recipe.ingredients || []).some(ing => normalizeText(ing.name).includes(normalizedQuery));
-      return nameMatch || ingredientMatch;
+      let textMatch = true;
+      if (normalizedQuery) {
+          const nameMatch = normalizeText(recipe.name).includes(normalizedQuery);
+          const ingredientMatch = (recipe.ingredients || []).some(ing => normalizeText(ing.name).includes(normalizedQuery));
+          textMatch = nameMatch || ingredientMatch;
+      }
+
+      // 2. Pill Filters
+      let pillMatch = true;
+      if (activePillFilters.length > 0) {
+        if (activePillFilters.includes('Alta en Proteína') && recipe.protein < 30) pillMatch = false;
+        if (activePillFilters.includes('Baja en Carbohidratos') && recipe.carbs > 20) pillMatch = false;
+        if (activePillFilters.includes('Baja en Calorías') && recipe.calories > 400) pillMatch = false;
+        if (activePillFilters.includes('Pocos Ingredientes') && (recipe.ingredients?.length || 0) > 5) pillMatch = false;
+      }
+
+      return textMatch && pillMatch;
     }).sort((a, b) => {
       const [key, order] = sortCriteria.split('-') as [keyof Recipe, 'asc' | 'desc'];
       let valA = a[key];
@@ -445,7 +470,7 @@ export function RecipeLibrary({
       if (valA > valB) return order === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [filterQuery, sortCriteria, recipesInSelectedFolder]);
+  }, [filterQuery, activePillFilters, sortCriteria, recipesInSelectedFolder]);
 
 
   const handleTabChange = (value: string) => {
@@ -517,7 +542,11 @@ export function RecipeLibrary({
              <div className="flex items-center gap-2">
                 {activeTab === 'user-recipes' && !isMobile && (
                   <>
-                    <Button variant="outline" onClick={onAiChatOpen}>
+                     <Button variant="outline" onClick={onEmptyFridgeOpen} data-tour="fridge-scanner">
+                      <Camera className="mr-2 h-4 w-4" />
+                      Escanear Nevera
+                    </Button>
+                    <Button variant="outline" onClick={onAiChatOpen} data-tour="ai-assistant">
                       <Sparkles className="mr-2 h-4 w-4" />
                       Asistente IA
                     </Button>
@@ -562,50 +591,68 @@ export function RecipeLibrary({
                 </div>
               )}
               <div className={cn("h-full flex flex-col min-h-0", isMobile ? "col-span-full" : "lg:col-span-4")}>
-                 <div className="flex flex-col sm:flex-row gap-2 p-1">
-                  <div className="relative flex-grow">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      placeholder="Filtrar por nombre o ingrediente..."
-                      value={filterQuery}
-                      onChange={(e) => setFilterQuery(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="shrink-0 flex-1">
-                          <ArrowUpDown className="mr-2 h-4 w-4" />
-                          Ordenar
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-glass">
-                        <DropdownMenuRadioGroup value={sortCriteria} onValueChange={(value) => setSortCriteria(value as SortCriteria)}>
-                          {sortOptions.map((option) => (
-                            <DropdownMenuRadioItem key={option.value} value={option.value} className="cursor-pointer">
-                              {option.label}
-                            </DropdownMenuRadioItem>
-                          ))}
-                        </DropdownMenuRadioGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                     <div className="p-1 border bg-muted rounded-md flex">
-                        <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('grid')} className="h-8 w-8">
-                            <LayoutGrid className="h-4 w-4" />
-                        </Button>
-                        <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('list')} className="h-8 w-8">
-                            <List className="h-4 w-4" />
-                        </Button>
+                 <div className="flex flex-col gap-2 p-1">
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="relative flex-grow">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                        placeholder="Filtrar por nombre o ingrediente..."
+                        value={filterQuery}
+                        onChange={(e) => setFilterQuery(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" className="shrink-0 flex-1">
+                            <ArrowUpDown className="mr-2 h-4 w-4" />
+                            Ordenar
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="bg-glass">
+                          <DropdownMenuRadioGroup value={sortCriteria} onValueChange={(value) => setSortCriteria(value as SortCriteria)}>
+                            {sortOptions.map((option) => (
+                              <DropdownMenuRadioItem key={option.value} value={option.value} className="cursor-pointer">
+                                {option.label}
+                              </DropdownMenuRadioItem>
+                            ))}
+                          </DropdownMenuRadioGroup>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <div className="p-1 border bg-muted rounded-md flex">
+                          <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('grid')} className="h-8 w-8">
+                              <LayoutGrid className="h-4 w-4" />
+                          </Button>
+                          <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('list')} className="h-8 w-8">
+                              <List className="h-4 w-4" />
+                          </Button>
+                      </div>
                     </div>
                   </div>
+                  
+                  {/* Pill Filters Container */}
+                  <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                    {['Alta en Proteína', 'Baja en Carbohidratos', 'Baja en Calorías', 'Pocos Ingredientes'].map(filter => (
+                      <Button
+                        key={filter}
+                        variant={activePillFilters.includes(filter) ? 'default' : 'secondary'}
+                        size="sm"
+                        className="rounded-full shrink-0 h-7 text-xs"
+                        onClick={() => togglePillFilter(filter)}
+                      >
+                        {filter}
+                      </Button>
+                    ))}
+                  </div>
+
                 </div>
                 <div className="flex-1 mt-2 min-h-0">
                   <ScrollArea className="h-full">
                     <RecipeList 
                         recipes={filteredAndSortedRecipes}
                         onRecipeClick={(recipe, isNutri) => onRecipeAction('view', recipe, isNutri)}
-                        onCopyClick={activeTab === 'nutriplanner-recipes' ? onCopyRecipe : undefined}
+                        onCopyClick={onCopyRecipe}
                         onAddToPlanClick={onAddToPlan}
                         isDraggable={activeTab === 'user-recipes' || (activeTab === 'nutriplanner-recipes' && isAdmin)}
                         isNutriPlanner={activeTab === 'nutriplanner-recipes'}

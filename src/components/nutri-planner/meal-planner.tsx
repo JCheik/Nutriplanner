@@ -6,9 +6,10 @@ import type { WeekPlan, Recipe, DailyTotal, Macros, GoalMacros, Meal, ActiveDrop
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RecipeCard } from './recipe-card';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, X, Flame, Plus, Edit, Check, Download } from 'lucide-react';
+import { CalendarDays, X, Flame, Plus, Edit, Check, Download, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '../ui/input';
+import { dragStore } from '@/lib/drag-store';
 
 interface MealPlannerProps {
   weekPlan: WeekPlan;
@@ -24,6 +25,8 @@ interface MealPlannerProps {
   activeDropTarget: ActiveDropTarget | null;
   onSetDropTarget: (target: ActiveDropTarget | null) => void;
   onMealSlotClick?: (day: string, meal: Meal) => void;
+  onAutocomplete?: () => void;
+  isAutocompleting?: boolean;
 }
 
 interface MealSlotProps {
@@ -39,6 +42,11 @@ interface MealSlotProps {
   isActiveDropTarget: boolean;
   onSetDropTarget: (target: ActiveDropTarget | null) => void;
   onMealSlotClick?: (day: string, meal: Meal) => void;
+  onDragEnterSlot?: (day: string, mealId: string) => void;
+  onDragLeaveSlot?: () => void;
+  isDragOverSlot?: boolean;
+  onAutocomplete?: () => void;
+  isAutocompleting?: boolean;
 }
 
 const getMacroColorClass = (current: number, target: number | undefined): string => {
@@ -57,36 +65,44 @@ const getMacroColorClass = (current: number, target: number | undefined): string
     return 'text-foreground'; // Default color
 };
 
-const DailyTotalsRow = ({ totals, goal, className }: { totals: Macros, goal: GoalMacros | null, className?: string }) => (
+const DailyTotalsRow = ({ totals, previewTotals, goal, className }: { totals: Macros, previewTotals?: Macros | null, goal: GoalMacros | null, className?: string }) => {
+  const displayTotals = previewTotals ? {
+    calories: totals.calories + previewTotals.calories,
+    protein: totals.protein + previewTotals.protein,
+    carbs: totals.carbs + previewTotals.carbs,
+    fat: totals.fat + previewTotals.fat,
+  } : totals;
+
+  return (
   <div className={cn("mt-auto pt-2 border-t", className)}>
     <div className="flex flex-col items-center">
       <div className="flex items-center gap-1">
-        <Flame className="h-5 w-5 text-primary" />
-        <span className={cn("font-bold text-lg", getMacroColorClass(totals.calories, goal?.calories))}>
-          {Math.round(totals.calories)}
+        <Flame className={cn("h-5 w-5", previewTotals ? "text-primary animate-pulse" : "text-primary")} />
+        <span className={cn("font-bold text-lg", getMacroColorClass(displayTotals.calories, goal?.calories))}>
+          {Math.round(displayTotals.calories)}
         </span>
         <span className="text-muted-foreground text-sm">kcal</span>
       </div>
     </div>
     <div className="grid grid-cols-3 gap-1 text-center text-xs mt-1">
-      <div className="flex flex-col items-center p-1 rounded-md bg-secondary">
-        <span className={cn("font-bold", getMacroColorClass(totals.protein, goal?.protein))}>{Math.round(totals.protein)}g</span>
+      <div className="flex flex-col items-center p-1 rounded-md bg-secondary transition-colors" style={previewTotals ? { backgroundColor: 'var(--primary-foreground)' } : {}}>
+        <span className={cn("font-bold", getMacroColorClass(displayTotals.protein, goal?.protein))}>{Math.round(displayTotals.protein)}g</span>
         <span className="text-muted-foreground text-[10px]">Prot.</span>
       </div>
-      <div className="flex flex-col items-center p-1 rounded-md bg-secondary">
-        <span className={cn("font-bold", getMacroColorClass(totals.carbs, goal?.carbs))}>{Math.round(totals.carbs)}g</span>
+      <div className="flex flex-col items-center p-1 rounded-md bg-secondary transition-colors" style={previewTotals ? { backgroundColor: 'var(--primary-foreground)' } : {}}>
+        <span className={cn("font-bold", getMacroColorClass(displayTotals.carbs, goal?.carbs))}>{Math.round(displayTotals.carbs)}g</span>
         <span className="text-muted-foreground text-[10px]">Carbs</span>
       </div>
-      <div className="flex flex-col items-center p-1 rounded-md bg-secondary">
-        <span className={cn("font-bold", getMacroColorClass(totals.fat, goal?.fat))}>{Math.round(totals.fat)}g</span>
+      <div className="flex flex-col items-center p-1 rounded-md bg-secondary transition-colors" style={previewTotals ? { backgroundColor: 'var(--primary-foreground)' } : {}}>
+        <span className={cn("font-bold", getMacroColorClass(displayTotals.fat, goal?.fat))}>{Math.round(displayTotals.fat)}g</span>
         <span className="text-muted-foreground text-[10px]">Grasa</span>
       </div>
     </div>
   </div>
-);
+)};
 
 
-function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onDeleteMeal, isActiveDropTarget, onSetDropTarget, onMealSlotClick }: MealSlotProps) {
+function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onDeleteMeal, isActiveDropTarget, onSetDropTarget, onMealSlotClick, onDragEnterSlot, onDragLeaveSlot, isDragOverSlot }: MealSlotProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(meal.title);
 
@@ -110,8 +126,21 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
     e.preventDefault();
   };
 
+  const handleDragEnter = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (onDragEnterSlot) onDragEnterSlot(day, meal.id);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    // Only leave if not entering a child element
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    if (onDragLeaveSlot) onDragLeaveSlot();
+  };
+
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    if (onDragLeaveSlot) onDragLeaveSlot();
     const recipeData = e.dataTransfer.getData('application/json');
     if (recipeData) {
       const recipe = JSON.parse(recipeData);
@@ -132,12 +161,15 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
   return (
     <div 
       onDragOver={handleDragOver} 
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
       onDrop={handleDrop} 
       onClick={handleSlotClick}
       className={cn(
         "relative flex flex-col p-2 bg-background/80 border rounded-xl h-full min-h-[160px]",
-        "cursor-pointer",
-        isActiveDropTarget && "ring-2 ring-primary"
+        "cursor-pointer transition-colors duration-200",
+        isActiveDropTarget && "ring-2 ring-primary",
+        isDragOverSlot && "bg-accent/50 border-primary ring-2 ring-primary/50"
       )}
     >
       <div className="flex justify-between items-center mb-1 pl-1 group">
@@ -182,7 +214,7 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
       </div>
       <div className={cn(
         "rounded-lg p-1 flex-1 flex flex-col items-center justify-center gap-1 relative group transition-colors",
-        hasRecipes ? 'bg-transparent' : 'border-2 border-dashed border-border/50 bg-secondary/30'
+        hasRecipes || isDragOverSlot ? 'bg-transparent' : 'border-2 border-dashed border-border/50 bg-secondary/30'
       )}>
         {hasRecipes ? (
            <div className="w-full h-full flex flex-col gap-1 flex-1">
@@ -210,8 +242,14 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
                     </div>
                 ))}
             </div>
-        ) : (
-          <p className="text-xs text-center text-muted-foreground px-2">Arrastra o haz clic para añadir recetas</p>
+        ) : !isDragOverSlot && (
+          <p className="text-xs text-center text-muted-foreground px-2 pointer-events-none">Arrastra o haz clic para añadir recetas</p>
+        )}
+        
+        {isDragOverSlot && dragStore.getDraggedRecipe() && (
+          <div className="w-full h-full flex-1 opacity-50 pointer-events-none animate-pulse">
+            <RecipeCard recipe={dragStore.getDraggedRecipe()!} isCompact />
+          </div>
         )}
       </div>
     </div>
@@ -234,8 +272,9 @@ function AddMealButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget, onMealSlotClick }: MealPlannerProps) {
+export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget, onMealSlotClick, onAutocomplete, isAutocompleting }: MealPlannerProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [hoveredSlot, setHoveredSlot] = useState<{day: string, mealId: string} | null>(null);
   const plannerRef = useRef<HTMLDivElement>(null);
 
   const handleDownloadImage = async () => {
@@ -264,6 +303,15 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
             <CardDescription>Arrastra y suelta recetas de tu biblioteca para planificar tu semana.</CardDescription>
         </div>
         <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              className="text-primary border-primary hover:bg-primary/10"
+              onClick={onAutocomplete}
+              disabled={isAutocompleting}
+            >
+              <Sparkles className={cn("mr-2 h-4 w-4", isAutocompleting && "animate-spin")} />
+              {isAutocompleting ? 'Pensando...' : 'Autocompletar'}
+            </Button>
             <Button variant="outline" size="icon" onClick={handleDownloadImage}>
               <Download className="h-4 w-4" />
             </Button>
@@ -283,7 +331,7 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
 
                 {dayPlan.meals.map((meal, index) => (
                   <React.Fragment key={meal.id}>
-                    <MealSlot
+                     <MealSlot
                        day={dayPlan.day}
                        meal={meal}
                        isEditing={isEditing}
@@ -296,6 +344,9 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                        isActiveDropTarget={activeDropTarget?.day === dayPlan.day && activeDropTarget?.mealId === meal.id}
                        onSetDropTarget={onSetDropTarget}
                        onMealSlotClick={onMealSlotClick}
+                       onDragEnterSlot={(d, m) => setHoveredSlot({day: d, mealId: m})}
+                       onDragLeaveSlot={() => setHoveredSlot(null)}
+                       isDragOverSlot={hoveredSlot?.day === dayPlan.day && hoveredSlot?.mealId === meal.id}
                      />
                      {isEditing && <AddMealButton onClick={() => onAddMeal(dayPlan.day, index + 1)} />}
                   </React.Fragment>
@@ -303,6 +354,7 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                 
                 <DailyTotalsRow
                   totals={dailyTotals.find(d => d.day === dayPlan.day)?.totals || { calories: 0, protein: 0, carbs: 0, fat: 0 }}
+                  previewTotals={hoveredSlot?.day === dayPlan.day ? dragStore.getDraggedRecipe() : null}
                   goal={activeGoal}
                   className="p-3 mt-auto rounded-xl bg-background/80 border print:hidden"
                 />

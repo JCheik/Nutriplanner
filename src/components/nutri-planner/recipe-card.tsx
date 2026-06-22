@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { GripVertical, Flame, EggFried, Wheat, Droplets } from 'lucide-react';
 import Image from 'next/image';
+import { dragStore } from '@/lib/drag-store';
 
 interface RecipeCardProps {
   recipe: Recipe;
@@ -42,6 +43,11 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
     if (!isDraggable) return;
     e.dataTransfer.setData('application/json', JSON.stringify(recipe));
+    dragStore.setDraggedRecipe(recipe);
+  };
+
+  const handleDragEnd = () => {
+    dragStore.setDraggedRecipe(null);
   };
 
   if (isListView) {
@@ -49,6 +55,7 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
       <Card
         draggable={isDraggable}
         onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
         onClick={onClick}
         className={cn(
             "group relative w-full overflow-hidden transition-shadow hover:shadow-lg bg-background border",
@@ -88,6 +95,7 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
     <Card
       draggable={isDraggable}
       onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
       onClick={onClick}
       className={cn(
         "group relative w-full h-full overflow-hidden transition-shadow hover:shadow-lg flex flex-col bg-card",

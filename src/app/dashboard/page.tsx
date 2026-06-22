@@ -17,6 +17,9 @@ import { useUserProfileState } from '@/hooks/use-user-profile-state';
 import { useUser } from '@/firebase';
 import { RecipeChatDialog } from '@/components/nutri-planner/recipe-chat-dialog';
 import { RecipeSelectionDialog } from '@/components/nutri-planner/recipe-selection-dialog';
+import { EmptyFridgeScanner } from '@/components/nutri-planner/empty-fridge-scanner';
+import { OnboardingTour } from '@/components/nutri-planner/onboarding-tour';
+import { autocompleteWeekFlow } from '@/ai/flows/autocomplete-flow';
 
 
 export default function DashboardPage() {
@@ -81,10 +84,11 @@ export default function DashboardPage() {
 
   // Dialog and UI state
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
-  const [activePanel, setActivePanel] = useState<'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat' | null>(null);
+  const [activePanel, setActivePanel] = useState<'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat' | 'empty-fridge' | null>(null);
   const [activeDropTarget, setActiveDropTarget] = useState<ActiveDropTarget | null>(null);
   const [isRecipeSelectorOpen, setIsRecipeSelectorOpen] = useState(false);
   const [selectedMealForAddition, setSelectedMealForAddition] = useState<Meal | null>(null);
+  const [isAutocompleting, setIsAutocompleting] = useState(false);
 
 
   const handleRecipeAction = useCallback((action: 'view' | 'create' | 'edit', recipe?: Recipe, isNutriPlannerRecipe: boolean = false) => {
@@ -168,11 +172,11 @@ export default function DashboardPage() {
     });
   }, [currentWeekPlan]);
   
-  const handlePanelOpen = (panel: 'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat') => {
+  const handlePanelOpen = (panel: 'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat' | 'empty-fridge') => {
     setActivePanel(activePanel === panel ? null : panel);
   }
   
-  const handlePanelChange = (panel: 'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat', isOpen: boolean) => {
+  const handlePanelChange = (panel: 'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat' | 'empty-fridge', isOpen: boolean) => {
     setActivePanel(isOpen ? panel : null);
   }
 
@@ -184,10 +188,45 @@ export default function DashboardPage() {
     });
   };
 
+  const handleAutocompleteWeek = async () => {
+    try {
+      setIsAutocompleting(true);
+      const availableRecipes = [...currentUserRecipes, ...nutriplannerRecipes];
+      
+      const placements = await autocompleteWeekFlow({
+        weekPlan: currentWeekPlan,
+        availableRecipes,
+        activeGoal: activeGoalMacros || null,
+      });
+
+      if (placements && Array.isArray(placements)) {
+        placements.forEach(p => {
+           const recipe = availableRecipes.find(r => r.id === p.recipeId);
+           if (recipe) {
+              handleDrop(p.day, p.mealId, recipe);
+           }
+        });
+        toast({
+          title: "Semana autocompletada",
+          description: "Se han rellenado los huecos vacíos de tu planificador.",
+        });
+      }
+    } catch (e) {
+      console.error(e);
+      toast({
+        variant: "destructive",
+        title: "Error al autocompletar",
+        description: "No se pudo generar el plan semanal completo.",
+      });
+    } finally {
+      setIsAutocompleting(false);
+    }
+  };
+
   return (
     <div className="flex-1 p-4 sm:p-6 lg:p-8">
       <div className="max-w-screen-2xl mx-auto flex flex-col gap-6">
-        <div className="w-full">
+        <div className="w-full" data-tour="meal-planner">
           <MealPlanner
             weekPlan={currentWeekPlan}
             dailyTotals={dailyTotals}
@@ -202,9 +241,11 @@ export default function DashboardPage() {
             activeDropTarget={activeDropTarget}
             onSetDropTarget={setActiveDropTarget}
             onMealSlotClick={handleMealSlotClick}
+            onAutocomplete={handleAutocompleteWeek}
+            isAutocompleting={isAutocompleting}
           />
         </div>
-        <div className="grid grid-cols-1 gap-6">
+        <div className="grid grid-cols-1 gap-6" data-tour="recipe-library">
           <RecipeLibrary 
             userRecipes={currentUserRecipes}
             nutriplannerRecipes={nutriplannerRecipes}
@@ -223,6 +264,7 @@ export default function DashboardPage() {
             onAssignRecipeToGlobalFolder={handleAssignRecipeToGlobalFolder}
             onAiRecipeGenerated={handleAiRecipeGenerated}
             onAiChatOpen={() => handlePanelOpen('ai-chat')}
+            onEmptyFridgeOpen={() => handlePanelOpen('empty-fridge')}
           />
         </div>
       </div>
@@ -239,12 +281,23 @@ export default function DashboardPage() {
       />
       
       <FloatingMenu onPanelOpen={handlePanelOpen} />
+
+      <OnboardingTour />
       
       <RecipeChatDialog
         isOpen={activePanel === 'ai-chat'}
         onClose={() => handlePanelChange('ai-chat', false)}
         onRecipeGenerated={handleAiRecipeGenerated}
         nutritionalGoal={activeGoalMacros || null}
+      />
+
+      <EmptyFridgeScanner
+        isOpen={activePanel === 'empty-fridge'}
+        onClose={() => handlePanelChange('empty-fridge', false)}
+        onRecipeAction={handleRecipeAction}
+        nutritionalGoal={activeGoalMacros || null}
+        onSaveRecipe={handleSaveRecipe}
+        isSavingRecipe={isSaving}
       />
 
       <ShoppingListSheet
