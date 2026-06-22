@@ -23,7 +23,7 @@ import { estimateIngredientMacrosFlow } from '@/ai/flows/estimate-ingredient-mac
 import { validateRecipeFlow } from '@/ai/flows/validate-recipe-flow';
 import { normalizeText } from '@/lib/utils';
 import type { Recipe, BaseIngredient } from '@/lib/types';
-import { Link2, Loader2, CheckCircle2, AlertTriangle, Sparkles, Download, Info } from 'lucide-react';
+import { Link2, Loader2, CheckCircle2, AlertTriangle, Sparkles, Download, Info, Video, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // 'input'     → URL + textarea
@@ -115,6 +115,7 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
   const [fetchStatus, setFetchStatus] = useState<'idle' | 'ok' | 'warn'>('idle');
   const [fetchStatusMsg, setFetchStatusMsg] = useState('');
   const [cachedVideoUrl, setCachedVideoUrl] = useState<string | undefined>();
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [extractedRecipe, setExtractedRecipe] = useState<ImportedRecipe | null>(null);
   const [foundIngredients, setFoundIngredients] = useState<string[]>([]);
   const [missingIngredients, setMissingIngredients] = useState<MissingIngredient[]>([]);
@@ -162,17 +163,30 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
   };
 
   const handleAnalyze = async () => {
-    if (!recipeText.trim()) return;
+    if (!videoFile && !recipeText.trim()) return;
     setError(null);
     setStep('analyzing');
 
     try {
-      // 1. Extract recipe structure from text
-      const recipe = await importRecipeFlow({
-        url: url.trim() || undefined,
-        caption: recipeText.trim(),
-        videoUrl: cachedVideoUrl,
-      });
+      // 1. Extract recipe — from video file or from text
+      let recipe: ImportedRecipe;
+
+      if (videoFile) {
+        const fd = new FormData();
+        fd.append('video', videoFile);
+        if (recipeText.trim()) fd.append('caption', recipeText.trim());
+
+        const res = await fetch('/api/analyze-video', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Error al analizar el vídeo.');
+        recipe = data.recipe as ImportedRecipe;
+      } else {
+        recipe = await importRecipeFlow({
+          url: url.trim() || undefined,
+          caption: recipeText.trim(),
+          videoUrl: cachedVideoUrl,
+        });
+      }
 
       setExtractedRecipe(recipe);
 
@@ -368,6 +382,7 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
     setFetchStatus('idle');
     setFetchStatusMsg('');
     setCachedVideoUrl(undefined);
+    setVideoFile(null);
     setExtractedRecipe(null);
     setFoundIngredients([]);
     setMissingIngredients([]);
@@ -392,13 +407,15 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
   };
 
   const isLoadingStep = step === 'fetching' || step === 'analyzing' || step === 'creating';
-  const canAnalyze = recipeText.trim().length > 0;
+  const canAnalyze = !!videoFile || recipeText.trim().length > 0;
 
   const loadingMessage =
     step === 'fetching'
       ? 'Obteniendo texto del post...'
       : step === 'analyzing'
-      ? 'Analizando e verificando la receta con IA...'
+      ? videoFile
+        ? 'Subiendo vídeo y analizando con IA... (puede tardar 30-60 s)'
+        : 'Analizando y verificando la receta con IA...'
       : 'Guardando ingredientes nuevos...';
 
   return (
@@ -410,7 +427,7 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
             Importar receta desde post
           </DialogTitle>
           <DialogDescription>
-            Pega el texto del post (ingredientes + pasos). Usa la URL para extraerlo automáticamente.
+            Sube el vídeo descargado del reel para que la IA lo analice, o pega el texto de la publicación.
           </DialogDescription>
         </DialogHeader>
 
@@ -431,6 +448,63 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
                 {error}
               </div>
             )}
+
+            {/* Video upload */}
+            <div className="space-y-1.5">
+              <Label>Vídeo del reel (recomendado)</Label>
+              {videoFile ? (
+                <div className="flex items-center gap-2 rounded-lg border bg-card/50 px-3 py-2.5">
+                  <Video className="h-5 w-5 text-violet-500 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{videoFile.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(videoFile.size / 1024 / 1024).toFixed(1)} MB
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setVideoFile(null)}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Quitar vídeo"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-5 cursor-pointer hover:bg-accent/20 transition-colors">
+                  <Video className="h-8 w-8 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground text-center">
+                    Descarga el reel y súbelo aquí
+                    <br />
+                    <span className="text-xs">MP4, MOV · máx. 100 MB</span>
+                  </span>
+                  <input
+                    type="file"
+                    accept="video/*"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null;
+                      if (f && f.size > 100 * 1024 * 1024) {
+                        setError('El vídeo supera los 100 MB. Usa un vídeo más corto o en menor calidad.');
+                        return;
+                      }
+                      setVideoFile(f);
+                      setError(null);
+                    }}
+                  />
+                </label>
+              )}
+              <p className="text-[11px] text-muted-foreground">
+                Gemini analiza el audio, el texto en pantalla y los ingredientes visibles del vídeo.
+              </p>
+            </div>
+
+            <div className="relative">
+              <Separator />
+              <span className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-xs text-muted-foreground">
+                o sin vídeo
+              </span>
+            </div>
 
             {/* URL row */}
             <div className="space-y-1.5">
