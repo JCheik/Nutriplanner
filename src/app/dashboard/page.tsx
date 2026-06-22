@@ -20,6 +20,7 @@ import { RecipeSelectionDialog } from '@/components/nutri-planner/recipe-selecti
 import { EmptyFridgeScanner } from '@/components/nutri-planner/empty-fridge-scanner';
 import { OnboardingTour } from '@/components/nutri-planner/onboarding-tour';
 import { autocompleteWeekFlow } from '@/ai/flows/autocomplete-flow';
+import { AutocompletePreferencesDialog, type AutocompletePreferences } from '@/components/nutri-planner/autocomplete-preferences-dialog';
 
 
 export default function DashboardPage() {
@@ -67,6 +68,7 @@ export default function DashboardPage() {
     handleUpdateMealTitle,
     handleAddMeal,
     handleDeleteMeal,
+    handleUpdateServingsEaten,
   } = weekPlanState;
 
   const {
@@ -89,6 +91,7 @@ export default function DashboardPage() {
   const [isRecipeSelectorOpen, setIsRecipeSelectorOpen] = useState(false);
   const [selectedMealForAddition, setSelectedMealForAddition] = useState<Meal | null>(null);
   const [isAutocompleting, setIsAutocompleting] = useState(false);
+  const [isPreferencesDialogOpen, setIsPreferencesDialogOpen] = useState(false);
 
 
   const handleRecipeAction = useCallback((action: 'view' | 'create' | 'edit', recipe?: Recipe, isNutriPlannerRecipe: boolean = false) => {
@@ -161,10 +164,13 @@ export default function DashboardPage() {
       if (Array.isArray(dayPlan.meals)) {
         dayPlan.meals.forEach(meal => {
           meal.recipes.forEach(recipe => {
-            totals.calories += recipe.calories;
-            totals.protein += recipe.protein;
-            totals.carbs += recipe.carbs;
-            totals.fat += recipe.fat;
+            const servingsEaten = recipe.servingsEaten ?? 1;
+            const totalServings = recipe.servings ?? 1;
+            const scale = servingsEaten / totalServings;
+            totals.calories += recipe.calories * scale;
+            totals.protein += recipe.protein * scale;
+            totals.carbs += recipe.carbs * scale;
+            totals.fat += recipe.fat * scale;
           });
         });
       }
@@ -188,35 +194,39 @@ export default function DashboardPage() {
     });
   };
 
-  const handleAutocompleteWeek = async () => {
+  const handleAutocompleteWeek = () => {
+    setIsPreferencesDialogOpen(true);
+  };
+
+  const handleRunAutocomplete = async (preferences: AutocompletePreferences) => {
+    setIsPreferencesDialogOpen(false);
     try {
       setIsAutocompleting(true);
       const availableRecipes = [...currentUserRecipes, ...nutriplannerRecipes];
-      
+
       const placements = await autocompleteWeekFlow({
         weekPlan: currentWeekPlan,
         availableRecipes,
         activeGoal: activeGoalMacros || null,
+        preferences,
       });
 
       if (placements && Array.isArray(placements)) {
         placements.forEach(p => {
-           const recipe = availableRecipes.find(r => r.id === p.recipeId);
-           if (recipe) {
-              handleDrop(p.day, p.mealId, recipe);
-           }
+          const recipe = availableRecipes.find(r => r.id === p.recipeId);
+          if (recipe) handleDrop(p.day, p.mealId, recipe);
         });
         toast({
-          title: "Semana autocompletada",
-          description: "Se han rellenado los huecos vacíos de tu planificador.",
+          title: 'Semana autocompletada',
+          description: 'Se han rellenado los huecos vacíos de tu planificador.',
         });
       }
     } catch (e) {
       console.error(e);
       toast({
-        variant: "destructive",
-        title: "Error al autocompletar",
-        description: "No se pudo generar el plan semanal completo.",
+        variant: 'destructive',
+        title: 'Error al autocompletar',
+        description: 'No se pudo generar el plan semanal completo.',
       });
     } finally {
       setIsAutocompleting(false);
@@ -243,6 +253,7 @@ export default function DashboardPage() {
             onMealSlotClick={handleMealSlotClick}
             onAutocomplete={handleAutocompleteWeek}
             isAutocompleting={isAutocompleting}
+            onUpdateServingsEaten={handleUpdateServingsEaten}
           />
         </div>
         <div className="grid grid-cols-1 gap-6" data-tour="recipe-library">
@@ -283,6 +294,14 @@ export default function DashboardPage() {
       <FloatingMenu onPanelOpen={handlePanelOpen} />
 
       <OnboardingTour />
+
+      <AutocompletePreferencesDialog
+        isOpen={isPreferencesDialogOpen}
+        onClose={() => setIsPreferencesDialogOpen(false)}
+        onConfirm={handleRunAutocomplete}
+        isLoading={isAutocompleting}
+        hasGoal={!!activeGoalMacros}
+      />
       
       <RecipeChatDialog
         isOpen={activePanel === 'ai-chat'}

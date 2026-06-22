@@ -27,6 +27,7 @@ interface MealPlannerProps {
   onMealSlotClick?: (day: string, meal: Meal) => void;
   onAutocomplete?: () => void;
   isAutocompleting?: boolean;
+  onUpdateServingsEaten?: (day: string, mealId: string, instanceId: string, servings: number) => void;
 }
 
 interface MealSlotProps {
@@ -47,6 +48,7 @@ interface MealSlotProps {
   isDragOverSlot?: boolean;
   onAutocomplete?: () => void;
   isAutocompleting?: boolean;
+  onUpdateServingsEaten?: (day: string, mealId: string, instanceId: string, servings: number) => void;
 }
 
 const getMacroColorClass = (current: number, target: number | undefined): string => {
@@ -102,7 +104,55 @@ const DailyTotalsRow = ({ totals, previewTotals, goal, className }: { totals: Ma
 )};
 
 
-function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onDeleteMeal, isActiveDropTarget, onSetDropTarget, onMealSlotClick, onDragEnterSlot, onDragLeaveSlot, isDragOverSlot }: MealSlotProps) {
+function MealRecipeChip({ recipe, day, mealId, onRecipeClick, onRemove, onUpdateServings }: {
+  recipe: RecipeInstance;
+  day: string;
+  mealId: string;
+  onRecipeClick: (r: Recipe) => void;
+  onRemove: () => void;
+  onUpdateServings: (s: number) => void;
+}) {
+  const servingsEaten = recipe.servingsEaten ?? 1;
+  const totalServings = recipe.servings ?? 1;
+  const scale = servingsEaten / totalServings;
+  const kcal = Math.round(recipe.calories * scale);
+
+  return (
+    <div className="w-full relative group/item flex-1 min-h-[60px]">
+      <div
+        className="h-full w-full flex flex-col items-center justify-center p-2 rounded-md bg-secondary/50 hover:bg-secondary/70 transition-colors cursor-pointer gap-1"
+        onClick={() => onRecipeClick(recipe)}
+      >
+        <span className="text-center font-semibold text-secondary-foreground text-xs leading-tight line-clamp-2">
+          {recipe.name}
+        </span>
+        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          <button
+            className="h-5 w-5 flex items-center justify-center rounded-full bg-muted hover:bg-muted-foreground/20 text-sm font-bold leading-none"
+            onClick={() => onUpdateServings(Math.max(1, servingsEaten - 1))}
+          >−</button>
+          <span className="text-[10px] text-muted-foreground font-medium whitespace-nowrap">
+            {servingsEaten} rac · {kcal} kcal
+          </span>
+          <button
+            className="h-5 w-5 flex items-center justify-center rounded-full bg-muted hover:bg-muted-foreground/20 text-sm font-bold leading-none"
+            onClick={() => onUpdateServings(servingsEaten + 1)}
+          >+</button>
+        </div>
+      </div>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute top-0 right-0 h-5 w-5 opacity-0 group-hover/item:opacity-100 transition-opacity bg-card/70 hover:bg-card z-10"
+        onClick={(e) => { e.stopPropagation(); onRemove(); }}
+      >
+        <X className="h-3 w-3" />
+      </Button>
+    </div>
+  );
+}
+
+function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onDeleteMeal, isActiveDropTarget, onSetDropTarget, onMealSlotClick, onDragEnterSlot, onDragLeaveSlot, isDragOverSlot, onUpdateServingsEaten }: MealSlotProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(meal.title);
 
@@ -219,27 +269,15 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
         {hasRecipes ? (
            <div className="w-full h-full flex flex-col gap-1 flex-1">
                 {meal.recipes.map((recipe: RecipeInstance) => (
-                    <div key={`${recipe.id}-${recipe.instanceId}`} className="w-full relative group/item flex-1">
-                      <div 
-                          className="h-full w-full"
-                          onClick={(e) => { e.stopPropagation(); onRecipeClick(recipe); }}
-                      >
-                          <RecipeCard 
-                            recipe={recipe} 
-                            isCompact 
-                          />
-                      </div>
-                      
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute top-1/2 -translate-y-1/2 right-0 h-6 w-6 opacity-0 group-hover/item:opacity-100 transition-opacity z-10 bg-card/70 hover:bg-card"
-                            onClick={(e) => { e.stopPropagation(); onRemoveRecipeFromMeal(day, meal.id, recipe.instanceId); }}
-                        >
-                            <X className="h-3 w-3" />
-                        </Button>
-                      
-                    </div>
+                    <MealRecipeChip
+                      key={`${recipe.id}-${recipe.instanceId}`}
+                      recipe={recipe}
+                      day={day}
+                      mealId={meal.id}
+                      onRecipeClick={(r) => { onRecipeClick(r); }}
+                      onRemove={() => onRemoveRecipeFromMeal(day, meal.id, recipe.instanceId)}
+                      onUpdateServings={(s) => onUpdateServingsEaten?.(day, meal.id, recipe.instanceId, s)}
+                    />
                 ))}
             </div>
         ) : !isDragOverSlot && (
@@ -272,7 +310,7 @@ function AddMealButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget, onMealSlotClick, onAutocomplete, isAutocompleting }: MealPlannerProps) {
+export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget, onMealSlotClick, onAutocomplete, isAutocompleting, onUpdateServingsEaten }: MealPlannerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [hoveredSlot, setHoveredSlot] = useState<{day: string, mealId: string} | null>(null);
   const plannerRef = useRef<HTMLDivElement>(null);
@@ -347,6 +385,7 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                        onDragEnterSlot={(d, m) => setHoveredSlot({day: d, mealId: m})}
                        onDragLeaveSlot={() => setHoveredSlot(null)}
                        isDragOverSlot={hoveredSlot?.day === dayPlan.day && hoveredSlot?.mealId === meal.id}
+                       onUpdateServingsEaten={onUpdateServingsEaten}
                      />
                      {isEditing && <AddMealButton onClick={() => onAddMeal(dayPlan.day, index + 1)} />}
                   </React.Fragment>
@@ -354,7 +393,13 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                 
                 <DailyTotalsRow
                   totals={dailyTotals.find(d => d.day === dayPlan.day)?.totals || { calories: 0, protein: 0, carbs: 0, fat: 0 }}
-                  previewTotals={hoveredSlot?.day === dayPlan.day ? dragStore.getDraggedRecipe() : null}
+                  previewTotals={(() => {
+                    if (hoveredSlot?.day !== dayPlan.day) return null;
+                    const r = dragStore.getDraggedRecipe();
+                    if (!r) return null;
+                    const s = r.servings ?? 1;
+                    return { calories: r.calories / s, protein: r.protein / s, carbs: r.carbs / s, fat: r.fat / s };
+                  })()}
                   goal={activeGoal}
                   className="p-3 mt-auto rounded-xl bg-background/80 border print:hidden"
                 />

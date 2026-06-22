@@ -9,7 +9,7 @@ import type { WeekPlan, Recipe, Meal, DayPlan, RecipeInstance } from '@/lib/type
 
 // --- Helper Functions ---
 const addRecipeToMeal = (plan: WeekPlan, day: string, mealId: string, recipe: Recipe): WeekPlan => {
-  const newRecipeInstance: RecipeInstance = { ...recipe, instanceId: self.crypto.randomUUID() };
+  const newRecipeInstance: RecipeInstance = { ...recipe, instanceId: self.crypto.randomUUID(), servingsEaten: 1 };
   return plan.map(dayPlan =>
     dayPlan.day === day
       ? { ...dayPlan, meals: dayPlan.meals.map(meal => meal.id === mealId ? { ...meal, recipes: [...meal.recipes, newRecipeInstance] } : meal) }
@@ -77,12 +77,10 @@ export function useWeekPlanState() {
   // --- Handlers ---
   const handleDrop = useCallback((day: string, mealId: string, droppedRecipe: Recipe) => {
     updateDayPlanInFirestore(day, (currentDayPlan) => {
-      // Use helper to add recipe, returning a new WeekPlan with 1 item, then extract the day.
-      // Or we can just modify the day directly here to avoid mapping over WeekPlan.
-      const newRecipeInstance: RecipeInstance = { ...droppedRecipe, instanceId: self.crypto.randomUUID() };
+      const newRecipeInstance: RecipeInstance = { ...droppedRecipe, instanceId: self.crypto.randomUUID(), servingsEaten: 1 };
       return {
         ...currentDayPlan,
-        meals: currentDayPlan.meals.map(meal => 
+        meals: currentDayPlan.meals.map(meal =>
           meal.id === mealId ? { ...meal, recipes: [...meal.recipes, newRecipeInstance] } : meal
         )
       };
@@ -134,6 +132,21 @@ export function useWeekPlanState() {
     }));
   }, [updateDayPlanInFirestore]);
 
+  const handleUpdateServingsEaten = useCallback((day: string, mealId: string, instanceId: string, servings: number) => {
+    updateDayPlanInFirestore(day, (currentDayPlan) => ({
+      ...currentDayPlan,
+      meals: currentDayPlan.meals.map(meal => {
+        if (meal.id !== mealId) return meal;
+        return {
+          ...meal,
+          recipes: meal.recipes.map(recipe =>
+            recipe.instanceId === instanceId ? { ...recipe, servingsEaten: servings } : recipe
+          )
+        };
+      })
+    }));
+  }, [updateDayPlanInFirestore]);
+
   return {
     currentWeekPlan,
     weekPlanLoading,
@@ -143,5 +156,6 @@ export function useWeekPlanState() {
     handleUpdateMealTitle,
     handleAddMeal,
     handleDeleteMeal,
+    handleUpdateServingsEaten,
   };
 }

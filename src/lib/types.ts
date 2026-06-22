@@ -54,12 +54,14 @@ export const RecipeSchema = MacrosSchema.extend({
   imageUrl: z.string().optional(),
   imageHint: z.string().optional(),
   folderId: z.string().nullable().optional(),
+  servings: z.number().min(1).optional(),
 });
 export type Recipe = z.infer<typeof RecipeSchema>;
 
 
 export interface RecipeInstance extends Recipe {
   instanceId: string;
+  servingsEaten: number;
 }
 
 export interface Meal {

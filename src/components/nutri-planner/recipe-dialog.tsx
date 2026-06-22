@@ -88,6 +88,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [saveAsGlobal, setSaveAsGlobal] = useState(isInitiallyGlobal);
   const [folderId, setFolderId] = useState<string>('none');
+  const [servings, setServings] = useState(1);
   
   const [isNewIngredientOpen, setIsNewIngredientOpen] = useState(false);
 
@@ -109,6 +110,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
     setFolderId(initialRecipe?.folderId || 'none');
     setSaveAsGlobal(isInitiallyGlobal);
     setImageFile(null);
+    setServings(initialRecipe?.servings ?? 1);
   }, [initialRecipe, isInitiallyGlobal]);
 
   useEffect(() => {
@@ -151,6 +153,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
       ingredients,
       folderId: folderId === 'none' ? null : folderId,
       imageHint: initialRecipe?.imageHint,
+      servings,
       ...macros
     };
 
@@ -230,9 +233,21 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
       </DialogHeader>
       <div className="grid md:grid-cols-2 gap-8 py-4">
         <div className="space-y-4">
-          <div>
-            <Label htmlFor="name">Nombre de la Receta</Label>
-            <Input id="name" value={name} onChange={e => setName(e.target.value)} />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="name">Nombre de la Receta</Label>
+              <Input id="name" value={name} onChange={e => setName(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="servings">Raciones que produce</Label>
+              <Input
+                id="servings"
+                type="number"
+                min={1}
+                value={servings}
+                onChange={e => setServings(Math.max(1, parseInt(e.target.value) || 1))}
+              />
+            </div>
           </div>
             {isAdmin && (
              <div>
@@ -474,6 +489,17 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
             <MacroDisplay label="Carbs" value={recipe.carbs} unit="g" icon={Wheat} />
             <MacroDisplay label="Grasa" value={recipe.fat} unit="g" icon={Droplets} />
           </div>
+          {(recipe.servings ?? 1) > 1 && (
+            <div className="mt-2 p-2 rounded-lg bg-primary/5 border border-primary/10 text-center">
+              <p className="text-xs text-muted-foreground mb-1">Por ración (1 de {recipe.servings})</p>
+              <div className="flex justify-around text-sm font-medium">
+                <span className="text-orange-500">{Math.round(recipe.calories / recipe.servings!)} kcal</span>
+                <span className="text-amber-500">{Math.round(recipe.protein / recipe.servings!)}g prot</span>
+                <span className="text-yellow-500">{Math.round(recipe.carbs / recipe.servings!)}g carbs</span>
+                <span className="text-sky-500">{Math.round(recipe.fat / recipe.servings!)}g grasa</span>
+              </div>
+            </div>
+          )}
         </div>
         <ScrollArea className="h-96">
           <div className="space-y-4">
