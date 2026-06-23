@@ -9,6 +9,7 @@ import { useWeekPlanState } from '@/hooks/use-week-plan-state';
 import { useUserProfileState } from '@/hooks/use-user-profile-state';
 import { useUser } from '@/firebase';
 import { autocompleteWeek } from '@/ai/flows/autocomplete-flow';
+import { getAiErrorMessage } from '@/lib/ai-error';
 import type { AutocompletePreferences } from '@/components/nutri-planner/autocomplete-preferences-dialog';
 
 export function useDashboard() {
@@ -162,7 +163,7 @@ export function useDashboard() {
       }
     } catch (e) {
       console.error(e);
-      toast({ variant: 'destructive', title: 'Error al autocompletar', description: 'No se pudo generar el plan semanal completo.' });
+      toast({ variant: 'destructive', title: 'Error al autocompletar', description: getAiErrorMessage(e, 'No se pudo generar el plan semanal completo.') });
     } finally {
       setIsAutocompleting(false);
     }

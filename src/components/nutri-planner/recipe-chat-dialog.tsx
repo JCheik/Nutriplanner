@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { recipeChat } from '@/ai/flows/recipe-chat-flow';
+import { getAiErrorMessage } from '@/lib/ai-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -115,7 +116,7 @@ export function RecipeChatDialog({ isOpen, onClose, onRecipeGenerated, nutrition
       toast({
         variant: 'destructive',
         title: 'Error de IA',
-        description: 'No se pudo obtener una respuesta. Por favor, intenta de nuevo.',
+        description: getAiErrorMessage(error, 'No se pudo obtener una respuesta. Por favor, intenta de nuevo.'),
       });
       // Restore previous messages state if call fails
        setMessages(messages);

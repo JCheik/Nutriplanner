@@ -20,6 +20,7 @@ import { collection, addDoc } from 'firebase/firestore';
 import { useFirebase, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { importRecipe, type UnifiedRecipe } from '@/ai/flows/import-recipe-flow';
 import { normalizeText } from '@/lib/utils';
+import { getAiErrorMessage } from '@/lib/ai-error';
 import type { Recipe, BaseIngredient } from '@/lib/types';
 import { Link2, Loader2, CheckCircle2, AlertTriangle, Sparkles, Download, Info, Video, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -314,7 +315,7 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
       }
       console.error('Import error:', err);
       clearProgress();
-      setError('No se pudo analizar la receta. Asegúrate de que el texto incluye ingredientes y pasos.');
+      setError(getAiErrorMessage(err, 'No se pudo analizar la receta. Asegúrate de que el texto incluye ingredientes y pasos.'));
       setStep('input');
     }
   };
