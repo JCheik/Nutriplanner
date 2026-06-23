@@ -1,20 +1,57 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useForm, type SubmitHandler } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Flame, Target, Weight, TrendingDown, TrendingUp, Calculator, EggFried, Wheat, Droplets } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
-import type { Macros, CalculationResult, CalculatorInputs } from '@/lib/types';
+import { Target, Weight, TrendingDown, TrendingUp, Calculator, EggFried, Wheat, Droplets, Check } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Progress } from '../ui/progress';
+import { cn } from '@/lib/utils';
+import type { Macros, CalculationResult, CalculatorInputs, GoalType } from '@/lib/types';
 
 const INPUTS_STORAGE_KEY = 'nutriplanner-calculator-inputs';
+
+type GoalMacros = Macros;
+
+interface CalculatorDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  /** Persist the freshly calculated result (e.g. write to Firestore). */
+  onCalculate?: (result: CalculationResult) => void;
+  /** Previously saved result, used to pre-fill the form and preview. */
+  initialResult?: CalculationResult | null;
+  /** Which goal tab to highlight in the preview. */
+  activeGoal?: GoalType;
+}
+
+const activityMultipliers = {
+  sedentary: 1.2,
+  light: 1.375,
+  moderate: 1.55,
+  very: 1.725,
+  extra: 1.9,
+} as const;
+
+const activityDescriptions: Record<keyof typeof activityMultipliers, string> = {
+  sedentary: 'Poco o ningún ejercicio',
+  light: 'Ejercicio ligero (1-3 días/semana)',
+  moderate: 'Ejercicio moderado (3-5 días/semana)',
+  very: 'Ejercicio intenso (6-7 días/semana)',
+  extra: 'Ejercicio muy intenso + trabajo físico',
+};
+
+const DEFAULT_INPUTS: CalculatorInputs = {
+  gender: 'male',
+  age: 30,
+  weight: 70,
+  height: 175,
+  activityLevel: 'light',
+};
 
 function loadStoredInputs(): CalculatorInputs | null {
   try {
@@ -24,331 +61,286 @@ function loadStoredInputs(): CalculatorInputs | null {
     return null;
   }
 }
-import { cn } from '@/lib/utils';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { Progress } from '../ui/progress';
-
-const formSchema = z.object({
-  gender: z.enum(['male', 'female']),
-  age: z.coerce.number().min(15, 'La edad debe ser mayor de 15').max(80, 'La edad debe ser menor de 80'),
-  weight: z.coerce.number().min(30, 'El peso debe ser un número positivo'),
-  height: z.coerce.number().min(100, 'La altura debe ser un número positivo'),
-  activityLevel: z.enum(['sedentary', 'light', 'moderate', 'very', 'extra']),
-});
-
-type FormValues = z.infer<typeof formSchema>;
-
-interface GoalMacros extends Macros {
-  // Protein, Carbs, Fat in grams
-}
-
-interface CalculatorDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onCalculate?: (result: CalculationResult) => void;
-  initialResult?: CalculationResult | null;
-}
-
-const activityMultipliers = {
-  sedentary: 1.2,
-  light: 1.375,
-  moderate: 1.55,
-  very: 1.725,
-  extra: 1.9,
-};
-
-const activityDescriptions = {
-    sedentary: 'Poco o ningún ejercicio',
-    light: 'Ejercicio ligero (1-3 días/semana)',
-    moderate: 'Ejercicio moderado (3-5 días/semana)',
-    very: 'Ejercicio intenso (6-7 días/semana)',
-    extra: 'Ejercicio muy intenso + trabajo físico',
-};
-
 
 const calculateMacros = (calories: number, weight: number): GoalMacros => {
-    // Protein: 2.2g per kg of body weight
-    const proteinGrams = Math.round(weight * 2.2);
-    const proteinCalories = proteinGrams * 4;
+  // Protein: 2.2g per kg of body weight
+  const proteinGrams = Math.round(weight * 2.2);
+  const proteinCalories = proteinGrams * 4;
 
-    // Fat: 25% of total calories
-    const fatCalories = calories * 0.25;
-    const fatGrams = Math.round(fatCalories / 9);
+  // Fat: 25% of total calories
+  const fatCalories = calories * 0.25;
+  const fatGrams = Math.round(fatCalories / 9);
 
-    // Carbs: Remaining calories
-    const carbCalories = calories - proteinCalories - fatCalories;
-    const carbGrams = Math.round(carbCalories / 4);
+  // Carbs: remaining calories
+  const carbCalories = calories - proteinCalories - fatCalories;
+  const carbGrams = Math.max(0, Math.round(carbCalories / 4));
 
-    return {
-        calories: Math.round(calories),
-        protein: proteinGrams,
-        carbs: carbGrams,
-        fat: fatGrams,
-    };
+  return {
+    calories: Math.round(calories),
+    protein: proteinGrams,
+    carbs: carbGrams,
+    fat: fatGrams,
+  };
 };
 
+function computeResult(inputs: CalculatorInputs, previousCustom?: GoalMacros): CalculationResult {
+  const { gender, age, weight, height, activityLevel } = inputs;
+
+  // Mifflin-St Jeor Equation
+  const bmr =
+    gender === 'male'
+      ? 10 * weight + 6.25 * height - 5 * age + 5
+      : 10 * weight + 6.25 * height - 5 * age - 161;
+
+  const maintenanceCalories = bmr * activityMultipliers[activityLevel];
+  const lossCalories = maintenanceCalories * 0.8; // 20% deficit
+  const gainCalories = maintenanceCalories * 1.1; // 10% surplus
+
+  return {
+    bmr: Math.round(bmr),
+    maintenance: calculateMacros(maintenanceCalories, weight),
+    loss: calculateMacros(lossCalories, weight),
+    gain: calculateMacros(gainCalories, weight),
+    inputs,
+    // Preserve any previously saved custom goal so recalculating doesn't wipe it.
+    ...(previousCustom ? { custom: previousCustom } : {}),
+  };
+}
+
 const MacroBreakdown = ({ goal }: { goal: GoalMacros }) => {
-    const totalGrams = goal.protein + goal.carbs + goal.fat;
-    const proteinPercentage = totalGrams > 0 ? (goal.protein / totalGrams) * 100 : 0;
-    const carbsPercentage = totalGrams > 0 ? (goal.carbs / totalGrams) * 100 : 0;
-    const fatPercentage = totalGrams > 0 ? (goal.fat / totalGrams) * 100 : 0;
+  const totalGrams = goal.protein + goal.carbs + goal.fat;
+  const pct = (g: number) => (totalGrams > 0 ? (g / totalGrams) * 100 : 0);
 
-    return (
-        <div className="space-y-4">
-            <div className="space-y-2">
-                <div className="flex justify-between items-center text-sm">
-                    <div className="flex items-center gap-2">
-                        <EggFried className="h-4 w-4 text-amber-500" />
-                        <span>Prot.</span>
-                    </div>
-                    <span className="font-bold">{goal.protein}g</span>
-                </div>
-                <Progress value={proteinPercentage} className="h-2 [&>div]:bg-amber-500" />
+  const rows = [
+    { label: 'Prot.', value: goal.protein, icon: EggFried, color: 'text-amber-500', bar: '[&>div]:bg-amber-500' },
+    { label: 'Carbs', value: goal.carbs, icon: Wheat, color: 'text-yellow-500', bar: '[&>div]:bg-yellow-500' },
+    { label: 'Grasas', value: goal.fat, icon: Droplets, color: 'text-sky-500', bar: '[&>div]:bg-sky-500' },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {rows.map(({ label, value, icon: Icon, color, bar }) => (
+        <div key={label} className="space-y-2">
+          <div className="flex justify-between items-center text-sm">
+            <div className="flex items-center gap-2">
+              <Icon className={cn('h-4 w-4', color)} />
+              <span>{label}</span>
             </div>
-             <div className="space-y-2">
-                <div className="flex justify-between items-center text-sm">
-                    <div className="flex items-center gap-2">
-                        <Wheat className="h-4 w-4 text-yellow-500" />
-                        <span>Carbs</span>
-                    </div>
-                    <span className="font-bold">{goal.carbs}g</span>
-                </div>
-                <Progress value={carbsPercentage} className="h-2 [&>div]:bg-yellow-500" />
-            </div>
-             <div className="space-y-2">
-                <div className="flex justify-between items-center text-sm">
-                    <div className="flex items-center gap-2">
-                        <Droplets className="h-4 w-4 text-sky-500" />
-                        <span>Grasas</span>
-                    </div>
-                    <span className="font-bold">{goal.fat}g</span>
-                </div>
-                <Progress value={fatPercentage} className="h-2 [&>div]:bg-sky-500" />
-            </div>
+            <span className="font-bold">{value}g</span>
+          </div>
+          <Progress value={pct(value)} className={cn('h-2', bar)} />
         </div>
-    );
-}
+      ))}
+    </div>
+  );
+};
 
-const GoalCard = ({ title, icon: Icon, goal }: { title: string, icon: React.ElementType, goal: GoalMacros }) => {
-    return (
-        <Card>
-            <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                    <Icon className="h-5 w-5 text-primary" />
-                    {title}
-                </CardTitle>
-                <CardDescription className="text-4xl font-bold text-foreground">
-                    {goal.calories} <span className="text-xl font-medium text-muted-foreground">kcal/día</span>
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <h4 className="text-sm font-semibold mb-3">Desglose de Macros</h4>
-                <MacroBreakdown goal={goal} />
-            </CardContent>
-        </Card>
-    )
-}
+const GoalCard = ({ title, icon: Icon, goal }: { title: string; icon: React.ElementType; goal: GoalMacros }) => (
+  <Card>
+    <CardHeader className="pb-4">
+      <CardTitle className="flex items-center gap-2 text-lg">
+        <Icon className="h-5 w-5 text-primary" />
+        {title}
+      </CardTitle>
+      <CardDescription className="text-4xl font-bold text-foreground">
+        {goal.calories} <span className="text-xl font-medium text-muted-foreground">kcal/día</span>
+      </CardDescription>
+    </CardHeader>
+    <CardContent>
+      <h4 className="text-sm font-semibold mb-3">Desglose de Macros</h4>
+      <MacroBreakdown goal={goal} />
+    </CardContent>
+  </Card>
+);
 
+export function CalculatorDialog({ isOpen, onClose, onCalculate, initialResult, activeGoal }: CalculatorDialogProps) {
+  const [inputs, setInputs] = useState<CalculatorInputs>(initialResult?.inputs ?? DEFAULT_INPUTS);
+  const [errors, setErrors] = useState<Partial<Record<keyof CalculatorInputs, string>>>({});
+  const [result, setResult] = useState<CalculationResult | null>(initialResult ?? null);
+  const [previewTab, setPreviewTab] = useState<'loss' | 'maintenance' | 'gain'>(
+    activeGoal && activeGoal !== 'custom' ? activeGoal : 'maintenance'
+  );
 
-export function CalculatorDialog({ isOpen, onClose, onCalculate, initialResult }: CalculatorDialogProps) {
-  const [result, setResult] = useState<CalculationResult | null>(initialResult || null);
-
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      gender: 'male',
-      activityLevel: 'light',
-      age: '' as any,
-      weight: '' as any,
-      height: '' as any,
-    },
-  });
-
+  // (Re)initialise every time the dialog opens. Priority for the form values:
+  // saved inputs from Firestore → localStorage → sensible defaults.
   useEffect(() => {
     if (!isOpen) return;
-    if (initialResult) setResult(initialResult);
-    // Priority: saved inputs from Firestore → localStorage → leave empty
-    const inputsToRestore = initialResult?.inputs ?? loadStoredInputs();
-    if (inputsToRestore) form.reset(inputsToRestore);
-  }, [isOpen, initialResult, form]);
+    setInputs(initialResult?.inputs ?? loadStoredInputs() ?? DEFAULT_INPUTS);
+    setResult(initialResult ?? null);
+    setErrors({});
+    setPreviewTab(activeGoal && activeGoal !== 'custom' ? activeGoal : 'maintenance');
+  }, [isOpen, initialResult, activeGoal]);
 
-  const onSubmit: SubmitHandler<FormValues> = (data) => {
-    let bmr: number;
-    // Mifflin-St Jeor Equation
-    if (data.gender === 'male') {
-      bmr = (10 * data.weight) + (6.25 * data.height) - (5 * data.age) + 5;
-    } else {
-      bmr = (10 * data.weight) + (6.25 * data.height) - (5 * data.age) - 161;
-    }
+  const setField = <K extends keyof CalculatorInputs>(key: K, value: CalculatorInputs[K]) => {
+    setInputs((prev) => ({ ...prev, [key]: value }));
+    setErrors((prev) => ({ ...prev, [key]: undefined }));
+  };
 
-    const maintenanceCalories = bmr * activityMultipliers[data.activityLevel];
-    const lossCalories = maintenanceCalories * 0.8; // 20% deficit
-    const gainCalories = maintenanceCalories * 1.1; // 10% surplus
+  const validate = (): boolean => {
+    const next: Partial<Record<keyof CalculatorInputs, string>> = {};
+    if (!(inputs.age >= 15 && inputs.age <= 80)) next.age = 'Entre 15 y 80 años';
+    if (!(inputs.weight >= 30 && inputs.weight <= 400)) next.weight = 'Peso no válido';
+    if (!(inputs.height >= 100 && inputs.height <= 250)) next.height = 'Altura no válida';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
 
-    const inputs: CalculatorInputs = {
-      gender: data.gender,
-      age: data.age,
-      weight: data.weight,
-      height: data.height,
-      activityLevel: data.activityLevel,
-    };
-
-    try { localStorage.setItem(INPUTS_STORAGE_KEY, JSON.stringify(inputs)); } catch {}
-
-    const newResult = {
-      bmr: Math.round(bmr),
-      maintenance: calculateMacros(maintenanceCalories, data.weight),
-      loss: calculateMacros(lossCalories, data.weight),
-      gain: calculateMacros(gainCalories, data.weight),
-      inputs,
-    };
-    
+  const handleCalculate = () => {
+    if (!validate()) return;
+    const newResult = computeResult(inputs, result?.custom);
     setResult(newResult);
-    if(onCalculate) {
-      onCalculate(newResult);
+    try {
+      localStorage.setItem(INPUTS_STORAGE_KEY, JSON.stringify(inputs));
+    } catch {
+      /* ignore storage errors */
     }
   };
 
+  const handleSave = () => {
+    if (!result) return;
+    onCalculate?.(result);
+    onClose();
+  };
+
+  const numberValue = (v: number) => (Number.isFinite(v) ? String(v) : '');
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl">
-             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Calculator className="h-6 w-6 text-primary" />
-                Calculadora de Calorías y Macros
-              </DialogTitle>
-              <DialogDescription>
-                Utiliza la fórmula de Mifflin-St Jeor para estimar tus necesidades diarias según tu objetivo.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid md:grid-cols-2 gap-8 py-4">
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="gender"
-                    render={({ field }) => (
-                      <FormItem className="space-y-3">
-                        <FormLabel className="text-center block">Género</FormLabel>
-                        <FormControl>
-                          <RadioGroup
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                            className="flex items-center justify-center gap-4"
-                          >
-                            <FormItem className="flex items-center space-x-3 space-y-0">
-                              <FormControl>
-                                <RadioGroupItem value="male" />
-                              </FormControl>
-                              <FormLabel className="font-normal">Hombre</FormLabel>
-                            </FormItem>
-                            <FormItem className="flex items-center space-x-3 space-y-0">
-                              <FormControl>
-                                <RadioGroupItem value="female" />
-                              </FormControl>
-                              <FormLabel className="font-normal">Mujer</FormLabel>
-                            </FormItem>
-                          </RadioGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <div className="grid grid-cols-3 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="age"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel htmlFor="age">Edad</FormLabel>
-                          <FormControl>
-                            <Input type="number" placeholder="años" {...field} id="age" name="age" className="bg-input" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                     <FormField
-                      control={form.control}
-                      name="weight"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel htmlFor="weight">Peso</FormLabel>
-                          <FormControl>
-                            <Input type="number" placeholder="kg" {...field} id="weight" name="weight" className="bg-input" />
-                          </FormControl>
-                           <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                     <FormField
-                      control={form.control}
-                      name="height"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel htmlFor="height">Altura</FormLabel>
-                          <FormControl>
-                            <Input type="number" placeholder="cm" {...field} id="height" name="height" className="bg-input" />
-                          </FormControl>
-                           <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <FormField
-                    control={form.control}
-                    name="activityLevel"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nivel de Actividad</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger className="bg-input">
-                              <SelectValue placeholder="Selecciona tu nivel de actividad" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {Object.entries(activityDescriptions).map(([key, desc]) => (
-                                <SelectItem key={key} value={key}>{desc}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button type="submit" className="w-full">Calcular</Button>
-                </form>
-              </Form>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Calculator className="h-6 w-6 text-primary" />
+            Calculadora de Calorías y Macros
+          </DialogTitle>
+          <DialogDescription>
+            Fórmula de Mifflin-St Jeor para estimar tus necesidades diarias. Calcula y luego guarda
+            para aplicarlas a tus objetivos.
+          </DialogDescription>
+        </DialogHeader>
 
-              <div className="flex flex-col">
-                {result ? (
-                  <Tabs defaultValue="maintenance" className="w-full">
-                    <TabsList className="grid w-full grid-cols-3">
-                        <TabsTrigger value="loss">Perder Peso</TabsTrigger>
-                        <TabsTrigger value="maintenance">Mantenimiento</TabsTrigger>
-                        <TabsTrigger value="gain">Ganar Músculo</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="loss">
-                        <GoalCard title="Objetivo: Perder Peso" icon={TrendingDown} goal={result.loss} />
-                    </TabsContent>
-                    <TabsContent value="maintenance">
-                        <GoalCard title="Objetivo: Mantenimiento" icon={Weight} goal={result.maintenance} />
-                    </TabsContent>
-                    <TabsContent value="gain">
-                        <GoalCard title="Objetivo: Ganar Músculo" icon={TrendingUp} goal={result.gain} />
-                    </TabsContent>
-                  </Tabs>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full bg-secondary/50 rounded-lg text-center text-muted-foreground p-6">
-                    <Target className="h-12 w-12 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-foreground">Completa el formulario</h3>
-                    <p>Introduce tus datos para calcular tus necesidades diarias.</p>
-                  </div>
-                )}
+        <div className="grid md:grid-cols-2 gap-8 py-2">
+          {/* --- Form --- */}
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <Label className="text-center block">Género</Label>
+              <RadioGroup
+                value={inputs.gender}
+                onValueChange={(v) => setField('gender', v as CalculatorInputs['gender'])}
+                className="flex items-center justify-center gap-6"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="male" id="gender-male" />
+                  <Label htmlFor="gender-male" className="font-normal cursor-pointer">Hombre</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="female" id="gender-female" />
+                  <Label htmlFor="gender-female" className="font-normal cursor-pointer">Mujer</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="age">Edad</Label>
+                <Input
+                  id="age"
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="años"
+                  value={numberValue(inputs.age)}
+                  onChange={(e) => setField('age', Number(e.target.value))}
+                  className="bg-input"
+                />
+                {errors.age && <p className="text-xs text-destructive">{errors.age}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="weight">Peso (kg)</Label>
+                <Input
+                  id="weight"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="kg"
+                  value={numberValue(inputs.weight)}
+                  onChange={(e) => setField('weight', Number(e.target.value))}
+                  className="bg-input"
+                />
+                {errors.weight && <p className="text-xs text-destructive">{errors.weight}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="height">Altura (cm)</Label>
+                <Input
+                  id="height"
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="cm"
+                  value={numberValue(inputs.height)}
+                  onChange={(e) => setField('height', Number(e.target.value))}
+                  className="bg-input"
+                />
+                {errors.height && <p className="text-xs text-destructive">{errors.height}</p>}
               </div>
             </div>
-        </DialogContent>
+
+            <div className="space-y-1">
+              <Label htmlFor="activity">Nivel de Actividad</Label>
+              <Select
+                value={inputs.activityLevel}
+                onValueChange={(v) => setField('activityLevel', v as CalculatorInputs['activityLevel'])}
+              >
+                <SelectTrigger id="activity" className="bg-input">
+                  <SelectValue placeholder="Selecciona tu nivel de actividad" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(activityDescriptions).map(([key, desc]) => (
+                    <SelectItem key={key} value={key}>{desc}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button type="button" className="w-full" onClick={handleCalculate}>
+              <Calculator className="mr-2 h-4 w-4" />
+              {result ? 'Recalcular' : 'Calcular'}
+            </Button>
+          </div>
+
+          {/* --- Preview --- */}
+          <div className="flex flex-col">
+            {result ? (
+              <Tabs value={previewTab} onValueChange={(v) => setPreviewTab(v as typeof previewTab)} className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="loss">Perder</TabsTrigger>
+                  <TabsTrigger value="maintenance">Mantener</TabsTrigger>
+                  <TabsTrigger value="gain">Ganar</TabsTrigger>
+                </TabsList>
+                <TabsContent value="loss">
+                  <GoalCard title="Perder Peso" icon={TrendingDown} goal={result.loss} />
+                </TabsContent>
+                <TabsContent value="maintenance">
+                  <GoalCard title="Mantenimiento" icon={Weight} goal={result.maintenance} />
+                </TabsContent>
+                <TabsContent value="gain">
+                  <GoalCard title="Ganar Músculo" icon={TrendingUp} goal={result.gain} />
+                </TabsContent>
+              </Tabs>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full min-h-[280px] bg-secondary/50 rounded-lg text-center text-muted-foreground p-6">
+                <Target className="h-12 w-12 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-foreground">Completa el formulario</h3>
+                <p>Introduce tus datos y pulsa «Calcular» para ver tus objetivos.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={handleSave} disabled={!result}>
+            <Check className="mr-2 h-4 w-4" />
+            Guardar y aplicar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   );
 }

@@ -73,7 +73,19 @@ export async function saveRecipe(payload: SaveRecipePayload) {
     return { success: true, recipeName: recipeToSave.name };
   } catch (error: any) {
     console.error("Server Action 'saveRecipe' failed:", error);
-    return { success: false, error: 'An unexpected error occurred on the server.' };
+
+    // Surface a clearer, actionable message instead of a generic one. The most
+    // common local-dev failure is that the Admin SDK has no credentials, which
+    // is required to upload images to Storage.
+    const raw = String(error?.message || error || '');
+    const looksLikeCredsIssue =
+      /credential|service account|ADC|application default|could not load|unauthenticated|permission/i.test(raw);
+
+    const message = looksLikeCredsIssue
+      ? 'No se pudo subir la imagen: faltan las credenciales de Firebase Admin en el servidor. Guarda la receta sin imagen o configura FIREBASE_SERVICE_ACCOUNT_JSON.'
+      : `No se pudo guardar la receta en el servidor: ${raw || 'error desconocido'}`;
+
+    return { success: false, error: message };
   }
 }
 

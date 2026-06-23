@@ -2,12 +2,14 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useUser, useDoc, useFirebase, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 import type { UserProfile, CalculationResult, GoalType, ShoppingListItem } from '@/lib/types';
 
 export function useUserProfileState() {
   const { user } = useUser();
   const { firestore } = useFirebase();
+  const { toast } = useToast();
 
   // --- Firestore Data ---
   const userProfileRef = useMemoFirebase(() => (user && firestore) ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
@@ -31,27 +33,33 @@ export function useUserProfileState() {
   const currentShoppingList = useMemo(() => userProfile?.shoppingList || [], [userProfile]);
 
   // --- Handlers ---
+  // NOTE: we use setDoc(..., { merge: true }) instead of updateDoc everywhere so
+  // these writes also succeed for a brand-new user whose profile document hasn't
+  // been created yet (updateDoc throws "No document to update" in that case).
   const handleNoteSave = useCallback(async (content: string) => {
     if (userProfileRef) {
       try {
-        await updateDoc(userProfileRef, { stickyNote: content });
+        await setDoc(userProfileRef, { stickyNote: content }, { merge: true });
       } catch(e) { console.error("Error saving sticky note", e) }
     }
   }, [userProfileRef]);
 
   const handleCalorieResultSave = useCallback(async (result: CalculationResult) => {
-    if (userProfileRef) {
-      try {
-        await updateDoc(userProfileRef, { calorieResult: result });
-      } catch(e) { console.error("Error saving calorie result", e) }
+    if (!userProfileRef) return;
+    try {
+      await setDoc(userProfileRef, { calorieResult: result }, { merge: true });
+      toast({ title: 'Objetivos guardados', description: 'Tus metas de calorías y macros se han actualizado.' });
+    } catch (e: any) {
+      console.error("Error saving calorie result", e);
+      toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron guardar tus objetivos.' });
     }
-  }, [userProfileRef]);
+  }, [userProfileRef, toast]);
 
   const handleActiveGoalChange = async (goal: GoalType) => {
     setActiveGoal(goal);
     if (userProfileRef) {
       try {
-        await updateDoc(userProfileRef, { activeGoalPreference: goal });
+        await setDoc(userProfileRef, { activeGoalPreference: goal }, { merge: true });
       } catch(e) { console.error("Error saving goal", e) }
     }
   };
@@ -63,6 +71,9 @@ export function useUserProfileState() {
       loss: currentCalorieResult?.loss || { calories: 0, protein: 0, carbs: 0, fat: 0 },
       gain: currentCalorieResult?.gain || { calories: 0, protein: 0, carbs: 0, fat: 0 },
       custom: macros,
+      // Keep the calculator inputs so the "Editar" form stays pre-filled.
+      // (Conditional spread avoids writing `undefined`, which Firestore rejects.)
+      ...(currentCalorieResult?.inputs ? { inputs: currentCalorieResult.inputs } : {}),
     };
     handleCalorieResultSave(newResult);
   };
@@ -70,7 +81,7 @@ export function useUserProfileState() {
   const handleShoppingListUpdate = useCallback(async (list: ShoppingListItem[]) => {
     if (userProfileRef) {
       try {
-        await updateDoc(userProfileRef, { shoppingList: list });
+        await setDoc(userProfileRef, { shoppingList: list }, { merge: true });
       } catch(e) { console.error("Error saving shopping list", e) }
     }
   }, [userProfileRef]);

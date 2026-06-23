@@ -4,8 +4,8 @@ import { useState, useCallback, useMemo } from 'react';
 import { useUser, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { deleteFolderAndUnlinkRecipes, copyRecipeToUser } from '@/firebase/firestore-operations';
-import { addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { deleteFolderAndUnlinkRecipes, copyRecipeToUser, saveRecipeClient, deleteRecipeById } from '@/firebase/firestore-operations';
+import { addDoc, updateDoc } from 'firebase/firestore';
 import { saveRecipe as saveRecipeAction } from '@/lib/actions';
 import type { Recipe, Folder, GlobalFolder } from '@/lib/types';
 
@@ -38,33 +38,42 @@ export function useRecipeState() {
   
   // --- Handlers ---
   const handleSaveRecipe = async (recipeData: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
-    if (!user) return;
+    if (!user || !firestore) return;
 
     setIsSaving(true);
     try {
-      const result = await saveRecipeAction({ recipeData, imageFile, isGlobal, userId: user.uid, existingId });
-      if (result.success) {
-        toast({ title: '¡Receta guardada!', description: `${result.recipeName} se ha guardado correctamente.` });
+      let recipeName: string;
+      if (imageFile) {
+        // Image uploads need the Admin SDK (Storage) → go through the server action.
+        const result = await saveRecipeAction({ recipeData, imageFile, isGlobal, userId: user.uid, existingId });
+        if (!result.success) {
+          throw new Error(result.error || 'Error desconocido al guardar la receta');
+        }
+        recipeName = result.recipeName || recipeData.name;
       } else {
-        throw new Error(result.error || 'Error desconocido al guardar la receta');
+        // No image → write directly from the client. Works locally and respects
+        // security rules, so it doesn't require a configured service account.
+        recipeName = await saveRecipeClient(firestore, user.uid, recipeData, isGlobal, existingId);
       }
+      toast({ title: '¡Receta guardada!', description: `${recipeName} se ha guardado correctamente.` });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error al guardar la receta", description: error.message || 'No se pudo guardar la receta.' });
+      toast({ variant: "destructive", title: "Error al guardar la receta", description: error?.message || 'No se pudo guardar la receta.' });
+      throw error; // let the caller know not to close the dialog
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDeleteRecipe = useCallback(async (recipeId: string, isGlobal: boolean) => {
-    if (!user || !firestore || !userRecipesCollectionRef) return;
-    
+    if (!user || !firestore) return;
+
     try {
-      await deleteDoc(doc(userRecipesCollectionRef, recipeId));
+      await deleteRecipeById(firestore, user.uid, recipeId, isGlobal);
       toast({ title: 'Receta eliminada', description: 'La receta se ha eliminado de tu librería.' });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: 'No se pudo eliminar la receta.' });
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Error", description: error?.message || 'No se pudo eliminar la receta.' });
     }
-  }, [user, firestore, userRecipesCollectionRef, toast]);
+  }, [user, firestore, toast]);
 
 
   const handleCopyRecipe = useCallback(async (recipe: Recipe) => {

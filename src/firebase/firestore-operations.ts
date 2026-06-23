@@ -2,6 +2,66 @@ import { Firestore, doc, runTransaction, writeBatch, setDoc, deleteDoc, collecti
 import type { DayPlan, Recipe, Meal, RecipeInstance } from '@/lib/types';
 import { INITIAL_WEEK_PLAN, DAY_ORDER } from '@/lib/data';
 
+/** Removes keys whose value is `undefined`, which the Firestore client SDK rejects. */
+function stripUndefined<T extends Record<string, any>>(obj: T): T {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, value]) => value !== undefined)
+  ) as T;
+}
+
+/**
+ * Saves (creates or updates) a recipe directly from the client SDK.
+ *
+ * This works in local development and respects Firestore security rules, so it
+ * does NOT depend on the Admin SDK / a service account being configured. Image
+ * uploads still require the server action (Admin SDK + Storage); this path is
+ * used whenever there is no new image file to upload.
+ *
+ * Uses `{ merge: true }` so editing a recipe without re-sending `imageUrl`
+ * preserves the existing image instead of wiping it.
+ */
+export async function saveRecipeClient(
+  firestore: Firestore,
+  userId: string,
+  recipeData: Omit<Recipe, 'id'>,
+  isGlobal: boolean,
+  existingId?: string
+): Promise<string> {
+  const collectionRef = isGlobal
+    ? collection(firestore, 'nutriplanner_recipes')
+    : collection(firestore, 'users', userId, 'recipes');
+
+  const docRef = existingId ? doc(collectionRef, existingId) : doc(collectionRef);
+
+  const recipeToSave = stripUndefined({
+    ...recipeData,
+    id: docRef.id,
+  });
+
+  await setDoc(docRef, recipeToSave, { merge: true });
+
+  return recipeData.name;
+}
+
+/**
+ * Deletes a recipe from the correct collection depending on whether it's a
+ * global (NutriPlanner) recipe or a personal one. The previous implementation
+ * always targeted the user's collection, so deleting a global recipe silently
+ * did nothing.
+ */
+export async function deleteRecipeById(
+  firestore: Firestore,
+  userId: string,
+  recipeId: string,
+  isGlobal: boolean
+): Promise<void> {
+  const recipeRef = isGlobal
+    ? doc(firestore, 'nutriplanner_recipes', recipeId)
+    : doc(firestore, 'users', userId, 'recipes', recipeId);
+
+  await deleteDoc(recipeRef);
+}
+
 /**
  * Deletes a folder and unlinks all recipes associated with it inside an atomic batch.
  */

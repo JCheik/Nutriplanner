@@ -99,8 +99,13 @@ export function useDashboard() {
   };
 
   const handleInternalSaveRecipe = async (recipeData: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
-    await handleSaveRecipe(recipeData, imageFile, isGlobal, existingId);
-    handleDialogClose();
+    try {
+      await handleSaveRecipe(recipeData, imageFile, isGlobal, existingId);
+      handleDialogClose();
+    } catch {
+      // Save failed (a toast was already shown). Keep the dialog open so the
+      // user doesn't lose their input and can retry.
+    }
   };
 
   const handleInternalDeleteRecipe = (recipeId: string, isGlobal: boolean) => {
