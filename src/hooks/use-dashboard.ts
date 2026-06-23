@@ -8,7 +8,7 @@ import { useRecipeState } from '@/hooks/use-recipe-state';
 import { useWeekPlanState } from '@/hooks/use-week-plan-state';
 import { useUserProfileState } from '@/hooks/use-user-profile-state';
 import { useUser } from '@/firebase';
-import { autocompleteWeekFlow } from '@/ai/flows/autocomplete-flow';
+import { autocompleteWeek } from '@/ai/flows/autocomplete-flow';
 import type { AutocompletePreferences } from '@/components/nutri-planner/autocomplete-preferences-dialog';
 
 export function useDashboard() {
@@ -147,7 +147,7 @@ export function useDashboard() {
     try {
       setIsAutocompleting(true);
       const availableRecipes = [...currentUserRecipes, ...nutriplannerRecipes];
-      const placements = await autocompleteWeekFlow({
+      const placements = await autocompleteWeek({
         weekPlan: currentWeekPlan,
         availableRecipes,
         activeGoal: activeGoalMacros || null,

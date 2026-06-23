@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { parseFridgeImageFlow } from '@/ai/flows/parse-fridge-image-flow';
+import { parseFridgeImage } from '@/ai/flows/parse-fridge-image-flow';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -126,7 +126,7 @@ export function EmptyFridgeScanner({
     setHasScanned(false);
 
     try {
-      const result = await parseFridgeImageFlow({
+      const result = await parseFridgeImage({
         imageBase64,
         nutritionalGoal,
       });

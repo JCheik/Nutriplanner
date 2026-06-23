@@ -84,7 +84,7 @@ Devuelve:
   · corrected: true si corregiste algo, false si estaba bien
   · note: explicación breve si corrected=true, omitir si false`;
 
-export const importRecipeFlow = ai.defineFlow(
+const importRecipeFlow = ai.defineFlow(
   {
     name: 'importRecipeFlow',
     inputSchema: ImportRecipeInputSchema,
@@ -116,3 +116,12 @@ export const importRecipeFlow = ai.defineFlow(
     return response.output!;
   }
 );
+
+export async function importRecipe(input: {
+  url?: string;
+  caption?: string;
+  videoUrl?: string;
+  imageUrl?: string;
+}): Promise<UnifiedRecipe> {
+  return importRecipeFlow(input);
+}

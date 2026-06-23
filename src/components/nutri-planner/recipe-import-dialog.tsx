@@ -18,7 +18,7 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { collection, addDoc } from 'firebase/firestore';
 import { useFirebase, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { importRecipeFlow, type UnifiedRecipe } from '@/ai/flows/import-recipe-flow';
+import { importRecipe, type UnifiedRecipe } from '@/ai/flows/import-recipe-flow';
 import { normalizeText } from '@/lib/utils';
 import type { Recipe, BaseIngredient } from '@/lib/types';
 import { Link2, Loader2, CheckCircle2, AlertTriangle, Sparkles, Download, Info, Video, X } from 'lucide-react';
@@ -263,7 +263,7 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
           recipe = data.recipe as UnifiedRecipe;
         } else if (videoUrlKind === 'cdn') {
           setCdnFallbackOccurred(true);
-          recipe = await importRecipeFlow({ url: url.trim() || undefined, caption: recipeText.trim() });
+          recipe = await importRecipe({ url: url.trim() || undefined, caption: recipeText.trim() });
           if (isCancelledRef.current) return;
         } else {
           throw new Error(data.error || 'No se pudo analizar el vídeo desde la URL.');
@@ -274,7 +274,7 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
           ['Extrayendo receta con IA', 'Verificando ingredientes y macros'],
           [8000]
         );
-        recipe = await importRecipeFlow({ url: url.trim() || undefined, caption: recipeText.trim() });
+        recipe = await importRecipe({ url: url.trim() || undefined, caption: recipeText.trim() });
         if (isCancelledRef.current) return;
       }
 

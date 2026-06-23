@@ -28,7 +28,7 @@ const ParseFridgeImageOutputSchema = z.object({
   recipes: RecipeArraySchema,
 });
 
-export const parseFridgeImageFlow = ai.defineFlow(
+const parseFridgeImageFlow = ai.defineFlow(
   {
     name: 'parseFridgeImageFlow',
     inputSchema: ParseFridgeImageInputSchema,
@@ -72,3 +72,10 @@ export const parseFridgeImageFlow = ai.defineFlow(
     return response.output || { ingredients: [], recipes: [] };
   }
 );
+
+export async function parseFridgeImage(input: {
+  imageBase64: string;
+  nutritionalGoal?: { calories: number; protein: number; carbs: number; fat: number } | null;
+}) {
+  return parseFridgeImageFlow(input);
+}

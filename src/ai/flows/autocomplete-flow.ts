@@ -33,7 +33,7 @@ function getMealCalorieRatio(mealTitle: string): number {
   return 0.25;
 }
 
-export const autocompleteWeekFlow = ai.defineFlow(
+const autocompleteWeekFlow = ai.defineFlow(
   {
     name: 'autocompleteWeekFlow',
     inputSchema: AutocompleteInputSchema,
@@ -144,3 +144,17 @@ Return ONLY a JSON array. Each element: { "day": string, "mealId": string, "reci
     return response.output || [];
   }
 );
+
+export async function autocompleteWeek(input: {
+  weekPlan: unknown;
+  availableRecipes: unknown;
+  activeGoal: unknown;
+  preferences: {
+    allowRepetition: 'no_repeat' | 'max_twice' | 'free';
+    priority: 'goal' | 'protein' | 'calories';
+    dietaryRestrictions?: string;
+    goalMarginPercent?: number;
+  };
+}): Promise<{ day: string; mealId: string; recipeId: string }[]> {
+  return autocompleteWeekFlow(input);
+}
