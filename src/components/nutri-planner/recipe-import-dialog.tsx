@@ -20,7 +20,7 @@ import { collection, addDoc } from 'firebase/firestore';
 import { useFirebase, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { importRecipe, type UnifiedRecipe } from '@/ai/flows/import-recipe-flow';
 import { normalizeText } from '@/lib/utils';
-import { getAiErrorMessage } from '@/lib/ai-error';
+import { getAiErrorMessage, isRetryableAiError } from '@/lib/ai-error';
 import type { Recipe, BaseIngredient } from '@/lib/types';
 import { Link2, Loader2, CheckCircle2, AlertTriangle, Sparkles, Download, Info, Video, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -99,6 +99,7 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
   const [foundIngredients, setFoundIngredients] = useState<string[]>([]);
   const [missingIngredients, setMissingIngredients] = useState<MissingIngredient[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isRetryable, setIsRetryable] = useState(false);
   const [cdnFallbackOccurred, setCdnFallbackOccurred] = useState(false);
   const [progressSteps, setProgressSteps] = useState<string[]>([]);
   const [progressStep, setProgressStep] = useState(0);
@@ -316,6 +317,7 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
       console.error('Import error:', err);
       clearProgress();
       setError(getAiErrorMessage(err, 'No se pudo analizar la receta. Asegúrate de que el texto incluye ingredientes y pasos.'));
+      setIsRetryable(isRetryableAiError(err));
       setStep('input');
     }
   };
@@ -382,6 +384,7 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
     setFoundIngredients([]);
     setMissingIngredients([]);
     setError(null);
+    setIsRetryable(false);
     setCdnFallbackOccurred(false);
     onClose();
   };
@@ -485,7 +488,17 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
             {error && (
               <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                {error}
+                <div className="flex-1">
+                  <p>{error}</p>
+                  {isRetryable && (
+                    <button
+                      onClick={handleAnalyze}
+                      className="mt-2 font-semibold underline underline-offset-2 hover:opacity-80"
+                    >
+                      Reintentar
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 

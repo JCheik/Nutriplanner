@@ -19,3 +19,9 @@ export function getAiErrorMessage(error: unknown, fallback: string): string {
 
   return fallback;
 }
+
+/** Returns true if the error is a transient AI error the user can retry. */
+export function isRetryableAiError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error);
+  return /UNAVAILABLE|503|high demand|RESOURCE_EXHAUSTED|429|quota/i.test(msg);
+}
