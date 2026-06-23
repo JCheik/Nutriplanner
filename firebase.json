@@ -7,6 +7,10 @@
         ".git",
         ".agents",
         ".idx",
+        ".next",
+        ".env",
+        ".env.*",
+        "dev-out.log",
         "firebase-debug.log",
         "firebase-debug.*.log",
         "functions"
