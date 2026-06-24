@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect, type DragEvent, type KeyboardEvent } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback, type DragEvent, type KeyboardEvent } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { Recipe, SortCriteria, Folder, GlobalFolder } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -556,8 +556,37 @@ export function RecipeLibrary({
 
   const [filterQuery, setFilterQuery] = useState('');
   const [activePillFilters, setActivePillFilters] = useState<string[]>([]);
-  const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>(initialViewMode);
+
+  // Read persisted prefs from localStorage on mount (runs only in browser).
+  const [sortCriteria, setSortCriteria] = useState<SortCriteria>(() => {
+    if (typeof window === 'undefined') return 'name-asc';
+    try {
+      const saved = JSON.parse(localStorage.getItem('nutriplanner_prefs') ?? '{}');
+      return (saved.sortCriteria as SortCriteria) ?? 'name-asc';
+    } catch { return 'name-asc'; }
+  });
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    if (typeof window === 'undefined') return initialViewMode;
+    try {
+      const saved = JSON.parse(localStorage.getItem('nutriplanner_prefs') ?? '{}');
+      return (saved.viewMode as 'grid' | 'list') ?? initialViewMode;
+    } catch { return initialViewMode; }
+  });
+
+  // Persist prefs whenever they change.
+  useEffect(() => {
+    try {
+      const current = JSON.parse(localStorage.getItem('nutriplanner_prefs') ?? '{}');
+      localStorage.setItem('nutriplanner_prefs', JSON.stringify({ ...current, sortCriteria }));
+    } catch { /* localStorage unavailable */ }
+  }, [sortCriteria]);
+
+  useEffect(() => {
+    try {
+      const current = JSON.parse(localStorage.getItem('nutriplanner_prefs') ?? '{}');
+      localStorage.setItem('nutriplanner_prefs', JSON.stringify({ ...current, viewMode }));
+    } catch { /* localStorage unavailable */ }
+  }, [viewMode]);
 
   const togglePillFilter = (filter: string) => {
     setActivePillFilters(prev => 
