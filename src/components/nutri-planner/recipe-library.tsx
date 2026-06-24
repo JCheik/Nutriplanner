@@ -644,6 +644,38 @@ export function RecipeLibrary({
   }, [filterQuery, activePillFilters, sortCriteria, recipesInSelectedFolder]);
 
 
+  // Cross-tab search: when query is active, search both collections simultaneously.
+  const crossSearchResults = useMemo(() => {
+    const q = normalizeText(filterQuery);
+    if (!q) return null; // null = no cross-search active
+
+    const matchRecipe = (r: Recipe) => {
+      const nameMatch = normalizeText(r.name).includes(q);
+      const ingMatch = (r.ingredients ?? []).some(i => normalizeText(i.name).includes(q));
+      return nameMatch || ingMatch;
+    };
+
+    const sortFn = (a: Recipe, b: Recipe) => {
+      const [key, order] = sortCriteria.split('-') as [keyof Recipe, 'asc' | 'desc'];
+      let valA = a[key];
+      let valB = b[key];
+      if (typeof valA === 'string' && typeof valB === 'string') {
+        valA = normalizeText(valA);
+        valB = normalizeText(valB);
+      }
+      if (valA === undefined || valA === null) return 1;
+      if (valB === undefined || valB === null) return -1;
+      if (valA < valB) return order === 'asc' ? -1 : 1;
+      if (valA > valB) return order === 'asc' ? 1 : -1;
+      return 0;
+    };
+
+    return {
+      user: userRecipes.filter(matchRecipe).sort(sortFn),
+      nutriplanner: nutriplannerRecipes.filter(matchRecipe).sort(sortFn),
+    };
+  }, [filterQuery, sortCriteria, userRecipes, nutriplannerRecipes]);
+
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     setSelectedFolderId('all');
@@ -823,56 +855,105 @@ export function RecipeLibrary({
                   </div>
 
                 </div>
-                <div className="flex-1 mt-2 min-h-0">
-                  {(() => {
-                    const hasActiveFilters = !!filterQuery || activePillFilters.length > 0;
-                    const folderIsEmpty = recipesInSelectedFolder.length === 0;
-                    const isFolderView = selectedFolderId !== 'all';
-                    const isUserTab = activeTab === 'user-recipes';
-
-                    if (folderIsEmpty && !hasActiveFilters && isFolderView) {
-                      // Genuine empty folder — show CTA
-                      return (
-                        <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-border rounded-lg h-[250px] gap-4">
-                          <FolderIcon className="h-12 w-12 text-muted-foreground/30" />
-                          <div>
-                            <p className="font-semibold text-base">Esta carpeta está vacía</p>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {selectedFolderId === null
-                                ? 'Todas tus recetas están organizadas en carpetas.'
-                                : 'Añade recetas arrastrándolas aquí o crea una nueva.'}
-                            </p>
-                          </div>
-                          {isUserTab && selectedFolderId !== null && (
-                            <div className="flex gap-2 flex-wrap justify-center">
-                              <Button size="sm" onClick={() => onRecipeAction('create')}>
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                Crear receta
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={() => setSelectedFolderId('all')}>
-                                <Folders className="mr-2 h-4 w-4" />
-                                Ver todas las recetas
-                              </Button>
-                            </div>
-                          )}
+                <div className="flex-1 mt-2 min-h-0 overflow-auto">
+                  {crossSearchResults ? (
+                    /* Cross-tab search view — show both collections grouped */
+                    <div className="flex flex-col gap-4 pr-1">
+                      {crossSearchResults.user.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 px-1">
+                            Mis Recetas ({crossSearchResults.user.length})
+                          </p>
+                          <RecipeList
+                            recipes={crossSearchResults.user}
+                            onRecipeClick={(recipe) => onRecipeAction('view', recipe, false)}
+                            onCopyClick={onCopyRecipe}
+                            onAddToPlanClick={onAddToPlan}
+                            onEditClick={(recipe) => onRecipeAction('edit', recipe, false)}
+                            isDraggable={false}
+                            isNutriPlanner={false}
+                            isMobile={isMobile}
+                            viewMode={viewMode}
+                          />
                         </div>
-                      );
-                    }
+                      )}
+                      {crossSearchResults.nutriplanner.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 px-1">
+                            NutriPlanner ({crossSearchResults.nutriplanner.length})
+                          </p>
+                          <RecipeList
+                            recipes={crossSearchResults.nutriplanner}
+                            onRecipeClick={(recipe) => onRecipeAction('view', recipe, true)}
+                            onCopyClick={onCopyRecipe}
+                            onAddToPlanClick={onAddToPlan}
+                            onEditClick={(recipe) => onRecipeAction('edit', recipe, true)}
+                            isDraggable={false}
+                            isNutriPlanner={true}
+                            isMobile={isMobile}
+                            viewMode={viewMode}
+                          />
+                        </div>
+                      )}
+                      {crossSearchResults.user.length === 0 && crossSearchResults.nutriplanner.length === 0 && (
+                        <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-border rounded-lg h-[250px]">
+                          <Search className="h-8 w-8 text-muted-foreground/50 mb-2" />
+                          <p className="font-semibold">No se encontraron recetas</p>
+                          <p className="text-sm text-muted-foreground">Prueba con otro término.</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    (() => {
+                      const hasActiveFilters = activePillFilters.length > 0;
+                      const folderIsEmpty = recipesInSelectedFolder.length === 0;
+                      const isFolderView = selectedFolderId !== 'all';
+                      const isUserTab = activeTab === 'user-recipes';
 
-                    return (
-                      <RecipeList
-                        recipes={filteredAndSortedRecipes}
-                        onRecipeClick={(recipe, isNutri) => onRecipeAction('view', recipe, isNutri)}
-                        onCopyClick={onCopyRecipe}
-                        onAddToPlanClick={onAddToPlan}
-                        onEditClick={(recipe) => onRecipeAction('edit', recipe, activeTab === 'nutriplanner-recipes')}
-                        isDraggable={activeTab === 'user-recipes' || (activeTab === 'nutriplanner-recipes' && isAdmin)}
-                        isNutriPlanner={activeTab === 'nutriplanner-recipes'}
-                        isMobile={isMobile}
-                        viewMode={viewMode}
-                      />
-                    );
-                  })()}
+                      if (folderIsEmpty && !hasActiveFilters && isFolderView) {
+                        // Genuine empty folder — show CTA
+                        return (
+                          <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-border rounded-lg h-[250px] gap-4">
+                            <FolderIcon className="h-12 w-12 text-muted-foreground/30" />
+                            <div>
+                              <p className="font-semibold text-base">Esta carpeta está vacía</p>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {selectedFolderId === null
+                                  ? 'Todas tus recetas están organizadas en carpetas.'
+                                  : 'Añade recetas arrastrándolas aquí o crea una nueva.'}
+                              </p>
+                            </div>
+                            {isUserTab && selectedFolderId !== null && (
+                              <div className="flex gap-2 flex-wrap justify-center">
+                                <Button size="sm" onClick={() => onRecipeAction('create')}>
+                                  <PlusCircle className="mr-2 h-4 w-4" />
+                                  Crear receta
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => setSelectedFolderId('all')}>
+                                  <Folders className="mr-2 h-4 w-4" />
+                                  Ver todas las recetas
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <RecipeList
+                          recipes={filteredAndSortedRecipes}
+                          onRecipeClick={(recipe, isNutri) => onRecipeAction('view', recipe, isNutri)}
+                          onCopyClick={onCopyRecipe}
+                          onAddToPlanClick={onAddToPlan}
+                          onEditClick={(recipe) => onRecipeAction('edit', recipe, activeTab === 'nutriplanner-recipes')}
+                          isDraggable={activeTab === 'user-recipes' || (activeTab === 'nutriplanner-recipes' && isAdmin)}
+                          isNutriPlanner={activeTab === 'nutriplanner-recipes'}
+                          isMobile={isMobile}
+                          viewMode={viewMode}
+                        />
+                      );
+                    })()
+                  )}
                 </div>
               </div>
             </div>
