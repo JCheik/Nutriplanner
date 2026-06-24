@@ -7,13 +7,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { RecipeCard } from './recipe-card';
-import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Database, Folder as FolderIcon, Plus, Trash2, Folders, Edit, Check, LayoutGrid, List, Sparkles, Camera, Link2 } from 'lucide-react';
+import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Database, Folder as FolderIcon, Plus, Trash2, Folders, Edit, Check, LayoutGrid, List, Sparkles, Camera, Link2, MoreVertical } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -232,7 +234,7 @@ function getColumnCount(width: number): number {
   return 5;
 }
 
-function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isDraggable, isNutriPlanner = false, isMobile, viewMode }: { recipes: Recipe[], onRecipeClick: (recipe: Recipe, isNutriPlanner?: boolean) => void, onCopyClick?: (recipe: Recipe) => void, onAddToPlanClick?: (recipe: Recipe) => void, isDraggable: boolean, isNutriPlanner?: boolean, isMobile: boolean, viewMode: 'grid' | 'list' }) {
+function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, onEditClick, isDraggable, isNutriPlanner = false, isMobile, viewMode }: { recipes: Recipe[], onRecipeClick: (recipe: Recipe, isNutriPlanner?: boolean) => void, onCopyClick?: (recipe: Recipe) => void, onAddToPlanClick?: (recipe: Recipe) => void, onEditClick?: (recipe: Recipe) => void, isDraggable: boolean, isNutriPlanner?: boolean, isMobile: boolean, viewMode: 'grid' | 'list' }) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [columnCount, setColumnCount] = useState(4);
 
@@ -296,21 +298,43 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isD
                         isDraggable={isDraggable && !isMobile}
                         onClick={() => onRecipeClick(recipe, isNutriPlanner)}
                       />
-                      {onCopyClick && (
-                        <Button variant="ghost" size="icon"
-                          onClick={(e) => { e.stopPropagation(); onCopyClick(recipe); }}
-                          className="absolute top-1 right-1 z-10 h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity bg-background/50 hover:bg-background/80"
-                          aria-label="Copiar a Mis Recetas"
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {onAddToPlanClick && isMobile && (
-                        <Button onClick={(e) => { e.stopPropagation(); onAddToPlanClick(recipe); }}
-                          className="absolute bottom-2 right-2 z-10 h-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" size="sm">
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      )}
+                      {/* Desktop hover action bar */}
+                      <div className="absolute inset-x-0 bottom-0 hidden sm:flex justify-center gap-1 px-2 py-2 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-b-md z-10">
+                        {onAddToPlanClick && (
+                          <Button size="icon" variant="secondary" className="h-7 w-7" title="Añadir al plan"
+                            onClick={(e) => { e.stopPropagation(); onAddToPlanClick(recipe); }}>
+                            <Plus className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        {onCopyClick && (
+                          <Button size="icon" variant="secondary" className="h-7 w-7" title="Copiar receta"
+                            onClick={(e) => { e.stopPropagation(); onCopyClick(recipe); }}>
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        {onEditClick && (
+                          <Button size="icon" variant="secondary" className="h-7 w-7" title="Editar"
+                            onClick={(e) => { e.stopPropagation(); onEditClick(recipe); }}>
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                      {/* Mobile kebab */}
+                      <div className="absolute top-1 right-1 z-10 sm:hidden">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="icon" variant="secondary" className="h-7 w-7 bg-background/70"
+                              onClick={(e) => e.stopPropagation()}>
+                              <MoreVertical className="h-3.5 w-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-glass">
+                            {onAddToPlanClick && <DropdownMenuItem onClick={() => onAddToPlanClick(recipe)}><Plus className="mr-2 h-4 w-4" />Añadir al plan</DropdownMenuItem>}
+                            {onCopyClick && <DropdownMenuItem onClick={() => onCopyClick(recipe)}><Copy className="mr-2 h-4 w-4" />Copiar receta</DropdownMenuItem>}
+                            {onEditClick && <><DropdownMenuSeparator /><DropdownMenuItem onClick={() => onEditClick(recipe)}><Edit className="mr-2 h-4 w-4" />Editar</DropdownMenuItem></>}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -324,21 +348,43 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isD
                         isListView
                         onClick={() => onRecipeClick(recipe, isNutriPlanner)}
                       />
-                      {onCopyClick && (
-                        <Button variant="ghost" size="icon"
-                          onClick={(e) => { e.stopPropagation(); onCopyClick(recipe); }}
-                          className="absolute top-1/2 -translate-y-1/2 right-2 z-10 h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity bg-background/50 hover:bg-background/80"
-                          aria-label="Copiar a Mis Recetas"
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {onAddToPlanClick && isMobile && (
-                        <Button onClick={(e) => { e.stopPropagation(); onAddToPlanClick(recipe); }}
-                          className="absolute top-1/2 -translate-y-1/2 right-12 z-10 h-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" size="sm">
-                          Añadir
-                        </Button>
-                      )}
+                      {/* Desktop hover actions — list view */}
+                      <div className="absolute top-1/2 -translate-y-1/2 right-2 z-10 hidden sm:flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {onAddToPlanClick && (
+                          <Button size="icon" variant="secondary" className="h-7 w-7" title="Añadir al plan"
+                            onClick={(e) => { e.stopPropagation(); onAddToPlanClick(recipe); }}>
+                            <Plus className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        {onCopyClick && (
+                          <Button size="icon" variant="secondary" className="h-7 w-7" title="Copiar receta"
+                            onClick={(e) => { e.stopPropagation(); onCopyClick(recipe); }}>
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        {onEditClick && (
+                          <Button size="icon" variant="secondary" className="h-7 w-7" title="Editar"
+                            onClick={(e) => { e.stopPropagation(); onEditClick(recipe); }}>
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                      {/* Mobile kebab — list view */}
+                      <div className="absolute top-1/2 -translate-y-1/2 right-2 z-10 sm:hidden">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="icon" variant="ghost" className="h-7 w-7"
+                              onClick={(e) => e.stopPropagation()}>
+                              <MoreVertical className="h-3.5 w-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-glass">
+                            {onAddToPlanClick && <DropdownMenuItem onClick={() => onAddToPlanClick(recipe)}><Plus className="mr-2 h-4 w-4" />Añadir al plan</DropdownMenuItem>}
+                            {onCopyClick && <DropdownMenuItem onClick={() => onCopyClick(recipe)}><Copy className="mr-2 h-4 w-4" />Copiar receta</DropdownMenuItem>}
+                            {onEditClick && <><DropdownMenuSeparator /><DropdownMenuItem onClick={() => onEditClick(recipe)}><Edit className="mr-2 h-4 w-4" />Editar</DropdownMenuItem></>}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -790,6 +836,7 @@ export function RecipeLibrary({
                         onRecipeClick={(recipe, isNutri) => onRecipeAction('view', recipe, isNutri)}
                         onCopyClick={onCopyRecipe}
                         onAddToPlanClick={onAddToPlan}
+                        onEditClick={(recipe) => onRecipeAction('edit', recipe, activeTab === 'nutriplanner-recipes')}
                         isDraggable={activeTab === 'user-recipes' || (activeTab === 'nutriplanner-recipes' && isAdmin)}
                         isNutriPlanner={activeTab === 'nutriplanner-recipes'}
                         isMobile={isMobile}
