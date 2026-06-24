@@ -2,7 +2,7 @@
 /**
  * @fileOverview A conversational flow for helping users create recipes.
  */
-import { ai } from '@/ai/genkit';
+import { ai, GEMINI_MODEL } from '@/ai/genkit';
 import { z } from 'zod';
 import { MessageData } from 'genkit';
 import { RecipeChatInputSchema, RecipeChatOutputSchema, RecipeSchema } from '@/lib/types';
@@ -57,7 +57,7 @@ const recipeSuggestionsFlow = ai.defineFlow(
     `;
 
     const llmResponse = await ai.generate({
-      model: 'googleai/gemini-2.5-flash',
+      model: GEMINI_MODEL,
       prompt: prompt,
       output: {
         schema: RecipeArraySchema,
@@ -107,7 +107,7 @@ Ejemplo de cómo debe ser tu respuesta FINAL (solo el JSON):
 `;
 
     const llmResponse = await ai.generate({
-      model: 'googleai/gemini-2.5-flash',
+      model: GEMINI_MODEL,
       messages: [
           { role: 'system', content: [{ text: systemPrompt }] },
           ...history,

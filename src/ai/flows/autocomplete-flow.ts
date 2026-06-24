@@ -1,6 +1,6 @@
 'use server';
 
-import { ai } from '@/ai/genkit';
+import { ai, GEMINI_MODEL } from '@/ai/genkit';
 import { z } from 'zod';
 import type { WeekPlan, GoalMacros, Recipe } from '@/lib/types';
 
@@ -134,7 +134,7 @@ Return ONLY a JSON array. Each element: { "day": string, "mealId": string, "reci
     `.trim();
 
     const response = await ai.generate({
-      model: 'googleai/gemini-2.5-flash',
+      model: GEMINI_MODEL,
       prompt,
       output: {
         schema: AutocompleteOutputSchema,
