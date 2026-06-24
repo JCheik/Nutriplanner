@@ -268,6 +268,7 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isD
   if (recipes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-border rounded-lg h-[250px]">
+        <Search className="h-8 w-8 text-muted-foreground/50 mb-2" />
         <p className="font-semibold">No se encontraron recetas</p>
         <p className="text-sm text-muted-foreground">Prueba a cambiar el filtro o crea una nueva receta.</p>
       </div>
@@ -748,16 +749,54 @@ export function RecipeLibrary({
 
                 </div>
                 <div className="flex-1 mt-2 min-h-0">
-                  <RecipeList
-                    recipes={filteredAndSortedRecipes}
-                    onRecipeClick={(recipe, isNutri) => onRecipeAction('view', recipe, isNutri)}
-                    onCopyClick={onCopyRecipe}
-                    onAddToPlanClick={onAddToPlan}
-                    isDraggable={activeTab === 'user-recipes' || (activeTab === 'nutriplanner-recipes' && isAdmin)}
-                    isNutriPlanner={activeTab === 'nutriplanner-recipes'}
-                    isMobile={isMobile}
-                    viewMode={viewMode}
-                  />
+                  {(() => {
+                    const hasActiveFilters = !!filterQuery || activePillFilters.length > 0;
+                    const folderIsEmpty = recipesInSelectedFolder.length === 0;
+                    const isFolderView = selectedFolderId !== 'all';
+                    const isUserTab = activeTab === 'user-recipes';
+
+                    if (folderIsEmpty && !hasActiveFilters && isFolderView) {
+                      // Genuine empty folder — show CTA
+                      return (
+                        <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-border rounded-lg h-[250px] gap-4">
+                          <FolderIcon className="h-12 w-12 text-muted-foreground/30" />
+                          <div>
+                            <p className="font-semibold text-base">Esta carpeta está vacía</p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {selectedFolderId === null
+                                ? 'Todas tus recetas están organizadas en carpetas.'
+                                : 'Añade recetas arrastrándolas aquí o crea una nueva.'}
+                            </p>
+                          </div>
+                          {isUserTab && selectedFolderId !== null && (
+                            <div className="flex gap-2 flex-wrap justify-center">
+                              <Button size="sm" onClick={() => onRecipeAction('create')}>
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Crear receta
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => setSelectedFolderId('all')}>
+                                <Folders className="mr-2 h-4 w-4" />
+                                Ver todas las recetas
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <RecipeList
+                        recipes={filteredAndSortedRecipes}
+                        onRecipeClick={(recipe, isNutri) => onRecipeAction('view', recipe, isNutri)}
+                        onCopyClick={onCopyRecipe}
+                        onAddToPlanClick={onAddToPlan}
+                        isDraggable={activeTab === 'user-recipes' || (activeTab === 'nutriplanner-recipes' && isAdmin)}
+                        isNutriPlanner={activeTab === 'nutriplanner-recipes'}
+                        isMobile={isMobile}
+                        viewMode={viewMode}
+                      />
+                    );
+                  })()}
                 </div>
               </div>
             </div>
