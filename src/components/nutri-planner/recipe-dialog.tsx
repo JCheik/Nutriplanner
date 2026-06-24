@@ -37,8 +37,11 @@ import Image from 'next/image';
 import { Switch } from '../ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { normalizeText, cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 import { CookingModeDialog } from './cooking-mode-dialog';
 import { ChefHat } from 'lucide-react';
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // matches storage.rules limit
 
 export type DialogState = DialogStateBase;
 
@@ -67,6 +70,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
   const isEditing = !!initialRecipe && !!initialRecipe.id;
   const { user, isAdmin } = useUser();
   const firestore = useFirestore();
+  const { toast } = useToast();
 
   const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);
   const { data: ingredientDB, isLoading: ingredientsLoading } = useCollection<BaseIngredient>(ingredientsCollectionRef);
@@ -134,7 +138,8 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
   }, [ingredients, ingredientDBMap]);
 
   const handleSave = async () => {
-    if (!name || !onSave) return;
+    const trimmedName = name.trim();
+    if (!trimmedName || !onSave) return;
 
     // If the DB-calculated totals are zero (e.g. AI-generated ingredients not in the DB),
     // fall back to the macros that the AI already provided so we don't zero them out.
@@ -147,7 +152,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
     };
 
     const recipeData: Omit<Recipe, 'id' | 'imageUrl'> & { imageUrl?: string; folderId?: string | null } = {
-      name,
+      name: trimmedName,
       description,
       instructions,
       ingredients,
@@ -257,7 +262,16 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
                         id="imageFile" 
                         type="file"
                         accept="image/png, image/jpeg, image/webp"
-                        onChange={e => e.target.files && setImageFile(e.target.files[0])}
+                        onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (file.size > MAX_IMAGE_BYTES) {
+                            toast({ variant: 'destructive', title: 'Imagen demasiado grande', description: 'La imagen supera los 5 MB. Usa una más ligera.' });
+                            e.target.value = '';
+                            return;
+                          }
+                          setImageFile(file);
+                        }}
                         className="flex-1"
                     />
                     <UploadCloud className="h-5 w-5 text-muted-foreground" />
@@ -411,7 +425,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
         ) : <div></div> }
         <div className="flex gap-2">
             <Button variant="outline" onClick={onCancel}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={isSaving}>
+            <Button onClick={handleSave} disabled={isSaving || !name.trim()}>
               {isSaving ? 'Guardando...' : 'Guardar Receta'}
             </Button>
         </div>

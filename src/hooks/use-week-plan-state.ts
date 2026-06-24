@@ -5,40 +5,7 @@ import { useUser, useCollection, useFirebase, useMemoFirebase } from '@/firebase
 import { collection, doc } from 'firebase/firestore';
 import { updateDayPlanTransaction } from '@/firebase/firestore-operations';
 import { INITIAL_WEEK_PLAN, DAY_ORDER } from '@/lib/data';
-import type { WeekPlan, Recipe, Meal, DayPlan, RecipeInstance } from '@/lib/types';
-
-// --- Helper Functions ---
-const addRecipeToMeal = (plan: WeekPlan, day: string, mealId: string, recipe: Recipe): WeekPlan => {
-  const newRecipeInstance: RecipeInstance = { ...recipe, instanceId: self.crypto.randomUUID(), servingsEaten: 1 };
-  return plan.map(dayPlan =>
-    dayPlan.day === day
-      ? { ...dayPlan, meals: dayPlan.meals.map(meal => meal.id === mealId ? { ...meal, recipes: [...meal.recipes, newRecipeInstance] } : meal) }
-      : dayPlan
-  );
-};
-
-const clearMealRecipes = (plan: WeekPlan, day: string, mealId: string): WeekPlan => {
-  return plan.map(dayPlan =>
-    dayPlan.day === day
-      ? { ...dayPlan, meals: dayPlan.meals.map(meal => meal.id === mealId ? { ...meal, recipes: [] } : meal) }
-      : dayPlan
-  );
-};
-
-const removeRecipeFromMeal = (plan: WeekPlan, day: string, mealId: string, recipeInstanceId: string): WeekPlan => {
-  return plan.map(dayPlan =>
-    dayPlan.day === day
-      ? {
-        ...dayPlan,
-        meals: dayPlan.meals.map(meal => {
-          if (meal.id !== mealId) return meal;
-          const updatedRecipes = meal.recipes.filter(r => r.instanceId !== recipeInstanceId);
-          return { ...meal, recipes: updatedRecipes };
-        })
-      }
-      : dayPlan
-  );
-};
+import type { Recipe, Meal, DayPlan, RecipeInstance } from '@/lib/types';
 
 export function useWeekPlanState() {
   const { user } = useUser();
