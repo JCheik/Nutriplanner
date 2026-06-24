@@ -76,12 +76,12 @@ const sortOptions: { value: SortCriteria; label: string }[] = [
     { value: 'fat-desc', label: 'Grasa (Alta a Baja)' },
 ];
 
-function FolderButton({ 
-  name, 
-  icon: Icon, 
-  onClick, 
-  children, 
-  onUpdate, 
+function FolderButton({
+  name,
+  icon: Icon,
+  onClick,
+  children,
+  onUpdate,
   isSelected,
   isEditing,
   onSetEditing,
@@ -90,12 +90,13 @@ function FolderButton({
   isDroppable,
   onDragOver,
   onDragLeave,
-  onDrop
-}: { 
-  name: string; 
-  icon: React.ElementType; 
-  onClick: () => void; 
-  children?: React.ReactNode; 
+  onDrop,
+  count,
+}: {
+  name: string;
+  icon: React.ElementType;
+  onClick: () => void;
+  children?: React.ReactNode;
   onUpdate?: (name: string) => void;
   isSelected: boolean;
   isEditing: boolean;
@@ -106,6 +107,7 @@ function FolderButton({
   onDragOver?: (e: DragEvent<HTMLDivElement>) => void;
   onDragLeave?: (e: DragEvent<HTMLDivElement>) => void;
   onDrop?: (e: DragEvent<HTMLDivElement>) => void;
+  count?: number;
 }) {
 
   const handleUpdate = () => {
@@ -130,7 +132,7 @@ function FolderButton({
       <div className="flex items-center justify-between group hover:bg-accent/50 rounded-md">
         {isEditing ? (
           <div className="flex items-center w-full p-1 gap-1">
-             <Input 
+             <Input
                 value={tempName}
                 onChange={e => onSetTempName(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -141,19 +143,29 @@ function FolderButton({
               <Button size="icon" variant="ghost" onClick={handleUpdate} className="h-7 w-7"><Check className="h-4 w-4"/></Button>
           </div>
         ) : (
-          <Button 
-            variant="ghost" 
-            onClick={onClick} 
+          <Button
+            variant="ghost"
+            onClick={onClick}
             className={cn(
-              "w-full justify-start text-left flex-1 h-9", 
+              "w-full justify-start text-left flex-1 h-9 pr-1",
               isSelected && "bg-accent text-accent-foreground"
             )}
           >
             <Icon className="mr-2 h-4 w-4 flex-shrink-0" />
             <span className="truncate flex-1">{name}</span>
+            {count !== undefined && count > 0 && (
+              <span className={cn(
+                "ml-1 shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none",
+                isSelected
+                  ? "bg-primary/20 text-primary-foreground/80"
+                  : "bg-muted text-muted-foreground"
+              )}>
+                {count}
+              </span>
+            )}
           </Button>
         )}
-        
+
         {!isEditing && children && (
           <div className="opacity-0 group-hover:opacity-100 flex items-center">
             {onUpdate && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { onSetEditing(true); onSetTempName(name); }}><Edit className="h-4 w-4"/></Button>}
@@ -358,8 +370,43 @@ const FolderSection = ({
   handleDragOver,
   handleDragLeave,
   handleDrop,
-}: any) => {
+  sourceRecipes,
+}: {
+  folders: Folder[];
+  globalFolders: GlobalFolder[];
+  activeTab: string;
+  isAdmin: boolean;
+  selectedFolderId: string | null;
+  setSelectedFolderId: (id: string | null) => void;
+  editingFolderId: string | null;
+  setEditingFolderId: (id: string | null) => void;
+  editingFolderName: string;
+  setEditingFolderName: (name: string) => void;
+  onFolderUpdate: (id: string, name: string) => void;
+  onGlobalFolderUpdate: (id: string, name: string) => void;
+  onFolderDelete: (id: string) => void;
+  onGlobalFolderDelete: (id: string) => void;
+  onFolderCreate: (name: string) => void;
+  onGlobalFolderCreate: (name: string) => void;
+  handleDragOver: (e: DragEvent<HTMLDivElement>) => void;
+  handleDragLeave: (e: DragEvent<HTMLDivElement>) => void;
+  handleDrop: (e: DragEvent<HTMLDivElement>, folderId: string | null) => void;
+  sourceRecipes: Recipe[];
+}) => {
   const currentFolders = activeTab === 'user-recipes' ? folders : globalFolders;
+
+  // Count recipes per folder for badges
+  const folderCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const recipe of sourceRecipes) {
+      const key = recipe.folderId ?? '__none__';
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    return counts;
+  }, [sourceRecipes]);
+
+  const totalCount = sourceRecipes.length;
+  const noneCount = folderCounts['__none__'] ?? 0;
 
   return (
     <div className="space-y-1 pr-2">
@@ -370,6 +417,7 @@ const FolderSection = ({
         isSelected={selectedFolderId === 'all'}
         isEditing={false} onSetEditing={() => { }} tempName="" onSetTempName={() => { }}
         isDroppable={false}
+        count={totalCount}
       />
       <FolderButton
         name="Sin Carpeta"
@@ -381,8 +429,9 @@ const FolderSection = ({
         onDragOver={(e) => handleDragOver(e)}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, null)}
+        count={noneCount}
       />
-      {currentFolders.map((folder: Folder) => (
+      {currentFolders.map((folder: Folder | GlobalFolder) => (
         <FolderButton
           key={folder.id}
           name={folder.name}
@@ -398,6 +447,7 @@ const FolderSection = ({
           onDragOver={(e) => handleDragOver(e)}
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, folder.id)}
+          count={folderCounts[folder.id] ?? 0}
         >
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -568,6 +618,7 @@ export function RecipeLibrary({
       handleDragOver,
       handleDragLeave,
       handleDrop,
+      sourceRecipes: activeTab === 'user-recipes' ? userRecipes : nutriplannerRecipes,
   };
 
   return (
