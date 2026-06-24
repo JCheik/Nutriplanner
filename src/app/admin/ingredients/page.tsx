@@ -9,8 +9,18 @@ import { Button } from '@/components/ui/button';
 import { Trash2, Edit, ArrowLeft, PlusCircle } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { NewIngredientDialog, EditableIngredient } from '@/components/nutri-planner/new-ingredient-dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-// No non-blocking imports
 import Link from 'next/link';
 
 export default function AdminIngredientsPage() {
@@ -112,9 +122,27 @@ export default function AdminIngredientsPage() {
                                                     <Button variant="ghost" size="icon" onClick={() => handleEdit(ing)}>
                                                         <Edit className="h-4 w-4" />
                                                     </Button>
-                                                    <Button variant="ghost" size="icon" onClick={() => handleDelete(ing.id)}>
-                                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                                    </Button>
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button variant="ghost" size="icon">
+                                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                            </Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent className="bg-glass">
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>¿Eliminar «{ing.name}»?</AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    Este ingrediente se eliminará de la base de datos global compartida por todos los usuarios. Esta acción no se puede deshacer.
+                                                                </AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                                <AlertDialogAction onClick={() => handleDelete(ing.id)}>
+                                                                    Sí, eliminar
+                                                                </AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
                                                 </TableCell>
                                             </TableRow>
                                         ))}

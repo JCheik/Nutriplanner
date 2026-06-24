@@ -1,22 +1,19 @@
 'use client';
-import { useEffect, use } from 'react';
+import { use, useState } from 'react';
 import { useUser, useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Cake, Mail, BookHeart, Wheat, FileText } from 'lucide-react';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { User, Mail, BookHeart, FileText } from 'lucide-react';
 import type { Recipe, BaseIngredient, UserProfile } from '@/lib/types';
 import { RecipeCard } from '@/components/nutri-planner/recipe-card';
 import { RecipeDialog, DialogState } from '@/components/nutri-planner/recipe-dialog';
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
 export default function UserDetailPage({ params }: { params: Promise<{ userId: string }> }) {
     const { userId } = use(params);
-    const { user: adminUser, claims, loading: adminLoading } = useUser();
+    const { loading: adminLoading } = useUser();
     const firestore = useFirestore();
     const [dialogState, setDialogState] = useState<DialogState>({ open: false });
 

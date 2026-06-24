@@ -1,34 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useUser } from '@/firebase';
-import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Shield, BookOpen, Users, Wheat, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
+// Access control for all /admin/* routes lives in src/app/admin/layout.tsx.
 export default function AdminPage() {
-  const { user, isAdmin, loading } = useUser();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!loading && !isAdmin) {
-      router.replace('/');
-    }
-  }, [user, isAdmin, loading, router]);
-
-  if (loading || !isAdmin) {
-    return (
-      <div className="flex flex-col min-h-screen">
-        <div className="flex-1 flex items-center justify-center">
-            <p>Verificando permisos...</p>
-        </div>
-      </div>
-    );
-  }
-  
   return (
     <div className="flex flex-col min-h-screen">
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
