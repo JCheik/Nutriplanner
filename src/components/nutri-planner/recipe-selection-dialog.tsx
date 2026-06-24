@@ -67,7 +67,7 @@ export function RecipeSelectionDialog({ isOpen, onClose, meal, allRecipes, onSav
         const nameMatch = normalizeText(recipe.name).includes(normalizedQuery);
         return nameMatch;
     });
-  }, [searchQuery, allRecipes, activeTab, meal.recipes]);
+  }, [searchQuery, allRecipes, meal.recipes]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

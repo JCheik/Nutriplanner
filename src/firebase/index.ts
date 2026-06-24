@@ -27,6 +27,9 @@ export function getSdks(firebaseApp: FirebaseApp) {
 }
 
 export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T {
+  // Generic passthrough wrapper: deps are supplied by the caller, so the
+  // exhaustive-deps lint rule cannot statically verify them here by design.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const memoized = useMemo(factory, deps);
 
   if (typeof memoized !== 'object' || memoized === null) return memoized;

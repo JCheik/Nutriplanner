@@ -46,6 +46,9 @@ export function RecipeChatDialog({ isOpen, onClose, onRecipeGenerated, nutrition
     } else if (!isOpen) {
         setMessages([]);
     }
+    // Intentionally runs only when the dialog opens/closes — seeds the greeting
+    // on open and clears on close. messages.length is read but not a trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   useEffect(() => {
