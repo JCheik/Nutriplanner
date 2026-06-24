@@ -45,7 +45,10 @@ export function useRecipeState() {
       let recipeName: string;
       if (imageFile) {
         // Image uploads need the Admin SDK (Storage) → go through the server action.
-        const result = await saveRecipeAction({ recipeData, imageFile, isGlobal, userId: user.uid, existingId });
+        // The action authenticates the caller from this token (the Admin SDK
+        // bypasses Firestore rules, so authorization is enforced server-side).
+        const idToken = await user.getIdToken();
+        const result = await saveRecipeAction({ idToken, recipeData, imageFile, isGlobal, existingId });
         if (!result.success) {
           throw new Error(result.error || 'Error desconocido al guardar la receta');
         }

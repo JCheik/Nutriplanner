@@ -7,6 +7,7 @@ import { Auth, User, onAuthStateChanged, IdTokenResult } from 'firebase/auth';
 import { FirebaseStorage } from 'firebase/storage';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import type { UserClaims } from '@/lib/types';
+import { SUPERUSER_EMAIL } from '@/lib/constants';
 import { getSdks } from '.';
 
 export interface FirebaseContextState {
@@ -43,7 +44,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const isAdmin = useMemo(() => claims?.admin === true || user?.email === 'jonicheik@gmail.com', [claims, user]);
+  const isAdmin = useMemo(() => claims?.admin === true || user?.email === SUPERUSER_EMAIL, [claims, user]);
 
   useEffect(() => {
     if (!auth || !firestore) {

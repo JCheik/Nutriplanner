@@ -1,17 +1,26 @@
 'use server';
 
 import { initializeFirebase } from '@/firebase/server-init';
+import { verifyAuth, verifyAdmin } from '@/lib/verify-auth';
 import type { Recipe } from '@/lib/types';
 import { UserRecord } from 'firebase-admin/auth';
 import { Storage } from 'firebase-admin/storage';
 import { Firestore } from 'firebase-admin/firestore';
 
 interface SaveRecipePayload {
+  idToken: string;
   recipeData: Omit<Recipe, 'id'>;
   imageFile: File | null;
   isGlobal: boolean;
-  userId: string;
   existingId?: string;
+}
+
+/** Maps a thrown auth error to a serializable { success, error } result. */
+function authErrorResult(error: unknown): { success: false; error: string } {
+  const status = (error as { status?: number }).status;
+  if (status === 401) return { success: false, error: 'No autorizado. Inicia sesión de nuevo.' };
+  if (status === 403) return { success: false, error: 'Acceso denegado: se requieren permisos de administrador.' };
+  return { success: false, error: 'Error de autenticación.' };
 }
 
 // Client-side representation of a user record
@@ -28,10 +37,22 @@ type ClientUserRecord = {
 
 
 export async function saveRecipe(payload: SaveRecipePayload) {
-  const { recipeData, imageFile, isGlobal, userId, existingId } = payload;
-  
-  if (!userId) {
-    return { success: false, error: 'User not authenticated.' };
+  const { idToken, recipeData, imageFile, isGlobal, existingId } = payload;
+
+  // Authenticate the caller from their ID token. The Admin SDK bypasses
+  // Firestore rules, so authorization MUST be enforced here.
+  let userId: string;
+  try {
+    if (isGlobal) {
+      // Global recipes live in nutriplanner_recipes — admins only.
+      userId = await verifyAdmin(idToken);
+    } else {
+      userId = await verifyAuth(
+        new Request('https://internal', { headers: { authorization: `Bearer ${idToken}` } })
+      );
+    }
+  } catch (error) {
+    return authErrorResult(error);
   }
 
   const { firestore, storage } = initializeFirebase();
@@ -89,7 +110,12 @@ export async function saveRecipe(payload: SaveRecipePayload) {
   }
 }
 
-export async function listUsers(): Promise<{ success: boolean; users?: ClientUserRecord[]; error?: string; }> {
+export async function listUsers(idToken: string): Promise<{ success: boolean; users?: ClientUserRecord[]; error?: string; }> {
+    try {
+        await verifyAdmin(idToken);
+    } catch (error) {
+        return authErrorResult(error);
+    }
     try {
         const { auth } = initializeFirebase();
         const userRecords = await auth.listUsers();
@@ -100,7 +126,18 @@ export async function listUsers(): Promise<{ success: boolean; users?: ClientUse
     }
 }
 
-export async function setUserAdmin(uid: string, isAdmin: boolean) {
+export async function setUserAdmin(idToken: string, uid: string, isAdmin: boolean) {
+    let callerUid: string;
+    try {
+        callerUid = await verifyAdmin(idToken);
+    } catch (error) {
+        return authErrorResult(error);
+    }
+    // An admin must not be able to revoke their own admin rights and lock
+    // themselves (and possibly everyone) out.
+    if (callerUid === uid && !isAdmin) {
+        return { success: false, error: 'No puedes quitarte a ti mismo los permisos de administrador.' };
+    }
     try {
         const { auth } = initializeFirebase();
         await auth.setCustomUserClaims(uid, { admin: isAdmin });
@@ -111,17 +148,26 @@ export async function setUserAdmin(uid: string, isAdmin: boolean) {
     }
 }
 
-export async function deleteUserAccount(uid: string) {
+export async function deleteUserAccount(idToken: string, uid: string) {
+    let callerUid: string;
+    try {
+        callerUid = await verifyAdmin(idToken);
+    } catch (error) {
+        return authErrorResult(error);
+    }
+    if (callerUid === uid) {
+        return { success: false, error: 'No puedes eliminar tu propia cuenta desde el panel de administración.' };
+    }
     try {
         const { auth, firestore, storage } = initializeFirebase();
-        
+
         // This will trigger the 'delete' extension if installed, which should clean up Firestore/Storage.
         // If not, we have to do it manually.
         await auth.deleteUser(uid);
-        
+
         // Manual cleanup as a fallback
         await deleteUserRelatedData(uid, firestore, storage);
-        
+
         return { success: true, message: 'Usuario y todos sus datos han sido eliminados.' };
     } catch (error: any) {
         console.error("Server Action 'deleteUserAccount' failed:", error);
@@ -151,24 +197,31 @@ async function deleteUserRelatedData(uid: string, firestore: Firestore, storage:
     for (const sub of subcollections) {
         const subCollectionRef = userDocRef.collection(sub);
         const snapshot = await subCollectionRef.get();
+        if (snapshot.empty) continue;
+
+        // Collect storage image deletions to await them explicitly. Previously
+        // these ran inside an async forEach callback that was never awaited, so
+        // batch.commit() (and the function) could resolve before the images were
+        // deleted — leaving orphaned files in Storage.
+        const imageDeletions: Promise<unknown>[] = [];
+        const bucket = storage.bucket();
+        const urlPrefix = `https://storage.googleapis.com/${bucket.name}/`;
+
         const batch = firestore.batch();
-        snapshot.forEach(async (docSnapshot) => {
+        snapshot.forEach((docSnapshot) => {
             batch.delete(docSnapshot.ref);
-            // If recipes have images, delete them from storage
-            if (sub === 'recipes' && docSnapshot.data().imageUrl) {
-                try {
-                    const url = docSnapshot.data().imageUrl;
-                    const bucket = storage.bucket();
-                    const urlPrefix = `https://storage.googleapis.com/${bucket.name}/`;
-                    if (url.startsWith(urlPrefix)) {
-                        const path = decodeURIComponent(url.replace(urlPrefix, ''));
-                        await bucket.file(path).delete();
-                    }
-                } catch (storageError: any) {
-                    console.error(`Failed to delete image for recipe ${docSnapshot.id}:`, storageError);
-                }
+            const url = sub === 'recipes' ? docSnapshot.data().imageUrl : undefined;
+            if (url && typeof url === 'string' && url.startsWith(urlPrefix)) {
+                const path = decodeURIComponent(url.replace(urlPrefix, ''));
+                imageDeletions.push(
+                    bucket.file(path).delete().catch((storageError) => {
+                        console.error(`Failed to delete image for recipe ${docSnapshot.id}:`, storageError);
+                    })
+                );
             }
         });
+
+        await Promise.all(imageDeletions);
         await batch.commit();
     }
 
