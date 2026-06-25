@@ -31,7 +31,7 @@ const assistantFlow = ai.defineFlow(
   },
   async ({ message, context }) => {
     const prompt = `
-Eres el asistente de NutriPlanner, una app para planificar comidas y nutrición.
+Eres el asistente de Nutrilp, una app para planificar comidas y nutrición.
 
 QUÉ HACES (y SOLO esto):
 - Planificar el menú semanal: añadir o quitar recetas, vaciar días o comidas, autocompletar la semana.

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, BookHeart, ShoppingCart } from 'lucide-react';
+import { Home, BookHeart, ShoppingCart, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from '@/hooks/use-media-query';
 
@@ -14,6 +14,7 @@ export function MobileNav() {
     { href: `/mobile`, label: 'Plan', icon: Home },
     { href: `/mobile/recipes`, label: 'Recetas', icon: BookHeart },
     { href: `/mobile/shopping-list`, label: 'Compra', icon: ShoppingCart },
+    { href: `/mobile/objetivos`, label: 'Objetivos', icon: Target },
   ];
 
   const isMobileRoute = pathname.startsWith('/mobile');
@@ -24,7 +25,7 @@ export function MobileNav() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 h-16 bg-background border-t z-50">
-      <div className="grid h-full max-w-lg grid-cols-3 mx-auto">
+      <div className="grid h-full max-w-lg grid-cols-4 mx-auto">
         {navItems.map((item) => (
           <Link
             key={item.label}

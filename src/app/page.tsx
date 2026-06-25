@@ -53,7 +53,7 @@ function AuthContent() {
             <div className="flex justify-center mb-2">
             <Logo className="h-12 w-12 text-primary" />
           </div>
-          <h1 className="text-3xl font-bold">Bienvenido a NutriPlanner</h1>
+          <h1 className="text-3xl font-bold">Bienvenido a Nutrilp</h1>
           <p className="text-balance text-muted-foreground">
             Planifica tus comidas, crea recetas y alcanza tus objetivos nutricionales.
           </p>

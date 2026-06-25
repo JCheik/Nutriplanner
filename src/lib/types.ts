@@ -52,6 +52,9 @@ export const RecipeSchema = MacrosSchema.extend({
   ingredients: z.array(IngredientSchema),
   imageUrl: z.string().optional(),
   imageHint: z.string().optional(),
+  // Original source of the recipe (Instagram/TikTok/YouTube/blog…). Optional;
+  // auto-filled on URL import and editable by hand. Shown as a link in the recipe view.
+  sourceUrl: z.string().url().optional(),
   servings: z.number().min(1).optional(),
   // Meal categories this recipe fits. Empty/undefined = "comodín" (any meal).
   category: z.array(z.enum(MEAL_CATEGORY_ENUM)).optional(),
@@ -176,7 +179,6 @@ export interface ActiveDropTarget {
 export type PanelType =
   | 'goals'
   | 'shopping-list'
-  | 'sticky-note'
   | 'empty-fridge'
   | 'recipe-import'
   | 'assistant';

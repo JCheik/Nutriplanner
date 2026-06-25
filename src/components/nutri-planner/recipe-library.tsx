@@ -1,14 +1,19 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import type { Recipe, SortCriteria, MealCategory, DietTag } from '@/lib/types';
+import type { Recipe, SortCriteria, DietTag } from '@/lib/types';
 import { DIET_TAGS } from '@/lib/constants';
+import {
+  type SmartCategory,
+  SMART_CATEGORY_LABELS,
+  groupRecipesByCategory,
+} from '@/lib/recipe-categories';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { RecipeCard } from './recipe-card';
-import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Plus, Folders, Edit, LayoutGrid, List, Sparkles, Camera, Link2, MoreVertical, Wand2 } from 'lucide-react';
+import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Plus, Folders, Edit, LayoutGrid, List, Sparkles, Camera, Link2, MoreVertical, Wand2, Target, ShoppingCart } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -40,6 +45,8 @@ interface RecipeLibraryProps {
   onAssistantOpen: () => void;
   onEmptyFridgeOpen?: () => void;
   onRecipeImportOpen?: () => void;
+  onGoalsOpen?: () => void;
+  onShoppingListOpen?: () => void;
   isMobile?: boolean;
   initialViewMode?: 'grid' | 'list';
   dietPreference?: DietTag[];
@@ -57,36 +64,6 @@ const sortOptions: { value: SortCriteria; label: string }[] = [
     { value: 'fat-asc', label: 'Grasa (Baja a Alta)' },
     { value: 'fat-desc', label: 'Grasa (Alta a Baja)' },
 ];
-
-type SmartCategory = 'desayunos' | 'almuerzos' | 'cenas' | 'snacks' | 'otros';
-
-const SMART_CATEGORY_KEYWORDS: Record<SmartCategory, string[]> = {
-  desayunos: ['desayuno', 'breakfast', 'mañana', 'tostada', 'avena', 'granola', 'yogur', 'smoothie', 'batido', 'porridge', 'crepe', 'pancake', 'tortita', 'muffin'],
-  almuerzos: ['almuerzo', 'comida', 'lunch', 'pasta', 'arroz', 'ensalada', 'sopa', 'wrap', 'bocadillo', 'sandwich', 'bocata'],
-  cenas: ['cena', 'dinner', 'supper', 'crema', 'guiso', 'estofado', 'gratinado'],
-  snacks: ['snack', 'merienda', 'tentempié', 'barrita', 'fruta', 'nuez', 'almendra', 'dátil'],
-  otros: [],
-};
-
-const SMART_CATEGORY_LABELS: Record<SmartCategory, string> = {
-  desayunos: 'Desayunos',
-  almuerzos: 'Almuerzos',
-  cenas: 'Cenas',
-  snacks: 'Snacks',
-  otros: 'Otros',
-};
-
-// Maps the recipe's explicit MealCategory to a sidebar bucket. Merienda/snack/postre
-// all fold into "Snacks"; "otro" into "Otros".
-const MEAL_CATEGORY_TO_SMART: Record<MealCategory, SmartCategory> = {
-  desayuno: 'desayunos',
-  almuerzo: 'almuerzos',
-  cena: 'cenas',
-  merienda: 'snacks',
-  snack: 'snacks',
-  postre: 'snacks',
-  otro: 'otros',
-};
 
 function CategoryButton({
   name,
@@ -351,6 +328,8 @@ export function RecipeLibrary({
   onAssistantOpen,
   onEmptyFridgeOpen,
   onRecipeImportOpen,
+  onGoalsOpen,
+  onShoppingListOpen,
   isMobile = false,
   initialViewMode = 'grid',
   dietPreference = [],
@@ -418,27 +397,12 @@ export function RecipeLibrary({
     );
   };
 
-  // Smart categories — prefer the recipe's explicit category (set by the user),
-  // and only fall back to keyword classification when none is set. No Firestore writes.
-  // Must be declared before recipesInSelectedFolder which references smartCategories.
-  const classifyRecipe = useCallback((recipe: Recipe): SmartCategory => {
-    const explicit = recipe.category ?? [];
-    if (explicit.length > 0) {
-      return MEAL_CATEGORY_TO_SMART[explicit[0]] ?? 'otros';
-    }
-    const haystack = `${recipe.name} ${(recipe.ingredients ?? []).map((i: { name: string }) => i.name).join(' ')}`.toLowerCase();
-    for (const [cat, keywords] of Object.entries(SMART_CATEGORY_KEYWORDS) as [SmartCategory, string[]][]) {
-      if (keywords.some((kw: string) => haystack.includes(kw))) return cat;
-    }
-    return 'otros';
-  }, []);
-
+  // Smart categories — prefers the recipe's explicit category and falls back to
+  // keyword classification. Shared with the slot selection dialog via the helper.
   const smartCategories = useMemo<Record<SmartCategory, Recipe[]>>(() => {
     const sourceRecipes = activeTab === 'user-recipes' ? userRecipes : nutriplannerRecipes;
-    const result: Record<SmartCategory, Recipe[]> = { desayunos: [], almuerzos: [], cenas: [], snacks: [], otros: [] };
-    for (const r of sourceRecipes) result[classifyRecipe(r)].push(r);
-    return result;
-  }, [activeTab, userRecipes, nutriplannerRecipes, classifyRecipe]);
+    return groupRecipesByCategory(sourceRecipes);
+  }, [activeTab, userRecipes, nutriplannerRecipes]);
 
   const recipesInSelectedCategory = useMemo(() => {
     const sourceRecipes = activeTab === 'user-recipes' ? userRecipes : nutriplannerRecipes;
@@ -550,10 +514,22 @@ export function RecipeLibrary({
                   <BookHeart className="h-6 w-6 text-primary" />
                   <CardTitle>Biblioteca de Recetas</CardTitle>
                 </div>
-                <CardDescription>Tu colección de recetas y el recetario base de NutriPlanner.</CardDescription>
+                <CardDescription>Tu colección de recetas y el recetario base de Nutrilp.</CardDescription>
               </div>
             )}
              <div className="flex items-center gap-2">
+                {!isMobile && onGoalsOpen && (
+                  <Button variant="outline" onClick={onGoalsOpen} data-tour="goals">
+                    <Target className="mr-2 h-4 w-4" />
+                    Objetivos
+                  </Button>
+                )}
+                {!isMobile && onShoppingListOpen && (
+                  <Button variant="outline" onClick={onShoppingListOpen} data-tour="shopping-list">
+                    <ShoppingCart className="mr-2 h-4 w-4" />
+                    Compra
+                  </Button>
+                )}
                 {activeTab === 'user-recipes' && !isMobile && (
                   <>
                     <Button variant="outline" onClick={onRecipeImportOpen} data-tour="recipe-import">
@@ -590,7 +566,7 @@ export function RecipeLibrary({
             <div className={cn("flex justify-between items-center border-b", isMobile ? "pr-0" : "pr-1")}>
               <TabsList className={cn(isMobile && "flex-1")}>
                 <TabsTrigger value="user-recipes" className={cn(isMobile && "flex-1")}>Mis Recetas</TabsTrigger>
-                <TabsTrigger value="nutriplanner-recipes" className={cn(isMobile && "flex-1")}>Recetario</TabsTrigger>
+                <TabsTrigger value="nutriplanner-recipes" className={cn(isMobile && "flex-1")}>Recetas Nutrilp</TabsTrigger>
               </TabsList>
               {isMobile && (
                 <Sheet open={categorySheetOpen} onOpenChange={setCategorySheetOpen}>
@@ -719,7 +695,7 @@ export function RecipeLibrary({
                       {crossSearchResults.nutriplanner.length > 0 && (
                         <div>
                           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 px-1">
-                            Recetario ({crossSearchResults.nutriplanner.length})
+                            Recetas Nutrilp ({crossSearchResults.nutriplanner.length})
                           </p>
                           <RecipeList
                             recipes={crossSearchResults.nutriplanner}

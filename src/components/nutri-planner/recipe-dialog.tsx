@@ -21,17 +21,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, Plus, Copy, Search, Image as ImageIcon, UploadCloud, Globe, AlertTriangle } from 'lucide-react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { NewIngredientDialog, EditableIngredient } from './new-ingredient-dialog';
 import { MissingIngredientRow, type ReviewIngredient, type ReviewMacroField } from './ingredient-review';
 import { Card, CardContent } from '../ui/card';
@@ -66,6 +55,38 @@ const MacroDisplay = ({ label, value, unit, icon: Icon }: { label: string, value
   </div>
 );
 
+/**
+ * Inline two-step delete confirmation. Deliberately NOT a nested AlertDialog:
+ * a modal-inside-a-modal that gets torn down when the parent dialog closes
+ * leaves Radix's modal counter stuck, locking `body { pointer-events: none }`
+ * and freezing the whole app. An inline confirm avoids that class of bug.
+ */
+function DeleteConfirmButton({ onConfirm }: { onConfirm: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+
+  useEffect(() => {
+    if (!confirming) return;
+    const t = setTimeout(() => setConfirming(false), 4000);
+    return () => clearTimeout(t);
+  }, [confirming]);
+
+  if (!confirming) {
+    return (
+      <Button variant="destructive" onClick={() => setConfirming(true)}>
+        <Trash2 className="mr-2 h-4 w-4" /> Borrar
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-sm text-muted-foreground hidden sm:inline">¿Seguro?</span>
+      <Button variant="destructive" size="sm" onClick={onConfirm}>Sí, borrar</Button>
+      <Button variant="outline" size="sm" onClick={() => setConfirming(false)}>Cancelar</Button>
+    </div>
+  );
+}
+
 function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngredients, isSaving, onSave, onCancel, onDelete }: { recipe?: Partial<Recipe>, isInitiallyGlobal?: boolean, aiIngredients?: AiIngredientEstimate[], isSaving: boolean, onSave: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void, onCancel: () => void, onDelete: (id: string, isGlobal: boolean) => void }) {
   const isEditing = !!initialRecipe && !!initialRecipe.id;
   const { user, isAdmin } = useUser();
@@ -94,7 +115,8 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
   const [servings, setServings] = useState(1);
   const [category, setCategory] = useState<MealCategory[]>([]);
   const [dietTags, setDietTags] = useState<DietTag[]>([]);
-  
+  const [sourceUrl, setSourceUrl] = useState('');
+
   const [isNewIngredientOpen, setIsNewIngredientOpen] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -117,6 +139,7 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
     setServings(initialRecipe?.servings ?? 1);
     setCategory(initialRecipe?.category ?? []);
     setDietTags(initialRecipe?.dietTags ?? []);
+    setSourceUrl(initialRecipe?.sourceUrl || '');
   }, [initialRecipe, isInitiallyGlobal]);
 
   useEffect(() => {
@@ -264,6 +287,8 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
       servings,
       category,
       dietTags,
+      // Only persist a valid URL; empty string would fail the schema's .url() check.
+      ...(sourceUrl.trim() ? { sourceUrl: sourceUrl.trim() } : {}),
       ...macros
     };
 
@@ -451,6 +476,20 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
             <Textarea id="description" value={description} onChange={e => setDescription(e.target.value)} />
           </div>
           <div>
+            <Label htmlFor="sourceUrl">URL de origen (vídeo o receta)</Label>
+            <Input
+              id="sourceUrl"
+              type="url"
+              inputMode="url"
+              placeholder="https://www.instagram.com/... · TikTok · YouTube"
+              value={sourceUrl}
+              onChange={e => setSourceUrl(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Opcional. Guarda el enlace al post o vídeo para poder volver a verlo desde la receta.
+            </p>
+          </div>
+          <div>
             <Label htmlFor="instructions">Instrucciones</Label>
             <Textarea id="instructions" value={instructions} onChange={e => setInstructions(e.target.value)} className="h-48" />
           </div>
@@ -578,23 +617,7 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
       </div>
       <DialogFooter className="justify-between pt-4">
         {isEditing && initialRecipe?.id && onDelete ? (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent className="bg-glass">
-                <AlertDialogHeader>
-                  <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Esta acción no se puede deshacer. Esto eliminará permanentemente la receta.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => onDelete(initialRecipe?.id as string, saveAsGlobal)}>Borrar</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <DeleteConfirmButton onConfirm={() => onDelete(initialRecipe?.id as string, saveAsGlobal)} />
         ) : <div></div> }
         <div className="flex gap-2">
             <Button variant="outline" onClick={onCancel}>Cancelar</Button>
@@ -709,29 +732,27 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe, is
               <h3 className="font-semibold mb-2">Instrucciones</h3>
               <p className="text-sm whitespace-pre-wrap">{recipe.instructions}</p>
             </div>
+            {recipe.sourceUrl && (
+              <div>
+                <h3 className="font-semibold mb-2">Fuente</h3>
+                <a
+                  href={recipe.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-primary hover:underline break-all"
+                >
+                  <Globe className="h-4 w-4 shrink-0" />
+                  Ver receta original / vídeo
+                </a>
+              </div>
+            )}
           </div>
         </ScrollArea>
       </div>
       <DialogFooter className="mt-6 flex flex-row justify-between items-center w-full">
          <div className="flex gap-2">
             {onDelete && canEdit && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive"><Trash2 className="mr-2 h-4 w-4" /> Borrar</Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent className="bg-glass">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Esta acción no se puede deshacer. Esto eliminará permanentemente la receta.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => onDelete(recipe.id, isNutriPlannerRecipe)}>Borrar</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <DeleteConfirmButton onConfirm={() => onDelete(recipe.id, isNutriPlannerRecipe)} />
             )}
          </div>
 
@@ -764,44 +785,54 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe, is
 
 
 export function RecipeDialog({ dialogState, isSaving = false, onClose, onSave, onDelete, onEdit, onCopy, isMobile }: RecipeDialogProps) {
-  if (!dialogState.open) return null;
+  const open = dialogState.open;
 
-  const isViewMode = dialogState.mode === 'view';
-  // A special case for AI-generated recipes which are technically "create" mode but come with pre-filled data.
-  const isCreateWithData = dialogState.mode === 'create' && dialogState.recipe;
-  const isNutriPlannerRecipe = isViewMode && dialogState.isNutriPlannerRecipe;
+  // Radix locks `document.body { pointer-events: none }` while a modal is open and
+  // restores it on close. When the nested delete-confirmation AlertDialog and this
+  // dialog unmount in the same tick (deleting a recipe closes the dialog), that
+  // restore can be skipped — leaving the whole app unclickable ("frozen"/crashed).
+  // Defensively clear the lock once this dialog has closed.
+  useEffect(() => {
+    if (open) return;
+    const t = setTimeout(() => {
+      if (typeof document !== 'undefined') document.body.style.pointerEvents = '';
+    }, 0);
+    return () => clearTimeout(t);
+  }, [open]);
 
   const handleEdit = (recipe: Recipe) => {
-    if (onEdit) {
+    if (onEdit && dialogState.open) {
       onEdit(recipe, dialogState.mode === 'view' ? dialogState.isNutriPlannerRecipe : false);
     }
   };
-  
+
   return (
-    <Dialog open={dialogState.open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className={cn(
         "max-w-4xl bg-glass",
         isMobile && "h-[90vh] flex flex-col"
         )}>
-        {isViewMode && dialogState.recipe ? (
-          <RecipeView
-            recipe={dialogState.recipe}
-            onEdit={handleEdit}
-            onDelete={onDelete}
-            onCopy={onCopy}
-            isNutriPlannerRecipe={!!isNutriPlannerRecipe}
-            isMobile={isMobile}
-          />
-        ) : (
-          <RecipeForm
-            recipe={dialogState.mode === 'edit' || isCreateWithData ? dialogState.recipe : undefined}
-            isInitiallyGlobal={dialogState.mode === 'edit' ? dialogState.isNutriPlannerRecipe : false}
-            aiIngredients={dialogState.mode === 'create' ? dialogState.aiIngredients : undefined}
-            isSaving={isSaving}
-            onSave={onSave!}
-            onCancel={onClose}
-            onDelete={onDelete!}
-          />
+        {dialogState.open && (
+          dialogState.mode === 'view' && dialogState.recipe ? (
+            <RecipeView
+              recipe={dialogState.recipe}
+              onEdit={handleEdit}
+              onDelete={onDelete}
+              onCopy={onCopy}
+              isNutriPlannerRecipe={!!dialogState.isNutriPlannerRecipe}
+              isMobile={isMobile}
+            />
+          ) : (
+            <RecipeForm
+              recipe={dialogState.mode === 'edit' || (dialogState.mode === 'create' && dialogState.recipe) ? dialogState.recipe : undefined}
+              isInitiallyGlobal={dialogState.mode === 'edit' ? dialogState.isNutriPlannerRecipe : false}
+              aiIngredients={dialogState.mode === 'create' ? dialogState.aiIngredients : undefined}
+              isSaving={isSaving}
+              onSave={onSave!}
+              onCancel={onClose}
+              onDelete={onDelete!}
+            />
+          )
         )}
       </DialogContent>
     </Dialog>

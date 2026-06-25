@@ -147,7 +147,7 @@ function MealRecipeChip({ recipe, day, mealId, onRecipeClick, onRemove, onUpdate
     <div className="w-full relative group/item flex-1 min-h-[60px]">
       <div
         className="h-full w-full flex flex-col items-center justify-center p-2 rounded-md bg-secondary/50 hover:bg-secondary/70 transition-colors cursor-pointer gap-1"
-        onClick={() => onRecipeClick(recipe)}
+        onClick={(e) => { e.stopPropagation(); onRecipeClick(recipe); }}
       >
         <span className="text-center font-semibold text-secondary-foreground text-xs leading-tight line-clamp-2">
           {recipe.name}

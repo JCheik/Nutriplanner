@@ -12,11 +12,6 @@ interface UseSpeechRecognitionOptions {
   onError?: (message: string) => void;
 }
 
-/**
- * Maps a SpeechRecognition/getUserMedia error code to a user-facing Spanish
- * message. Returns null for codes that don't warrant a notification (e.g. the
- * user aborted, or a benign no-op).
- */
 function mapSpeechError(code: string): string | null {
   switch (code) {
     case 'not-allowed':
@@ -39,10 +34,11 @@ function mapSpeechError(code: string): string | null {
 
 /**
  * Thin wrapper over the browser SpeechRecognition API (Chrome/Edge; webkit on
- * Safari). Feature-detects support, requests microphone permission explicitly so
- * the browser shows its prompt (and we get a clear grant/deny), and surfaces
- * permission/no-support errors via `onError` so the UI can react. Single-utterance
- * mode: one phrase per start().
+ * Safari). Uses getUserMedia to prime the audio subsystem before starting
+ * recognition — on Windows/Chrome this is required for SpeechRecognition to
+ * actually capture audio. Crucially, recognition is started WHILE the
+ * getUserMedia stream is still open (so the audio hardware stays warm), and the
+ * stream is only released after recognition has taken over.
  */
 export function useSpeechRecognition(opts?: UseSpeechRecognitionOptions) {
   const [isListening, setIsListening] = useState(false);
@@ -73,14 +69,25 @@ export function useSpeechRecognition(opts?: UseSpeechRecognitionOptions) {
 
     const rec: SpeechRecognitionInstance = new SR();
     rec.lang = opts?.lang ?? 'es-ES';
-    rec.interimResults = false;
+    rec.interimResults = true;
     rec.continuous = false;
     rec.maxAlternatives = 1;
 
     rec.onresult = (e: any) => {
-      const text: string = e.results?.[0]?.[0]?.transcript ?? '';
-      setTranscript(text);
-      if (text) onResultRef.current?.(text);
+      let finalText = '';
+      let interimText = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const res = e.results[i];
+        const chunk = res?.[0]?.transcript ?? '';
+        if (res?.isFinal) finalText += chunk;
+        else interimText += chunk;
+      }
+      if (finalText) {
+        setTranscript(finalText);
+        onResultRef.current?.(finalText);
+      } else if (interimText) {
+        setTranscript(interimText);
+      }
     };
     rec.onerror = (e: any) => {
       reportError(e?.error ?? 'speech-error');
@@ -104,25 +111,37 @@ export function useSpeechRecognition(opts?: UseSpeechRecognitionOptions) {
     setError(null);
     setTranscript('');
 
-    // Request mic permission explicitly. SpeechRecognition can fail silently when
-    // the permission hasn't been granted (or the origin isn't a secure context);
-    // getUserMedia forces the browser's permission prompt and gives a clear deny.
-    try {
-      if (navigator.mediaDevices?.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        // We only needed the grant — release the mic immediately.
-        stream.getTracks().forEach(t => t.stop());
+    if (navigator.mediaDevices?.getUserMedia) {
+      // Prime the audio subsystem. We start recognition WHILE this stream is
+      // still open so the audio hardware doesn't go idle between the two calls.
+      // Only after recognition has claimed the mic do we release our own stream.
+      let stream: MediaStream | null = null;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (err: any) {
+        reportError(
+          err?.name === 'NotAllowedError' || err?.name === 'SecurityError'
+            ? 'not-allowed'
+            : 'audio-capture'
+        );
+        return;
       }
-    } catch (err: any) {
-      reportError(err?.name === 'NotAllowedError' || err?.name === 'SecurityError' ? 'not-allowed' : 'audio-capture');
-      return;
-    }
-
-    try {
-      rec.start();
-      setIsListening(true);
-    } catch {
-      // start() throws if already running — ignore.
+      try {
+        rec.start();
+        setIsListening(true);
+      } catch {
+        // start() throws if already running — ignore.
+      }
+      // Release our capture now that SpeechRecognition has taken over.
+      stream.getTracks().forEach(t => t.stop());
+    } else {
+      // No getUserMedia — let SpeechRecognition request permission itself.
+      try {
+        rec.start();
+        setIsListening(true);
+      } catch {
+        // already running
+      }
     }
   }, [reportError]);
 

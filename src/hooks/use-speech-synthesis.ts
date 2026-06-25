@@ -4,10 +4,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 const STORAGE_KEY = 'nutriplanner.tts.voiceURI';
 
-// Lowercased markers that flag higher-quality / cloud / neural voices, best
-// first. The browser default is often a robotic local voice, so we actively
-// prefer voices whose name carries one of these markers.
-const QUALITY_MARKERS = ['natural', 'neural', 'online', 'google', 'microsoft'];
+// Each marker adds its own bonus — a voice can accumulate several of these.
+// Higher score = more natural-sounding.
+const QUALITY_SCORES: [string, number][] = [
+  ['natural', 50], // Microsoft Neural voices explicitly labelled "natural"
+  ['neural',  40], // Any neural voice
+  ['google',  35], // Google voices in Chrome (cloud-backed, very natural)
+  ['online',  25], // Generic "online" label — any cloud voice
+  ['elvira',  20], // Microsoft Elvira — one of the best es-ES voices
+  ['microsoft', 5], // Any Microsoft voice (small bonus; prefer non-local ones)
+];
 
 // Ranks a voice for Spanish playback. Higher = better. Non-Spanish voices score
 // below zero so they never win.
@@ -21,8 +27,11 @@ function scoreVoice(v: SpeechSynthesisVoice): number {
   else if (lang.startsWith('es')) score += 20;
 
   const name = v.name?.toLowerCase() ?? '';
-  const markerIdx = QUALITY_MARKERS.findIndex((m) => name.includes(m));
-  if (markerIdx !== -1) score += (QUALITY_MARKERS.length - markerIdx) * 10;
+  // Sum ALL matching quality markers so a voice that is both "online" and
+  // "natural" gets credit for both (unlike the old findIndex approach).
+  for (const [marker, pts] of QUALITY_SCORES) {
+    if (name.includes(marker)) score += pts;
+  }
 
   // Cloud (non-local) voices are usually the most natural-sounding.
   if (!v.localService) score += 15;

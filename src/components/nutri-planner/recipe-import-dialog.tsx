@@ -317,6 +317,8 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
         fat: extractedRecipe.fat,
         servings: extractedRecipe.servings ?? 1,
         imageHint: extractedRecipe.imageHint,
+        // Persist the source URL so the user can revisit the original post/video.
+        ...(url.trim() ? { sourceUrl: url.trim() } : {}),
       };
 
       onRecipeImported(recipe);

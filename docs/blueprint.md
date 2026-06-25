@@ -1,4 +1,4 @@
-# **App Name**: NutriPlanner
+# **App Name**: Nutrilp
 
 ## Core Features:
 

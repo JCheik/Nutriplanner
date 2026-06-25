@@ -38,7 +38,7 @@ export const signInWithGoogle = async (auth: Auth, firestore: Firestore) => {
           name: user.displayName || 'Nuevo Usuario',
           email: user.email || '',
           photoURL: user.photoURL || '',
-          stickyNote: '¡Bienvenido a NutriPlanner! Usa esta nota para apuntar lo que quieras.',
+          stickyNote: '¡Bienvenido a Nutrilp! Usa esta nota para apuntar lo que quieras.',
         }
         batch.set(userRef, profile, { merge: true });
 
