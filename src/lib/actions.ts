@@ -192,7 +192,7 @@ async function deleteUserRelatedData(uid: string, firestore: Firestore, storage:
     const userDocRef = firestore.collection('users').doc(uid);
 
     // Array of sub-collection names to delete
-    const subcollections = ['recipes', 'folders', 'weekPlan', 'meal_plans'];
+    const subcollections = ['recipes', 'weekPlan', 'meal_plans'];
 
     for (const sub of subcollections) {
         const subCollectionRef = userDocRef.collection(sub);

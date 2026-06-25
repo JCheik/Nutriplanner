@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
-  Target, X, TrendingDown, Weight, TrendingUp, EggFried, Wheat, Droplets, Calculator, Edit, Check,
+  Target, X, TrendingDown, Weight, TrendingUp, EggFried, Wheat, Droplets, Calculator, Edit, Check, Lightbulb,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { CalculationResult, GoalMacros, GoalType } from '@/lib/types';
+import { useOnboardingFlag } from '@/hooks/use-onboarding';
+import type { CalculationResult, GoalMacros, GoalType, DietTag } from '@/lib/types';
+import { DIET_TAGS } from '@/lib/constants';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CalculatorDialog } from './calculator-dialog';
@@ -104,6 +106,51 @@ interface FloatingGoalsProps {
   onGoalSelect: (goal: GoalType) => void;
   onSaveCustomGoal: (macros: GoalMacros) => void;
   activeGoal: GoalType;
+  dietPreference: DietTag[];
+  onDietPreferenceChange: (diets: DietTag[]) => void;
+}
+
+/** Multi-select of the user's diet preference; drives the AI's recipe choices. */
+function DietPreferenceSelector({
+  dietPreference,
+  onDietPreferenceChange,
+}: {
+  dietPreference: DietTag[];
+  onDietPreferenceChange: (diets: DietTag[]) => void;
+}) {
+  const toggle = (value: DietTag) => {
+    onDietPreferenceChange(
+      dietPreference.includes(value)
+        ? dietPreference.filter((d) => d !== value)
+        : [...dietPreference, value]
+    );
+  };
+
+  return (
+    <div className="rounded-lg border p-3">
+      <p className="text-sm font-semibold mb-1">Tu dieta</p>
+      <p className="text-xs text-muted-foreground mb-2">
+        La IA solo te sugerirá recetas compatibles. Vacío = sin restricción.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {DIET_TAGS.map((diet) => {
+          const isOn = dietPreference.includes(diet.value);
+          return (
+            <Button
+              key={diet.value}
+              type="button"
+              size="sm"
+              variant={isOn ? 'default' : 'secondary'}
+              className="rounded-full h-7 text-xs"
+              onClick={() => toggle(diet.value)}
+            >
+              {diet.label}
+            </Button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function GoalsContent({
@@ -112,28 +159,39 @@ function GoalsContent({
   onCalorieResultSave,
   onGoalSelect,
   onSaveCustomGoal,
+  dietPreference,
+  onDietPreferenceChange,
 }: {
   result: CalculationResult | null;
   activeGoal: GoalType;
   onCalorieResultSave: (result: CalculationResult) => void;
   onGoalSelect: (goal: GoalType) => void;
   onSaveCustomGoal: (macros: GoalMacros) => void;
+  dietPreference: DietTag[];
+  onDietPreferenceChange: (diets: DietTag[]) => void;
 }) {
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
+  const goalsHint = useOnboardingFlag('goals');
 
   // Empty state: no goals calculated yet.
   if (!result) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
-        <Target className="h-12 w-12 mb-3 text-muted-foreground" />
-        <h3 className="text-lg font-semibold mb-1">Calcula tus metas</h3>
-        <p className="mb-4 text-sm text-muted-foreground">
-          Usa la calculadora para establecer tus objetivos de calorías y macros.
-        </p>
-        <Button onClick={() => setIsCalculatorOpen(true)}>
-          <Calculator className="mr-2 h-4 w-4" />
-          Abrir calculadora
-        </Button>
+      <div className="flex-1 flex flex-col p-6 gap-4">
+        <div className="flex flex-col items-center justify-center text-center flex-1">
+          <Target className="h-12 w-12 mb-3 text-muted-foreground" />
+          <h3 className="text-lg font-semibold mb-1">Calcula tus metas</h3>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Usa la calculadora para establecer tus objetivos de calorías y macros.
+          </p>
+          <Button onClick={() => setIsCalculatorOpen(true)}>
+            <Calculator className="mr-2 h-4 w-4" />
+            Abrir calculadora
+          </Button>
+        </div>
+        <DietPreferenceSelector
+          dietPreference={dietPreference}
+          onDietPreferenceChange={onDietPreferenceChange}
+        />
         <CalculatorDialog
           isOpen={isCalculatorOpen}
           onClose={() => setIsCalculatorOpen(false)}
@@ -148,6 +206,26 @@ function GoalsContent({
 
   return (
     <div className="p-4 h-full flex flex-col">
+      {goalsHint.shouldShow && (
+        <div className="mb-3 flex gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
+          <Lightbulb className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Elige tu objetivo (perder, mantener, ganar o personalizado). El plan ajusta las
+              porciones a estas calorías, así que cada persona ve su propia cantidad.
+            </p>
+            <Button size="sm" className="h-7 text-xs" onClick={() => goalsHint.dismissForever()}>
+              Entendido
+            </Button>
+          </div>
+        </div>
+      )}
+      <div className="mb-4">
+        <DietPreferenceSelector
+          dietPreference={dietPreference}
+          onDietPreferenceChange={onDietPreferenceChange}
+        />
+      </div>
       <Tabs
         value={activeGoal}
         onValueChange={(v) => onGoalSelect(v as GoalType)}
@@ -200,6 +278,8 @@ export function FloatingGoals({
   onGoalSelect,
   onSaveCustomGoal,
   activeGoal,
+  dietPreference,
+  onDietPreferenceChange,
 }: FloatingGoalsProps) {
   return (
     <div
@@ -224,6 +304,8 @@ export function FloatingGoals({
           onCalorieResultSave={onCalorieResultSave}
           onGoalSelect={onGoalSelect}
           onSaveCustomGoal={onSaveCustomGoal}
+          dietPreference={dietPreference}
+          onDietPreferenceChange={onDietPreferenceChange}
         />
       </div>
     </div>

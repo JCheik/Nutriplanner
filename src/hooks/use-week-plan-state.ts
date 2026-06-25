@@ -5,7 +5,20 @@ import { useUser, useCollection, useFirebase, useMemoFirebase } from '@/firebase
 import { collection, doc } from 'firebase/firestore';
 import { updateDayPlanTransaction } from '@/firebase/firestore-operations';
 import { INITIAL_WEEK_PLAN, DAY_ORDER } from '@/lib/data';
-import type { Recipe, Meal, DayPlan, RecipeInstance } from '@/lib/types';
+import type { Recipe, Meal, DayPlan, RecipeInstance, MealCategory } from '@/lib/types';
+
+// Infer a meal's category from its title for legacy slots saved before mealType
+// existed. Read-only inference (does not write to Firestore unless the user edits).
+function inferMealType(title: string): MealCategory {
+  const t = title.toLowerCase();
+  if (t.includes('desayuno') || t.includes('breakfast') || t.includes('mañana')) return 'desayuno';
+  if (t.includes('almuerzo') || t.includes('comida') || t.includes('lunch')) return 'almuerzo';
+  if (t.includes('cena') || t.includes('dinner') || t.includes('supper')) return 'cena';
+  if (t.includes('merienda') || t.includes('tentempié') || t.includes('tentempie')) return 'merienda';
+  if (t.includes('snack')) return 'snack';
+  if (t.includes('postre') || t.includes('dessert')) return 'postre';
+  return 'otro';
+}
 
 export function useWeekPlanState() {
   const { user } = useUser();
@@ -25,7 +38,15 @@ export function useWeekPlanState() {
       const savedDay = planMap.get(dayName as DayPlan['day']);
       const initialDay = INITIAL_WEEK_PLAN.find(d => d.day === dayName)!;
       if (savedDay) {
-        const meals = Array.isArray(savedDay.meals) ? savedDay.meals : [];
+        const rawMeals = Array.isArray(savedDay.meals) ? savedDay.meals : [];
+        // Normalise mealTypes for legacy slots: prefer the new plural field, then
+        // the old singular `mealType`, then infer from the title.
+        const meals = rawMeals.map(meal => {
+          if (Array.isArray(meal.mealTypes) && meal.mealTypes.length > 0) return meal;
+          const legacySingle = (meal as { mealType?: MealCategory }).mealType;
+          const mealTypes = legacySingle ? [legacySingle] : [inferMealType(meal.title)];
+          return { ...meal, mealTypes };
+        });
         return { ...initialDay, ...savedDay, day: dayName as DayPlan['day'], meals };
       }
       return initialDay;
@@ -48,9 +69,9 @@ export function useWeekPlanState() {
   }, [user, firestore]);
 
   // --- Handlers ---
-  const handleDrop = useCallback((day: string, mealId: string, droppedRecipe: Recipe) => {
+  const handleDrop = useCallback((day: string, mealId: string, droppedRecipe: Recipe, servingsEaten: number = 1) => {
     updateDayPlanInFirestore(day, (currentDayPlan) => {
-      const newRecipeInstance: RecipeInstance = { ...droppedRecipe, instanceId: self.crypto.randomUUID(), servingsEaten: 1 };
+      const newRecipeInstance: RecipeInstance = { ...droppedRecipe, instanceId: self.crypto.randomUUID(), servingsEaten };
       return {
         ...currentDayPlan,
         meals: currentDayPlan.meals.map(meal =>
@@ -83,15 +104,24 @@ export function useWeekPlanState() {
   const handleUpdateMealTitle = useCallback((day: string, mealId: string, newTitle: string) => {
     updateDayPlanInFirestore(day, (currentDayPlan) => ({
       ...currentDayPlan,
-      meals: currentDayPlan.meals.map(meal => 
+      meals: currentDayPlan.meals.map(meal =>
         meal.id === mealId ? { ...meal, title: newTitle } : meal
+      )
+    }));
+  }, [updateDayPlanInFirestore]);
+
+  const handleUpdateMealTypes = useCallback((day: string, mealId: string, mealTypes: MealCategory[]) => {
+    updateDayPlanInFirestore(day, (currentDayPlan) => ({
+      ...currentDayPlan,
+      meals: currentDayPlan.meals.map(meal =>
+        meal.id === mealId ? { ...meal, mealTypes } : meal
       )
     }));
   }, [updateDayPlanInFirestore]);
 
   const handleAddMeal = useCallback((day: string, index: number) => {
     updateDayPlanInFirestore(day, (currentDayPlan) => {
-      const newMeal: Meal = { id: `meal-${self.crypto.randomUUID()}`, title: 'Nueva Comida', recipes: [] };
+      const newMeal: Meal = { id: `meal-${self.crypto.randomUUID()}`, title: 'Nueva Comida', recipes: [], mealTypes: ['otro'] };
       const updatedMeals = [...currentDayPlan.meals];
       updatedMeals.splice(index, 0, newMeal);
       return { ...currentDayPlan, meals: updatedMeals };
@@ -145,6 +175,7 @@ export function useWeekPlanState() {
     handleClearWeek,
     handleRemoveRecipeFromMeal,
     handleUpdateMealTitle,
+    handleUpdateMealTypes,
     handleAddMeal,
     handleDeleteMeal,
     handleUpdateServingsEaten,

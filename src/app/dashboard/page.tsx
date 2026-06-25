@@ -8,27 +8,25 @@ import { StickyNote } from '@/components/nutri-planner/sticky-note';
 import { FloatingGoals } from '@/components/nutri-planner/floating-goals';
 import { ShoppingListSheet } from '@/components/nutri-planner/shopping-list';
 import { FloatingMenu } from '@/components/nutri-planner/floating-menu';
-import { RecipeChatDialog } from '@/components/nutri-planner/recipe-chat-dialog';
 import { RecipeSelectionDialog } from '@/components/nutri-planner/recipe-selection-dialog';
 import { EmptyFridgeScanner } from '@/components/nutri-planner/empty-fridge-scanner';
-import { OnboardingTour } from '@/components/nutri-planner/onboarding-tour';
+import { WelcomeGuide } from '@/components/nutri-planner/welcome-guide';
+import { AssistantDialog } from '@/components/nutri-planner/assistant-dialog';
 import { RecipeImportDialog } from '@/components/nutri-planner/recipe-import-dialog';
 import { AutocompletePreferencesDialog } from '@/components/nutri-planner/autocomplete-preferences-dialog';
 
 export default function DashboardPage() {
   const {
     // Recipe state
-    currentUserRecipes, nutriplannerRecipes, currentFolders, globalFolders, isSaving,
+    currentUserRecipes, nutriplannerRecipes, isSaving,
     handleSaveRecipe, handleDeleteRecipe, handleCopyRecipe,
-    handleFolderCreate, handleFolderDelete, handleFolderUpdate, handleAssignRecipeToFolder,
-    handleGlobalFolderCreate, handleGlobalFolderDelete, handleGlobalFolderUpdate, handleAssignRecipeToGlobalFolder,
     // Week plan state
     currentWeekPlan, dailyTotals,
     handleDrop, handleClearMeal, handleClearDay, handleClearWeek, handleRemoveRecipeFromMeal,
-    handleUpdateMealTitle, handleAddMeal, handleDeleteMeal, handleUpdateServingsEaten,
+    handleUpdateMealTitle, handleUpdateMealTypes, handleAddMeal, handleDeleteMeal, handleUpdateServingsEaten,
     // User profile state
-    currentStickyNote, currentCalorieResult, activeGoalMacros, currentShoppingList, activeGoal,
-    handleNoteSave, handleCalorieResultSave, handleActiveGoalChange, handleSaveCustomGoal, handleShoppingListUpdate,
+    currentStickyNote, currentCalorieResult, activeGoalMacros, currentShoppingList, currentDietPreference, activeGoal,
+    handleNoteSave, handleCalorieResultSave, handleActiveGoalChange, handleSaveCustomGoal, handleShoppingListUpdate, handleDietPreferenceChange,
     // UI state
     dialogState, activePanel, activeDropTarget, setActiveDropTarget,
     isRecipeSelectorOpen, setIsRecipeSelectorOpen, selectedMealForAddition,
@@ -56,6 +54,7 @@ export default function DashboardPage() {
             onRecipeClick={(recipe) => handleRecipeAction('view', recipe)}
             onRemoveRecipeFromMeal={handleRemoveRecipeFromMeal}
             onUpdateMealTitle={handleUpdateMealTitle}
+            onUpdateMealTypes={handleUpdateMealTypes}
             onAddMeal={handleAddMeal}
             onDeleteMeal={handleDeleteMeal}
             activeDropTarget={activeDropTarget}
@@ -70,23 +69,13 @@ export default function DashboardPage() {
           <RecipeLibrary
             userRecipes={currentUserRecipes}
             nutriplannerRecipes={nutriplannerRecipes}
-            folders={currentFolders}
-            globalFolders={globalFolders}
             onRecipeAction={handleRecipeAction}
             onCopyRecipe={handleCopyRecipe}
             onAddToPlan={handleAddToPlan}
-            onFolderCreate={handleFolderCreate}
-            onFolderUpdate={handleFolderUpdate}
-            onFolderDelete={handleFolderDelete}
-            onAssignRecipeToFolder={handleAssignRecipeToFolder}
-            onGlobalFolderCreate={handleGlobalFolderCreate}
-            onGlobalFolderUpdate={handleGlobalFolderUpdate}
-            onGlobalFolderDelete={handleGlobalFolderDelete}
-            onAssignRecipeToGlobalFolder={handleAssignRecipeToGlobalFolder}
-            onAiRecipeGenerated={handleAiRecipeGenerated}
-            onAiChatOpen={() => handlePanelOpen('ai-chat')}
+            onAssistantOpen={() => handlePanelOpen('assistant')}
             onEmptyFridgeOpen={() => handlePanelOpen('empty-fridge')}
             onRecipeImportOpen={() => handlePanelOpen('recipe-import')}
+            dietPreference={currentDietPreference}
           />
         </div>
       </div>
@@ -94,8 +83,6 @@ export default function DashboardPage() {
       <RecipeDialog
         dialogState={dialogState}
         isSaving={isSaving}
-        folders={currentFolders}
-        globalFolders={globalFolders}
         onClose={handleDialogClose}
         onSave={handleInternalSaveRecipe}
         onDelete={handleInternalDeleteRecipe}
@@ -105,7 +92,24 @@ export default function DashboardPage() {
 
       <FloatingMenu onPanelOpen={handlePanelOpen} />
 
-      <OnboardingTour />
+      <WelcomeGuide />
+
+      <AssistantDialog
+        isOpen={activePanel === 'assistant'}
+        onClose={() => handlePanelChange('assistant', false)}
+        weekPlan={currentWeekPlan}
+        userRecipes={currentUserRecipes}
+        nutriplannerRecipes={nutriplannerRecipes}
+        activeGoalMacros={activeGoalMacros || null}
+        dietPreference={currentDietPreference}
+        onDrop={handleDrop}
+        onClearMeal={handleClearMeal}
+        onClearDay={handleClearDay}
+        onClearWeek={handleClearWeek}
+        onAutocomplete={handleAutocompleteWeek}
+        onSetGoal={handleActiveGoalChange}
+        onCreateRecipe={handleAiRecipeGenerated}
+      />
 
       <AutocompletePreferencesDialog
         isOpen={isPreferencesDialogOpen}
@@ -113,13 +117,6 @@ export default function DashboardPage() {
         onConfirm={handleRunAutocomplete}
         isLoading={isAutocompleting}
         hasGoal={!!activeGoalMacros}
-      />
-
-      <RecipeChatDialog
-        isOpen={activePanel === 'ai-chat'}
-        onClose={() => handlePanelChange('ai-chat', false)}
-        onRecipeGenerated={handleAiRecipeGenerated}
-        nutritionalGoal={activeGoalMacros || null}
       />
 
       <EmptyFridgeScanner
@@ -153,6 +150,8 @@ export default function DashboardPage() {
         onGoalSelect={handleActiveGoalChange}
         onSaveCustomGoal={handleSaveCustomGoal}
         activeGoal={activeGoal || null}
+        dietPreference={currentDietPreference}
+        onDietPreferenceChange={handleDietPreferenceChange}
       />
 
       <StickyNote

@@ -1,16 +1,21 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRecipeState } from '@/hooks/use-recipe-state';
+import { useWeekPlanState } from '@/hooks/use-week-plan-state';
+import { useUserProfileState } from '@/hooks/use-user-profile-state';
 import { MobileRecipesPageContent } from '@/components/nutri-planner/mobile-recipes-page-content';
 import { Logo } from '@/components/icons/logo';
 import { useUser } from '@/firebase';
 import { Button } from '@/components/ui/button';
-import { Plus, Sparkles } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { RecipeDialog, DialogState } from '@/components/nutri-planner/recipe-dialog';
-import { RecipeChatDialog } from '@/components/nutri-planner/recipe-chat-dialog';
-import type { Recipe } from '@/lib/types';
+import { AssistantDialog } from '@/components/nutri-planner/assistant-dialog';
+import { autocompleteWeek } from '@/ai/flows/autocomplete-flow';
+import { getAiErrorMessage } from '@/lib/ai-error';
+import { useToast } from '@/hooks/use-toast';
+import type { Recipe, AiIngredientEstimate } from '@/lib/types';
 
 const MobilePageLoader = () => (
     <div className="flex items-center justify-center h-full">
@@ -23,6 +28,7 @@ const MobilePageLoader = () => (
 
 function MobileRecipesWrapper() {
     const router = useRouter();
+    const { toast } = useToast();
     const { user, loading: userLoading } = useUser();
 
     useEffect(() => {
@@ -32,34 +38,54 @@ function MobileRecipesWrapper() {
     }, [userLoading, user, router]);
 
     const recipeState = useRecipeState();
+    const weekPlanState = useWeekPlanState();
+    const profileState = useUserProfileState();
 
     const [dialogState, setDialogState] = useState<DialogState>({ open: false });
-    const [activePanel, setActivePanel] = useState<'ai-chat' | null>(null);
+    const [isAssistantOpen, setIsAssistantOpen] = useState(false);
 
-    const handleAiRecipeGenerated = (recipe: Omit<Recipe, 'id'>) => {
+    const handleAiRecipeGenerated = (recipe: Omit<Recipe, 'id'>, aiIngredients?: AiIngredientEstimate[]) => {
         setDialogState({
             open: true,
             mode: 'create',
             recipe: recipe as Recipe,
+            aiIngredients,
         });
     };
-    
+
     const handleSaveRecipe = async (recipeData: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
         await recipeState.handleSaveRecipe(recipeData, imageFile, isGlobal, existingId);
         setDialogState({ open: false });
     };
 
-    const handlePanelOpen = (panel: 'goals' | 'shopping-list' | 'sticky-note' | 'ai-chat') => {
-        if (panel === 'ai-chat') {
-            setActivePanel(activePanel === 'ai-chat' ? null : 'ai-chat');
-        } else if (panel === 'shopping-list') {
-            router.push('/mobile/shopping-list');
+    // Mobile has no autocomplete-preferences dialog, so the assistant's
+    // `autocomplete_week` action runs the flow directly with sensible defaults.
+    const handleAutocomplete = useCallback(async () => {
+        try {
+            const availableRecipes = [...recipeState.currentUserRecipes, ...recipeState.nutriplannerRecipes];
+            const placements = await autocompleteWeek({
+                weekPlan: weekPlanState.currentWeekPlan,
+                availableRecipes,
+                activeGoal: profileState.activeGoalMacros || null,
+                preferences: {
+                    allowRepetition: 'max_twice',
+                    priority: profileState.activeGoalMacros ? 'goal' : 'protein',
+                    dietaryRestrictions: '',
+                    goalMarginPercent: 15,
+                    diet: profileState.currentDietPreference,
+                },
+            });
+            if (Array.isArray(placements)) {
+                placements.forEach(p => {
+                    const recipe = availableRecipes.find(r => r.id === p.recipeId);
+                    if (recipe) weekPlanState.handleDrop(p.day, p.mealId, recipe, p.servings);
+                });
+                toast({ title: 'Semana autocompletada', description: 'Se han rellenado los huecos vacíos de tu planificador.' });
+            }
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Error al autocompletar', description: getAiErrorMessage(e, 'No se pudo generar el plan semanal.') });
         }
-    }
-  
-    const handlePanelChange = (panel: 'ai-chat', isOpen: boolean) => {
-      setActivePanel(isOpen ? panel : null);
-    }
+    }, [recipeState.currentUserRecipes, recipeState.nutriplannerRecipes, weekPlanState, profileState, toast]);
 
     if (userLoading) {
         return <MobilePageLoader />;
@@ -69,8 +95,7 @@ function MobileRecipesWrapper() {
         <>
             <MobileRecipesPageContent
                 {...recipeState}
-                onAiRecipeGenerated={handleAiRecipeGenerated}
-                onAiChatOpen={() => handlePanelOpen('ai-chat')}
+                onAssistantOpen={() => setIsAssistantOpen(true)}
             />
             <div className="fixed bottom-20 right-4 z-40 flex flex-col gap-3">
                 <Button className="rounded-full h-14 w-14 shadow-lg" size="icon" onClick={() => setDialogState({ open: true, mode: 'create' })}>
@@ -80,8 +105,6 @@ function MobileRecipesWrapper() {
             <RecipeDialog
                 dialogState={dialogState}
                 isSaving={recipeState.isSaving}
-                folders={recipeState.currentFolders}
-                globalFolders={[]}
                 onClose={() => setDialogState({ open: false })}
                 onSave={handleSaveRecipe}
                 onDelete={recipeState.handleDeleteRecipe}
@@ -89,11 +112,21 @@ function MobileRecipesWrapper() {
                 onCopy={recipeState.handleCopyRecipe}
                 isMobile
             />
-            <RecipeChatDialog
-                isOpen={activePanel === 'ai-chat'}
-                onClose={() => handlePanelChange('ai-chat', false)}
-                onRecipeGenerated={handleAiRecipeGenerated}
-                nutritionalGoal={null} // Mobile view does not have active goals context, can be added later
+            <AssistantDialog
+                isOpen={isAssistantOpen}
+                onClose={() => setIsAssistantOpen(false)}
+                weekPlan={weekPlanState.currentWeekPlan}
+                userRecipes={recipeState.currentUserRecipes}
+                nutriplannerRecipes={recipeState.nutriplannerRecipes}
+                activeGoalMacros={profileState.activeGoalMacros || null}
+                dietPreference={profileState.currentDietPreference}
+                onDrop={weekPlanState.handleDrop}
+                onClearMeal={weekPlanState.handleClearMeal}
+                onClearDay={weekPlanState.handleClearDay}
+                onClearWeek={weekPlanState.handleClearWeek}
+                onAutocomplete={handleAutocomplete}
+                onSetGoal={profileState.handleActiveGoalChange}
+                onCreateRecipe={handleAiRecipeGenerated}
             />
         </>
     );

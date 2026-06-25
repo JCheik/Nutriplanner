@@ -13,25 +13,17 @@ import { useWeekPlanState } from '@/hooks/use-week-plan-state';
 type PlannerState = ReturnType<typeof useRecipeState>;
 
 interface MobileRecipesPageContentProps extends PlannerState {
-    onAiRecipeGenerated: (recipe: Omit<Recipe, 'id'>) => void;
-    onAiChatOpen: () => void;
+    onAssistantOpen: () => void;
 }
 
 export function MobileRecipesPageContent({
     currentUserRecipes,
     nutriplannerRecipes,
-    currentFolders,
-    globalFolders,
     isSaving,
     handleCopyRecipe,
     handleSaveRecipe,
     handleDeleteRecipe,
-    handleFolderCreate,
-    handleFolderUpdate,
-    handleFolderDelete,
-    handleAssignRecipeToFolder,
-    onAiRecipeGenerated,
-    onAiChatOpen,
+    onAssistantOpen,
 }: MobileRecipesPageContentProps) {
     const router = useRouter();
     const { toast } = useToast();
@@ -80,21 +72,10 @@ export function MobileRecipesPageContent({
                 <RecipeLibrary
                     userRecipes={currentUserRecipes}
                     nutriplannerRecipes={nutriplannerRecipes}
-                    folders={currentFolders}
-                    globalFolders={globalFolders}
                     onRecipeAction={handleRecipeAction}
                     onCopyRecipe={handleCopyRecipe}
                     onAddToPlan={handleAddToPlan}
-                    onFolderCreate={handleFolderCreate}
-                    onFolderUpdate={handleFolderUpdate}
-                    onFolderDelete={handleFolderDelete}
-                    onAssignRecipeToFolder={handleAssignRecipeToFolder}
-                    onGlobalFolderCreate={() => {}} // No admin features on mobile
-                    onGlobalFolderUpdate={() => {}}
-                    onGlobalFolderDelete={() => {}}
-                    onAssignRecipeToGlobalFolder={() => {}}
-                    onAiRecipeGenerated={onAiRecipeGenerated}
-                    onAiChatOpen={onAiChatOpen}
+                    onAssistantOpen={onAssistantOpen}
                     isMobile={true}
                     initialViewMode="grid"
                 />
@@ -102,8 +83,6 @@ export function MobileRecipesPageContent({
             <RecipeDialog
                 dialogState={dialogState}
                 isSaving={isSaving}
-                folders={currentFolders}
-                globalFolders={globalFolders}
                 onClose={handleDialogClose}
                 onSave={handleInternalSave}
                 onDelete={handleInternalDelete}

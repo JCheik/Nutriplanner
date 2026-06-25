@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useUser, useDoc, useFirebase, useMemoFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import type { UserProfile, CalculationResult, GoalType, ShoppingListItem } from '@/lib/types';
+import type { UserProfile, CalculationResult, GoalType, ShoppingListItem, DietTag } from '@/lib/types';
 
 export function useUserProfileState() {
   const { user } = useUser();
@@ -31,6 +31,7 @@ export function useUserProfileState() {
   const currentCalorieResult = useMemo(() => userProfile?.calorieResult || null, [userProfile]);
   const activeGoalMacros = useMemo(() => currentCalorieResult && activeGoal ? currentCalorieResult[activeGoal] : null, [currentCalorieResult, activeGoal]);
   const currentShoppingList = useMemo(() => userProfile?.shoppingList || [], [userProfile]);
+  const currentDietPreference = useMemo(() => userProfile?.dietPreference || [], [userProfile]);
 
   // --- Handlers ---
   // NOTE: we use setDoc(..., { merge: true }) instead of updateDoc everywhere so
@@ -86,16 +87,26 @@ export function useUserProfileState() {
     }
   }, [userProfileRef]);
 
+  const handleDietPreferenceChange = useCallback(async (diets: DietTag[]) => {
+    if (userProfileRef) {
+      try {
+        await setDoc(userProfileRef, { dietPreference: diets }, { merge: true });
+      } catch(e) { console.error("Error saving diet preference", e) }
+    }
+  }, [userProfileRef]);
+
   return {
     currentStickyNote,
     currentCalorieResult,
     activeGoalMacros,
     currentShoppingList,
+    currentDietPreference,
     activeGoal,
     handleNoteSave,
     handleCalorieResultSave,
     handleActiveGoalChange,
     handleSaveCustomGoal,
     handleShoppingListUpdate,
+    handleDietPreferenceChange,
   };
 }

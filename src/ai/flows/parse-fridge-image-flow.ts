@@ -4,12 +4,11 @@ import { ai, GEMINI_MODEL } from '@/ai/genkit';
 import { z } from 'zod';
 import { RecipeSchema } from '@/lib/types';
 
-// Define recipe schema matching the one in recipe-chat-flow
+// Recipe shape the model returns (the canonical RecipeSchema minus app-assigned fields).
 const RecipeArraySchema = z.array(
-  RecipeSchema.omit({ 
-    id: true, 
-    folderId: true,
-    imageUrl: true, 
+  RecipeSchema.omit({
+    id: true,
+    imageUrl: true,
   })
 );
 

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import type { DialogState as DialogStateBase, Recipe, Ingredient, Folder, GlobalFolder, BaseIngredient } from '@/lib/types';
+import type { DialogState as DialogStateBase, Recipe, Ingredient, BaseIngredient, MealCategory, DietTag, AiIngredientEstimate } from '@/lib/types';
+import { MEAL_CATEGORIES, MEAL_CATEGORY_LABELS, DIET_TAGS, DIET_TAG_LABELS } from '@/lib/constants';
 import { useUser, useFirestore, useMemoFirebase } from '@/firebase/index';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { addDoc } from 'firebase/firestore';
@@ -19,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, Plus, Copy, Search, Image as ImageIcon, UploadCloud, Globe, Folder as FolderIcon } from 'lucide-react';
+import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, Plus, Copy, Search, Image as ImageIcon, UploadCloud, Globe, AlertTriangle } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,14 +33,15 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { NewIngredientDialog, EditableIngredient } from './new-ingredient-dialog';
+import { MissingIngredientRow, type ReviewIngredient, type ReviewMacroField } from './ingredient-review';
 import { Card, CardContent } from '../ui/card';
 import Image from 'next/image';
 import { Switch } from '../ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { normalizeText, cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { CookingModeDialog } from './cooking-mode-dialog';
 import { ChefHat } from 'lucide-react';
+import { FeatureHint } from './feature-hint';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // matches storage.rules limit
 
@@ -48,8 +50,6 @@ export type DialogState = DialogStateBase;
 interface RecipeDialogProps {
   dialogState: DialogState;
   isSaving?: boolean;
-  folders?: Folder[];
-  globalFolders?: GlobalFolder[];
   onClose: () => void;
   onSave?: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void;
   onDelete?: (recipeId: string, isGlobal: boolean) => void;
@@ -66,7 +66,7 @@ const MacroDisplay = ({ label, value, unit, icon: Icon }: { label: string, value
   </div>
 );
 
-function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitiallyGlobal = false, isSaving, onSave, onCancel, onDelete }: { recipe?: Partial<Recipe>, folders: Folder[], globalFolders: GlobalFolder[], isInitiallyGlobal?: boolean, isSaving: boolean, onSave: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void, onCancel: () => void, onDelete: (id: string, isGlobal: boolean) => void }) {
+function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngredients, isSaving, onSave, onCancel, onDelete }: { recipe?: Partial<Recipe>, isInitiallyGlobal?: boolean, aiIngredients?: AiIngredientEstimate[], isSaving: boolean, onSave: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void, onCancel: () => void, onDelete: (id: string, isGlobal: boolean) => void }) {
   const isEditing = !!initialRecipe && !!initialRecipe.id;
   const { user, isAdmin } = useUser();
   const firestore = useFirestore();
@@ -91,8 +91,9 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
   const [imageUrl, setImageUrl] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [saveAsGlobal, setSaveAsGlobal] = useState(isInitiallyGlobal);
-  const [folderId, setFolderId] = useState<string>('none');
   const [servings, setServings] = useState(1);
+  const [category, setCategory] = useState<MealCategory[]>([]);
+  const [dietTags, setDietTags] = useState<DietTag[]>([]);
   
   const [isNewIngredientOpen, setIsNewIngredientOpen] = useState(false);
 
@@ -111,10 +112,11 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
         unit: ing.unit,
     })) || []);
     setImageUrl(initialRecipe?.imageUrl || '');
-    setFolderId(initialRecipe?.folderId || 'none');
     setSaveAsGlobal(isInitiallyGlobal);
     setImageFile(null);
     setServings(initialRecipe?.servings ?? 1);
+    setCategory(initialRecipe?.category ?? []);
+    setDietTags(initialRecipe?.dietTags ?? []);
   }, [initialRecipe, isInitiallyGlobal]);
 
   useEffect(() => {
@@ -137,28 +139,131 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
     }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
   }, [ingredients, ingredientDBMap]);
 
+  // Per-100g estimates the AI attached to the generated ingredients, keyed by
+  // normalized name. Empty for manual create/edit (no review shown then).
+  const aiEstimateMap = useMemo(() => {
+    const map = new Map<string, AiIngredientEstimate>();
+    (aiIngredients ?? []).forEach(e => map.set(normalizeText(e.name), e));
+    return map;
+  }, [aiIngredients]);
+
+  // Recipe ingredients the AI invented that aren't in the user's DB yet. These
+  // are the ones that would otherwise count as 0 kcal — we offer to add them.
+  const missingKeys = useMemo(() => {
+    if (aiEstimateMap.size === 0) return [];
+    const seen = new Set<string>();
+    const keys: { key: string; quantity: number; unit: string }[] = [];
+    ingredients.forEach(ing => {
+      const key = normalizeText(ing.name);
+      if (seen.has(key) || ingredientDBMap.has(key) || !aiEstimateMap.has(key)) return;
+      seen.add(key);
+      keys.push({ key, quantity: ing.quantity, unit: ing.unit });
+    });
+    return keys;
+  }, [ingredients, ingredientDBMap, aiEstimateMap]);
+
+  // Editable review rows for the missing ingredients. Recomputed when the set of
+  // missing ingredients changes, but user edits (toggles/macros) are preserved.
+  const [reviewIngredients, setReviewIngredients] = useState<ReviewIngredient[]>([]);
+  useEffect(() => {
+    setReviewIngredients(prev => {
+      const prevByKey = new Map(prev.map(r => [normalizeText(r.name), r]));
+      return missingKeys.map(({ key, quantity, unit }) => {
+        const existing = prevByKey.get(key);
+        if (existing) return { ...existing, quantity, unit };
+        const est = aiEstimateMap.get(key)!;
+        return {
+          name: est.name,
+          quantity,
+          unit,
+          calories: Math.round(est.calories),
+          protein: Math.round(est.protein),
+          carbs: Math.round(est.carbs),
+          fat: Math.round(est.fat),
+          fiber: Math.round(est.fiber),
+          selected: true,
+          corrected: est.corrected,
+          note: est.note,
+        };
+      });
+    });
+  }, [missingKeys, aiEstimateMap]);
+
+  const toggleReviewSelected = (index: number) =>
+    setReviewIngredients(prev => prev.map((r, i) => (i === index ? { ...r, selected: !r.selected } : r)));
+  const updateReviewMacro = (index: number, field: ReviewMacroField, value: number) =>
+    setReviewIngredients(prev => prev.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
+
   const handleSave = async () => {
     const trimmedName = name.trim();
     if (!trimmedName || !onSave) return;
 
-    // If the DB-calculated totals are zero (e.g. AI-generated ingredients not in the DB),
-    // fall back to the macros that the AI already provided so we don't zero them out.
-    const hasDbMacros = calculatedTotals.calories > 0 || calculatedTotals.protein > 0;
-    const macros = hasDbMacros ? calculatedTotals : {
+    // Persist the new ingredients the user chose to keep, so the recipe's macros
+    // count for real (and stay correct when scaled) instead of summing 0 kcal.
+    // Mirrors the URL import flow.
+    const newIngredients = reviewIngredients.filter(r => r.selected);
+    if (newIngredients.length > 0 && ingredientsCollectionRef && user) {
+      try {
+        await Promise.all(
+          newIngredients.map(r =>
+            addDoc(ingredientsCollectionRef, {
+              name: r.name,
+              calories: r.calories,
+              protein: r.protein,
+              carbs: r.carbs,
+              fat: r.fat,
+              fiber: r.fiber,
+              createdBy: user.uid,
+            })
+          )
+        );
+      } catch (e) {
+        console.error('No se pudieron guardar los ingredientes nuevos:', e);
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron guardar algunos ingredientes nuevos. La receta se guardará igualmente.' });
+      }
+    }
+
+    // Work out the recipe totals to store. For an AI recipe we sum each
+    // ingredient from the DB when present, otherwise from the (possibly edited)
+    // review estimate — so newly added ingredients count even before the DB
+    // listener catches up. Manual recipes use the DB totals, falling back to the
+    // AI-provided ones if nothing resolves.
+    const aiFallback = {
       calories: initialRecipe?.calories ?? 0,
       protein: initialRecipe?.protein ?? 0,
       carbs: initialRecipe?.carbs ?? 0,
       fat: initialRecipe?.fat ?? 0,
     };
+    let macros: { calories: number; protein: number; carbs: number; fat: number };
+    if (aiEstimateMap.size > 0) {
+      const reviewByKey = new Map(reviewIngredients.map(r => [normalizeText(r.name), r]));
+      const totals = ingredients.reduce((acc, ing) => {
+        const key = normalizeText(ing.name);
+        const src = ingredientDBMap.get(key) ?? reviewByKey.get(key);
+        if (src) {
+          const scale = ing.quantity / 100;
+          acc.calories += (src.calories || 0) * scale;
+          acc.protein += (src.protein || 0) * scale;
+          acc.carbs += (src.carbs || 0) * scale;
+          acc.fat += (src.fat || 0) * scale;
+        }
+        return acc;
+      }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+      macros = totals.calories > 0 || totals.protein > 0 ? totals : aiFallback;
+    } else {
+      const hasDbMacros = calculatedTotals.calories > 0 || calculatedTotals.protein > 0;
+      macros = hasDbMacros ? calculatedTotals : aiFallback;
+    }
 
-    const recipeData: Omit<Recipe, 'id' | 'imageUrl'> & { imageUrl?: string; folderId?: string | null } = {
+    const recipeData: Omit<Recipe, 'id' | 'imageUrl'> & { imageUrl?: string } = {
       name: trimmedName,
       description,
       instructions,
       ingredients,
-      folderId: folderId === 'none' ? null : folderId,
       imageHint: initialRecipe?.imageHint,
       servings,
+      category,
+      dietTags,
       ...macros
     };
 
@@ -279,21 +384,67 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
                 {imageFile && <p className="text-xs text-muted-foreground mt-1">Nuevo archivo: {imageFile.name}</p>}
              </div>
             )}
+           <FeatureHint
+              id="recipe-category"
+              title="Categoría y dieta"
+              text="Marca a qué comidas pertenece la receta y qué dietas cumple. La IA lo usa para montar el menú sin equivocarse."
+              side="top"
+              align="start"
+            >
+             <div>
+              <Label>Categoría de comida</Label>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {MEAL_CATEGORIES.map((cat) => {
+                  const isOn = category.includes(cat.value);
+                  return (
+                    <Button
+                      key={cat.value}
+                      type="button"
+                      size="sm"
+                      variant={isOn ? 'default' : 'secondary'}
+                      className="rounded-full h-7 text-xs"
+                      onClick={() => setCategory(prev =>
+                        prev.includes(cat.value)
+                          ? prev.filter(c => c !== cat.value)
+                          : [...prev, cat.value]
+                      )}
+                    >
+                      {cat.label}
+                    </Button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Guía a la IA al montar el menú. Vacío = se puede usar en cualquier comida.
+              </p>
+            </div>
+           </FeatureHint>
            <div>
-              <Label htmlFor="folder">Carpeta</Label>
-              <Select value={folderId} onValueChange={setFolderId}>
-                <SelectTrigger id="folder">
-                  <SelectValue placeholder="Seleccionar carpeta..." />
-                </SelectTrigger>
-                <SelectContent className="bg-glass">
-                  <SelectItem value="none">Sin carpeta</SelectItem>
-                  {(saveAsGlobal ? (globalFolders || []) : (folders || [])).map((folder) => (
-                    <SelectItem key={folder.id} value={folder.id}>
-                      {folder.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Dieta</Label>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {DIET_TAGS.map((diet) => {
+                  const isOn = dietTags.includes(diet.value);
+                  return (
+                    <Button
+                      key={diet.value}
+                      type="button"
+                      size="sm"
+                      variant={isOn ? 'default' : 'secondary'}
+                      className="rounded-full h-7 text-xs"
+                      onClick={() => setDietTags(prev =>
+                        prev.includes(diet.value)
+                          ? prev.filter(d => d !== diet.value)
+                          : [...prev, diet.value]
+                      )}
+                    >
+                      {diet.label}
+                    </Button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Para que la IA respete tu dieta. Vacío = sin restricción dietética.
+              </p>
             </div>
           <div>
             <Label htmlFor="description">Descripción</Label>
@@ -377,6 +528,28 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
                 </Card>
             </div>
 
+            {reviewIngredients.length > 0 && (
+              <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  <span className="text-sm font-medium">Ingredientes nuevos ({reviewIngredients.length})</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  La IA creó estos alimentos pero no están en tu base de datos. Revisa los macros estimados (por 100g) y márcalos para añadirlos; así contarán de verdad en la receta en vez de sumar 0 kcal.
+                </p>
+                <div className="space-y-2">
+                  {reviewIngredients.map((ing, index) => (
+                    <MissingIngredientRow
+                      key={normalizeText(ing.name)}
+                      ing={ing}
+                      onToggle={() => toggleReviewSelected(index)}
+                      onMacroChange={(field, value) => updateReviewMacro(index, field, value)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div>
                  <Label>Totales de la Receta</Label>
                 <div className="grid grid-cols-4 gap-2 text-center mt-1">
@@ -390,8 +563,8 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
                 <div className="flex items-center space-x-2 rounded-lg border border-white/10 p-3">
                     <Globe className="h-5 w-5 text-primary" />
                     <div className="flex-1">
-                        <Label htmlFor="global-recipe-switch">Guardar como receta global de NutriPlanner</Label>
-                        <p className="text-xs text-muted-foreground">La receta será visible para todos los usuarios.</p>
+                        <Label htmlFor="global-recipe-switch">Guardar en el recetario base</Label>
+                        <p className="text-xs text-muted-foreground">Estará disponible para todos los usuarios como receta base.</p>
                     </div>
                     <Switch
                         id="global-recipe-switch"
@@ -440,7 +613,7 @@ function RecipeForm({ recipe: initialRecipe, folders, globalFolders, isInitially
 }
 
 
-function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, isNutriPlannerRecipe, isMobile }: { recipe: Recipe; folders?: Folder[], globalFolders?: GlobalFolder[], onEdit?: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void; onDelete?: (id: string, isGlobal: boolean) => void; onCopy?: (recipe: Recipe) => void; isNutriPlannerRecipe: boolean; isMobile?: boolean; }) {
+function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe, isMobile }: { recipe: Recipe; onEdit?: (recipe: Recipe, isNutriPlannerRecipe?: boolean) => void; onDelete?: (id: string, isGlobal: boolean) => void; onCopy?: (recipe: Recipe) => void; isNutriPlannerRecipe: boolean; isMobile?: boolean; }) {
   const { user, isAdmin } = useUser();
   const firestore = useFirestore();
   const [isCookingModeOpen, setIsCookingModeOpen] = useState(false);
@@ -456,12 +629,6 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
     return map;
   }, [ingredientDB]);
 
-  const folderName = useMemo(() => {
-    if (!recipe.folderId || (!folders && !globalFolders)) return null;
-    const allFolders = [...(folders || []), ...(globalFolders || [])];
-    return allFolders.find(f => f.id === recipe.folderId)?.name;
-  }, [recipe, folders, globalFolders]);
-
   const canEdit = isAdmin || !isNutriPlannerRecipe;
 
   return (
@@ -470,12 +637,16 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
         <DialogTitle className="text-2xl">{recipe.name}</DialogTitle>
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <DialogDescription>{recipe.description}</DialogDescription>
-          {folderName && (
-              <div className="flex items-center gap-1 bg-accent/20 text-accent-foreground/80 px-2 py-1 rounded-md text-xs">
-                <FolderIcon className="h-3 w-3" />
-                <span>{folderName}</span>
-              </div>
-            )}
+          {(recipe.category ?? []).map((cat) => (
+            <span key={cat} className="bg-primary/15 text-primary px-2 py-1 rounded-md text-xs font-medium">
+              {MEAL_CATEGORY_LABELS[cat] ?? cat}
+            </span>
+          ))}
+          {(recipe.dietTags ?? []).map((diet) => (
+            <span key={diet} className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-2 py-1 rounded-md text-xs font-medium">
+              {DIET_TAG_LABELS[diet] ?? diet}
+            </span>
+          ))}
         </div>
       </DialogHeader>
       <div className="grid md:grid-cols-2 gap-6">
@@ -592,7 +763,7 @@ function RecipeView({ recipe, folders, globalFolders, onEdit, onDelete, onCopy, 
 }
 
 
-export function RecipeDialog({ dialogState, isSaving = false, folders, globalFolders, onClose, onSave, onDelete, onEdit, onCopy, isMobile }: RecipeDialogProps) {
+export function RecipeDialog({ dialogState, isSaving = false, onClose, onSave, onDelete, onEdit, onCopy, isMobile }: RecipeDialogProps) {
   if (!dialogState.open) return null;
 
   const isViewMode = dialogState.mode === 'view';
@@ -613,10 +784,8 @@ export function RecipeDialog({ dialogState, isSaving = false, folders, globalFol
         isMobile && "h-[90vh] flex flex-col"
         )}>
         {isViewMode && dialogState.recipe ? (
-          <RecipeView 
-            recipe={dialogState.recipe} 
-            folders={folders}
-            globalFolders={globalFolders}
+          <RecipeView
+            recipe={dialogState.recipe}
             onEdit={handleEdit}
             onDelete={onDelete}
             onCopy={onCopy}
@@ -626,9 +795,8 @@ export function RecipeDialog({ dialogState, isSaving = false, folders, globalFol
         ) : (
           <RecipeForm
             recipe={dialogState.mode === 'edit' || isCreateWithData ? dialogState.recipe : undefined}
-            folders={folders || []}
-            globalFolders={globalFolders || []}
             isInitiallyGlobal={dialogState.mode === 'edit' ? dialogState.isNutriPlannerRecipe : false}
+            aiIngredients={dialogState.mode === 'create' ? dialogState.aiIngredients : undefined}
             isSaving={isSaving}
             onSave={onSave!}
             onCancel={onClose}
