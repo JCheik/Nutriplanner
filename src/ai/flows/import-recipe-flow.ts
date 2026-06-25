@@ -1,6 +1,6 @@
 'use server';
 
-import { ai } from '@/ai/genkit';
+import { ai, GEMINI_MODEL } from '@/ai/genkit';
 import { z } from 'zod';
 
 const ImportRecipeInputSchema = z.object({
@@ -108,7 +108,7 @@ const importRecipeFlow = ai.defineFlow(
     }
 
     const response = await ai.generate({
-      model: 'googleai/gemini-2.5-flash',
+      model: GEMINI_MODEL,
       prompt: promptParts,
       output: { schema: UnifiedRecipeSchema },
     });

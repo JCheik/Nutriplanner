@@ -2,21 +2,21 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    
-    match /recipes/{imageName} {
-      // Allow read access to anyone for the recipes folder
+
+    // Recipe images live at recipes/<uid|global>/<recipeId>.<ext>.
+    // They are uploaded server-side via the Admin SDK (which bypasses these
+    // rules), so direct client writes aren't used in practice; this is
+    // defense-in-depth. Public read is required to render the images.
+    match /recipes/{ownerId}/{imageName} {
       allow read;
-      // Allow write access only to authenticated users, for image files smaller than 5MB
       allow write: if request.auth != null &&
                       request.resource.contentType.matches('image/.*') &&
                       request.resource.size < 5 * 1024 * 1024;
     }
 
-    // A good practice is to explicitly deny access to other paths
-    // while still allowing public read for any other existing files if needed.
+    // Deny everything else by default — no blanket public read.
     match /{allPaths=**} {
-        allow read;
-        allow write: if false;
+        allow read, write: if false;
     }
   }
 }

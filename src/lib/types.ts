@@ -1,4 +1,3 @@
-import { MessageData } from 'genkit';
 import { z } from 'zod';
 
 export interface Macros {
@@ -27,16 +26,16 @@ const IngredientSchema = z.object({
 export type Ingredient = z.infer<typeof IngredientSchema>;
 
 
-export interface Folder {
-  id: string;
-  name: string;
-  userId: string;
-}
+// Meal categories that tag recipes and plan slots. Used only as a GUIDE for the
+// AI autocomplete; manual assignment is never restricted. Keep in sync with
+// MEAL_CATEGORIES in src/lib/constants.ts.
+export const MEAL_CATEGORY_ENUM = ['desayuno', 'almuerzo', 'merienda', 'cena', 'snack', 'postre', 'otro'] as const;
+export type MealCategory = typeof MEAL_CATEGORY_ENUM[number];
 
-export interface GlobalFolder {
-  id: string;
-  name: string;
-}
+// Diet tags a recipe can satisfy. Guide for the AI; empty = no restriction.
+// Keep in sync with DIET_TAGS in src/lib/constants.ts.
+export const DIET_TAG_ENUM = ['omnivora', 'vegetariana', 'vegana', 'keto', 'low_carb', 'sin_gluten', 'sin_lactosa'] as const;
+export type DietTag = typeof DIET_TAG_ENUM[number];
 
 const MacrosSchema = z.object({
   calories: z.number(),
@@ -53,8 +52,11 @@ export const RecipeSchema = MacrosSchema.extend({
   ingredients: z.array(IngredientSchema),
   imageUrl: z.string().optional(),
   imageHint: z.string().optional(),
-  folderId: z.string().nullable().optional(),
   servings: z.number().min(1).optional(),
+  // Meal categories this recipe fits. Empty/undefined = "comodín" (any meal).
+  category: z.array(z.enum(MEAL_CATEGORY_ENUM)).optional(),
+  // Diet tags this recipe satisfies. Empty/undefined = no dietary restriction.
+  dietTags: z.array(z.enum(DIET_TAG_ENUM)).optional(),
 });
 export type Recipe = z.infer<typeof RecipeSchema>;
 
@@ -64,10 +66,29 @@ export interface RecipeInstance extends Recipe {
   servingsEaten: number;
 }
 
+// Per-100g nutritional estimate the AI attaches to a recipe ingredient that may
+// not yet exist in the user's ingredient DB. Lets the recipe dialog offer to add
+// the new ingredients (same UX as URL import). Not persisted on the Recipe.
+export interface AiIngredientEstimate {
+  name: string;
+  // per 100g / 100ml
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+  // The model corrected an implausible estimate against its references.
+  corrected?: boolean;
+  note?: string;
+}
+
 export interface Meal {
   id: string;
   title: string;
   recipes: RecipeInstance[];
+  // Meal types this slot accepts. Drives the AI autocomplete (union of all types
+  // + comodín recipes). Undefined/empty on legacy slots (inferred from title).
+  mealTypes?: MealCategory[];
 }
 
 export interface DayPlan {
@@ -82,9 +103,9 @@ export interface DailyTotal {
   totals: Macros;
 }
 
-export type DialogState = 
+export type DialogState =
   | { open: false }
-  | { open: true; mode: 'create', recipe?: Partial<Recipe>; isNutriPlannerRecipe?: boolean; }
+  | { open: true; mode: 'create', recipe?: Partial<Recipe>; isNutriPlannerRecipe?: boolean; aiIngredients?: AiIngredientEstimate[]; }
   | { open: true; mode: 'view' | 'edit'; recipe: Recipe; isNutriPlannerRecipe?: boolean };
 
 export type SortCriteria = 
@@ -135,6 +156,9 @@ export interface UserProfile {
   calorieResult?: CalculationResult;
   activeGoalPreference?: GoalType;
   shoppingList?: ShoppingListItem[];
+  dietPreference?: DietTag[];
+  // Per-feature onboarding state: key = guide id, value = true once dismissed forever.
+  onboardingFlags?: Record<string, boolean>;
 }
 
 
@@ -153,19 +177,6 @@ export type PanelType =
   | 'goals'
   | 'shopping-list'
   | 'sticky-note'
-  | 'ai-chat'
   | 'empty-fridge'
-  | 'recipe-import';
-
-
-// Types for Recipe Chat Flow
-export const RecipeChatInputSchema = z.object({
-  history: z.array(z.custom<MessageData>()),
-  message: z.string(),
-  generateThree: z.boolean().optional(),
-  nutritionalGoal: MacrosSchema.optional(),
-});
-export type RecipeChatInput = z.infer<typeof RecipeChatInputSchema>;
-
-export const RecipeChatOutputSchema = z.string();
-export type RecipeChatOutput = z.infer<typeof RecipeChatOutputSchema>;
+  | 'recipe-import'
+  | 'assistant';

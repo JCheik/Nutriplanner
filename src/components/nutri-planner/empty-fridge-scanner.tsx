@@ -2,11 +2,12 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { parseFridgeImage } from '@/ai/flows/parse-fridge-image-flow';
-import { getAiErrorMessage } from '@/lib/ai-error';
+import { getAiErrorMessage, isRetryableAiError } from '@/lib/ai-error';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import { 
   Camera, 
   Upload, 
@@ -149,6 +150,9 @@ export function EmptyFridgeScanner({
         variant: 'destructive',
         title: 'Error al escanear',
         description: getAiErrorMessage(error, 'Ocurrió un problema al procesar la imagen de tu nevera. Por favor, intenta de nuevo.'),
+        ...(isRetryableAiError(error) && {
+          action: <ToastAction altText="Reintentar" onClick={handleScan}>Reintentar</ToastAction>,
+        }),
       });
     } finally {
       setIsScanning(false);

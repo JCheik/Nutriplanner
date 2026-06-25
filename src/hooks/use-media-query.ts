@@ -12,17 +12,13 @@ export function useMediaQuery(query: string) {
     }
 
     const media = window.matchMedia(query);
-    if (media.matches !== matches) {
-      setMatches(media.matches);
-    }
+    // Sync immediately in case the query already matches on mount.
+    setMatches(media.matches);
 
-    const listener = () => {
-      setMatches(media.matches);
-    };
-
+    const listener = (e: MediaQueryListEvent) => setMatches(e.matches);
     media.addEventListener('change', listener);
     return () => media.removeEventListener('change', listener);
-  }, [matches, query]);
+  }, [query]);
 
   return matches;
 }

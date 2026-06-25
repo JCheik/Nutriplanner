@@ -18,7 +18,7 @@ import Link from 'next/link';
 export default function AdminRecipesPage() {
     const firestore = useFirestore();
     const { toast } = useToast();
-    const { isSaving, handleSaveRecipe, globalFolders } = useRecipeState();
+    const { isSaving, handleSaveRecipe } = useRecipeState();
 
     const globalRecipesRef = useMemoFirebase(
         () => (firestore ? collection(firestore, 'nutriplanner_recipes') : null),
@@ -130,8 +130,6 @@ export default function AdminRecipesPage() {
             <RecipeDialog
                 dialogState={dialogState}
                 isSaving={isSaving}
-                folders={[]} // No user folders in this context
-                globalFolders={globalFolders}
                 onClose={() => setDialogState({ open: false })}
                 onSave={handleSave}
                 onDelete={handleDelete}

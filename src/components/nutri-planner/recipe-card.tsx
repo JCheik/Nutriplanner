@@ -1,6 +1,6 @@
 'use client';
 
-import type { DragEvent } from 'react';
+import { useState, type DragEvent } from 'react';
 import type { Recipe } from '@/lib/types';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -40,14 +40,18 @@ const MacroItem = ({ icon: Icon, value, unit, colorClass }: { icon: React.Elemen
 
 
 export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isListView = false, onClick, className }: RecipeCardProps) {
+  const [isDragging, setIsDragging] = useState(false);
+
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
     if (!isDraggable) return;
     e.dataTransfer.setData('application/json', JSON.stringify(recipe));
     dragStore.setDraggedRecipe(recipe);
+    setIsDragging(true);
   };
 
   const handleDragEnd = () => {
     dragStore.setDraggedRecipe(null);
+    setIsDragging(false);
   };
 
   if (isListView) {
@@ -59,7 +63,8 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
         onClick={onClick}
         className={cn(
             "group relative w-full overflow-hidden transition-shadow hover:shadow-lg bg-background border",
-            isDraggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
+            isDraggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
+            isDragging && "opacity-50"
         )}
       >
         <div className="flex items-center">
@@ -100,7 +105,8 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
       className={cn(
         "group relative w-full h-full overflow-hidden transition-shadow hover:shadow-lg flex flex-col bg-card",
         isDraggable && "cursor-grab active:cursor-grabbing",
-        !isDraggable && !isCompact && "cursor-pointer"
+        !isDraggable && !isCompact && "cursor-pointer",
+        isDragging && "opacity-50"
       )}
     >
         {isDraggable && (

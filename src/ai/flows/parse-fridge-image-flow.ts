@@ -1,15 +1,14 @@
 'use server';
 
-import { ai } from '@/ai/genkit';
+import { ai, GEMINI_MODEL } from '@/ai/genkit';
 import { z } from 'zod';
 import { RecipeSchema } from '@/lib/types';
 
-// Define recipe schema matching the one in recipe-chat-flow
+// Recipe shape the model returns (the canonical RecipeSchema minus app-assigned fields).
 const RecipeArraySchema = z.array(
-  RecipeSchema.omit({ 
-    id: true, 
-    folderId: true,
-    imageUrl: true, 
+  RecipeSchema.omit({
+    id: true,
+    imageUrl: true,
   })
 );
 
@@ -59,7 +58,7 @@ const parseFridgeImageFlow = ai.defineFlow(
     `;
 
     const response = await ai.generate({
-      model: 'googleai/gemini-2.5-flash',
+      model: GEMINI_MODEL,
       prompt: [
         { text: prompt },
         { media: { url: imageBase64 } }

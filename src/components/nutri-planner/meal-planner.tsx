@@ -2,14 +2,24 @@
 
 import React, { useState, useRef, type DragEvent, type KeyboardEvent } from 'react';
 import html2canvas from 'html2canvas';
-import type { WeekPlan, Recipe, DailyTotal, Macros, GoalMacros, Meal, ActiveDropTarget, RecipeInstance } from '@/lib/types';
+import type { WeekPlan, Recipe, DailyTotal, Macros, GoalMacros, Meal, ActiveDropTarget, RecipeInstance, MealCategory } from '@/lib/types';
+import { MEAL_CATEGORIES } from '@/lib/constants';
+import { mealCalorieRatio, suggestedServings } from '@/lib/serving-utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RecipeCard } from './recipe-card';
 import { Button } from '@/components/ui/button';
 import { CalendarDays, X, Flame, Plus, Edit, Check, Download, Sparkles, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '../ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ChevronDown } from 'lucide-react';
 import { dragStore } from '@/lib/drag-store';
+import { FeatureHint } from './feature-hint';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,13 +36,14 @@ interface MealPlannerProps {
   weekPlan: WeekPlan;
   dailyTotals: DailyTotal[];
   activeGoal: GoalMacros | null;
-  onDrop: (day: string, mealId: string, recipe: Recipe) => void;
+  onDrop: (day: string, mealId: string, recipe: Recipe, servings?: number) => void;
   onClearMeal: (day: string, mealId: string) => void;
   onClearDay: (day: string) => void;
   onClearWeek: () => void;
   onRecipeClick: (recipe: Recipe) => void;
   onRemoveRecipeFromMeal: (day: string, mealId:string, recipeInstanceId: string) => void;
   onUpdateMealTitle: (day: string, mealId: string, newTitle: string) => void;
+  onUpdateMealTypes: (day: string, mealId: string, mealTypes: MealCategory[]) => void;
   onAddMeal: (day: string, index: number) => void;
   onDeleteMeal: (day: string, mealId: string) => void;
   activeDropTarget: ActiveDropTarget | null;
@@ -47,11 +58,13 @@ interface MealSlotProps {
   day: string;
   meal: Meal;
   isEditing: boolean;
-  onDrop: (day: string, mealId: string, recipe: Recipe) => void;
+  activeGoal: GoalMacros | null;
+  onDrop: (day: string, mealId: string, recipe: Recipe, servings?: number) => void;
   onClearMeal: (day: string, mealId: string) => void;
   onRecipeClick: (recipe: Recipe) => void;
   onRemoveRecipeFromMeal: (day: string, mealId: string, recipeInstanceId: string) => void;
   onUpdateMealTitle: (day: string, mealId: string, newTitle: string) => void;
+  onUpdateMealTypes: (day: string, mealId: string, mealTypes: MealCategory[]) => void;
   onDeleteMeal: (day: string, mealId: string) => void;
   isActiveDropTarget: boolean;
   onSetDropTarget: (target: ActiveDropTarget | null) => void;
@@ -165,7 +178,7 @@ function MealRecipeChip({ recipe, day, mealId, onRecipeClick, onRemove, onUpdate
   );
 }
 
-function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onDeleteMeal, isActiveDropTarget, onSetDropTarget, onMealSlotClick, onDragEnterSlot, onDragLeaveSlot, isDragOverSlot, onUpdateServingsEaten }: MealSlotProps) {
+function MealSlot({ day, meal, isEditing, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onUpdateMealTypes, onDeleteMeal, isActiveDropTarget, onSetDropTarget, onMealSlotClick, onDragEnterSlot, onDragLeaveSlot, isDragOverSlot, onUpdateServingsEaten }: MealSlotProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(meal.title);
 
@@ -206,8 +219,11 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
     if (onDragLeaveSlot) onDragLeaveSlot();
     const recipeData = e.dataTransfer.getData('application/json');
     if (recipeData) {
-      const recipe = JSON.parse(recipeData);
-      onDrop(day, meal.id, recipe);
+      const recipe = JSON.parse(recipeData) as Recipe;
+      // Pre-fill the portion so it covers this slot's share of the user's goal.
+      const target = activeGoal ? activeGoal.calories * mealCalorieRatio(meal.mealTypes ?? []) : null;
+      const servings = suggestedServings(recipe, target);
+      onDrop(day, meal.id, recipe, servings);
     }
   };
 
@@ -275,6 +291,44 @@ function MealSlot({ day, meal, isEditing, onDrop, onClearMeal, onRecipeClick, on
           )}
         </div>
       </div>
+
+      {isEditing && (() => {
+        const selected = meal.mealTypes ?? [];
+        const summary = selected.length === 0
+          ? 'Tipo de comida'
+          : selected.map(v => MEAL_CATEGORIES.find(c => c.value === v)?.label ?? v).join(', ');
+        const toggle = (value: MealCategory) => {
+          const next = selected.includes(value)
+            ? selected.filter(v => v !== value)
+            : [...selected, value];
+          onUpdateMealTypes(day, meal.id, next);
+        };
+        return (
+          <div className="px-1 mb-1" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 w-full justify-between text-xs font-normal px-2">
+                  <span className="truncate">{summary}</span>
+                  <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="bg-glass">
+                {MEAL_CATEGORIES.map((cat) => (
+                  <DropdownMenuCheckboxItem
+                    key={cat.value}
+                    checked={selected.includes(cat.value)}
+                    onCheckedChange={() => toggle(cat.value)}
+                    onSelect={(e) => e.preventDefault()}
+                    className="text-xs"
+                  >
+                    {cat.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      })()}
       <div className={cn(
         "rounded-lg p-1 flex-1 flex flex-col items-center justify-center gap-1 relative group transition-colors",
         hasRecipes || isDragOverSlot ? 'bg-transparent' : 'border-2 border-dashed border-border/50 bg-secondary/30'
@@ -323,7 +377,7 @@ function AddMealButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onClearDay, onClearWeek, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget, onMealSlotClick, onAutocomplete, isAutocompleting, onUpdateServingsEaten }: MealPlannerProps) {
+export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onClearDay, onClearWeek, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onUpdateMealTypes, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget, onMealSlotClick, onAutocomplete, isAutocompleting, onUpdateServingsEaten }: MealPlannerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [hoveredSlot, setHoveredSlot] = useState<{day: string, mealId: string} | null>(null);
   const plannerRef = useRef<HTMLDivElement>(null);
@@ -354,16 +408,24 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
             <CardDescription>Arrastra y suelta recetas de tu biblioteca para planificar tu semana.</CardDescription>
         </div>
         <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              className="text-primary border-primary hover:bg-primary/10"
-              onClick={onAutocomplete}
-              disabled={isAutocompleting}
-              data-tour="autocomplete"
+            <FeatureHint
+              id="autocomplete"
+              title="Autocompletar el menú"
+              text="La IA rellena los huecos vacíos respetando el tipo de comida de cada hueco y tu objetivo. Edita un hueco para cambiar su tipo."
+              side="bottom"
+              align="start"
             >
-              <Sparkles className={cn("mr-2 h-4 w-4", isAutocompleting && "animate-spin")} />
-              {isAutocompleting ? 'Pensando...' : 'Autocompletar'}
-            </Button>
+              <Button
+                variant="outline"
+                className="text-primary border-primary hover:bg-primary/10"
+                onClick={onAutocomplete}
+                disabled={isAutocompleting}
+                data-tour="autocomplete"
+              >
+                <Sparkles className={cn("mr-2 h-4 w-4", isAutocompleting && "animate-spin")} />
+                {isAutocompleting ? 'Pensando...' : 'Autocompletar'}
+              </Button>
+            </FeatureHint>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" className="text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive" data-tour="clear-plan">
@@ -441,11 +503,13 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                        day={dayPlan.day}
                        meal={meal}
                        isEditing={isEditing}
+                       activeGoal={activeGoal}
                        onDrop={onDrop}
                        onClearMeal={onClearMeal}
                        onRecipeClick={onRecipeClick}
                        onRemoveRecipeFromMeal={onRemoveRecipeFromMeal}
                        onUpdateMealTitle={onUpdateMealTitle}
+                       onUpdateMealTypes={onUpdateMealTypes}
                        onDeleteMeal={onDeleteMeal}
                        isActiveDropTarget={activeDropTarget?.day === dayPlan.day && activeDropTarget?.mealId === meal.id}
                        onSetDropTarget={onSetDropTarget}

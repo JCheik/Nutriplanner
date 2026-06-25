@@ -45,3 +45,4 @@ firebase-debug.log
 firestore-debug.log
 # dev server log
 dev-out.log
+dev.log

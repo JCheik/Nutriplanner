@@ -17,5 +17,17 @@ export function getAiErrorMessage(error: unknown, fallback: string): string {
       : 'Demasiadas peticiones a la IA. Espera un momento e inténtalo de nuevo.';
   }
 
+  // Missing/invalid API key: not something the user can retry away — surface it
+  // clearly so it's obvious the server is misconfigured (no GEMINI_API_KEY).
+  if (/API[_ ]?key|API_KEY_INVALID|PERMISSION_DENIED|401|403|invalid authentication/i.test(msg)) {
+    return 'El servicio de IA no está configurado correctamente (clave de API ausente o inválida). Contacta con el administrador.';
+  }
+
   return fallback;
+}
+
+/** Returns true if the error is a transient AI error the user can retry. */
+export function isRetryableAiError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error);
+  return /UNAVAILABLE|503|high demand|RESOURCE_EXHAUSTED|429|quota/i.test(msg);
 }

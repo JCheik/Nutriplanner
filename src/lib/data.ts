@@ -4,10 +4,10 @@ import type { Recipe, WeekPlan, Meal, DayPlan, Ingredient } from './types';
 export const NUTRIPLANNER_RECIPES_DATA: Recipe[] = [];
 
 const defaultMeals: Omit<Meal, 'id'>[] = [
-  { title: 'Desayuno', recipes: [] },
-  { title: 'Almuerzo', recipes: [] },
-  { title: 'Merienda', recipes: [] },
-  { title: 'Cena', recipes: [] },
+  { title: 'Desayuno', recipes: [], mealTypes: ['desayuno'] },
+  { title: 'Almuerzo', recipes: [], mealTypes: ['almuerzo'] },
+  { title: 'Merienda', recipes: [], mealTypes: ['merienda'] },
+  { title: 'Cena', recipes: [], mealTypes: ['cena'] },
 ];
 
 const createDayPlan = (day: DayPlan['day']): DayPlan => ({

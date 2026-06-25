@@ -1,14 +1,40 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Suspense } from 'react';
+import { Inter, Playfair_Display, Kalam } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { Logo } from '@/components/icons/logo';
 import { MobileNav } from '@/components/layout/mobile-nav';
+import { ServiceWorkerRegister } from '@/components/pwa/service-worker-register';
+import { InstallPrompt } from '@/components/pwa/install-prompt';
+
+// Self-hosted via next/font: no render-blocking external request and no layout
+// shift (the previous <link> approach triggered next/no-page-custom-font).
+const inter = Inter({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--font-body', display: 'swap' });
+const playfair = Playfair_Display({ subsets: ['latin'], weight: ['700'], variable: '--font-headline', display: 'swap' });
+const kalam = Kalam({ subsets: ['latin'], weight: ['400', '700'], variable: '--font-handwriting', display: 'swap' });
 
 export const metadata: Metadata = {
   title: 'NutriPlanner',
   description: 'Planifica tus comidas, crea recetas y sigue tu nutrición.',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'NutriPlanner',
+  },
+  icons: {
+    icon: '/icons/icon-192x192.png',
+    apple: '/icons/icon-192x192.png',
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#22c55e',
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 };
 
 const Loader = () => (
@@ -27,13 +53,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className="light">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Kalam:wght@400;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet" />
-      </head>
-      <body 
+    <html lang="es" className={`light ${inter.variable} ${playfair.variable} ${kalam.variable}`}>
+      <body
         className="font-body antialiased bg-background kitchen-bg"
       >
         <FirebaseClientProvider>
@@ -42,6 +63,8 @@ export default function RootLayout({
             </Suspense>
           <Toaster />
           <MobileNav />
+          <ServiceWorkerRegister />
+          <InstallPrompt />
         </FirebaseClientProvider>
       </body>
     </html>

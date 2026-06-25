@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import type { Recipe, DialogState, ActiveDropTarget, Meal, PanelType } from '@/lib/types';
+import type { Recipe, DialogState, ActiveDropTarget, Meal, PanelType, AiIngredientEstimate } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useRecipeState } from '@/hooks/use-recipe-state';
 import { useWeekPlanState } from '@/hooks/use-week-plan-state';
@@ -10,6 +10,7 @@ import { useUserProfileState } from '@/hooks/use-user-profile-state';
 import { useUser } from '@/firebase';
 import { autocompleteWeek } from '@/ai/flows/autocomplete-flow';
 import { getAiErrorMessage } from '@/lib/ai-error';
+import { mealCalorieRatio, suggestedServings } from '@/lib/serving-utils';
 import type { AutocompletePreferences } from '@/components/nutri-planner/autocomplete-preferences-dialog';
 
 export function useDashboard() {
@@ -28,20 +29,10 @@ export function useDashboard() {
   const {
     currentUserRecipes,
     nutriplannerRecipes,
-    currentFolders,
-    globalFolders,
     isSaving,
     handleSaveRecipe,
     handleDeleteRecipe,
     handleCopyRecipe,
-    handleFolderCreate,
-    handleFolderDelete,
-    handleFolderUpdate,
-    handleAssignRecipeToFolder,
-    handleGlobalFolderCreate,
-    handleGlobalFolderDelete,
-    handleGlobalFolderUpdate,
-    handleAssignRecipeToGlobalFolder,
   } = recipeState;
 
   const {
@@ -52,6 +43,7 @@ export function useDashboard() {
     handleClearWeek,
     handleRemoveRecipeFromMeal,
     handleUpdateMealTitle,
+    handleUpdateMealTypes,
     handleAddMeal,
     handleDeleteMeal,
     handleUpdateServingsEaten,
@@ -62,12 +54,14 @@ export function useDashboard() {
     currentCalorieResult,
     activeGoalMacros,
     currentShoppingList,
+    currentDietPreference,
     activeGoal,
     handleNoteSave,
     handleCalorieResultSave,
     handleActiveGoalChange,
     handleSaveCustomGoal,
     handleShoppingListUpdate,
+    handleDietPreferenceChange,
   } = userProfileState;
 
   // UI state
@@ -129,7 +123,12 @@ export function useDashboard() {
 
   const handleRecipeSelectionSave = (selectedRecipes: Recipe[]) => {
     if (!selectedMealForAddition || !activeDropTarget) return;
-    selectedRecipes.forEach(recipe => handleDrop(activeDropTarget.day, selectedMealForAddition.id, recipe));
+    const target = activeGoalMacros
+      ? activeGoalMacros.calories * mealCalorieRatio(selectedMealForAddition.mealTypes ?? [])
+      : null;
+    selectedRecipes.forEach(recipe =>
+      handleDrop(activeDropTarget.day, selectedMealForAddition.id, recipe, suggestedServings(recipe, target))
+    );
     setIsRecipeSelectorOpen(false);
     setSelectedMealForAddition(null);
   };
@@ -137,8 +136,8 @@ export function useDashboard() {
   const handlePanelOpen = (panel: PanelType) => setActivePanel(prev => prev === panel ? null : panel);
   const handlePanelChange = (panel: PanelType, isOpen: boolean) => setActivePanel(isOpen ? panel : null);
 
-  const handleAiRecipeGenerated = (recipe: Omit<Recipe, 'id'>) => {
-    setDialogState({ open: true, mode: 'create', recipe: recipe as Recipe });
+  const handleAiRecipeGenerated = (recipe: Omit<Recipe, 'id'>, aiIngredients?: AiIngredientEstimate[]) => {
+    setDialogState({ open: true, mode: 'create', recipe: recipe as Recipe, aiIngredients });
   };
 
   const handleAutocompleteWeek = () => setIsPreferencesDialogOpen(true);
@@ -152,12 +151,12 @@ export function useDashboard() {
         weekPlan: currentWeekPlan,
         availableRecipes,
         activeGoal: activeGoalMacros || null,
-        preferences,
+        preferences: { ...preferences, diet: currentDietPreference },
       });
       if (placements && Array.isArray(placements)) {
         placements.forEach(p => {
           const recipe = availableRecipes.find(r => r.id === p.recipeId);
-          if (recipe) handleDrop(p.day, p.mealId, recipe);
+          if (recipe) handleDrop(p.day, p.mealId, recipe, p.servings);
         });
         toast({ title: 'Semana autocompletada', description: 'Se han rellenado los huecos vacíos de tu planificador.' });
       }
@@ -190,17 +189,15 @@ export function useDashboard() {
 
   return {
     // Recipe state
-    currentUserRecipes, nutriplannerRecipes, currentFolders, globalFolders, isSaving,
+    currentUserRecipes, nutriplannerRecipes, isSaving,
     handleSaveRecipe, handleDeleteRecipe, handleCopyRecipe,
-    handleFolderCreate, handleFolderDelete, handleFolderUpdate, handleAssignRecipeToFolder,
-    handleGlobalFolderCreate, handleGlobalFolderDelete, handleGlobalFolderUpdate, handleAssignRecipeToGlobalFolder,
     // Week plan state
     currentWeekPlan, dailyTotals,
     handleDrop, handleClearMeal, handleClearDay, handleClearWeek, handleRemoveRecipeFromMeal,
-    handleUpdateMealTitle, handleAddMeal, handleDeleteMeal, handleUpdateServingsEaten,
+    handleUpdateMealTitle, handleUpdateMealTypes, handleAddMeal, handleDeleteMeal, handleUpdateServingsEaten,
     // User profile state
-    currentStickyNote, currentCalorieResult, activeGoalMacros, currentShoppingList, activeGoal,
-    handleNoteSave, handleCalorieResultSave, handleActiveGoalChange, handleSaveCustomGoal, handleShoppingListUpdate,
+    currentStickyNote, currentCalorieResult, activeGoalMacros, currentShoppingList, currentDietPreference, activeGoal,
+    handleNoteSave, handleCalorieResultSave, handleActiveGoalChange, handleSaveCustomGoal, handleShoppingListUpdate, handleDietPreferenceChange,
     // UI state
     dialogState, activePanel, activeDropTarget, setActiveDropTarget,
     isRecipeSelectorOpen, setIsRecipeSelectorOpen, selectedMealForAddition,

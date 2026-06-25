@@ -1,4 +1,4 @@
-import { Firestore, doc, runTransaction, writeBatch, setDoc, deleteDoc, collection, getDoc } from 'firebase/firestore';
+import { Firestore, doc, runTransaction, setDoc, deleteDoc, collection, getDoc } from 'firebase/firestore';
 import type { DayPlan, Recipe, Meal, RecipeInstance } from '@/lib/types';
 import { INITIAL_WEEK_PLAN, DAY_ORDER } from '@/lib/data';
 
@@ -63,55 +63,21 @@ export async function deleteRecipeById(
 }
 
 /**
- * Deletes a folder and unlinks all recipes associated with it inside an atomic batch.
- */
-export async function deleteFolderAndUnlinkRecipes(
-  firestore: Firestore,
-  userId: string,
-  folderId: string,
-  isGlobal: boolean,
-  linkedRecipeIds: string[]
-) {
-  const batch = writeBatch(firestore);
-
-  if (isGlobal) {
-    const folderRef = doc(firestore, 'nutriplanner_folders', folderId);
-    batch.delete(folderRef);
-
-    for (const recipeId of linkedRecipeIds) {
-      const recipeRef = doc(firestore, 'nutriplanner_recipes', recipeId);
-      batch.update(recipeRef, { folderId: null });
-    }
-  } else {
-    const folderRef = doc(firestore, 'users', userId, 'folders', folderId);
-    batch.delete(folderRef);
-
-    for (const recipeId of linkedRecipeIds) {
-      const recipeRef = doc(firestore, 'users', userId, 'recipes', recipeId);
-      batch.update(recipeRef, { folderId: null });
-    }
-  }
-
-  await batch.commit();
-}
-
-/**
  * Copies a recipe to a user's collection, ensuring the ID in the data matches the Firestore ID.
  */
 export async function copyRecipeToUser(
   firestore: Firestore,
   userId: string,
-  recipeData: Omit<Recipe, 'id' | 'folderId'>
+  recipeData: Omit<Recipe, 'id'>
 ) {
   const newDocRef = doc(collection(firestore, 'users', userId, 'recipes'));
   const id = newDocRef.id;
-  
-  await setDoc(newDocRef, { 
-    ...recipeData, 
-    id, 
-    folderId: null 
+
+  await setDoc(newDocRef, {
+    ...recipeData,
+    id,
   });
-  
+
   return id;
 }
 

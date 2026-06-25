@@ -1,6 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { listUsers, setUserAdmin, deleteUserAccount } from '@/lib/actions';
+import { useUser } from '@/firebase';
+import { SUPERUSER_EMAIL } from '@/lib/constants';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -30,11 +32,14 @@ export default function AdminUsersPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const { toast } = useToast();
+    const { user } = useUser();
 
     const fetchUsers = async () => {
         setLoading(true);
         try {
-            const result = await listUsers();
+            const token = await user?.getIdToken();
+            if (!token) throw new Error('No autenticado.');
+            const result = await listUsers(token);
             if (result.success && result.users) {
                 setUsers(result.users);
             } else {
@@ -48,13 +53,19 @@ export default function AdminUsersPage() {
     };
 
     useEffect(() => {
-        fetchUsers();
-    }, []);
+        if (user) fetchUsers();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user]);
 
     const handleSetAdmin = async (uid: string, isAdmin: boolean) => {
+        const token = await user?.getIdToken();
+        if (!token) {
+            toast({ variant: 'destructive', title: 'Error', description: 'No autenticado.' });
+            return;
+        }
         // Optimistic update
         setUsers(users.map(u => u.uid === uid ? { ...u, isAdmin } : u));
-        const result = await setUserAdmin(uid, isAdmin);
+        const result = await setUserAdmin(token, uid, isAdmin);
         if (result.success) {
             toast({ title: 'Éxito', description: result.message });
             fetchUsers(); // Re-fetch to ensure sync
@@ -65,7 +76,12 @@ export default function AdminUsersPage() {
     };
 
     const handleDeleteUser = async (uid: string) => {
-        const result = await deleteUserAccount(uid);
+        const token = await user?.getIdToken();
+        if (!token) {
+            toast({ variant: 'destructive', title: 'Error', description: 'No autenticado.' });
+            return;
+        }
+        const result = await deleteUserAccount(token, uid);
         if (result.success) {
             toast({ title: 'Éxito', description: result.message });
             fetchUsers(); // Refresh the user list
@@ -122,7 +138,7 @@ export default function AdminUsersPage() {
                                                     checked={user.isAdmin}
                                                     onCheckedChange={(checked) => handleSetAdmin(user.uid, checked)}
                                                     aria-label="Hacer administrador"
-                                                    disabled={user.email === 'jonicheik@gmail.com'}
+                                                    disabled={user.email === SUPERUSER_EMAIL}
                                                 />
                                             </TableCell>
                                             <TableCell className="text-right">
@@ -139,13 +155,13 @@ export default function AdminUsersPage() {
                                                             <DropdownMenuItem asChild className="cursor-pointer">
                                                                 <Link href={`/admin/users/${user.uid}`}>Ver Detalles</Link>
                                                             </DropdownMenuItem>
-                                                            <DropdownMenuItem onSelect={() => handleSetAdmin(user.uid, !user.isAdmin)} className="cursor-pointer" disabled={user.email === 'jonicheik@gmail.com'}>
+                                                            <DropdownMenuItem onSelect={() => handleSetAdmin(user.uid, !user.isAdmin)} className="cursor-pointer" disabled={user.email === SUPERUSER_EMAIL}>
                                                                 {user.isAdmin ? <UserX className="mr-2 h-4 w-4" /> : <UserCheck className="mr-2 h-4 w-4" />}
                                                                 {user.isAdmin ? 'Quitar Admin' : 'Hacer Admin'}
                                                             </DropdownMenuItem>
                                                             <DropdownMenuSeparator />
                                                             <AlertDialogTrigger asChild>
-                                                                <DropdownMenuItem className="text-destructive cursor-pointer" onSelect={(e) => e.preventDefault()} disabled={user.email === 'jonicheik@gmail.com'}>
+                                                                <DropdownMenuItem className="text-destructive cursor-pointer" onSelect={(e) => e.preventDefault()} disabled={user.email === SUPERUSER_EMAIL}>
                                                                     <Trash2 className="mr-2 h-4 w-4" />
                                                                     Eliminar Usuario
                                                                 </DropdownMenuItem>

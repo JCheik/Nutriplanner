@@ -2,10 +2,12 @@
 import { useState } from 'react';
 import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
-import { LogOut, User as UserIcon, CheckCircle, UserPlus, Shield } from 'lucide-react';
+import { LogOut, User as UserIcon, CheckCircle, UserPlus, Shield, HelpCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, signInWithGoogle, signOut } from '@/firebase/auth/use-user';
 import { useAuth, useFirestore, useFirebaseApp } from '@/firebase/provider';
+import { useResetOnboarding } from '@/hooks/use-onboarding';
+import { useToast } from '@/hooks/use-toast';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +26,14 @@ export function PageHeader({}: PageHeaderProps) {
   const auth = useAuth();
   const firestore = useFirestore();
   const firebaseApp = useFirebaseApp();
-  
+  const resetOnboarding = useResetOnboarding();
+  const { toast } = useToast();
+
+  const handleResetGuides = async () => {
+    await resetOnboarding();
+    toast({ title: 'Guías reactivadas', description: 'Las guías volverán a mostrarse al usar cada función.' });
+  };
+
   const handleSignIn = async () => {
     if (auth && firestore) {
       await signInWithGoogle(auth, firestore);
@@ -70,6 +79,10 @@ export function PageHeader({}: PageHeaderProps) {
                   </Link>
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem onClick={handleResetGuides} className="cursor-pointer">
+                <HelpCircle className="mr-2 h-4 w-4" />
+                <span>Ver guías de nuevo</span>
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Cerrar sesión</span>

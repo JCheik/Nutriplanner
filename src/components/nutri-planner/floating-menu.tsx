@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, Target, ShoppingCart, StickyNoteIcon, Sparkles, Camera, Link2 } from 'lucide-react';
+import { Plus, Target, ShoppingCart, StickyNoteIcon, Camera, Link2, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ElementType } from 'react';
 import type { PanelType } from '@/lib/types';
@@ -15,7 +15,7 @@ const menuItems: { panel: PanelType; icon: ElementType; label: string; color: st
   { panel: 'goals', icon: Target, label: 'Objetivos', color: 'bg-primary hover:bg-primary/90 text-primary-foreground' },
   { panel: 'shopping-list', icon: ShoppingCart, label: 'Compra', color: 'bg-accent hover:bg-accent/90 text-accent-foreground' },
   { panel: 'sticky-note', icon: StickyNoteIcon, label: 'Notas', color: 'bg-secondary hover:bg-secondary/80 text-secondary-foreground' },
-  { panel: 'ai-chat', icon: Sparkles, label: 'Asistente IA', color: 'bg-blue-500 hover:bg-blue-500/90 text-white' },
+  { panel: 'assistant', icon: Wand2, label: 'Asistente', color: 'bg-fuchsia-500 hover:bg-fuchsia-500/90 text-white' },
   { panel: 'empty-fridge', icon: Camera, label: 'Escanear Nevera', color: 'bg-emerald-500 hover:bg-emerald-500/90 text-white' },
   { panel: 'recipe-import', icon: Link2, label: 'Importar URL', color: 'bg-violet-500 hover:bg-violet-500/90 text-white' },
 ];

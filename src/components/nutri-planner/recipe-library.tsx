@@ -1,66 +1,48 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect, type DragEvent, type KeyboardEvent } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import type { Recipe, SortCriteria, Folder, GlobalFolder } from '@/lib/types';
+import type { Recipe, SortCriteria, MealCategory, DietTag } from '@/lib/types';
+import { DIET_TAGS } from '@/lib/constants';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { RecipeCard } from './recipe-card';
-import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Database, Folder as FolderIcon, Plus, Trash2, Folders, Edit, Check, LayoutGrid, List, Sparkles, Camera, Link2 } from 'lucide-react';
+import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Plus, Folders, Edit, LayoutGrid, List, Sparkles, Camera, Link2, MoreVertical, Wand2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn, normalizeText } from '@/lib/utils';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { Label } from '../ui/label';
 import { useUser } from '@/firebase';
+import { FeatureHint } from './feature-hint';
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 
 interface RecipeLibraryProps {
   userRecipes: Recipe[];
   nutriplannerRecipes: Recipe[];
-  folders: Folder[];
-  globalFolders: GlobalFolder[];
   onRecipeAction: (action: 'view' | 'create' | 'edit', recipe?: Recipe, isNutriPlannerRecipe?: boolean) => void;
   onCopyRecipe: (recipe: Recipe) => void;
   onAddToPlan: (recipe: Recipe) => void;
-  onFolderCreate: (name: string) => void;
-  onFolderUpdate: (id: string, name: string) => void;
-  onFolderDelete: (id: string) => void;
-  onAssignRecipeToFolder: (recipeId: string, folderId: string | null) => void;
-  onGlobalFolderCreate: (name: string) => void;
-  onGlobalFolderUpdate: (id: string, name: string) => void;
-  onGlobalFolderDelete: (id: string) => void;
-  onAssignRecipeToGlobalFolder: (recipeId: string, folderId: string | null) => void;
-  onAiChatOpen: () => void;
+  onAssistantOpen: () => void;
   onEmptyFridgeOpen?: () => void;
   onRecipeImportOpen?: () => void;
   isMobile?: boolean;
   initialViewMode?: 'grid' | 'list';
-  onAiRecipeGenerated?: (recipe: Omit<Recipe, 'id'>) => void;
+  dietPreference?: DietTag[];
 }
 
 const sortOptions: { value: SortCriteria; label: string }[] = [
@@ -76,139 +58,71 @@ const sortOptions: { value: SortCriteria; label: string }[] = [
     { value: 'fat-desc', label: 'Grasa (Alta a Baja)' },
 ];
 
-function FolderButton({ 
-  name, 
-  icon: Icon, 
-  onClick, 
-  children, 
-  onUpdate, 
+type SmartCategory = 'desayunos' | 'almuerzos' | 'cenas' | 'snacks' | 'otros';
+
+const SMART_CATEGORY_KEYWORDS: Record<SmartCategory, string[]> = {
+  desayunos: ['desayuno', 'breakfast', 'mañana', 'tostada', 'avena', 'granola', 'yogur', 'smoothie', 'batido', 'porridge', 'crepe', 'pancake', 'tortita', 'muffin'],
+  almuerzos: ['almuerzo', 'comida', 'lunch', 'pasta', 'arroz', 'ensalada', 'sopa', 'wrap', 'bocadillo', 'sandwich', 'bocata'],
+  cenas: ['cena', 'dinner', 'supper', 'crema', 'guiso', 'estofado', 'gratinado'],
+  snacks: ['snack', 'merienda', 'tentempié', 'barrita', 'fruta', 'nuez', 'almendra', 'dátil'],
+  otros: [],
+};
+
+const SMART_CATEGORY_LABELS: Record<SmartCategory, string> = {
+  desayunos: 'Desayunos',
+  almuerzos: 'Almuerzos',
+  cenas: 'Cenas',
+  snacks: 'Snacks',
+  otros: 'Otros',
+};
+
+// Maps the recipe's explicit MealCategory to a sidebar bucket. Merienda/snack/postre
+// all fold into "Snacks"; "otro" into "Otros".
+const MEAL_CATEGORY_TO_SMART: Record<MealCategory, SmartCategory> = {
+  desayuno: 'desayunos',
+  almuerzo: 'almuerzos',
+  cena: 'cenas',
+  merienda: 'snacks',
+  snack: 'snacks',
+  postre: 'snacks',
+  otro: 'otros',
+};
+
+function CategoryButton({
+  name,
+  icon: Icon,
+  onClick,
   isSelected,
-  isEditing,
-  onSetEditing,
-  tempName,
-  onSetTempName,
-  isDroppable,
-  onDragOver,
-  onDragLeave,
-  onDrop
-}: { 
-  name: string; 
-  icon: React.ElementType; 
-  onClick: () => void; 
-  children?: React.ReactNode; 
-  onUpdate?: (name: string) => void;
+  count,
+}: {
+  name: string;
+  icon: React.ElementType;
+  onClick: () => void;
   isSelected: boolean;
-  isEditing: boolean;
-  onSetEditing: (isEditing: boolean) => void;
-  tempName: string;
-  onSetTempName: (name: string) => void;
-  isDroppable: boolean;
-  onDragOver?: (e: DragEvent<HTMLDivElement>) => void;
-  onDragLeave?: (e: DragEvent<HTMLDivElement>) => void;
-  onDrop?: (e: DragEvent<HTMLDivElement>) => void;
+  count?: number;
 }) {
-
-  const handleUpdate = () => {
-    if (tempName.trim() && tempName !== name && onUpdate) {
-      onUpdate(tempName.trim());
-    }
-    onSetEditing(false);
-  };
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') handleUpdate();
-    if (e.key === 'Escape') onSetEditing(false);
-  };
-
   return (
-    <div
-      onDragOver={isDroppable ? onDragOver : undefined}
-      onDragLeave={isDroppable ? onDragLeave : undefined}
-      onDrop={isDroppable ? onDrop : undefined}
-      className={cn('rounded-md transition-colors')}
+    <Button
+      variant="ghost"
+      onClick={onClick}
+      className={cn(
+        "w-full justify-start text-left h-9 pr-1",
+        isSelected && "bg-accent text-accent-foreground"
+      )}
     >
-      <div className="flex items-center justify-between group hover:bg-accent/50 rounded-md">
-        {isEditing ? (
-          <div className="flex items-center w-full p-1 gap-1">
-             <Input 
-                value={tempName}
-                onChange={e => onSetTempName(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onBlur={handleUpdate}
-                autoFocus
-                className="h-7 text-sm"
-              />
-              <Button size="icon" variant="ghost" onClick={handleUpdate} className="h-7 w-7"><Check className="h-4 w-4"/></Button>
-          </div>
-        ) : (
-          <Button 
-            variant="ghost" 
-            onClick={onClick} 
-            className={cn(
-              "w-full justify-start text-left flex-1 h-9", 
-              isSelected && "bg-accent text-accent-foreground"
-            )}
-          >
-            <Icon className="mr-2 h-4 w-4 flex-shrink-0" />
-            <span className="truncate flex-1">{name}</span>
-          </Button>
-        )}
-        
-        {!isEditing && children && (
-          <div className="opacity-0 group-hover:opacity-100 flex items-center">
-            {onUpdate && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { onSetEditing(true); onSetTempName(name); }}><Edit className="h-4 w-4"/></Button>}
-            {children}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-
-function NewFolderPopover({ onFolderCreate }: { onFolderCreate: (name: string) => void }) {
-  const [folderName, setFolderName] = useState('');
-  const [isOpen, setIsOpen] = useState(false);
-
-  const handleCreate = () => {
-    if (folderName.trim()) {
-      onFolderCreate(folderName.trim());
-      setFolderName('');
-      setIsOpen(false);
-    }
-  };
-
-  return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground hover:text-foreground">
-          <Plus className="mr-2 h-4 w-4" />
-          Crear Carpeta
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-60 bg-glass">
-        <div className="grid gap-4">
-          <div className="space-y-2">
-            <h4 className="font-medium leading-none">Nueva Carpeta</h4>
-            <p className="text-sm text-muted-foreground">
-              Dale un nombre a tu nueva carpeta.
-            </p>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="folder-name" className="sr-only">Nombre</Label>
-            <Input
-              id="folder-name"
-              value={folderName}
-              onChange={(e) => setFolderName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-              placeholder="Ej: Desayunos"
-              className="h-9"
-            />
-            <Button onClick={handleCreate} disabled={!folderName.trim()}>Crear</Button>
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
+      <Icon className="mr-2 h-4 w-4 flex-shrink-0" />
+      <span className="truncate flex-1">{name}</span>
+      {count !== undefined && count > 0 && (
+        <span className={cn(
+          "ml-1 shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none",
+          isSelected
+            ? "bg-primary/20 text-primary-foreground/80"
+            : "bg-muted text-muted-foreground"
+        )}>
+          {count}
+        </span>
+      )}
+    </Button>
   );
 }
 
@@ -220,7 +134,7 @@ function getColumnCount(width: number): number {
   return 5;
 }
 
-function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isDraggable, isNutriPlanner = false, isMobile, viewMode }: { recipes: Recipe[], onRecipeClick: (recipe: Recipe, isNutriPlanner?: boolean) => void, onCopyClick?: (recipe: Recipe) => void, onAddToPlanClick?: (recipe: Recipe) => void, isDraggable: boolean, isNutriPlanner?: boolean, isMobile: boolean, viewMode: 'grid' | 'list' }) {
+function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, onEditClick, isDraggable, isNutriPlanner = false, isMobile, viewMode }: { recipes: Recipe[], onRecipeClick: (recipe: Recipe, isNutriPlanner?: boolean) => void, onCopyClick?: (recipe: Recipe) => void, onAddToPlanClick?: (recipe: Recipe) => void, onEditClick?: (recipe: Recipe) => void, isDraggable: boolean, isNutriPlanner?: boolean, isMobile: boolean, viewMode: 'grid' | 'list' }) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [columnCount, setColumnCount] = useState(4);
 
@@ -256,6 +170,7 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isD
   if (recipes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-border rounded-lg h-[250px]">
+        <Search className="h-8 w-8 text-muted-foreground/50 mb-2" />
         <p className="font-semibold">No se encontraron recetas</p>
         <p className="text-sm text-muted-foreground">Prueba a cambiar el filtro o crea una nueva receta.</p>
       </div>
@@ -283,21 +198,43 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isD
                         isDraggable={isDraggable && !isMobile}
                         onClick={() => onRecipeClick(recipe, isNutriPlanner)}
                       />
-                      {onCopyClick && (
-                        <Button variant="ghost" size="icon"
-                          onClick={(e) => { e.stopPropagation(); onCopyClick(recipe); }}
-                          className="absolute top-1 right-1 z-10 h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity bg-background/50 hover:bg-background/80"
-                          aria-label="Copiar a Mis Recetas"
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {onAddToPlanClick && isMobile && (
-                        <Button onClick={(e) => { e.stopPropagation(); onAddToPlanClick(recipe); }}
-                          className="absolute bottom-2 right-2 z-10 h-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" size="sm">
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      )}
+                      {/* Desktop hover action bar */}
+                      <div className="absolute inset-x-0 bottom-0 hidden sm:flex justify-center gap-1 px-2 py-2 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-b-md z-10">
+                        {onAddToPlanClick && (
+                          <Button size="icon" variant="secondary" className="h-7 w-7" title="Añadir al plan"
+                            onClick={(e) => { e.stopPropagation(); onAddToPlanClick(recipe); }}>
+                            <Plus className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        {onCopyClick && (
+                          <Button size="icon" variant="secondary" className="h-7 w-7" title="Copiar receta"
+                            onClick={(e) => { e.stopPropagation(); onCopyClick(recipe); }}>
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        {onEditClick && (
+                          <Button size="icon" variant="secondary" className="h-7 w-7" title="Editar"
+                            onClick={(e) => { e.stopPropagation(); onEditClick(recipe); }}>
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                      {/* Mobile kebab */}
+                      <div className="absolute top-1 right-1 z-10 sm:hidden">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="icon" variant="secondary" className="h-7 w-7 bg-background/70"
+                              onClick={(e) => e.stopPropagation()}>
+                              <MoreVertical className="h-3.5 w-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-glass">
+                            {onAddToPlanClick && <DropdownMenuItem onClick={() => onAddToPlanClick(recipe)}><Plus className="mr-2 h-4 w-4" />Añadir al plan</DropdownMenuItem>}
+                            {onCopyClick && <DropdownMenuItem onClick={() => onCopyClick(recipe)}><Copy className="mr-2 h-4 w-4" />Copiar receta</DropdownMenuItem>}
+                            {onEditClick && <><DropdownMenuSeparator /><DropdownMenuItem onClick={() => onEditClick(recipe)}><Edit className="mr-2 h-4 w-4" />Editar</DropdownMenuItem></>}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -311,21 +248,43 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isD
                         isListView
                         onClick={() => onRecipeClick(recipe, isNutriPlanner)}
                       />
-                      {onCopyClick && (
-                        <Button variant="ghost" size="icon"
-                          onClick={(e) => { e.stopPropagation(); onCopyClick(recipe); }}
-                          className="absolute top-1/2 -translate-y-1/2 right-2 z-10 h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity bg-background/50 hover:bg-background/80"
-                          aria-label="Copiar a Mis Recetas"
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {onAddToPlanClick && isMobile && (
-                        <Button onClick={(e) => { e.stopPropagation(); onAddToPlanClick(recipe); }}
-                          className="absolute top-1/2 -translate-y-1/2 right-12 z-10 h-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" size="sm">
-                          Añadir
-                        </Button>
-                      )}
+                      {/* Desktop hover actions — list view */}
+                      <div className="absolute top-1/2 -translate-y-1/2 right-2 z-10 hidden sm:flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {onAddToPlanClick && (
+                          <Button size="icon" variant="secondary" className="h-7 w-7" title="Añadir al plan"
+                            onClick={(e) => { e.stopPropagation(); onAddToPlanClick(recipe); }}>
+                            <Plus className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        {onCopyClick && (
+                          <Button size="icon" variant="secondary" className="h-7 w-7" title="Copiar receta"
+                            onClick={(e) => { e.stopPropagation(); onCopyClick(recipe); }}>
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        {onEditClick && (
+                          <Button size="icon" variant="secondary" className="h-7 w-7" title="Editar"
+                            onClick={(e) => { e.stopPropagation(); onEditClick(recipe); }}>
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                      {/* Mobile kebab — list view */}
+                      <div className="absolute top-1/2 -translate-y-1/2 right-2 z-10 sm:hidden">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="icon" variant="ghost" className="h-7 w-7"
+                              onClick={(e) => e.stopPropagation()}>
+                              <MoreVertical className="h-3.5 w-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-glass">
+                            {onAddToPlanClick && <DropdownMenuItem onClick={() => onAddToPlanClick(recipe)}><Plus className="mr-2 h-4 w-4" />Añadir al plan</DropdownMenuItem>}
+                            {onCopyClick && <DropdownMenuItem onClick={() => onCopyClick(recipe)}><Copy className="mr-2 h-4 w-4" />Copiar receta</DropdownMenuItem>}
+                            {onEditClick && <><DropdownMenuSeparator /><DropdownMenuItem onClick={() => onEditClick(recipe)}><Edit className="mr-2 h-4 w-4" />Editar</DropdownMenuItem></>}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -338,148 +297,157 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, isD
   );
 }
 
-const FolderSection = ({
-  folders,
-  globalFolders,
-  activeTab,
-  isAdmin,
-  selectedFolderId,
-  setSelectedFolderId,
-  editingFolderId,
-  setEditingFolderId,
-  editingFolderName,
-  setEditingFolderName,
-  onFolderUpdate,
-  onGlobalFolderUpdate,
-  onFolderDelete,
-  onGlobalFolderDelete,
-  onFolderCreate,
-  onGlobalFolderCreate,
-  handleDragOver,
-  handleDragLeave,
-  handleDrop,
-}: any) => {
-  const currentFolders = activeTab === 'user-recipes' ? folders : globalFolders;
+const CategorySection = ({
+  totalCount,
+  selectedCategory,
+  onSelectCategory,
+  smartCategories,
+  smartCategoryLabels,
+}: {
+  totalCount: number;
+  selectedCategory: string | null;
+  onSelectCategory: (cat: string | null) => void;
+  smartCategories: Record<string, Recipe[]>;
+  smartCategoryLabels: Record<string, string>;
+}) => {
+  const smartCatEntries = Object.entries(smartCategories).filter(([, rs]) => rs.length > 0);
 
   return (
     <div className="space-y-1 pr-2">
-      <FolderButton
-        name={activeTab === 'user-recipes' ? "Todas mis Recetas" : "Todas"}
+      <CategoryButton
+        name="Todas las recetas"
         icon={Folders}
-        onClick={() => setSelectedFolderId('all')}
-        isSelected={selectedFolderId === 'all'}
-        isEditing={false} onSetEditing={() => { }} tempName="" onSetTempName={() => { }}
-        isDroppable={false}
+        onClick={() => onSelectCategory(null)}
+        isSelected={selectedCategory === null}
+        count={totalCount}
       />
-      <FolderButton
-        name="Sin Carpeta"
-        icon={FolderIcon}
-        onClick={() => setSelectedFolderId(null)}
-        isSelected={selectedFolderId === null}
-        isEditing={false} onSetEditing={() => { }} tempName="" onSetTempName={() => { }}
-        isDroppable={true}
-        onDragOver={(e) => handleDragOver(e)}
-        onDragLeave={handleDragLeave}
-        onDrop={(e) => handleDrop(e, null)}
-      />
-      {currentFolders.map((folder: Folder) => (
-        <FolderButton
-          key={folder.id}
-          name={folder.name}
-          icon={FolderIcon}
-          onClick={() => setSelectedFolderId(folder.id)}
-          isSelected={selectedFolderId === folder.id}
-          isEditing={editingFolderId === folder.id}
-          onSetEditing={(isEditing: boolean) => setEditingFolderId(isEditing ? folder.id : null)}
-          tempName={editingFolderName}
-          onSetTempName={setEditingFolderName}
-          onUpdate={(newName: string) => activeTab === 'user-recipes' ? onFolderUpdate(folder.id, newName) : onGlobalFolderUpdate(folder.id, newName)}
-          isDroppable={true}
-          onDragOver={(e) => handleDragOver(e)}
-          onDragLeave={handleDragLeave}
-          onDrop={(e) => handleDrop(e, folder.id)}
-        >
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0">
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent className="bg-glass">
-              <AlertDialogHeader>
-                <AlertDialogTitle>¿Borrar carpeta?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Esto no borrará las recetas. Las recetas de esta carpeta se quedarán sin carpeta. ¿Estás seguro?
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={() => activeTab === 'user-recipes' ? onFolderDelete(folder.id) : onGlobalFolderDelete(folder.id)}>Sí, borrar</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </FolderButton>
-      ))}
-      {(activeTab === 'user-recipes' || (activeTab === 'nutriplanner-recipes' && isAdmin)) && (
-        <NewFolderPopover onFolderCreate={activeTab === 'user-recipes' ? onFolderCreate : onGlobalFolderCreate} />
+      {smartCatEntries.length > 0 && (
+        <>
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-2 pt-2 pb-0.5">
+            Categorías
+          </p>
+          {smartCatEntries.map(([cat, rs]) => (
+            <CategoryButton
+              key={`smart-${cat}`}
+              name={smartCategoryLabels[cat] ?? cat}
+              icon={Sparkles}
+              onClick={() => onSelectCategory(cat)}
+              isSelected={selectedCategory === cat}
+              count={rs.length}
+            />
+          ))}
+        </>
       )}
     </div>
   )
 }
 
-export function RecipeLibrary({ 
-  userRecipes, 
+export function RecipeLibrary({
+  userRecipes,
   nutriplannerRecipes,
-  folders,
-  globalFolders,
   onRecipeAction,
   onCopyRecipe,
   onAddToPlan,
-  onFolderCreate,
-  onFolderUpdate,
-  onFolderDelete,
-  onAssignRecipeToFolder,
-  onGlobalFolderCreate,
-  onGlobalFolderUpdate,
-  onGlobalFolderDelete,
-  onAssignRecipeToGlobalFolder,
-  onAiChatOpen,
+  onAssistantOpen,
   onEmptyFridgeOpen,
   onRecipeImportOpen,
   isMobile = false,
   initialViewMode = 'grid',
+  dietPreference = [],
 }: RecipeLibraryProps) {
   const { isAdmin } = useUser();
-  
+
   const [activeTab, setActiveTab] = useState('user-recipes');
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>('all');
-  
-  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
-  const [editingFolderName, setEditingFolderName] = useState('');
+  // null = "Todas las recetas"; otherwise a smart-category key.
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [categorySheetOpen, setCategorySheetOpen] = useState(false);
 
   const [filterQuery, setFilterQuery] = useState('');
   const [activePillFilters, setActivePillFilters] = useState<string[]>([]);
-  const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>(initialViewMode);
+
+  // Diet filter defaults to the user's saved preference, but the user can override
+  // it. Once they touch it, we stop syncing from the (async-loading) preference.
+  const [activeDietFilters, setActiveDietFilters] = useState<DietTag[]>(dietPreference);
+  const dietTouched = useRef(false);
+  useEffect(() => {
+    if (!dietTouched.current) setActiveDietFilters(dietPreference);
+  }, [dietPreference]);
+  const toggleDietFilter = (diet: DietTag) => {
+    dietTouched.current = true;
+    setActiveDietFilters(prev =>
+      prev.includes(diet) ? prev.filter(d => d !== diet) : [...prev, diet]
+    );
+  };
+
+  // Read persisted prefs from localStorage on mount (runs only in browser).
+  const [sortCriteria, setSortCriteria] = useState<SortCriteria>(() => {
+    if (typeof window === 'undefined') return 'name-asc';
+    try {
+      const saved = JSON.parse(localStorage.getItem('nutriplanner_prefs') ?? '{}');
+      return (saved.sortCriteria as SortCriteria) ?? 'name-asc';
+    } catch { return 'name-asc'; }
+  });
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    if (typeof window === 'undefined') return initialViewMode;
+    try {
+      const saved = JSON.parse(localStorage.getItem('nutriplanner_prefs') ?? '{}');
+      return (saved.viewMode as 'grid' | 'list') ?? initialViewMode;
+    } catch { return initialViewMode; }
+  });
+
+  // Persist prefs whenever they change.
+  useEffect(() => {
+    try {
+      const current = JSON.parse(localStorage.getItem('nutriplanner_prefs') ?? '{}');
+      localStorage.setItem('nutriplanner_prefs', JSON.stringify({ ...current, sortCriteria }));
+    } catch { /* localStorage unavailable */ }
+  }, [sortCriteria]);
+
+  useEffect(() => {
+    try {
+      const current = JSON.parse(localStorage.getItem('nutriplanner_prefs') ?? '{}');
+      localStorage.setItem('nutriplanner_prefs', JSON.stringify({ ...current, viewMode }));
+    } catch { /* localStorage unavailable */ }
+  }, [viewMode]);
 
   const togglePillFilter = (filter: string) => {
-    setActivePillFilters(prev => 
-      prev.includes(filter) 
+    setActivePillFilters(prev =>
+      prev.includes(filter)
         ? prev.filter(f => f !== filter)
         : [...prev, filter]
     );
   };
 
-  const recipesInSelectedFolder = useMemo(() => {
+  // Smart categories — prefer the recipe's explicit category (set by the user),
+  // and only fall back to keyword classification when none is set. No Firestore writes.
+  // Must be declared before recipesInSelectedFolder which references smartCategories.
+  const classifyRecipe = useCallback((recipe: Recipe): SmartCategory => {
+    const explicit = recipe.category ?? [];
+    if (explicit.length > 0) {
+      return MEAL_CATEGORY_TO_SMART[explicit[0]] ?? 'otros';
+    }
+    const haystack = `${recipe.name} ${(recipe.ingredients ?? []).map((i: { name: string }) => i.name).join(' ')}`.toLowerCase();
+    for (const [cat, keywords] of Object.entries(SMART_CATEGORY_KEYWORDS) as [SmartCategory, string[]][]) {
+      if (keywords.some((kw: string) => haystack.includes(kw))) return cat;
+    }
+    return 'otros';
+  }, []);
+
+  const smartCategories = useMemo<Record<SmartCategory, Recipe[]>>(() => {
     const sourceRecipes = activeTab === 'user-recipes' ? userRecipes : nutriplannerRecipes;
-    if (selectedFolderId === 'all') return sourceRecipes;
-    if (selectedFolderId === null) return sourceRecipes.filter(r => !r.folderId);
-    return sourceRecipes.filter(recipe => recipe.folderId === selectedFolderId);
-  }, [userRecipes, nutriplannerRecipes, selectedFolderId, activeTab]);
+    const result: Record<SmartCategory, Recipe[]> = { desayunos: [], almuerzos: [], cenas: [], snacks: [], otros: [] };
+    for (const r of sourceRecipes) result[classifyRecipe(r)].push(r);
+    return result;
+  }, [activeTab, userRecipes, nutriplannerRecipes, classifyRecipe]);
+
+  const recipesInSelectedCategory = useMemo(() => {
+    const sourceRecipes = activeTab === 'user-recipes' ? userRecipes : nutriplannerRecipes;
+    if (selectedCategory) return smartCategories[selectedCategory as SmartCategory] ?? [];
+    return sourceRecipes;
+  }, [userRecipes, nutriplannerRecipes, selectedCategory, smartCategories, activeTab]);
 
   const filteredAndSortedRecipes = useMemo(() => {
-    return (recipesInSelectedFolder || []).filter(recipe => {
-      // 1. Text Search Filter
+    return (recipesInSelectedCategory || []).filter(recipe => {
       const normalizedQuery = normalizeText(filterQuery);
       let textMatch = true;
       if (normalizedQuery) {
@@ -488,7 +456,6 @@ export function RecipeLibrary({
           textMatch = nameMatch || ingredientMatch;
       }
 
-      // 2. Pill Filters
       let pillMatch = true;
       if (activePillFilters.length > 0) {
         if (activePillFilters.includes('Alta en Proteína') && recipe.protein < 30) pillMatch = false;
@@ -497,12 +464,20 @@ export function RecipeLibrary({
         if (activePillFilters.includes('Pocos Ingredientes') && (recipe.ingredients?.length || 0) > 5) pillMatch = false;
       }
 
-      return textMatch && pillMatch;
+      // Diet filter: a recipe passes if no diet is selected, the recipe has no diet
+      // tags (treated as compatible/comodín), or its tags intersect the selection.
+      let dietMatch = true;
+      if (activeDietFilters.length > 0) {
+        const tags = recipe.dietTags ?? [];
+        dietMatch = tags.length === 0 || activeDietFilters.some(d => tags.includes(d));
+      }
+
+      return textMatch && pillMatch && dietMatch;
     }).sort((a, b) => {
       const [key, order] = sortCriteria.split('-') as [keyof Recipe, 'asc' | 'desc'];
       let valA = a[key];
       let valB = b[key];
-      
+
       if (typeof valA === 'string' && typeof valB === 'string') {
         valA = normalizeText(valA);
         valB = normalizeText(valB);
@@ -515,59 +490,53 @@ export function RecipeLibrary({
       if (valA > valB) return order === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [filterQuery, activePillFilters, sortCriteria, recipesInSelectedFolder]);
+  }, [filterQuery, activePillFilters, activeDietFilters, sortCriteria, recipesInSelectedCategory]);
 
+  // Cross-tab search: when query is active, search both collections simultaneously.
+  const crossSearchResults = useMemo(() => {
+    const q = normalizeText(filterQuery);
+    if (!q) return null;
+
+    const matchRecipe = (r: Recipe) => {
+      const nameMatch = normalizeText(r.name).includes(q);
+      const ingMatch = (r.ingredients ?? []).some(i => normalizeText(i.name).includes(q));
+      return nameMatch || ingMatch;
+    };
+
+    const sortFn = (a: Recipe, b: Recipe) => {
+      const [key, order] = sortCriteria.split('-') as [keyof Recipe, 'asc' | 'desc'];
+      let valA = a[key];
+      let valB = b[key];
+      if (typeof valA === 'string' && typeof valB === 'string') {
+        valA = normalizeText(valA);
+        valB = normalizeText(valB);
+      }
+      if (valA === undefined || valA === null) return 1;
+      if (valB === undefined || valB === null) return -1;
+      if (valA < valB) return order === 'asc' ? -1 : 1;
+      if (valA > valB) return order === 'asc' ? 1 : -1;
+      return 0;
+    };
+
+    return {
+      user: userRecipes.filter(matchRecipe).sort(sortFn),
+      nutriplanner: nutriplannerRecipes.filter(matchRecipe).sort(sortFn),
+    };
+  }, [filterQuery, sortCriteria, userRecipes, nutriplannerRecipes]);
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    setSelectedFolderId('all');
-  };
-  
-  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.currentTarget.classList.add('bg-accent/80');
+    setSelectedCategory(null);
   };
 
-  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.currentTarget.classList.remove('bg-accent/80');
-  };
+  const sourceRecipes = activeTab === 'user-recipes' ? userRecipes : nutriplannerRecipes;
 
-  const handleDrop = (e: DragEvent<HTMLDivElement>, folderId: string | null) => {
-    e.preventDefault();
-    e.currentTarget.classList.remove('bg-accent/80');
-    const recipeData = e.dataTransfer.getData('application/json');
-    if (recipeData) {
-      const recipe = JSON.parse(recipeData) as Recipe;
-      const handler = activeTab === 'user-recipes' ? onAssignRecipeToFolder : onAssignRecipeToGlobalFolder;
-      const recipeSource = activeTab === 'user-recipes' ? userRecipes : nutriplannerRecipes;
-
-      if (recipeSource.some(r => r.id === recipe.id)) {
-        handler(recipe.id, folderId);
-      }
-    }
-  };
-  
-  const folderProps = {
-      folders,
-      globalFolders,
-      activeTab,
-      isAdmin,
-      selectedFolderId,
-      setSelectedFolderId,
-      editingFolderId,
-      setEditingFolderId,
-      editingFolderName,
-      setEditingFolderName,
-      onFolderUpdate,
-      onGlobalFolderUpdate,
-      onFolderDelete,
-      onGlobalFolderDelete,
-      onFolderCreate,
-      onGlobalFolderCreate,
-      handleDragOver,
-      handleDragLeave,
-      handleDrop,
+  const categoryProps = {
+      totalCount: sourceRecipes.length,
+      selectedCategory,
+      onSelectCategory: setSelectedCategory,
+      smartCategories,
+      smartCategoryLabels: SMART_CATEGORY_LABELS,
   };
 
   return (
@@ -581,7 +550,7 @@ export function RecipeLibrary({
                   <BookHeart className="h-6 w-6 text-primary" />
                   <CardTitle>Biblioteca de Recetas</CardTitle>
                 </div>
-                <CardDescription>Tu colección de recetas y las sugerencias de NutriPlanner.</CardDescription>
+                <CardDescription>Tu colección de recetas y el recetario base de NutriPlanner.</CardDescription>
               </div>
             )}
              <div className="flex items-center gap-2">
@@ -595,10 +564,18 @@ export function RecipeLibrary({
                       <Camera className="mr-2 h-4 w-4" />
                       Escanear Nevera
                     </Button>
-                    <Button variant="outline" onClick={onAiChatOpen} data-tour="ai-assistant">
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Asistente IA
-                    </Button>
+                    <FeatureHint
+                      id="ai-assistant"
+                      title="Asistente con IA"
+                      text="Pídele que cree recetas, que rellene tu plan o resuelve dudas de nutrición. También puedes hablarle por voz."
+                      side="bottom"
+                      align="end"
+                    >
+                      <Button variant="outline" onClick={onAssistantOpen} data-tour="ai-assistant">
+                        <Wand2 className="mr-2 h-4 w-4" />
+                        Asistente
+                      </Button>
+                    </FeatureHint>
                     <Button onClick={() => onRecipeAction('create')}>
                       <PlusCircle className="mr-2 h-4 w-4" />
                       Nueva Receta
@@ -613,29 +590,34 @@ export function RecipeLibrary({
             <div className={cn("flex justify-between items-center border-b", isMobile ? "pr-0" : "pr-1")}>
               <TabsList className={cn(isMobile && "flex-1")}>
                 <TabsTrigger value="user-recipes" className={cn(isMobile && "flex-1")}>Mis Recetas</TabsTrigger>
-                <TabsTrigger value="nutriplanner-recipes" className={cn(isMobile && "flex-1")}>NutriPlanner</TabsTrigger>
+                <TabsTrigger value="nutriplanner-recipes" className={cn(isMobile && "flex-1")}>Recetario</TabsTrigger>
               </TabsList>
+              {isMobile && (
+                <Sheet open={categorySheetOpen} onOpenChange={setCategorySheetOpen}>
+                  <SheetTrigger asChild>
+                    <Button variant="ghost" size="sm" className="ml-2 shrink-0">
+                      <Folders className="mr-1 h-4 w-4" />
+                      Categorías
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="bottom" className="h-[70vh] bg-glass">
+                    <SheetHeader>
+                      <SheetTitle>Categorías</SheetTitle>
+                    </SheetHeader>
+                    <ScrollArea className="h-full pt-4 pb-8">
+                      <CategorySection {...{ ...categoryProps, onSelectCategory: (cat: string | null) => { setSelectedCategory(cat); setCategorySheetOpen(false); } }} />
+                    </ScrollArea>
+                  </SheetContent>
+                </Sheet>
+              )}
             </div>
-            
-            {isMobile && (
-                 <Accordion type="single" collapsible className="w-full mt-2">
-                    <AccordionItem value="folders">
-                        <AccordionTrigger>
-                            <h3 className="font-semibold text-sm">{activeTab === 'user-recipes' ? 'Mis Carpetas' : 'Carpetas Globales'}</h3>
-                        </AccordionTrigger>
-                        <AccordionContent>
-                           <FolderSection {...folderProps} />
-                        </AccordionContent>
-                    </AccordionItem>
-                </Accordion>
-            )}
 
             <div className={cn("flex-1 grid lg:grid-cols-5 mt-2 overflow-hidden gap-4", isMobile && "grid-cols-1")}>
               {!isMobile && (
                 <div className="col-span-1 border-r pr-2">
-                    <h3 className="font-semibold text-sm mb-2 px-2">{activeTab === 'user-recipes' ? 'Mis Carpetas' : 'Carpetas Globales'}</h3>
+                    <h3 className="font-semibold text-sm mb-2 px-2">Categorías</h3>
                   <ScrollArea className="h-full">
-                    <FolderSection {...folderProps} />
+                    <CategorySection {...categoryProps} />
                   </ScrollArea>
                 </div>
               )}
@@ -695,18 +677,120 @@ export function RecipeLibrary({
                     ))}
                   </div>
 
+                  {/* Diet Filters */}
+                  <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide items-center">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide shrink-0">Dieta</span>
+                    {DIET_TAGS.map(diet => (
+                      <Button
+                        key={diet.value}
+                        variant={activeDietFilters.includes(diet.value) ? 'default' : 'secondary'}
+                        size="sm"
+                        className="rounded-full shrink-0 h-7 text-xs"
+                        onClick={() => toggleDietFilter(diet.value)}
+                      >
+                        {diet.label}
+                      </Button>
+                    ))}
+                  </div>
+
                 </div>
-                <div className="flex-1 mt-2 min-h-0">
-                  <RecipeList
-                    recipes={filteredAndSortedRecipes}
-                    onRecipeClick={(recipe, isNutri) => onRecipeAction('view', recipe, isNutri)}
-                    onCopyClick={onCopyRecipe}
-                    onAddToPlanClick={onAddToPlan}
-                    isDraggable={activeTab === 'user-recipes' || (activeTab === 'nutriplanner-recipes' && isAdmin)}
-                    isNutriPlanner={activeTab === 'nutriplanner-recipes'}
-                    isMobile={isMobile}
-                    viewMode={viewMode}
-                  />
+                <div className="flex-1 mt-2 min-h-0 overflow-auto">
+                  {crossSearchResults ? (
+                    /* Cross-tab search view — show both collections grouped */
+                    <div className="flex flex-col gap-4 pr-1">
+                      {crossSearchResults.user.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 px-1">
+                            Mis Recetas ({crossSearchResults.user.length})
+                          </p>
+                          <RecipeList
+                            recipes={crossSearchResults.user}
+                            onRecipeClick={(recipe) => onRecipeAction('view', recipe, false)}
+                            onCopyClick={onCopyRecipe}
+                            onAddToPlanClick={onAddToPlan}
+                            onEditClick={(recipe) => onRecipeAction('edit', recipe, false)}
+                            isDraggable={false}
+                            isNutriPlanner={false}
+                            isMobile={isMobile}
+                            viewMode={viewMode}
+                          />
+                        </div>
+                      )}
+                      {crossSearchResults.nutriplanner.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 px-1">
+                            Recetario ({crossSearchResults.nutriplanner.length})
+                          </p>
+                          <RecipeList
+                            recipes={crossSearchResults.nutriplanner}
+                            onRecipeClick={(recipe) => onRecipeAction('view', recipe, true)}
+                            onCopyClick={onCopyRecipe}
+                            onAddToPlanClick={onAddToPlan}
+                            onEditClick={(recipe) => onRecipeAction('edit', recipe, true)}
+                            isDraggable={false}
+                            isNutriPlanner={true}
+                            isMobile={isMobile}
+                            viewMode={viewMode}
+                          />
+                        </div>
+                      )}
+                      {crossSearchResults.user.length === 0 && crossSearchResults.nutriplanner.length === 0 && (
+                        <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-border rounded-lg h-[250px]">
+                          <Search className="h-8 w-8 text-muted-foreground/50 mb-2" />
+                          <p className="font-semibold">No se encontraron recetas</p>
+                          <p className="text-sm text-muted-foreground">Prueba con otro término.</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    (() => {
+                      const hasActiveFilters = activePillFilters.length > 0;
+                      const categoryIsEmpty = recipesInSelectedCategory.length === 0;
+                      const isCategoryView = selectedCategory !== null;
+                      const isUserTab = activeTab === 'user-recipes';
+
+                      if (categoryIsEmpty && !hasActiveFilters && isCategoryView) {
+                        // Selected category has no recipes — show CTA
+                        return (
+                          <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-border rounded-lg h-[250px] gap-4">
+                            <Sparkles className="h-12 w-12 text-muted-foreground/30" />
+                            <div>
+                              <p className="font-semibold text-base">No hay recetas en esta categoría</p>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                Crea una receta y asígnale esta categoría, o revisa todas tus recetas.
+                              </p>
+                            </div>
+                            <div className="flex gap-2 flex-wrap justify-center">
+                              {isUserTab && (
+                                <Button size="sm" onClick={() => onRecipeAction('create')}>
+                                  <PlusCircle className="mr-2 h-4 w-4" />
+                                  Crear receta
+                                </Button>
+                              )}
+                              <Button size="sm" variant="outline" onClick={() => setSelectedCategory(null)}>
+                                <Folders className="mr-2 h-4 w-4" />
+                                Ver todas las recetas
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <RecipeList
+                          recipes={filteredAndSortedRecipes}
+                          onRecipeClick={(recipe, isNutri) => onRecipeAction('view', recipe, isNutri)}
+                          onCopyClick={onCopyRecipe}
+                          onAddToPlanClick={onAddToPlan}
+                          onEditClick={(recipe) => onRecipeAction('edit', recipe, activeTab === 'nutriplanner-recipes')}
+                          isDraggable={activeTab === 'user-recipes' || (activeTab === 'nutriplanner-recipes' && isAdmin)}
+                          isNutriPlanner={activeTab === 'nutriplanner-recipes'}
+                          isMobile={isMobile}
+                          viewMode={viewMode}
+                        />
+                      );
+                    })()
+                  )}
                 </div>
               </div>
             </div>
