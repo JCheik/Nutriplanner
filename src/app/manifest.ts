@@ -3,8 +3,8 @@ import type { MetadataRoute } from 'next';
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: '/dashboard',
-    name: 'NutriPlanner',
-    short_name: 'NutriPlanner',
+    name: 'Nutrilp',
+    short_name: 'Nutrilp',
     description: 'Planifica tus comidas, crea recetas y sigue tu nutrición.',
     start_url: '/dashboard',
     scope: '/',

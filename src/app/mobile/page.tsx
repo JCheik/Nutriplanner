@@ -1,9 +1,11 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import { useRecipeState } from '@/hooks/use-recipe-state';
 import { useWeekPlanState } from '@/hooks/use-week-plan-state';
+import { useUserProfileState } from '@/hooks/use-user-profile-state';
 import { MobilePageContent } from '@/components/nutri-planner/mobile-page-content';
+import { MobileAssistant } from '@/components/nutri-planner/mobile-assistant';
 import { Logo } from '@/components/icons/logo';
 
 const MobilePageLoader = () => (
@@ -18,13 +20,32 @@ const MobilePageLoader = () => (
 function MobilePageWrapper() {
     const recipeState = useRecipeState();
     const weekPlanState = useWeekPlanState();
-    
+    const profileState = useUserProfileState();
+    const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+
     const combinedState = {
         ...recipeState,
         ...weekPlanState,
     };
 
-    return <MobilePageContent {...combinedState} />;
+    return (
+        <>
+            <MobilePageContent
+                {...combinedState}
+                activeGoalMacros={profileState.activeGoalMacros || null}
+                dietPreference={profileState.currentDietPreference}
+                onAssistantOpen={() => setIsAssistantOpen(true)}
+            />
+            <MobileAssistant
+                isOpen={isAssistantOpen}
+                onClose={() => setIsAssistantOpen(false)}
+                autoListen
+                recipeState={recipeState}
+                weekPlanState={weekPlanState}
+                profileState={profileState}
+            />
+        </>
+    );
 }
 
 export default function MobilePage() {

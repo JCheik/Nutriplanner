@@ -153,7 +153,7 @@ function DietPreferenceSelector({
   );
 }
 
-function GoalsContent({
+export function GoalsContent({
   result,
   activeGoal,
   onCalorieResultSave,

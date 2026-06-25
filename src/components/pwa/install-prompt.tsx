@@ -66,7 +66,7 @@ export function InstallPrompt() {
           <Download className="h-5 w-5 text-primary" />
         </div>
         <div className="flex-1 space-y-2">
-          <p className="text-sm font-semibold">Instala NutriPlanner</p>
+          <p className="text-sm font-semibold">Instala Nutrilp</p>
           {isIOS ? (
             <p className="text-xs text-muted-foreground">
               Toca <Share className="inline h-3 w-3" /> Compartir y luego “Añadir a pantalla de

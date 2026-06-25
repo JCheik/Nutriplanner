@@ -65,6 +65,8 @@ interface AssistantDialogProps {
    * ingredients so the dialog can offer to add the ones missing from the DB.
    */
   onCreateRecipe: (recipe: Omit<Recipe, 'id'>, aiIngredients?: AiIngredientEstimate[]) => void;
+  /** Start listening as soon as the dialog opens (one-tap-to-talk on mobile). */
+  autoListen?: boolean;
 }
 
 function buildContext(weekPlan: WeekPlan, userRecipes: Recipe[], nutriplannerRecipes: Recipe[]): string {
@@ -95,12 +97,26 @@ export function AssistantDialog({
   onAutocomplete,
   onSetGoal,
   onCreateRecipe,
+  autoListen,
 }: AssistantDialogProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [pending, setPending] = useState<PendingAction | null>(null);
-  const [voiceOn, setVoiceOn] = useState(false);
+  // The on/off preference for spoken replies persists across sessions. The chosen
+  // voice (voiceURI) is already persisted by useSpeechSynthesis.
+  const [voiceOn, setVoiceOn] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return localStorage.getItem('nutriplanner.tts.enabled') === '1';
+    } catch {
+      return false;
+    }
+  });
+  // null = not yet tested, true = Cloud TTS API works, false = not available
+  const cloudTtsRef = useRef<boolean | null>(null);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+
   const { toast } = useToast();
   const bottomRef = useRef<HTMLDivElement>(null);
   const sendRef = useRef<(raw?: string) => void>(() => {});
@@ -114,8 +130,54 @@ export function AssistantDialog({
       onError: (message) => toast({ variant: 'destructive', title: 'Micrófono', description: message }),
     });
 
-  const say = (text: string) => {
-    if (voiceOn && ttsSupported && text) speak(text);
+  // One-tap-to-talk: when opened with autoListen (the mobile mic FAB), start
+  // listening immediately. Guarded by a ref so it fires once per open, not every
+  // time `isListening` flips.
+  const autoListenedRef = useRef(false);
+  useEffect(() => {
+    if (!isOpen) {
+      autoListenedRef.current = false;
+      return;
+    }
+    if (autoListen && sttSupported && !autoListenedRef.current) {
+      autoListenedRef.current = true;
+      startListening();
+    }
+  }, [isOpen, autoListen, sttSupported, startListening]);
+
+  // Try Google Cloud TTS Neural2 first (natural-sounding); fall back to browser TTS.
+  const say = async (text: string) => {
+    if (!voiceOn || !text) return;
+
+    if (cloudTtsRef.current !== false) {
+      try {
+        const res = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text }),
+        });
+        if (res.ok) {
+          const { audioContent } = await res.json() as { audioContent: string };
+          currentAudioRef.current?.pause();
+          const audio = new Audio(`data:audio/mp3;base64,${audioContent}`);
+          currentAudioRef.current = audio;
+          cloudTtsRef.current = true;
+          audio.play().catch(() => {
+            // Autoplay blocked — fall back to browser TTS silently.
+            cloudTtsRef.current = false;
+            if (ttsSupported) speak(text);
+          });
+          return;
+        }
+        // API not enabled or key restricted — don't retry.
+        cloudTtsRef.current = false;
+      } catch {
+        cloudTtsRef.current = false;
+      }
+    }
+
+    // Browser TTS fallback.
+    if (ttsSupported) speak(text);
   };
 
   const { execute } = useAssistantActions({
@@ -238,8 +300,20 @@ export function AssistantDialog({
   };
 
   const toggleVoice = () => {
-    if (voiceOn) cancelSpeech();
-    setVoiceOn(v => !v);
+    if (voiceOn) {
+      cancelSpeech();
+      currentAudioRef.current?.pause();
+      currentAudioRef.current = null;
+    }
+    setVoiceOn(v => {
+      const next = !v;
+      try {
+        localStorage.setItem('nutriplanner.tts.enabled', next ? '1' : '0');
+      } catch {
+        /* localStorage unavailable */
+      }
+      return next;
+    });
   };
 
   const toggleMic = () => {
@@ -248,7 +322,7 @@ export function AssistantDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(o) => { if (!o) onClose(); }}>
+    <Dialog open={isOpen} onOpenChange={(o) => { if (!o) { currentAudioRef.current?.pause(); currentAudioRef.current = null; onClose(); } }}>
       <DialogContent className="max-w-lg bg-glass flex flex-col h-[70vh] max-h-[85vh] min-h-0">
         <DialogHeader>
           <div className="flex items-center justify-between gap-2">

@@ -119,7 +119,7 @@ export function PageHeader({}: PageHeaderProps) {
             <Link href="/" className="flex items-center gap-2">
               <Logo className="h-7 w-7 text-primary" />
               <span className="text-xl font-bold tracking-tight text-foreground font-headline">
-                NutriPlanner
+                Nutrilp
               </span>
             </Link>
             <div className="flex items-center gap-4">

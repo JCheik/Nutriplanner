@@ -83,7 +83,7 @@ const generateRecipeFlow = ai.defineFlow(
   },
   async ({ description, nutritionalGoal, diet }) => {
     const prompt = `
-Eres el asistente de cocina de NutriPlanner. Crea UNA receta a partir de la petición del usuario.
+Eres el asistente de cocina de Nutrilp. Crea UNA receta a partir de la petición del usuario.
 
 PETICIÓN: "${description}"
 ${nutritionalGoal ? `OBJETIVO NUTRICIONAL (referencia para una ración razonable): ${nutritionalGoal.calories} kcal, ${nutritionalGoal.protein}g proteína, ${nutritionalGoal.carbs}g carbohidratos, ${nutritionalGoal.fat}g grasa. No tiene que ser exacto, pero sí una contribución coherente al día.` : ''}

@@ -4,10 +4,8 @@ import { useDashboard } from '@/hooks/use-dashboard';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
 import { MealPlanner } from '@/components/nutri-planner/meal-planner';
 import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
-import { StickyNote } from '@/components/nutri-planner/sticky-note';
 import { FloatingGoals } from '@/components/nutri-planner/floating-goals';
 import { ShoppingListSheet } from '@/components/nutri-planner/shopping-list';
-import { FloatingMenu } from '@/components/nutri-planner/floating-menu';
 import { RecipeSelectionDialog } from '@/components/nutri-planner/recipe-selection-dialog';
 import { EmptyFridgeScanner } from '@/components/nutri-planner/empty-fridge-scanner';
 import { WelcomeGuide } from '@/components/nutri-planner/welcome-guide';
@@ -25,8 +23,8 @@ export default function DashboardPage() {
     handleDrop, handleClearMeal, handleClearDay, handleClearWeek, handleRemoveRecipeFromMeal,
     handleUpdateMealTitle, handleUpdateMealTypes, handleAddMeal, handleDeleteMeal, handleUpdateServingsEaten,
     // User profile state
-    currentStickyNote, currentCalorieResult, activeGoalMacros, currentShoppingList, currentDietPreference, activeGoal,
-    handleNoteSave, handleCalorieResultSave, handleActiveGoalChange, handleSaveCustomGoal, handleShoppingListUpdate, handleDietPreferenceChange,
+    currentCalorieResult, activeGoalMacros, currentShoppingList, currentDietPreference, activeGoal,
+    handleCalorieResultSave, handleActiveGoalChange, handleSaveCustomGoal, handleShoppingListUpdate, handleDietPreferenceChange,
     // UI state
     dialogState, activePanel, activeDropTarget, setActiveDropTarget,
     isRecipeSelectorOpen, setIsRecipeSelectorOpen, selectedMealForAddition,
@@ -75,6 +73,8 @@ export default function DashboardPage() {
             onAssistantOpen={() => handlePanelOpen('assistant')}
             onEmptyFridgeOpen={() => handlePanelOpen('empty-fridge')}
             onRecipeImportOpen={() => handlePanelOpen('recipe-import')}
+            onGoalsOpen={() => handlePanelOpen('goals')}
+            onShoppingListOpen={() => handlePanelOpen('shopping-list')}
             dietPreference={currentDietPreference}
           />
         </div>
@@ -89,8 +89,6 @@ export default function DashboardPage() {
         onEdit={(recipe, isGlobal) => handleRecipeAction('edit', recipe, isGlobal)}
         onCopy={handleCopyRecipe}
       />
-
-      <FloatingMenu onPanelOpen={handlePanelOpen} />
 
       <WelcomeGuide />
 
@@ -154,13 +152,6 @@ export default function DashboardPage() {
         onDietPreferenceChange={handleDietPreferenceChange}
       />
 
-      <StickyNote
-        initialContent={currentStickyNote}
-        onSave={handleNoteSave}
-        isOpen={activePanel === 'sticky-note'}
-        onOpenChange={(isOpen) => handlePanelChange('sticky-note', isOpen)}
-      />
-
       {selectedMealForAddition && (
         <RecipeSelectionDialog
           isOpen={isRecipeSelectorOpen}
@@ -168,6 +159,7 @@ export default function DashboardPage() {
           meal={selectedMealForAddition}
           allRecipes={[...currentUserRecipes, ...nutriplannerRecipes]}
           onSave={handleRecipeSelectionSave}
+          dietPreference={currentDietPreference}
         />
       )}
     </div>

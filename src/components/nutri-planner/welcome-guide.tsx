@@ -27,8 +27,8 @@ const SLIDES: Slide[] = [
   },
   {
     icon: BookHeart,
-    title: 'Biblioteca y Recetario',
-    text: 'Guarda tus recetas y explora el recetario base. Clasifícalas por categoría y dieta para encontrarlas al instante.',
+    title: 'Biblioteca de recetas',
+    text: 'Guarda tus recetas y explora las recetas base de Nutrilp. Clasifícalas por categoría y dieta para encontrarlas al instante.',
   },
   {
     icon: Target,

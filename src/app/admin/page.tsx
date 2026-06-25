@@ -43,7 +43,7 @@ export default function AdminPage() {
                                     Recetas Globales
                                 </CardTitle>
                                 <CardDescription>
-                                    Gestionar las recetas de NutriPlanner y sus carpetas.
+                                    Gestionar las recetas de Nutrilp y sus carpetas.
                                 </CardDescription>
                             </CardHeader>
                         </Card>

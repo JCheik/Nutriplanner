@@ -86,7 +86,7 @@ export default function AdminRecipesPage() {
                         <CardHeader>
                             <div className="flex justify-between items-center">
                                 <div>
-                                    <CardTitle>Recetas de NutriPlanner</CardTitle>
+                                    <CardTitle>Recetas de Nutrilp</CardTitle>
                                     <CardDescription>Crear, ver y editar las recetas disponibles para todos los usuarios.</CardDescription>
                                 </div>
                                 <Button onClick={() => handleRecipeAction('create')}>

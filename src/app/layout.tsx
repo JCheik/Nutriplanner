@@ -16,13 +16,13 @@ const playfair = Playfair_Display({ subsets: ['latin'], weight: ['700'], variabl
 const kalam = Kalam({ subsets: ['latin'], weight: ['400', '700'], variable: '--font-handwriting', display: 'swap' });
 
 export const metadata: Metadata = {
-  title: 'NutriPlanner',
+  title: 'Nutrilp',
   description: 'Planifica tus comidas, crea recetas y sigue tu nutrición.',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'NutriPlanner',
+    title: 'Nutrilp',
   },
   icons: {
     icon: '/icons/icon-192x192.png',
