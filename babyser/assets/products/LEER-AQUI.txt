@@ -1,0 +1,13 @@
+PON AQUÍ LAS FOTOS DE LOS PRODUCTOS
+====================================
+
+1. Copia la foto en esta carpeta (assets/products/).
+   Ejemplo de nombre: atrapasuenos-leo.jpg
+
+2. Abre ../../js/products.js y, en el producto que quieras,
+   escribe el nombre del archivo en "image":
+       image: "atrapasuenos-leo.jpg",
+
+Mientras un producto no tenga foto, se muestra un icono decorativo.
+Recomendado: fotos en formato 4:3 (más anchas que altas) y comprimidas
+para que la web cargue rápido desde el móvil.
