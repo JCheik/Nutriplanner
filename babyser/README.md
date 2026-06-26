@@ -22,10 +22,19 @@ babyser/
 ├── js/
 │   ├── config.js           ← 👈 número de WhatsApp e Instagram (EDITA AQUÍ)
 │   ├── products.js         ← 👈 catálogo de productos (añade/edita aquí)
+│   ├── gallery.js          ← 👈 fotos y vídeos de "Nuestro trabajo"
+│   ├── testimonials.js     ← 👈 opiniones reales de clientas
 │   ├── configurator.js     ← configurador de atrapasueños + previsualización
-│   └── main.js             ← une todo (catálogo, menú, enlaces)
-└── assets/products/        ← 👈 aquí van las FOTOS reales
+│   └── main.js             ← une todo (catálogo, galería, menú, enlaces)
+└── assets/
+    ├── products/           ← 👈 fotos de las tarjetas del catálogo
+    └── gallery/            ← 👈 fotos y vídeos de la galería
 ```
+
+> ℹ️ **Sobre Instagram:** el contenido (fotos, vídeos y comentarios) **no se
+> puede sacar de Instagram automáticamente** porque Instagram bloquea el acceso
+> de programas y lo esconde tras inicio de sesión. Hay que descargarlo a mano
+> desde la app/web y meterlo como se explica abajo.
 
 ## ✏️ Cómo cambiar las cosas más habituales
 
@@ -45,11 +54,22 @@ Mientras un producto no tenga foto, se muestra un icono de adorno. No se rompe n
 > Consejo: usa fotos más o menos cuadradas/horizontales (4:3) y comprímelas para
 > que la web cargue rápido en el móvil.
 
-### 3. Añadir o quitar un producto
+### 3. Añadir fotos y vídeos a la galería "Nuestro trabajo"
+1. Copia los archivos en `assets/gallery/` (fotos `.jpg`/`.png` y vídeos `.mp4`).
+2. Abre `js/gallery.js` y añade un bloque por cada archivo, indicando si es
+   `"image"` o `"video"`. Para vídeos puedes poner una imagen de portada (`poster`).
+
+Mientras la lista esté vacía, la galería muestra un aviso de "muy pronto".
+
+### 4. Poner opiniones reales de clientas
+Abre `js/testimonials.js` y pega los comentarios buenos de Instagram (texto,
+quién lo dice y cuántas estrellas). Los que vienen ahora son de ejemplo.
+
+### 5. Añadir o quitar un producto
 En `js/products.js`, copia un bloque `{ ... }` y cámbialo (nombre, descripción,
 precio, foto). Para quitarlo, borra su bloque.
 
-### 4. Cambiar precios o detalles del configurador
+### 6. Cambiar precios o detalles del configurador
 En `js/configurator.js` están las listas `PALETTE` (colores), `ELEMENTS`
 (adornos y su precio) y `SIZES` (tamaños y su precio base).
 

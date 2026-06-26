@@ -51,6 +51,53 @@ function renderCatalog() {
   });
 }
 
+/* ---------- Galería (fotos + vídeos) ---------- */
+function renderGallery() {
+  const grid = document.getElementById("galleryGrid");
+  if (!grid || typeof GALLERY === "undefined") return;
+
+  if (!GALLERY.length) {
+    // Aún no hay archivos: mostramos un aviso amable.
+    grid.innerHTML = `
+      <div class="gallery-empty">
+        <span aria-hidden="true">📷</span>
+        <p>Muy pronto, fotos y vídeos reales de nuestras piezas.</p>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = GALLERY.map(item => {
+    if (item.type === "video") {
+      const poster = item.poster ? ` poster="assets/gallery/${item.poster}"` : "";
+      return `
+        <figure class="gallery-item">
+          <video src="assets/gallery/${item.file}"${poster}
+            controls playsinline preload="metadata" aria-label="${item.alt || "Vídeo"}"></video>
+        </figure>`;
+    }
+    return `
+      <figure class="gallery-item">
+        <img src="assets/gallery/${item.file}" alt="${item.alt || ""}" loading="lazy" />
+      </figure>`;
+  }).join("");
+}
+
+/* ---------- Testimonios ---------- */
+function renderTestimonials() {
+  const box = document.getElementById("testimonials");
+  if (!box || typeof TESTIMONIALS === "undefined") return;
+
+  box.innerHTML = TESTIMONIALS.map(t => {
+    const n = Math.max(1, Math.min(5, t.stars || 5));
+    return `
+      <figure class="testimonial">
+        <div class="stars" aria-label="${n} de 5 estrellas">${"★".repeat(n)}</div>
+        <blockquote>"${t.text}"</blockquote>
+        <figcaption>— ${t.author}</figcaption>
+      </figure>`;
+  }).join("");
+}
+
 /* ---------- Enlaces de contacto ---------- */
 function wireContactLinks() {
   const generalMsg = `¡Hola ${BABYSER.brand}! 🪶 Me gustaría más información sobre vuestros productos personalizados.`;
@@ -107,6 +154,8 @@ function setYear() {
 /* ---------- Arranque ---------- */
 document.addEventListener("DOMContentLoaded", () => {
   renderCatalog();
+  renderGallery();
+  renderTestimonials();
   wireContactLinks();
   wireMobileNav();
   renderHeroArt();

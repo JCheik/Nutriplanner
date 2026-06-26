@@ -243,6 +243,39 @@ h1, h2, h3 {
 .product-price { font-weight: 800; font-size: 1.05rem; }
 .product-price small { font-weight: 700; color: #8a7460; }
 
+/* ---------- Galería ---------- */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.gallery-item {
+  margin: 0;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  background: var(--white);
+  aspect-ratio: 1 / 1;
+}
+.gallery-item img,
+.gallery-item video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.gallery-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 48px 20px;
+  background: var(--white);
+  border: 2px dashed var(--rose);
+  border-radius: var(--radius);
+  color: #8a7460;
+}
+.gallery-empty span { font-size: 2.4rem; display: block; margin-bottom: .3em; }
+.gallery-empty p { margin: 0; font-weight: 700; }
+
 /* ---------- Configurador ---------- */
 .configurator {
   display: grid;
@@ -507,6 +540,7 @@ h1, h2, h3 {
   .config-preview { position: static; }
 
   .product-grid { grid-template-columns: repeat(2, 1fr); }
+  .gallery-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; }
   .steps { grid-template-columns: repeat(2, 1fr); }
   .testimonials { grid-template-columns: 1fr; }
 }
@@ -532,6 +566,7 @@ h1, h2, h3 {
   .nav-cta:hover { background: var(--rose-soft); }
 
   .product-grid { grid-template-columns: 1fr; }
+  .gallery-grid { grid-template-columns: repeat(2, 1fr); }
   .steps { grid-template-columns: 1fr; }
   .contact-inner { flex-direction: column; text-align: center; }
   .contact-text { max-width: none; }

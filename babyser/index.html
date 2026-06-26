@@ -26,6 +26,7 @@
         <button class="nav-toggle" id="navToggle" aria-label="Abrir menú" aria-expanded="false">☰</button>
         <ul class="nav-list" id="navList">
           <li><a href="#catalogo">Productos</a></li>
+          <li><a href="#galeria">Galería</a></li>
           <li><a href="#configurador">Crea el tuyo</a></li>
           <li><a href="#como-funciona">Cómo funciona</a></li>
           <li><a href="#testimonios">Opiniones</a></li>
@@ -67,6 +68,20 @@
       </div>
       <div class="product-grid" id="productGrid">
         <!-- Las tarjetas se generan desde js/products.js -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== GALERÍA ===================== -->
+  <section class="section section-soft" id="galeria">
+    <div class="container">
+      <div class="section-head">
+        <p class="eyebrow">Hecho de verdad</p>
+        <h2>Nuestro trabajo</h2>
+        <p class="section-sub">Fotos y vídeos de piezas reales que han salido del taller.</p>
+      </div>
+      <div class="gallery-grid" id="galleryGrid">
+        <!-- Se genera desde js/gallery.js -->
       </div>
     </div>
   </section>
@@ -169,22 +184,8 @@
         <p class="eyebrow">Familias contentas</p>
         <h2>Lo que dicen las mamás y papás</h2>
       </div>
-      <div class="testimonials">
-        <figure class="testimonial">
-          <div class="stars">★★★★★</div>
-          <blockquote>"El atrapasueños de mi hija es precioso, los colores tal cual los pedí. Se nota que está hecho con mucho cariño."</blockquote>
-          <figcaption>— Marta, mamá de Lucía</figcaption>
-        </figure>
-        <figure class="testimonial">
-          <div class="stars">★★★★★</div>
-          <blockquote>"El chupetero con su nombre quedó genial y aguanta de todo. Repetiremos seguro con el mordedor."</blockquote>
-          <figcaption>— Adrián, papá de Leo</figcaption>
-        </figure>
-        <figure class="testimonial">
-          <div class="stars">★★★★★</div>
-          <blockquote>"Trato cercanísimo y me mandaron foto antes de enviarlo. La decoración de la habitación es una monada."</blockquote>
-          <figcaption>— Henar, mamá de Martina</figcaption>
-        </figure>
+      <div class="testimonials" id="testimonials">
+        <!-- Se genera desde js/testimonials.js -->
       </div>
     </div>
   </section>
@@ -226,6 +227,8 @@
   <!-- Scripts (orden importante) -->
   <script src="js/config.js"></script>
   <script src="js/products.js"></script>
+  <script src="js/gallery.js"></script>
+  <script src="js/testimonials.js"></script>
   <script src="js/configurator.js"></script>
   <script src="js/main.js"></script>
 </body>
