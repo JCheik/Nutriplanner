@@ -138,9 +138,20 @@ function renderSizes() {
   });
 }
 
-/* ---------- Render de la previsualización (SVG) ---------- */
+/* ---------- Render de la previsualización ---------- */
 function renderPreview() {
+  // Etiquetas de precio / tamaño (siempre)
+  document.getElementById("previewSizeLabel").textContent = "Tamaño " + state.size;
+  document.getElementById("previewPrice").textContent = estimatePrice() + " €";
+
+  // Si hay 3D disponible, lo usamos; si no, dibujo SVG de respaldo.
+  if (window.Dreamcatcher3D && window.Dreamcatcher3D.ready) {
+    window.Dreamcatcher3D.update(state);
+    return;
+  }
+
   const stage = document.getElementById("previewStage");
+  if (!stage) return;
   stage.innerHTML = buildDreamcatcherSVG({
     name: state.name || "Nombre",
     nameColor: state.nameColor,
@@ -149,11 +160,10 @@ function renderPreview() {
     size: state.size,
     placeholder: !state.name,
   });
-
-  // Etiquetas de precio / tamaño
-  document.getElementById("previewSizeLabel").textContent = "Tamaño " + state.size;
-  document.getElementById("previewPrice").textContent = estimatePrice() + " €";
 }
+
+// El módulo 3D nos avisa cuando está listo para que le pasemos el estado.
+window.onDreamcatcher3DReady = function () { renderPreview(); };
 
 /* Construye el SVG del atrapasueños según el estado */
 function buildDreamcatcherSVG(opt) {

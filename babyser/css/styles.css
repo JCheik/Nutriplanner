@@ -314,6 +314,13 @@ h1, h2, h3 {
   font-size: 1.8rem;
   color: var(--caramel);
 }
+.preview-hint {
+  font-size: .82rem;
+  color: #8a7460;
+  margin: .7em 0 0;
+  text-align: center;
+  font-weight: 700;
+}
 .preview-note { font-size: .82rem; color: #8a7460; margin: .4em 0 0; }
 
 .config-controls {

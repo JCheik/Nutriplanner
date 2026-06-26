@@ -24,12 +24,20 @@ babyser/
 │   ├── products.js         ← 👈 catálogo de productos (añade/edita aquí)
 │   ├── gallery.js          ← 👈 fotos y vídeos de "Nuestro trabajo"
 │   ├── testimonials.js     ← 👈 opiniones reales de clientas
-│   ├── configurator.js     ← configurador de atrapasueños + previsualización
+│   ├── configurator.js     ← configurador de atrapasueños (opciones y precio)
+│   ├── configurator3d.js   ← previsualización 3D del atrapasueños (girable)
 │   └── main.js             ← une todo (catálogo, galería, menú, enlaces)
+├── vendor/three/           ← Three.js (librería 3D) guardada en el proyecto
 └── assets/
     ├── products/           ← 👈 fotos de las tarjetas del catálogo
     └── gallery/            ← 👈 fotos y vídeos de la galería
 ```
+
+> 🌀 **Vista 3D:** la previsualización del configurador es un atrapasueños en
+> 3D que se gira arrastrando (y se acerca con la rueda/pellizco). Usa la
+> librería **Three.js**, que está guardada dentro del proyecto en
+> `vendor/three/` (no depende de internet). Si un navegador muy antiguo no
+> soporta 3D, automáticamente muestra un dibujo 2D de respaldo.
 
 > ℹ️ **Sobre Instagram:** el contenido (fotos, vídeos y comentarios) **no se
 > puede sacar de Instagram automáticamente** porque Instagram bloquea el acceso

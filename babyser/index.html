@@ -99,8 +99,10 @@
         <!-- Previsualización -->
         <div class="config-preview">
           <div class="preview-stage" id="previewStage">
-            <!-- SVG generado desde js/configurator.js -->
+            <!-- Atrapasueños en 3D (js/configurator3d.js).
+                 Si no hay WebGL, cae a un dibujo SVG (js/configurator.js). -->
           </div>
+          <p class="preview-hint" id="previewHint">🖐️ Arrastra para girar · pellizca o rueda para acercar</p>
           <div class="preview-meta">
             <span class="preview-size" id="previewSizeLabel">Tamaño M</span>
             <span class="preview-price" id="previewPrice">22 €</span>
@@ -230,6 +232,14 @@
   <script src="js/gallery.js"></script>
   <script src="js/testimonials.js"></script>
   <script src="js/configurator.js"></script>
+
+  <!-- 3D del atrapasueños (Three.js vendorizado en /vendor, sin CDN).
+       Son scripts clásicos para que funcione también abriendo el archivo
+       directamente (file://), sin necesidad de servidor. -->
+  <script src="vendor/three/three.min.js"></script>
+  <script src="vendor/three/OrbitControls.js"></script>
+  <script src="js/configurator3d.js"></script>
+
   <script src="js/main.js"></script>
 </body>
 </html>
