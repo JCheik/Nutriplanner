@@ -1,8 +1,0 @@
-FOTOS DE LOS ATRAPASUEÑOS YA HECHOS
-====================================
-
-1. Copia aquí la foto de cada modelo ya hecho (ej: boho-tierra.jpg).
-2. Abre ../../js/readymade.js y pon el nombre del archivo en "image"
-   del modelo correspondiente.
-
-Mientras un modelo no tenga foto, se muestra un icono decorativo.
