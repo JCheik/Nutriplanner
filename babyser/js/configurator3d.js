@@ -61,7 +61,8 @@ function init() {
   scene = new THREE.Scene();
 
   camera = new THREE.PerspectiveCamera(42, w / h, 0.1, 100);
-  camera.position.set(0, 0, 7.2);
+  // Ángulo inicial ligeramente en 3/4 para que se note el volumen desde el principio
+  camera.position.set(1.6, 0.6, 6.9);
 
   // Luces suaves y cálidas (intensidades moderadas para que los pasteles y la
   // madera no se "laven" y conserven su color).
@@ -79,10 +80,15 @@ function init() {
   controls.enablePan = false;
   controls.minDistance = 4.5;
   controls.maxDistance = 12;
+  controls.target.set(0, 0.1, 0);
+  // Limitamos la inclinación para que siempre se vea bien encuadrado
+  controls.minPolarAngle = Math.PI * 0.28;
+  controls.maxPolarAngle = Math.PI * 0.70;
   controls.autoRotate = true;
-  controls.autoRotateSpeed = 1.1;
+  controls.autoRotateSpeed = 1.0;
   // Al tocar/arrastrar, dejamos de auto-rotar para que el usuario controle
   controls.addEventListener("start", () => { controls.autoRotate = false; });
+  controls.update();
 
   dcGroup = new THREE.Group();
   scene.add(dcGroup);

@@ -21,6 +21,7 @@ const PRODUCTS = [
     image: "",
     emoji: "🌙",
     configurable: true, // este producto enlaza al configurador
+    featured: true,     // se muestra como tarjeta destacada (más grande)
   },
   {
     id: "chupetero",

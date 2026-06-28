@@ -139,10 +139,21 @@ function renderSizes() {
 }
 
 /* ---------- Render de la previsualización ---------- */
+let _lastPriceText = null;
 function renderPreview() {
   // Etiquetas de precio / tamaño (siempre)
   document.getElementById("previewSizeLabel").textContent = "Tamaño " + state.size;
-  document.getElementById("previewPrice").textContent = estimatePrice() + " €";
+
+  const priceEl = document.getElementById("previewPrice");
+  const priceText = estimatePrice() + " €";
+  priceEl.textContent = priceText;
+  // Pequeña animación cuando el precio cambia
+  if (_lastPriceText !== null && _lastPriceText !== priceText) {
+    priceEl.classList.remove("bump");
+    void priceEl.offsetWidth; // reinicia la animación
+    priceEl.classList.add("bump");
+  }
+  _lastPriceText = priceText;
 
   // Si hay 3D disponible, lo usamos; si no, dibujo SVG de respaldo.
   if (window.Dreamcatcher3D && window.Dreamcatcher3D.ready) {

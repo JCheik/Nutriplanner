@@ -220,10 +220,37 @@ h1, h2, h3 {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 3.4rem;
+  overflow: hidden;
   background: linear-gradient(135deg, var(--mint-soft), var(--rose-soft));
 }
-.product-media img { width: 100%; height: 100%; object-fit: cover; }
+.product-media img {
+  width: 100%; height: 100%; object-fit: cover;
+  transition: transform .4s ease;
+}
+.product-card:hover .product-media img { transform: scale(1.05); }
+
+/* Placeholder elegante mientras no hay foto real */
+.product-ph {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .5em;
+  color: #9a8470;
+}
+.product-ph-emoji {
+  width: 70px; height: 70px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2.2rem;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 50%;
+  box-shadow: var(--shadow-sm);
+}
+.product-ph-text {
+  font-size: .74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+}
 .product-tag {
   position: absolute;
   top: 12px; left: 12px;
@@ -239,9 +266,47 @@ h1, h2, h3 {
 .product-body { padding: 20px 20px 22px; display: flex; flex-direction: column; flex: 1; }
 .product-body h3 { font-size: 1.3rem; margin-bottom: .25em; }
 .product-body p { margin: 0 0 1.1em; color: #6b5544; font-size: .98rem; flex: 1; }
+.product-note {
+  margin: 0 0 1.1em !important;
+  font-size: .86rem !important;
+  font-weight: 700;
+  color: var(--caramel) !important;
+  flex: none !important;
+}
 .product-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .product-price { font-weight: 800; font-size: 1.05rem; }
 .product-price small { font-weight: 700; color: #8a7460; }
+
+/* Tarjeta destacada (atrapasueños): ocupa todo el ancho y va en horizontal */
+.product-card.featured {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  background: linear-gradient(120deg, var(--white) 60%, var(--rose-soft));
+}
+.product-card.featured .product-media {
+  flex: 0 0 44%;
+  aspect-ratio: auto;
+}
+.product-card.featured .product-body { padding: 30px 32px; justify-content: center; }
+.product-card.featured h3 { font-size: 1.8rem; }
+.product-card.featured p { font-size: 1.05rem; }
+.product-card.featured .product-price { font-size: 1.2rem; }
+@media (max-width: 760px) {
+  .product-card.featured { flex-direction: column; }
+  .product-card.featured .product-media { flex-basis: auto; aspect-ratio: 4 / 3; }
+}
+
+/* ---------- Aparición al hacer scroll ---------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity .6s ease, transform .6s ease;
+  transition-delay: calc(var(--i, 0) * 70ms);
+}
+.reveal.is-visible { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+}
 
 /* ---------- Galería ---------- */
 .gallery-grid {
@@ -292,15 +357,29 @@ h1, h2, h3 {
   top: 86px;
 }
 .preview-stage {
+  position: relative;
   aspect-ratio: 3 / 4;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(160deg, var(--cream), var(--mint-soft));
+  background:
+    radial-gradient(120% 90% at 50% 18%, #ffffff 0%, var(--cream) 42%, var(--mint-soft) 100%);
   border-radius: var(--radius-sm);
   overflow: hidden;
 }
-.preview-stage svg { width: 100%; height: 100%; }
+/* Viñeta suave para dar profundidad al modelo 3D */
+.preview-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 -40px 60px -30px rgba(74, 55, 40, 0.18),
+              inset 0 0 0 1px rgba(74, 55, 40, 0.04);
+}
+.preview-stage svg,
+.preview-stage canvas { width: 100%; height: 100%; position: relative; z-index: 1; }
 .preview-meta {
   display: flex;
   align-items: center;
@@ -311,8 +390,19 @@ h1, h2, h3 {
 .preview-price {
   font-family: var(--font-title);
   font-weight: 700;
-  font-size: 1.8rem;
+  font-size: 1.9rem;
   color: var(--caramel);
+  display: inline-block;
+  transform-origin: right center;
+}
+.preview-price.bump { animation: pricebump .35s ease; }
+@keyframes pricebump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.18); color: var(--caramel-dark); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .preview-price.bump { animation: none; }
 }
 .preview-hint {
   font-size: .82rem;
