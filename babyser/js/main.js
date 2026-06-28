@@ -60,6 +60,43 @@ function renderCatalog() {
   });
 }
 
+/* ---------- Atrapasueños ya hechos ---------- */
+function renderReadymade() {
+  const grid = document.getElementById("readymadeGrid");
+  if (!grid || typeof READYMADE === "undefined") return;
+
+  grid.innerHTML = READYMADE.map((p, i) => {
+    const media = p.image
+      ? `<img src="assets/readymade/${p.image}" alt="${p.name}" loading="lazy" />`
+      : `<div class="product-ph" aria-hidden="true">
+           <span class="product-ph-emoji">${p.emoji || "🌙"}</span>
+           <span class="product-ph-text">Foto próximamente</span>
+         </div>`;
+    return `
+      <article class="product-card reveal" style="--i:${i}">
+        <div class="product-media">${media}</div>
+        <div class="product-body">
+          <h3>${p.name}</h3>
+          <p>${p.desc}</p>
+          <div class="product-foot">
+            <span class="product-price">${p.price} €</span>
+            <a href="#" class="btn btn-primary readymade-order" data-model="${p.name}">Pedir este</a>
+          </div>
+        </div>
+      </article>`;
+  }).join("");
+
+  grid.querySelectorAll(".readymade-order").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      const model = btn.getAttribute("data-model");
+      const msg = `¡Hola ${BABYSER.brand}! 🪶 Me gusta el atrapasueños ya hecho "${model}". `
+        + `¿Está disponible? ¡Gracias!`;
+      window.open(buildWhatsAppLink(msg), "_blank");
+    });
+  });
+}
+
 /* ---------- Galería (fotos + vídeos) ---------- */
 function renderGallery() {
   const grid = document.getElementById("galleryGrid");
@@ -193,6 +230,7 @@ function setupReveal() {
 /* ---------- Arranque ---------- */
 document.addEventListener("DOMContentLoaded", () => {
   renderCatalog();
+  renderReadymade();
   renderGallery();
   renderTestimonials();
   wireContactLinks();

@@ -319,7 +319,7 @@ function escapeXML(s) {
 function buildOrderMessage() {
   const sz = getSize();
   const elNames = state.elements.length
-    ? state.elements.map(id => ELEMENTS.find(e => e.id === id).name).join(", ")
+    ? state.elements.map(id => ELEMENTS.find(e => e.id === id).name).join(", ") + " (colocados a mi gusto)"
     : "ninguno";
   const ribbonNames = state.ribbons
     .map(h => (PALETTE.find(c => c.hex === h) || {}).name || h)

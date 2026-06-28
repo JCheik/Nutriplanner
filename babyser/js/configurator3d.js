@@ -26,8 +26,31 @@ const CREAM = "#F3E7D8";
 
 let renderer, scene, camera, controls, mountEl;
 let dcGroup;                 // grupo que contiene todo el atrapasueños
+let decoGroup;               // subgrupo con los adornos arrastrables
 let currentState = null;
 const disposables = [];      // geometrías/materiales a liberar al reconstruir
+
+// --- Arrastre de adornos ---
+const draggables = [];       // "hit meshes" invisibles para detectar el adorno
+const elemPositions = {};    // recuerda dónde dejó el usuario cada adorno
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+let dragHolder = null;
+const dragPlane = new THREE.Plane();
+const dragPoint = new THREE.Vector3();
+const dragOffset = new THREE.Vector3();
+
+const R_HOOP = 2.0;          // radio del aro
+const ELEM_Z = 0.18;         // profundidad de los adornos (cerca de la cara frontal)
+// Posiciones por defecto de cada adorno (el usuario las puede mover)
+const DEFAULT_POS = {
+  estrellas: { x: -2.0, y: 0.8 },
+  flores:    { x: 1.7,  y: 1.4 },
+  corazon:   { x: -1.2, y: -2.3 },
+  pompones:  { x: 0,    y: -2.4 },
+  perlas:    { x: 1.2,  y: -2.4 },
+  plumas:    { x: 1.9,  y: -1.4 },
+};
 
 /* ---------- Arranque ---------- */
 function init() {
@@ -110,14 +133,14 @@ function init() {
   // Limitamos la inclinación para que siempre se vea bien encuadrado
   controls.minPolarAngle = Math.PI * 0.28;
   controls.maxPolarAngle = Math.PI * 0.70;
-  controls.autoRotate = true;
-  controls.autoRotateSpeed = 1.0;
-  // Al tocar/arrastrar, dejamos de auto-rotar para que el usuario controle
-  controls.addEventListener("start", () => { controls.autoRotate = false; });
+  // Sin giro automático: así la pieza se ve de frente y es fácil colocar adornos
+  controls.autoRotate = false;
   controls.update();
 
   dcGroup = new THREE.Group();
   scene.add(dcGroup);
+
+  setupDragging();
 
   // Redibujar al cambiar de tamaño el contenedor
   if (window.ResizeObserver) {
@@ -143,6 +166,101 @@ function animate() {
   requestAnimationFrame(animate);
   if (controls) controls.update();
   if (renderer) renderer.render(scene, camera);
+}
+
+/* ---------- Arrastre de adornos (colócalos donde quieras) ---------- */
+function setupDragging() {
+  const dom = renderer.domElement;
+
+  const setNDC = (e) => {
+    const r = dom.getBoundingClientRect();
+    ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+    ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+  };
+
+  // Captura: si tocas un adorno, lo arrastramos y NO giramos la cámara
+  dom.addEventListener("pointerdown", (e) => {
+    if (!draggables.length) return;
+    setNDC(e);
+    raycaster.setFromCamera(ndc, camera);
+    const hits = raycaster.intersectObjects(draggables, false);
+    if (!hits.length) return;
+
+    dragHolder = hits[0].object.userData.holder;
+    controls.enabled = false;
+    e.stopImmediatePropagation(); // evita que OrbitControls gire la vista
+
+    const wp = new THREE.Vector3();
+    dragHolder.getWorldPosition(wp);
+    // Plano de la cara frontal del atrapasueños (normal +Z; la pieza no rota)
+    dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 0, 1), wp);
+    if (raycaster.ray.intersectPlane(dragPlane, dragPoint)) {
+      dragOffset.copy(wp).sub(dragPoint);
+    } else {
+      dragOffset.set(0, 0, 0);
+    }
+    dom.style.cursor = "grabbing";
+  }, true);
+
+  const onMove = (e) => {
+    if (!dragHolder) return;
+    setNDC(e);
+    raycaster.setFromCamera(ndc, camera);
+    if (!raycaster.ray.intersectPlane(dragPlane, dragPoint)) return;
+    const world = dragPoint.clone().add(dragOffset);
+    const local = decoGroup.worldToLocal(world);
+    // No dejamos que se aleje demasiado del aro
+    const maxR = R_HOOP + 0.7;
+    const len = Math.hypot(local.x, local.y);
+    if (len > maxR) { local.x *= maxR / len; local.y *= maxR / len; }
+    dragHolder.position.x = local.x;
+    dragHolder.position.y = local.y;
+    elemPositions[dragHolder.userData.elemId] = { x: local.x, y: local.y };
+  };
+
+  const onUp = () => {
+    if (!dragHolder) return;
+    dragHolder = null;
+    controls.enabled = true;
+    dom.style.cursor = "grab";
+  };
+
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
+  window.addEventListener("pointercancel", onUp);
+}
+
+/* Coloca un adorno (motivo) dentro de su "holder", centrado en el origen */
+function buildMotif(id, holder, ribbons) {
+  if (id === "pompones") {
+    [-0.42, 0, 0.42].forEach((dx, k) => holder.add(makePompon(dx, 0, 0, ribbons[k % ribbons.length])));
+  } else if (id === "perlas") {
+    for (let i = 0; i < 5; i++) {
+      const p = new THREE.Mesh(track(new THREE.SphereGeometry(0.13, 20, 20)), mat(CREAM, { roughness: 0.22, metalness: 0 }));
+      p.position.set(-0.4 + i * 0.2, 0, 0);
+      p.castShadow = true;
+      holder.add(p);
+    }
+  } else if (id === "estrellas") {
+    const g = extrudeFlat(starShape(0.26), 0.08);
+    [[-0.32, 0.16], [0.32, 0.1], [0, -0.26]].forEach((q, i) => {
+      const s = new THREE.Mesh(g, mat(GOLD, { metalness: 0, roughness: 0.4 }));
+      s.position.set(q[0], q[1], 0);
+      s.rotation.z = i * 0.5;
+      s.castShadow = true;
+      holder.add(s);
+    });
+  } else if (id === "corazon") {
+    const h = new THREE.Mesh(extrudeFlat(heartShape(0.55), 0.12), mat("#F2A18A", { roughness: 0.5 }));
+    h.castShadow = true;
+    holder.add(h);
+  } else if (id === "flores") {
+    holder.add(makeFlower(-0.25, 0.12, ribbons[0]));
+    holder.add(makeFlower(0.25, -0.1, ribbons[1] || ribbons[0]));
+  } else if (id === "plumas") {
+    holder.add(makeFeather(-0.18, 0.25, ribbons[0]));
+    holder.add(makeFeather(0.2, 0.18, ribbons[1] || ribbons[0]));
+  }
 }
 
 /* ---------- Utilidades de construcción ---------- */
@@ -353,51 +471,29 @@ function build(state) {
     dcGroup.add(makeRibbon(x, yTop, len, ribbonMats[i % ribbonMats.length], i));
   }
 
-  // --- Elementos decorativos ---
-  const bottomY = -R - 0.2;
-  if (elements.includes("pompones")) {
-    [-0.55, 0, 0.55].forEach((dx, k) => {
-      dcGroup.add(makePompon(dx, bottomY - 0.1, 0.15, ribbons[k % ribbons.length]));
-    });
-  }
-  if (elements.includes("perlas")) {
-    for (let i = 0; i < 5; i++) {
-      const pearl = new THREE.Mesh(
-        track(new THREE.SphereGeometry(0.13, 20, 20)),
-        mat(CREAM, { roughness: 0.22, metalness: 0 })
-      );
-      pearl.position.set(-0.5 + i * 0.25, bottomY - 0.6, 0.2);
-      pearl.castShadow = true;
-      dcGroup.add(pearl);
-    }
-  }
-  if (elements.includes("estrellas")) {
-    const starGeo = extrudeFlat(starShape(0.28), 0.08);
-    const positions = [
-      [-R - 0.15, 0.3, 0.2], [R + 0.15, -0.1, 0.2], [R - 0.4, bottomY - 0.3, 0.2],
-    ];
-    positions.forEach((p, i) => {
-      const st = new THREE.Mesh(starGeo, mat(GOLD, { metalness: 0, roughness: 0.4 }));
-      st.position.set(p[0], p[1], p[2]);
-      st.rotation.z = i * 0.5;
-      st.castShadow = true;
-      dcGroup.add(st);
-    });
-  }
-  if (elements.includes("corazon")) {
-    const heart = new THREE.Mesh(extrudeFlat(heartShape(0.6), 0.12), mat("#F2A18A", { roughness: 0.5 }));
-    heart.position.set(0, bottomY - 0.25, 0.25);
-    heart.castShadow = true;
-    dcGroup.add(heart);
-  }
-  if (elements.includes("flores")) {
-    dcGroup.add(makeFlower(-R + 0.2, R - 0.45, ribbons[0]));
-    dcGroup.add(makeFlower(R - 0.2, R - 0.6, ribbons[1] || ribbons[0]));
-  }
-  if (elements.includes("plumas")) {
-    dcGroup.add(makeFeather(-R + 0.35, bottomY - 0.4, ribbons[0]));
-    dcGroup.add(makeFeather(R - 0.35, bottomY - 0.7, ribbons[1] || ribbons[0]));
-  }
+  // --- Adornos arrastrables (cada uno se puede colocar donde el usuario quiera) ---
+  decoGroup = new THREE.Group();
+  dcGroup.add(decoGroup);
+  draggables.length = 0;
+  elements.forEach((id) => {
+    const holder = new THREE.Object3D();
+    const pos = elemPositions[id] || DEFAULT_POS[id] || { x: 0, y: -R - 0.5 };
+    holder.position.set(pos.x, pos.y, ELEM_Z);
+    holder.userData.elemId = id;
+    buildMotif(id, holder, ribbons);
+
+    // Esfera invisible para "agarrar" el adorno al arrastrar
+    const hit = new THREE.Mesh(
+      track(new THREE.SphereGeometry(0.55, 10, 10)),
+      track(new THREE.MeshBasicMaterial({ visible: false }))
+    );
+    hit.userData.holder = holder;
+    holder.add(hit);
+    draggables.push(hit);
+
+    decoGroup.add(holder);
+    if (!elemPositions[id]) elemPositions[id] = { x: pos.x, y: pos.y };
+  });
 
   // Escala según el tamaño elegido
   const scale = state.size === "S" ? 0.86 : state.size === "L" ? 1.12 : 1.0;
@@ -496,10 +592,34 @@ function update(state) {
   if (dcGroup) build(state);
 }
 
+// Posición en pantalla (px) de cada adorno colocado. Útil para ayudas/medir.
+function elementScreenPositions() {
+  const out = [];
+  if (!decoGroup || !renderer) return out;
+  const rect = renderer.domElement.getBoundingClientRect();
+  const v = new THREE.Vector3();
+  decoGroup.children.forEach((h) => {
+    if (!h.userData.elemId) return;
+    h.getWorldPosition(v);
+    v.project(camera);
+    out.push({
+      id: h.userData.elemId,
+      x: rect.left + (v.x * 0.5 + 0.5) * rect.width,
+      y: rect.top + (-v.y * 0.5 + 0.5) * rect.height,
+    });
+  });
+  return out;
+}
+
 /* ---------- Lanzamiento ---------- */
 const ok = init();
 if (ok) {
-  window.Dreamcatcher3D = { ready: true, update };
+  window.Dreamcatcher3D = {
+    ready: true,
+    update,
+    elementScreenPositions,
+    getPositions: () => elemPositions,
+  };
   // Si el configurador ya está listo, que nos pase el estado actual.
   if (typeof window.onDreamcatcher3DReady === "function") {
     window.onDreamcatcher3DReady();

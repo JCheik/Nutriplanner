@@ -28,6 +28,7 @@
           <li><a href="#catalogo">Productos</a></li>
           <li><a href="#galeria">Galería</a></li>
           <li><a href="#configurador">Crea el tuyo</a></li>
+          <li><a href="#ya-hechos">Ya hechos</a></li>
           <li><a href="#como-funciona">Cómo funciona</a></li>
           <li><a href="#testimonios">Opiniones</a></li>
           <li><a href="#contacto" class="nav-cta">Contacto</a></li>
@@ -102,7 +103,7 @@
             <!-- Atrapasueños en 3D (js/configurator3d.js).
                  Si no hay WebGL, cae a un dibujo SVG (js/configurator.js). -->
           </div>
-          <p class="preview-hint" id="previewHint">🖐️ Arrastra para girar · pellizca o rueda para acercar</p>
+          <p class="preview-hint" id="previewHint">🖐️ Arrastra los adornos para colocarlos · gira la pieza desde el fondo · rueda para acercar</p>
           <div class="preview-meta">
             <span class="preview-size" id="previewSizeLabel">Tamaño M</span>
             <span class="preview-price" id="previewPrice">22 €</span>
@@ -143,6 +144,20 @@
           </button>
           <p class="config-help">Se abrirá WhatsApp con tu diseño ya escrito. No se paga nada online.</p>
         </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== ATRAPASUEÑOS YA HECHOS ===================== -->
+  <section class="section" id="ya-hechos">
+    <div class="container">
+      <div class="section-head">
+        <p class="eyebrow">Sin complicarte</p>
+        <h2>Atrapasueños ya hechos</h2>
+        <p class="section-sub">¿No quieres personalizar? Estos modelos están listos para pedir tal cual.</p>
+      </div>
+      <div class="product-grid" id="readymadeGrid">
+        <!-- Se genera desde js/readymade.js -->
       </div>
     </div>
   </section>
@@ -229,6 +244,7 @@
   <!-- Scripts (orden importante) -->
   <script src="js/config.js"></script>
   <script src="js/products.js"></script>
+  <script src="js/readymade.js"></script>
   <script src="js/gallery.js"></script>
   <script src="js/testimonials.js"></script>
   <script src="js/configurator.js"></script>
