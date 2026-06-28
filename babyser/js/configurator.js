@@ -19,43 +19,36 @@ const PALETTE = [
   { name: "Gris perla", hex: "#CDC4BE" },
 ];
 
-// Elementos decorativos: nombre + emoji + precio extra (€)
-const ELEMENTS = [
-  { id: "pompones", name: "Pompones", emoji: "⚪", price: 2 },
-  { id: "plumas", name: "Plumas", emoji: "🪶", price: 2 },
-  { id: "estrellas", name: "Estrellas", emoji: "⭐", price: 2 },
-  { id: "flores", name: "Flores", emoji: "🌸", price: 3 },
-  { id: "perlas", name: "Perlas", emoji: "🔘", price: 2 },
-  { id: "corazon", name: "Corazón", emoji: "💛", price: 2 },
+// Modelos de atrapasueños (fijos). El usuario solo cambia los colores.
+const MODELS = [
+  { id: "pompones", name: "Pompones", desc: "Fila de pompones de lana", price: 24 },
+  { id: "arcoiris", name: "Arcoíris", desc: "Con arcoíris de fieltro", price: 27 },
+  { id: "flores", name: "Flores", desc: "Con flores y rositas", price: 27 },
 ];
 
-// Tamaños: etiqueta, descripción (cm) y precio base (€)
+// Tamaños: etiqueta, descripción (cm) y suplemento sobre el modelo (€)
 const SIZES = [
-  { id: "S", label: "S", desc: "≈ 15 cm", price: 18 },
-  { id: "M", label: "M", desc: "≈ 20 cm", price: 22 },
-  { id: "L", label: "L", desc: "≈ 25 cm", price: 28 },
+  { id: "S", label: "S", desc: "≈ 15 cm", price: -3 },
+  { id: "M", label: "M", desc: "≈ 20 cm", price: 0 },
+  { id: "L", label: "L", desc: "≈ 25 cm", price: 4 },
 ];
 
 /* ---------- Estado del configurador ---------- */
 const state = {
   name: "",
+  model: "pompones",
   nameColor: PALETTE[3].hex,   // caramelo por defecto
   ribbons: [PALETTE[0].hex, PALETTE[1].hex, PALETTE[2].hex], // rosa, menta, lavanda
-  elements: ["pompones"],
   size: "M",
 };
-const MAX_RIBBONS = 4;
+const MAX_RIBBONS = 5;
 
 /* ---------- Helpers ---------- */
 function getSize() { return SIZES.find(s => s.id === state.size); }
+function getModel() { return MODELS.find(m => m.id === state.model) || MODELS[0]; }
 
 function estimatePrice() {
-  let total = getSize().price;
-  state.elements.forEach(id => {
-    const el = ELEMENTS.find(e => e.id === id);
-    if (el) total += el.price;
-  });
-  return total;
+  return getModel().price + getSize().price;
 }
 
 /* ---------- Render de controles ---------- */
@@ -102,22 +95,20 @@ function renderRibbons() {
   });
 }
 
-function renderElements() {
-  const box = document.getElementById("cfgElements");
+function renderModels() {
+  const box = document.getElementById("cfgModel");
   box.innerHTML = "";
-  ELEMENTS.forEach(el => {
-    const selected = state.elements.includes(el.id);
-    const c = document.createElement("button");
-    c.type = "button";
-    c.className = "chip" + (selected ? " selected" : "");
-    c.innerHTML = `${el.emoji} ${el.name}`;
-    c.addEventListener("click", () => {
-      if (selected) state.elements = state.elements.filter(id => id !== el.id);
-      else state.elements.push(el.id);
-      renderElements();
+  MODELS.forEach(m => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "model-btn" + (state.model === m.id ? " selected" : "");
+    b.innerHTML = `<span>${m.name}</span><small>${m.desc}</small>`;
+    b.addEventListener("click", () => {
+      state.model = m.id;
+      renderModels();
       renderPreview();
     });
-    box.appendChild(c);
+    box.appendChild(b);
   });
 }
 
@@ -167,7 +158,7 @@ function renderPreview() {
     name: state.name || "Nombre",
     nameColor: state.nameColor,
     ribbons: state.ribbons.length ? state.ribbons : ["#EAC8C8"],
-    elements: state.elements,
+    elements: state.model === "flores" ? ["flores"] : ["pompones"],
     size: state.size,
     placeholder: !state.name,
   });
@@ -318,9 +309,6 @@ function escapeXML(s) {
 /* ---------- Mensaje de pedido por WhatsApp ---------- */
 function buildOrderMessage() {
   const sz = getSize();
-  const elNames = state.elements.length
-    ? state.elements.map(id => ELEMENTS.find(e => e.id === id).name).join(", ") + " (colocados a mi gusto)"
-    : "ninguno";
   const ribbonNames = state.ribbons
     .map(h => (PALETTE.find(c => c.hex === h) || {}).name || h)
     .join(", ");
@@ -329,10 +317,10 @@ function buildOrderMessage() {
   return (
 `¡Hola BabySer! 🪶 Quiero pedir un atrapasueños personalizado:
 
+• Modelo: ${getModel().name}
 • Nombre: ${state.name || "(por confirmar)"}
 • Color del nombre: ${nameColorName}
-• Colores de cintas: ${ribbonNames}
-• Elementos: ${elNames}
+• Colores (lana y cintas): ${ribbonNames}
 • Tamaño: ${sz.label} (${sz.desc})
 • Precio estimado: ${estimatePrice()} €
 
@@ -344,9 +332,9 @@ function buildOrderMessage() {
 function initConfigurator() {
   if (!document.getElementById("configForm")) return;
 
+  renderModels();
   renderNameColor();
   renderRibbons();
-  renderElements();
   renderSizes();
   renderPreview();
 

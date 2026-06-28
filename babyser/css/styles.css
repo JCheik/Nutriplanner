@@ -491,6 +491,25 @@ h1, h2, h3 {
   border-color: var(--mint);
 }
 
+/* Modelos */
+.model-options { display: flex; flex-direction: column; gap: 10px; }
+.model-btn {
+  text-align: left;
+  border: 2px solid var(--rose-soft);
+  background: var(--cream);
+  border-radius: var(--radius-sm);
+  padding: .7em 1em;
+  cursor: pointer;
+  font-family: var(--font-body);
+  color: var(--earth);
+  transition: all .15s ease;
+}
+.model-btn span { display: block; font-weight: 800; }
+.model-btn small { color: #8a7460; font-weight: 600; }
+.model-btn:hover { border-color: var(--caramel); }
+.model-btn.selected { background: var(--mint-soft); border-color: var(--mint); }
+.model-btn.selected small { color: var(--earth); }
+
 /* Tamaños */
 .size-options { display: flex; gap: 10px; }
 .size-btn {
