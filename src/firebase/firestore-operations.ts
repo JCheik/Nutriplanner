@@ -1,5 +1,5 @@
 import { Firestore, doc, runTransaction, setDoc, deleteDoc, collection, getDoc } from 'firebase/firestore';
-import type { DayPlan, Recipe, Meal, RecipeInstance } from '@/lib/types';
+import type { DayPlan, Recipe, Meal, RecipeInstance, WeekHistoryEntry } from '@/lib/types';
 import { INITIAL_WEEK_PLAN, DAY_ORDER } from '@/lib/data';
 
 /** Removes keys whose value is `undefined`, which the Firestore client SDK rejects. */
@@ -79,6 +79,38 @@ export async function copyRecipeToUser(
   });
 
   return id;
+}
+
+/**
+ * Saves a snapshot of the current week into the user's history collection.
+ * The snapshot is a deep copy of the 7 day plans so later edits to the live
+ * plan don't mutate the archived version.
+ */
+export async function saveWeekSnapshot(
+  firestore: Firestore,
+  userId: string,
+  label: string,
+  days: DayPlan[]
+): Promise<string> {
+  const docRef = doc(collection(firestore, 'users', userId, 'weekHistory'));
+  const entry: WeekHistoryEntry = {
+    id: docRef.id,
+    savedAt: Date.now(),
+    label,
+    // Deep clone so the snapshot is independent of the live plan.
+    days: JSON.parse(JSON.stringify(days)),
+  };
+  await setDoc(docRef, entry);
+  return docRef.id;
+}
+
+/** Deletes a saved week snapshot from the user's history. */
+export async function deleteWeekSnapshot(
+  firestore: Firestore,
+  userId: string,
+  snapshotId: string
+): Promise<void> {
+  await deleteDoc(doc(firestore, 'users', userId, 'weekHistory', snapshotId));
 }
 
 /**

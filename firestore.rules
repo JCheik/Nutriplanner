@@ -52,6 +52,16 @@ service cloud.firestore {
     }
 
     /**
+     * @description Archived week snapshots owned by a specific user. Admins have full access.
+     * @path /users/{userId}/weekHistory/{snapshotId}
+     */
+    match /users/{userId}/weekHistory/{snapshotId} {
+      allow read, list: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update, delete: if isSignedIn() && (isExistingOwner(userId) || isAdmin());
+    }
+
+    /**
      * @description Meal plans owned by a specific user (legacy, may be deprecated). Admins have full access.
      * @path /users/{userId}/meal_plans/{mealPlanId}
      */

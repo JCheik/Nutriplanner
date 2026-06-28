@@ -166,6 +166,18 @@ export function useWeekPlanState() {
     });
   }, [currentWeekPlan, updateDayPlanInFirestore]);
 
+  // Overwrites the live week with a saved snapshot's days. Each day's meals are
+  // replaced wholesale; days missing from the snapshot are left untouched.
+  const handleRestoreWeek = useCallback((days: DayPlan[]) => {
+    days.forEach(snapshotDay => {
+      updateDayPlanInFirestore(snapshotDay.day, (currentDayPlan) => ({
+        ...currentDayPlan,
+        day: snapshotDay.day,
+        meals: snapshotDay.meals ?? [],
+      }));
+    });
+  }, [updateDayPlanInFirestore]);
+
   return {
     currentWeekPlan,
     weekPlanLoading,
@@ -173,6 +185,7 @@ export function useWeekPlanState() {
     handleClearMeal,
     handleClearDay,
     handleClearWeek,
+    handleRestoreWeek,
     handleRemoveRecipeFromMeal,
     handleUpdateMealTitle,
     handleUpdateMealTypes,

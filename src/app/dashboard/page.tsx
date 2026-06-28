@@ -12,6 +12,7 @@ import { WelcomeGuide } from '@/components/nutri-planner/welcome-guide';
 import { AssistantDialog } from '@/components/nutri-planner/assistant-dialog';
 import { RecipeImportDialog } from '@/components/nutri-planner/recipe-import-dialog';
 import { AutocompletePreferencesDialog } from '@/components/nutri-planner/autocomplete-preferences-dialog';
+import { WeekHistorySheet } from '@/components/nutri-planner/week-history-sheet';
 
 export default function DashboardPage() {
   const {
@@ -20,8 +21,10 @@ export default function DashboardPage() {
     handleSaveRecipe, handleDeleteRecipe, handleCopyRecipe,
     // Week plan state
     currentWeekPlan, dailyTotals,
-    handleDrop, handleClearMeal, handleClearDay, handleClearWeek, handleRemoveRecipeFromMeal,
+    handleDrop, handleClearMeal, handleClearDay, handleClearWeek, handleRestoreWeek, handleRemoveRecipeFromMeal,
     handleUpdateMealTitle, handleUpdateMealTypes, handleAddMeal, handleDeleteMeal, handleUpdateServingsEaten,
+    // Week history
+    weekHistory,
     // User profile state
     currentCalorieResult, activeGoalMacros, currentShoppingList, currentDietPreference, activeGoal,
     handleCalorieResultSave, handleActiveGoalChange, handleSaveCustomGoal, handleShoppingListUpdate, handleDietPreferenceChange,
@@ -75,6 +78,7 @@ export default function DashboardPage() {
             onRecipeImportOpen={() => handlePanelOpen('recipe-import')}
             onGoalsOpen={() => handlePanelOpen('goals')}
             onShoppingListOpen={() => handlePanelOpen('shopping-list')}
+            onHistoryOpen={() => handlePanelOpen('history')}
             dietPreference={currentDietPreference}
           />
         </div>
@@ -150,6 +154,17 @@ export default function DashboardPage() {
         activeGoal={activeGoal || null}
         dietPreference={currentDietPreference}
         onDietPreferenceChange={handleDietPreferenceChange}
+      />
+
+      <WeekHistorySheet
+        isOpen={activePanel === 'history'}
+        onOpenChange={(isOpen) => handlePanelChange('history', isOpen)}
+        weekPlan={currentWeekPlan}
+        history={weekHistory.history}
+        isLoading={weekHistory.isLoading}
+        onSave={weekHistory.saveCurrentWeek}
+        onDelete={weekHistory.deleteSnapshot}
+        onRestore={handleRestoreWeek}
       />
 
       {selectedMealForAddition && (

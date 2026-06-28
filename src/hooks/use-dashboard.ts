@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useRecipeState } from '@/hooks/use-recipe-state';
 import { useWeekPlanState } from '@/hooks/use-week-plan-state';
 import { useUserProfileState } from '@/hooks/use-user-profile-state';
+import { useWeekHistory } from '@/hooks/use-week-history';
 import { useUser } from '@/firebase';
 import { autocompleteWeek } from '@/ai/flows/autocomplete-flow';
 import { getAiErrorMessage } from '@/lib/ai-error';
@@ -27,6 +28,7 @@ export function useDashboard() {
   const recipeState = useRecipeState();
   const weekPlanState = useWeekPlanState();
   const userProfileState = useUserProfileState();
+  const weekHistory = useWeekHistory();
 
   const {
     currentUserRecipes,
@@ -43,6 +45,7 @@ export function useDashboard() {
     handleClearMeal,
     handleClearDay,
     handleClearWeek,
+    handleRestoreWeek,
     handleRemoveRecipeFromMeal,
     handleUpdateMealTitle,
     handleUpdateMealTypes,
@@ -200,8 +203,10 @@ export function useDashboard() {
     handleSaveRecipe, handleDeleteRecipe, handleCopyRecipe,
     // Week plan state
     currentWeekPlan, dailyTotals,
-    handleDrop, handleClearMeal, handleClearDay, handleClearWeek, handleRemoveRecipeFromMeal,
+    handleDrop, handleClearMeal, handleClearDay, handleClearWeek, handleRestoreWeek, handleRemoveRecipeFromMeal,
     handleUpdateMealTitle, handleUpdateMealTypes, handleAddMeal, handleDeleteMeal, handleUpdateServingsEaten,
+    // Week history
+    weekHistory,
     // User profile state
     currentStickyNote, currentCalorieResult, activeGoalMacros, currentShoppingList, currentDietPreference, activeGoal,
     handleNoteSave, handleCalorieResultSave, handleActiveGoalChange, handleSaveCustomGoal, handleShoppingListUpdate, handleDietPreferenceChange,

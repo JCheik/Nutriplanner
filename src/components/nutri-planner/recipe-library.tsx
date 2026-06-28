@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { RecipeCard } from './recipe-card';
-import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Plus, Folders, Edit, LayoutGrid, List, Sparkles, Camera, Link2, MoreVertical, Wand2, Target, ShoppingCart } from 'lucide-react';
+import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Plus, Folders, Edit, LayoutGrid, List, Sparkles, Camera, Link2, MoreVertical, Wand2, Target, ShoppingCart, History } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -47,6 +47,7 @@ interface RecipeLibraryProps {
   onRecipeImportOpen?: () => void;
   onGoalsOpen?: () => void;
   onShoppingListOpen?: () => void;
+  onHistoryOpen?: () => void;
   isMobile?: boolean;
   initialViewMode?: 'grid' | 'list';
   dietPreference?: DietTag[];
@@ -330,6 +331,7 @@ export function RecipeLibrary({
   onRecipeImportOpen,
   onGoalsOpen,
   onShoppingListOpen,
+  onHistoryOpen,
   isMobile = false,
   initialViewMode = 'grid',
   dietPreference = [],
@@ -528,6 +530,12 @@ export function RecipeLibrary({
                   <Button variant="outline" onClick={onShoppingListOpen} data-tour="shopping-list">
                     <ShoppingCart className="mr-2 h-4 w-4" />
                     Compra
+                  </Button>
+                )}
+                {!isMobile && onHistoryOpen && (
+                  <Button variant="outline" onClick={onHistoryOpen} data-tour="week-history">
+                    <History className="mr-2 h-4 w-4" />
+                    Historial
                   </Button>
                 )}
                 {activeTab === 'user-recipes' && !isMobile && (

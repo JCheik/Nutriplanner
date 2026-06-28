@@ -101,6 +101,16 @@ export interface DayPlan {
 
 export type WeekPlan = DayPlan[];
 
+// A saved snapshot of the whole week, for browsing/reusing past plans.
+// Stored at users/{uid}/weekHistory/{id}. The planner itself stays a single
+// rolling week; archiving copies the current 7 days into history on demand.
+export interface WeekHistoryEntry {
+  id: string;
+  savedAt: number;
+  label: string;
+  days: DayPlan[];
+}
+
 export interface DailyTotal {
   day: string;
   totals: Macros;
@@ -181,4 +191,5 @@ export type PanelType =
   | 'shopping-list'
   | 'empty-fridge'
   | 'recipe-import'
-  | 'assistant';
+  | 'assistant'
+  | 'history';
