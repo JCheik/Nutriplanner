@@ -18,13 +18,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Bot, Send, LoaderCircle, Wand2, Mic, Volume2, VolumeX } from 'lucide-react';
+import { Bot, Send, LoaderCircle, Wand2, Mic, Volume2, VolumeX, Camera, X as XIcon, EggFried, Flame } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 import { getAiErrorMessage, isRetryableAiError } from '@/lib/ai-error';
 import { askAssistant } from '@/ai/flows/assistant-flow';
 import { generateRecipe } from '@/ai/flows/generate-recipe-flow';
+import { parseFridgeImage } from '@/ai/flows/parse-fridge-image-flow';
 import {
   useAssistantActions,
   type AssistantExecResult,
@@ -35,9 +36,16 @@ import { useAiQuota } from '@/hooks/use-ai-quota';
 import { useSpeechSynthesis } from '@/hooks/use-speech-synthesis';
 import type { WeekPlan, Recipe, GoalMacros, GoalType, DietTag, AiIngredientEstimate } from '@/lib/types';
 
+interface ScanResult {
+  ingredients: string[];
+  recipes: Array<Omit<Recipe, 'id'>>;
+}
+
 interface ChatMessage {
   role: 'user' | 'assistant';
   text: string;
+  imageBase64?: string;
+  scanResult?: ScanResult;
 }
 
 interface PendingAction {
@@ -104,6 +112,8 @@ export function AssistantDialog({
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [pending, setPending] = useState<PendingAction | null>(null);
+  const [attachedImage, setAttachedImage] = useState<{ base64: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // The on/off preference for spoken replies persists across sessions. The chosen
   // voice (voiceURI) is already persisted by useSpeechSynthesis.
   const [voiceOn, setVoiceOn] = useState(() => {
@@ -206,7 +216,53 @@ export function AssistantDialog({
     say(res.message);
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setAttachedImage({ base64: ev.target?.result as string });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleScanFridge = async () => {
+    if (!attachedImage || isLoading) return;
+    const quota = await checkAiQuota();
+    if (!quota.allowed) {
+      toast({ title: 'Límite de IA', description: quota.message ?? 'Has alcanzado el límite de peticiones de IA por hoy.' });
+      return;
+    }
+    const imageBase64 = attachedImage.base64;
+    setAttachedImage(null);
+    append({ role: 'user', text: '📷 Analiza mi nevera', imageBase64 });
+    setIsLoading(true);
+    try {
+      const result = await parseFridgeImage({ imageBase64, nutritionalGoal: activeGoalMacros });
+      const detected = result.ingredients.length
+        ? result.ingredients.slice(0, 8).join(', ') + (result.ingredients.length > 8 ? '…' : '')
+        : null;
+      const replyText = detected
+        ? `He detectado: ${detected}. He preparado ${result.recipes.length} recetas con estos ingredientes.`
+        : `He analizado la imagen y preparado ${result.recipes.length} recetas con lo que veo.`;
+      append({
+        role: 'assistant',
+        text: replyText,
+        scanResult: { ingredients: result.ingredients, recipes: result.recipes as Array<Omit<Recipe, 'id'>> },
+      });
+      say(replyText);
+    } catch (e) {
+      const msg = getAiErrorMessage(e, 'No se pudo analizar la imagen. Intenta de nuevo.');
+      append({ role: 'assistant', text: msg });
+      toast({ variant: 'destructive', title: 'Error al escanear', description: msg });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSend = async (raw?: string) => {
+    if (attachedImage) { handleScanFridge(); return; }
     const text = (raw ?? input).trim();
     if (!text || isLoading) return;
     setInput('');
@@ -377,7 +433,7 @@ export function AssistantDialog({
             )}
           </div>
           <DialogDescription>
-            Pídeme cosas como “añade ensalada césar a la cena del martes” o “vacía el lunes”.
+            Pídeme cosas como “añade ensalada césar al martes” o “vacía el lunes”. Toca 📷 para escanear tu nevera.
             {sttSupported && ' Toca el micro para hablar.'}
           </DialogDescription>
         </DialogHeader>
@@ -394,11 +450,36 @@ export function AssistantDialog({
               <div key={i} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
                 <div
                   className={cn(
-                    'max-w-[80%] rounded-lg px-3 py-2 text-sm',
+                    'max-w-[85%] rounded-lg px-3 py-2 text-sm space-y-2',
                     m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'
                   )}
                 >
-                  {m.text}
+                  {m.imageBase64 && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={m.imageBase64} alt="Foto de nevera" className="rounded-lg max-h-48 object-cover w-full" />
+                  )}
+                  {m.text && <p>{m.text}</p>}
+                  {m.scanResult && m.scanResult.recipes.length > 0 && (
+                    <div className="space-y-2 pt-1">
+                      {m.scanResult.recipes.map((recipe, ri) => (
+                        <div key={ri} className="rounded-lg border bg-background text-foreground p-2.5 space-y-1.5">
+                          <p className="font-semibold text-sm leading-tight">{recipe.name}</p>
+                          <p className="text-xs text-muted-foreground line-clamp-2">{recipe.description}</p>
+                          <div className="flex gap-3 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-0.5"><Flame className="h-3 w-3" />{Math.round(recipe.calories)} kcal</span>
+                            <span className="flex items-center gap-0.5"><EggFried className="h-3 w-3" />{Math.round(recipe.protein)}g</span>
+                          </div>
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs w-full mt-0.5"
+                            onClick={() => { onCreateRecipe(recipe); onClose(); }}
+                          >
+                            Revisar y guardar
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -427,7 +508,39 @@ export function AssistantDialog({
         </ScrollArea>
 
         <div className="space-y-1.5">
+          {attachedImage && (
+            <div className="relative w-16 h-16 rounded-lg overflow-hidden border">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={attachedImage.base64} alt="Vista previa" className="w-full h-full object-cover" />
+              <button
+                className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5"
+                onClick={() => setAttachedImage(null)}
+                aria-label="Quitar foto"
+              >
+                <XIcon className="h-3 w-3 text-white" />
+              </button>
+            </div>
+          )}
           <div className="flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleImageSelect}
+            />
+            <Button
+              size="icon"
+              variant="outline"
+              className="shrink-0"
+              title="Foto de nevera"
+              aria-label="Adjuntar foto de nevera"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading}
+            >
+              <Camera className="h-4 w-4" />
+            </Button>
             {sttSupported && (
               <Button
                 size="icon"
@@ -445,10 +558,15 @@ export function AssistantDialog({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSend(); }}
-              placeholder={isListening ? 'Escuchando...' : 'Escribe una instrucción...'}
+              placeholder={attachedImage ? 'Listo para analizar…' : isListening ? 'Escuchando…' : 'Escribe una instrucción…'}
               disabled={isLoading}
             />
-            <Button size="icon" onClick={() => handleSend()} disabled={isLoading || !input.trim()} aria-label="Enviar">
+            <Button
+              size="icon"
+              onClick={() => handleSend()}
+              disabled={isLoading || (!input.trim() && !attachedImage)}
+              aria-label="Enviar"
+            >
               <Send className="h-4 w-4" />
             </Button>
           </div>
