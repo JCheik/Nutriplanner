@@ -24,6 +24,8 @@ import type { Recipe, BaseIngredient } from '@/lib/types';
 import { Link2, Loader2, CheckCircle2, AlertTriangle, Sparkles, Download, Video, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MissingIngredientRow, type ReviewIngredient, type ReviewMacroField } from './ingredient-review';
+import { useAiQuota } from '@/hooks/use-ai-quota';
+import { useToast } from '@/hooks/use-toast';
 
 // 'input'     → URL + textarea
 // 'fetching'  → getting page content from URL
@@ -41,6 +43,8 @@ interface RecipeImportDialogProps {
 export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: RecipeImportDialogProps) {
   const { firestore } = useFirebase();
   const { user } = useUser();
+  const { toast } = useToast();
+  const { check: checkAiQuota } = useAiQuota();
 
   const ingredientsRef = useMemoFirebase(
     () => (firestore ? collection(firestore, 'ingredients') : null),
@@ -179,6 +183,11 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
 
   const handleAnalyze = async () => {
     if (!videoFile && !cachedVideoUrl && !recipeText.trim()) return;
+    const quota = await checkAiQuota();
+    if (!quota.allowed) {
+      toast({ title: 'Límite de IA', description: quota.message ?? 'Has alcanzado el límite de peticiones de IA por hoy.' });
+      return;
+    }
     setError(null);
     setCdnFallbackOccurred(false);
     setStep('analyzing');

@@ -12,6 +12,7 @@ import { DIET_TAGS } from '@/lib/constants';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CalculatorDialog } from './calculator-dialog';
+import { NutritionalDisclaimer } from './nutritional-disclaimer';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 
@@ -192,6 +193,7 @@ export function GoalsContent({
           dietPreference={dietPreference}
           onDietPreferenceChange={onDietPreferenceChange}
         />
+        <NutritionalDisclaimer />
         <CalculatorDialog
           isOpen={isCalculatorOpen}
           onClose={() => setIsCalculatorOpen(false)}
@@ -258,6 +260,8 @@ export function GoalsContent({
           />
         </TabsContent>
       </Tabs>
+
+      <NutritionalDisclaimer className="mt-4" />
 
       <CalculatorDialog
         isOpen={isCalculatorOpen}

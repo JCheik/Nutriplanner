@@ -6,6 +6,7 @@ import { RecipeDialog, DialogState } from '@/components/nutri-planner/recipe-dia
 import { autocompleteWeek } from '@/ai/flows/autocomplete-flow';
 import { getAiErrorMessage } from '@/lib/ai-error';
 import { useToast } from '@/hooks/use-toast';
+import { useAiQuota } from '@/hooks/use-ai-quota';
 import type { Recipe, AiIngredientEstimate } from '@/lib/types';
 import type { useRecipeState } from '@/hooks/use-recipe-state';
 import type { useWeekPlanState } from '@/hooks/use-week-plan-state';
@@ -35,6 +36,7 @@ export function MobileAssistant({
   autoListen,
 }: MobileAssistantProps) {
   const { toast } = useToast();
+  const { check: checkAiQuota } = useAiQuota();
   const [aiRecipeDialog, setAiRecipeDialog] = useState<DialogState>({ open: false });
 
   const handleAiRecipeGenerated = useCallback((recipe: Omit<Recipe, 'id'>, aiIngredients?: AiIngredientEstimate[]) => {
@@ -49,6 +51,11 @@ export function MobileAssistant({
   // Mobile has no autocomplete-preferences dialog, so the assistant's
   // `autocomplete_week` action runs the flow directly with sensible defaults.
   const handleAutocomplete = useCallback(async () => {
+    const quota = await checkAiQuota();
+    if (!quota.allowed) {
+      toast({ title: 'Límite de IA', description: quota.message ?? 'Has alcanzado el límite de peticiones de IA por hoy.' });
+      return;
+    }
     try {
       const availableRecipes = [...recipeState.currentUserRecipes, ...recipeState.nutriplannerRecipes];
       const placements = await autocompleteWeek({
@@ -73,7 +80,7 @@ export function MobileAssistant({
     } catch (e) {
       toast({ variant: 'destructive', title: 'Error al autocompletar', description: getAiErrorMessage(e, 'No se pudo generar el plan semanal.') });
     }
-  }, [recipeState.currentUserRecipes, recipeState.nutriplannerRecipes, weekPlanState, profileState, toast]);
+  }, [recipeState.currentUserRecipes, recipeState.nutriplannerRecipes, weekPlanState, profileState, toast, checkAiQuota]);
 
   return (
     <>

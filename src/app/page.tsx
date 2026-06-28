@@ -7,6 +7,7 @@ import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { useMediaQuery } from '@/hooks/use-media-query';
+import { NutritionalDisclaimer } from '@/components/nutri-planner/nutritional-disclaimer';
 
 function AuthContent() {
   const { user, loading } = useUser();
@@ -70,6 +71,7 @@ function AuthContent() {
             Iniciar Sesión con Google
           </Button>
         </div>
+        <NutritionalDisclaimer className="text-left justify-center" />
       </div>
     </div>
   );

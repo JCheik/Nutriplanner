@@ -31,6 +31,7 @@ import {
 } from '@/hooks/use-assistant-actions';
 import { isAssistantAction } from '@/lib/assistant-actions';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
+import { useAiQuota } from '@/hooks/use-ai-quota';
 import { useSpeechSynthesis } from '@/hooks/use-speech-synthesis';
 import type { WeekPlan, Recipe, GoalMacros, GoalType, DietTag, AiIngredientEstimate } from '@/lib/types';
 
@@ -118,6 +119,7 @@ export function AssistantDialog({
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const { toast } = useToast();
+  const { check: checkAiQuota } = useAiQuota();
   const bottomRef = useRef<HTMLDivElement>(null);
   const sendRef = useRef<(raw?: string) => void>(() => {});
 
@@ -210,6 +212,16 @@ export function AssistantDialog({
     setInput('');
     setPending(null);
     append({ role: 'user', text });
+
+    // Per-user daily AI quota gate (alpha cost guard).
+    const quota = await checkAiQuota();
+    if (!quota.allowed) {
+      const msg = quota.message ?? 'Has alcanzado el límite de peticiones de IA por hoy.';
+      append({ role: 'assistant', text: msg });
+      say(msg);
+      return;
+    }
+
     setIsLoading(true);
     try {
       const context = buildContext(weekPlan, userRecipes, nutriplannerRecipes);

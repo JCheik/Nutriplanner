@@ -10,6 +10,7 @@ import { useUserProfileState } from '@/hooks/use-user-profile-state';
 import { useUser } from '@/firebase';
 import { autocompleteWeek } from '@/ai/flows/autocomplete-flow';
 import { getAiErrorMessage } from '@/lib/ai-error';
+import { useAiQuota } from '@/hooks/use-ai-quota';
 import { mealCalorieRatio, suggestedServings } from '@/lib/serving-utils';
 import type { AutocompletePreferences } from '@/components/nutri-planner/autocomplete-preferences-dialog';
 
@@ -17,6 +18,7 @@ export function useDashboard() {
   const { toast } = useToast();
   const router = useRouter();
   const { user, loading: userLoading } = useUser();
+  const { check: checkAiQuota } = useAiQuota();
 
   useEffect(() => {
     if (!userLoading && !user) router.replace('/');
@@ -144,6 +146,11 @@ export function useDashboard() {
 
   const handleRunAutocomplete = async (preferences: AutocompletePreferences) => {
     setIsPreferencesDialogOpen(false);
+    const quota = await checkAiQuota();
+    if (!quota.allowed) {
+      toast({ title: 'Límite de IA', description: quota.message ?? 'Has alcanzado el límite de peticiones de IA por hoy.' });
+      return;
+    }
     try {
       setIsAutocompleting(true);
       const availableRecipes = [...currentUserRecipes, ...nutriplannerRecipes];

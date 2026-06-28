@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { parseFridgeImage } from '@/ai/flows/parse-fridge-image-flow';
+import { useAiQuota } from '@/hooks/use-ai-quota';
 import { getAiErrorMessage, isRetryableAiError } from '@/lib/ai-error';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -47,6 +48,7 @@ export function EmptyFridgeScanner({
   isSavingRecipe = false,
 }: EmptyFridgeScannerProps) {
   const { toast } = useToast();
+  const { check: checkAiQuota } = useAiQuota();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -124,6 +126,11 @@ export function EmptyFridgeScanner({
 
   const handleScan = async () => {
     if (!imageBase64) return;
+    const quota = await checkAiQuota();
+    if (!quota.allowed) {
+      toast({ title: 'Límite de IA', description: quota.message ?? 'Has alcanzado el límite de peticiones de IA por hoy.' });
+      return;
+    }
     setIsScanning(true);
     setHasScanned(false);
 
