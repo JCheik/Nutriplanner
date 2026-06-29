@@ -221,6 +221,14 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
     const trimmedName = name.trim();
     if (!trimmedName || !onSave) return;
 
+    // Category is mandatory: an uncategorised recipe acts as a "wildcard" the AI
+    // can drop into any meal slot (e.g. a burger at breakfast). Require at least
+    // one so the autocomplete stays sensible.
+    if (category.length === 0) {
+      toast({ variant: 'destructive', title: 'Falta la categoría', description: 'Marca al menos una categoría de comida (desayuno, almuerzo, cena…) antes de guardar.' });
+      return;
+    }
+
     // Persist the new ingredients the user chose to keep, so the recipe's macros
     // count for real (and stay correct when scaled) instead of summing 0 kcal.
     // Mirrors the URL import flow.
@@ -417,7 +425,7 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
               align="start"
             >
              <div>
-              <Label>Categoría de comida</Label>
+              <Label>Categoría de comida <span className="text-destructive">*</span></Label>
               <div className="flex flex-wrap gap-2 mt-1">
                 {MEAL_CATEGORIES.map((cat) => {
                   const isOn = category.includes(cat.value);
@@ -439,8 +447,8 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
                   );
                 })}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Guía a la IA al montar el menú. Vacío = se puede usar en cualquier comida.
+              <p className={cn('text-xs mt-1', category.length === 0 ? 'text-destructive' : 'text-muted-foreground')}>
+                Obligatorio: marca al menos una comida. La IA lo usa para montar el menú sin equivocarse.
               </p>
             </div>
            </FeatureHint>

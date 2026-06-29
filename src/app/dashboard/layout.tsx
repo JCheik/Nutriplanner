@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/firebase';
 import { Logo } from '@/components/icons/logo';
@@ -19,13 +19,27 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, loading: userLoading } = useUser();
 
-  useEffect(() => {
-    if (!userLoading && !user) {
-      router.replace('/');
-    }
-  }, [userLoading, user, router]);
+  // Detect a mobile viewport on the very first client render so we never paint
+  // the desktop dashboard before bouncing to /mobile. A mobile user can reach
+  // /dashboard directly (an installed PWA launched at the old start_url, a tab
+  // the browser restored, a shared link) and nothing else would route them to
+  // the mobile UI — they'd be stuck on the desktop layout until clicking the logo.
+  const [isMobileViewport] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
+  );
 
-  if (userLoading || !user) {
+  useEffect(() => {
+    if (userLoading) return;
+    if (!user) {
+      router.replace('/');
+      return;
+    }
+    if (isMobileViewport) {
+      router.replace('/mobile');
+    }
+  }, [userLoading, user, router, isMobileViewport]);
+
+  if (userLoading || !user || isMobileViewport) {
     return <DashboardLoader />;
   }
 
