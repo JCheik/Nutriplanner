@@ -31,7 +31,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#22c55e',
+  // Warm off-white matching the app background (--background: 40 33% 96%), not the
+  // old green which clashed with the terracotta/cream palette.
+  themeColor: '#F7F3EC',
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',

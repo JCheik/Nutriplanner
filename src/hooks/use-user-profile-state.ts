@@ -27,7 +27,6 @@ export function useUserProfileState() {
   }, [userProfile]);
 
   // --- Memoized Data Sources ---
-  const currentStickyNote = useMemo(() => userProfile?.stickyNote || '', [userProfile]);
   const currentCalorieResult = useMemo(() => userProfile?.calorieResult || null, [userProfile]);
   const activeGoalMacros = useMemo(() => currentCalorieResult && activeGoal ? currentCalorieResult[activeGoal] : null, [currentCalorieResult, activeGoal]);
   const currentShoppingList = useMemo(() => userProfile?.shoppingList || [], [userProfile]);
@@ -37,14 +36,6 @@ export function useUserProfileState() {
   // NOTE: we use setDoc(..., { merge: true }) instead of updateDoc everywhere so
   // these writes also succeed for a brand-new user whose profile document hasn't
   // been created yet (updateDoc throws "No document to update" in that case).
-  const handleNoteSave = useCallback(async (content: string) => {
-    if (userProfileRef) {
-      try {
-        await setDoc(userProfileRef, { stickyNote: content }, { merge: true });
-      } catch(e) { console.error("Error saving sticky note", e) }
-    }
-  }, [userProfileRef]);
-
   const handleCalorieResultSave = useCallback(async (result: CalculationResult) => {
     if (!userProfileRef) return;
     try {
@@ -96,13 +87,11 @@ export function useUserProfileState() {
   }, [userProfileRef]);
 
   return {
-    currentStickyNote,
     currentCalorieResult,
     activeGoalMacros,
     currentShoppingList,
     currentDietPreference,
     activeGoal,
-    handleNoteSave,
     handleCalorieResultSave,
     handleActiveGoalChange,
     handleSaveCustomGoal,

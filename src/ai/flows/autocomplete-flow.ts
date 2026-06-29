@@ -179,16 +179,27 @@ ${JSON.stringify(simplifiedRecipes, null, 2)}
 
 RULES — follow ALL of them:
 
-1. CATEGORY MATCH (MANDATORY, HARD CONSTRAINT):
+1. ELIGIBILITY (MANDATORY, HARD CONSTRAINT):
    For each slot, you MUST choose a recipeId that appears in THAT slot's "eligibleRecipeIds" list.
-   These lists were pre-filtered by the user's explicit recipe categories, so they are authoritative.
-   Do NOT pick any recipe outside a slot's eligibleRecipeIds, even if its name seems to fit better.
+   Never pick a recipeId outside that list.
 
-2. REPETITION: ${repetitionRule}
+2. MEAL-TYPE FIT (MANDATORY): Each slot has "mealTypes" (e.g. ["desayuno"], ["cena"]). The recipe
+   you choose MUST genuinely suit that meal type — use the recipe NAME to judge this.
+   - A "desayuno" (breakfast) slot needs a breakfast-appropriate dish (tostadas, huevos, avena,
+     yogur, tortitas, fruta, café, batidos, etc.). NEVER place a clearly lunch/dinner main dish
+     (hamburguesa, guiso, pasta, pizza, asado, lasaña, etc.) in a breakfast slot.
+   - "almuerzo"/"cena" slots take savoury main dishes; "merienda"/"snack" take light bites;
+     "postre" takes desserts.
+   The eligibleRecipeIds list may include uncategorised "comodín" recipes that fit any slot — even
+   so, only choose one if it actually makes sense for THIS meal type. If several recipes are
+   eligible, prefer the one that best fits the meal type, THEN optimise nutrition.
+   Only if NO eligible recipe suits the meal type at all may you fall back to the closest option.
 
-3. NUTRITION: ${priorityRule}
+3. REPETITION: ${repetitionRule}
 
-${restrictionRule ? `4. RESTRICTIONS: ${restrictionRule}` : ''}
+4. NUTRITION (apply only among recipes that already fit the meal type): ${priorityRule}
+
+${restrictionRule ? `5. RESTRICTIONS: ${restrictionRule}` : ''}
 
 For EVERY slot in the list above, select EXACTLY ONE recipeId from that slot's eligibleRecipeIds.
 Return ONLY a JSON array. Each element: { "day": string, "mealId": string, "recipeId": string }

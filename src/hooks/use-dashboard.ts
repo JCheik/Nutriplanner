@@ -55,13 +55,11 @@ export function useDashboard() {
   } = weekPlanState;
 
   const {
-    currentStickyNote,
     currentCalorieResult,
     activeGoalMacros,
     currentShoppingList,
     currentDietPreference,
     activeGoal,
-    handleNoteSave,
     handleCalorieResultSave,
     handleActiveGoalChange,
     handleSaveCustomGoal,
@@ -208,8 +206,8 @@ export function useDashboard() {
     // Week history
     weekHistory,
     // User profile state
-    currentStickyNote, currentCalorieResult, activeGoalMacros, currentShoppingList, currentDietPreference, activeGoal,
-    handleNoteSave, handleCalorieResultSave, handleActiveGoalChange, handleSaveCustomGoal, handleShoppingListUpdate, handleDietPreferenceChange,
+    currentCalorieResult, activeGoalMacros, currentShoppingList, currentDietPreference, activeGoal,
+    handleCalorieResultSave, handleActiveGoalChange, handleSaveCustomGoal, handleShoppingListUpdate, handleDietPreferenceChange,
     // UI state
     dialogState, activePanel, activeDropTarget, setActiveDropTarget,
     isRecipeSelectorOpen, setIsRecipeSelectorOpen, selectedMealForAddition,
