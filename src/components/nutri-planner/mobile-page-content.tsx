@@ -278,33 +278,9 @@ export function MobilePageContent({
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
         >
-          {/* Calorie progress card */}
-          {activeGoalMacros && (
-            <div className="rounded-2xl border bg-card p-4">
-              <div className="h-1.5 rounded-full bg-secondary overflow-hidden mb-3">
-                <div
-                  className="h-full rounded-full bg-primary transition-all duration-500"
-                  style={{ width: `${Math.min(100, caloriePercent ?? 0)}%` }}
-                />
-              </div>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                {[
-                  { label: 'Prot.', value: totals.protein, target: activeGoalMacros.protein },
-                  { label: 'Carbs', value: totals.carbs, target: activeGoalMacros.carbs },
-                  { label: 'Grasa', value: totals.fat, target: activeGoalMacros.fat },
-                ].map(({ label, value, target }) => (
-                  <div key={label} className="flex flex-col items-center">
-                    <span className="font-bold text-sm">{Math.round(value)}g</span>
-                    <span className="text-[10px] text-muted-foreground">{label}</span>
-                    <span className="text-[9px] text-muted-foreground/60">/ {Math.round(target)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {dayMeals.length > 0 ? (
             <>
+              {/* Meals first */}
               {dayMeals.map(meal => (
                 <MealCard
                   key={meal.id}
@@ -326,6 +302,40 @@ export function MobilePageContent({
                 >
                   <Plus className="h-4 w-4" /> Añadir comida
                 </button>
+              )}
+
+              {/* Objectives summary — below the meals */}
+              {activeGoalMacros && (
+                <div className="rounded-2xl border bg-card p-4 mt-1">
+                  <div className="flex items-center justify-between mb-2.5">
+                    <span className="text-xs font-bold uppercase tracking-wider" style={{ color: C.muted, letterSpacing: '0.06em' }}>
+                      Objetivos del día
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      <span className="font-bold text-primary text-sm">{Math.round(totals.calories)}</span>
+                      {' / '}{Math.round(activeGoalMacros.calories)} kcal
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-secondary overflow-hidden mb-3">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all duration-500"
+                      style={{ width: `${Math.min(100, caloriePercent ?? 0)}%` }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    {[
+                      { label: 'Proteína', value: totals.protein, target: activeGoalMacros.protein },
+                      { label: 'Carbohidratos', value: totals.carbs, target: activeGoalMacros.carbs },
+                      { label: 'Grasa', value: totals.fat, target: activeGoalMacros.fat },
+                    ].map(({ label, value, target }) => (
+                      <div key={label} className="flex flex-col items-center">
+                        <span className="font-bold text-base">{Math.round(value)}<span className="text-xs font-normal text-muted-foreground">g</span></span>
+                        <span className="text-[11px] text-muted-foreground leading-tight">{label}</span>
+                        <span className="text-[10px] text-muted-foreground/60">de {Math.round(target)}g</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </>
           ) : (

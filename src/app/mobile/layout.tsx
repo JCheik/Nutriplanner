@@ -29,7 +29,7 @@ function MobileAuthGuard({ children }: { children: React.ReactNode }) {
   if (userLoading || !user) {
     return <MobileLoader />;
   }
-  
+
   return <>{children}</>;
 }
 

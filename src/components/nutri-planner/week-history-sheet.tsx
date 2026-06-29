@@ -84,7 +84,11 @@ export function WeekHistorySheet({
   return (
     <div
       className={cn(
-        'fixed bottom-24 right-8 w-[420px] h-[75vh] rounded-lg shadow-2xl transform transition-all duration-300 ease-in-out z-50 origin-bottom-right bg-glass border flex flex-col',
+        // Mobile: anchor with side margins so the 420px desktop width never
+        // overflows the viewport (sits above the bottom nav). Desktop keeps the
+        // floating bottom-right panel.
+        'fixed z-50 rounded-lg shadow-2xl transform transition-all duration-300 ease-in-out origin-bottom-right bg-glass border flex flex-col',
+        'inset-x-3 bottom-20 h-[70vh] sm:inset-x-auto sm:right-8 sm:bottom-24 sm:w-[420px] sm:h-[75vh]',
         isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
       )}
     >

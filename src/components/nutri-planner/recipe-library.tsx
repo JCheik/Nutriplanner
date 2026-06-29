@@ -140,7 +140,7 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, onE
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => viewMode === 'grid' ? 220 : 88,
+    estimateSize: () => viewMode === 'grid' ? (isMobile ? 232 : 220) : (isMobile ? 104 : 88),
     overscan: 3,
     measureElement: el => el.getBoundingClientRect().height,
   });
@@ -170,10 +170,11 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, onE
               {viewMode === 'grid' ? (
                 <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: '12px', paddingBottom: '12px' }}>
                   {rowRecipes.map(recipe => (
-                    <div key={recipe.id} className="group aspect-square relative">
+                    <div key={recipe.id} className={cn("group relative", !isMobile && "aspect-square")}>
                       <RecipeCard
                         recipe={recipe}
                         isDraggable={isDraggable && !isMobile}
+                        isMobile={isMobile}
                         onClick={() => onRecipeClick(recipe, isNutriPlanner)}
                       />
                       {/* Desktop hover action bar */}
@@ -350,9 +351,21 @@ export function RecipeLibrary({
   // it. Once they touch it, we stop syncing from the (async-loading) preference.
   const [activeDietFilters, setActiveDietFilters] = useState<DietTag[]>(dietPreference);
   const dietTouched = useRef(false);
+  // Sync by VALUE, not reference: callers may pass a fresh array literal (e.g. the
+  // default `[]`) on every render. Depending on the reference here caused an
+  // infinite setState→re-render loop that froze the whole recipes page. Keying the
+  // effect on the serialized contents makes it run only when the diet actually
+  // changes, and the functional update bails out if nothing differs.
+  const dietPreferenceKey = dietPreference.join(',');
   useEffect(() => {
-    if (!dietTouched.current) setActiveDietFilters(dietPreference);
-  }, [dietPreference]);
+    if (dietTouched.current) return;
+    setActiveDietFilters(prev =>
+      prev.length === dietPreference.length && prev.every((d, i) => d === dietPreference[i])
+        ? prev
+        : dietPreference
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dietPreferenceKey]);
   const toggleDietFilter = (diet: DietTag) => {
     dietTouched.current = true;
     setActiveDietFilters(prev =>

@@ -5,7 +5,6 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { Logo } from '@/components/icons/logo';
-import { MobileNav } from '@/components/layout/mobile-nav';
 import { ServiceWorkerRegister } from '@/components/pwa/service-worker-register';
 import { InstallPrompt } from '@/components/pwa/install-prompt';
 
@@ -64,7 +63,8 @@ export default function RootLayout({
                 {children}
             </Suspense>
           <Toaster />
-          <MobileNav />
+          {/* MobileNav is rendered by the mobile layout (src/app/mobile/layout.tsx).
+              Rendering it here too produced two stacked navs on mobile routes. */}
           <ServiceWorkerRegister />
           <InstallPrompt />
         </FirebaseClientProvider>

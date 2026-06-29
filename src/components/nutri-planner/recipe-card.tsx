@@ -13,6 +13,7 @@ interface RecipeCardProps {
   isDraggable?: boolean;
   isCompact?: boolean;
   isListView?: boolean;
+  isMobile?: boolean;
   onClick?: () => void;
   className?: string;
 }
@@ -39,7 +40,7 @@ const MacroItem = ({ icon: Icon, value, unit, colorClass }: { icon: React.Elemen
 );
 
 
-export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isListView = false, onClick, className }: RecipeCardProps) {
+export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isListView = false, isMobile = false, onClick, className }: RecipeCardProps) {
   const [isDragging, setIsDragging] = useState(false);
 
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
@@ -132,26 +133,45 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
                 </div>
             )}
         </div>
-        <div className="p-2 flex-1 flex flex-col justify-center">
-             <h3 className={cn("font-headline text-base leading-tight text-foreground text-center", className)}>{recipe.name}</h3>
-            <div className="mt-2 flex justify-around text-muted-foreground">
-                <div className="flex items-center gap-1">
-                    <Flame className="h-3 w-3 text-orange-400" />
-                    <span className="text-xs font-medium">{Math.round(recipe.calories)}<span className="text-muted-foreground text-[10px]">kcal</span></span>
+        <div className={cn("flex-1 flex flex-col", isMobile ? "p-3 gap-2" : "p-2 justify-center")}>
+             <h3 className={cn(
+                "font-headline text-foreground text-center",
+                isMobile ? "text-[15px] leading-snug line-clamp-2" : "text-base leading-tight",
+                className,
+             )}>{recipe.name}</h3>
+            {isMobile ? (
+                /* On the narrow mobile grid card, two large, legible macros beat four
+                   cramped ones. The full breakdown lives in the recipe detail view. */
+                <div className="mt-auto flex justify-center gap-4 text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                        <Flame className="h-4 w-4 text-orange-400" />
+                        <span className="text-sm font-semibold">{Math.round(recipe.calories)}<span className="text-muted-foreground text-xs font-normal"> kcal</span></span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <EggFried className="h-4 w-4 text-amber-400" />
+                        <span className="text-sm font-semibold">{Math.round(recipe.protein)}<span className="text-muted-foreground text-xs font-normal">g</span></span>
+                    </div>
                 </div>
-                <div className="flex items-center gap-1">
-                    <EggFried className="h-3 w-3 text-amber-400" />
-                    <span className="text-xs font-medium">{Math.round(recipe.protein)}<span className="text-muted-foreground text-[10px]">g</span></span>
+            ) : (
+                <div className="mt-2 flex justify-around text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                        <Flame className="h-3 w-3 text-orange-400" />
+                        <span className="text-xs font-medium">{Math.round(recipe.calories)}<span className="text-muted-foreground text-[10px]">kcal</span></span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <EggFried className="h-3 w-3 text-amber-400" />
+                        <span className="text-xs font-medium">{Math.round(recipe.protein)}<span className="text-muted-foreground text-[10px]">g</span></span>
+                    </div>
+                     <div className="flex items-center gap-1">
+                        <Wheat className="h-3 w-3 text-yellow-400" />
+                        <span className="text-xs font-medium">{Math.round(recipe.carbs)}<span className="text-muted-foreground text-[10px]">g</span></span>
+                    </div>
+                     <div className="flex items-center gap-1">
+                        <Droplets className="h-3 w-3 text-sky-400" />
+                        <span className="text-xs font-medium">{Math.round(recipe.fat)}<span className="text-muted-foreground text-[10px]">g</span></span>
+                    </div>
                 </div>
-                 <div className="flex items-center gap-1">
-                    <Wheat className="h-3 w-3 text-yellow-400" />
-                    <span className="text-xs font-medium">{Math.round(recipe.carbs)}<span className="text-muted-foreground text-[10px]">g</span></span>
-                </div>
-                 <div className="flex items-center gap-1">
-                    <Droplets className="h-3 w-3 text-sky-400" />
-                    <span className="text-xs font-medium">{Math.round(recipe.fat)}<span className="text-muted-foreground text-[10px]">g</span></span>
-                </div>
-            </div>
+            )}
         </div>
     </Card>
   );
