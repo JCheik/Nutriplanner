@@ -55,22 +55,25 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
     const unsubscribe = onAuthStateChanged(
       auth,
-      async (firebaseUser) => {
-        setIsLoading(true);
+      (firebaseUser) => {
+        // Resolve auth as soon as the state is known. We deliberately do NOT
+        // await getIdTokenResult() here: on a flaky mobile network that call
+        // can hang on token refresh, which would leave the app stuck on the
+        // loader. Set the user synchronously, clear loading, then fetch claims
+        // in the background. We also never flip isLoading back to true after the
+        // first resolution, so token refreshes don't unmount the authed tree.
         if (firebaseUser) {
-          try {
-            const idTokenResult: IdTokenResult = await firebaseUser.getIdTokenResult();
-            const finalClaims: UserClaims = { ...idTokenResult.claims } as UserClaims;
-
-            setUser(firebaseUser);
-            setClaims(finalClaims);
-
-          } catch (e) {
-            console.error("Error getting user claims:", e);
-            setUser(firebaseUser); // Set user even if claims fail
-            setClaims(null);
-            setError(e as Error);
-          }
+          setUser(firebaseUser);
+          setError(null);
+          firebaseUser
+            .getIdTokenResult()
+            .then((idTokenResult: IdTokenResult) => {
+              setClaims({ ...idTokenResult.claims } as UserClaims);
+            })
+            .catch((e) => {
+              console.error('Error getting user claims:', e);
+              setClaims(null);
+            });
         } else {
           setUser(null);
           setClaims(null);

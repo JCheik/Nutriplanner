@@ -6,7 +6,6 @@ import { useAuth, useFirestore } from '@/firebase/provider';
 import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
-import { useMediaQuery } from '@/hooks/use-media-query';
 import { NutritionalDisclaimer } from '@/components/nutri-planner/nutritional-disclaimer';
 
 function AuthContent() {
@@ -14,19 +13,20 @@ function AuthContent() {
   const auth = useAuth();
   const firestore = useFirestore();
   const router = useRouter();
-  const isMobile = useMediaQuery("(max-width: 768px)");
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || !user) return;
 
-    if (user) {
-      if (isMobile) {
-        router.replace(`/mobile`);
-      } else {
-        router.replace(`/dashboard`);
-      }
-    }
-  }, [user, isMobile, loading, router]);
+    // Read the viewport synchronously at redirect time instead of relying on a
+    // useMediaQuery hook whose value only commits after a post-paint effect.
+    // On a fast cached-auth restore that hook can still read its initial `false`,
+    // which would bounce mobile users to the desktop dashboard.
+    const isMobile =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(max-width: 768px)').matches;
+
+    router.replace(isMobile ? '/mobile' : '/dashboard');
+  }, [user, loading, router]);
 
 
   const handleSignIn = async () => {

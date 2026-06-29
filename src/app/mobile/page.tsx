@@ -4,8 +4,10 @@ import { Suspense, useState } from 'react';
 import { useRecipeState } from '@/hooks/use-recipe-state';
 import { useWeekPlanState } from '@/hooks/use-week-plan-state';
 import { useUserProfileState } from '@/hooks/use-user-profile-state';
+import { useWeekHistory } from '@/hooks/use-week-history';
 import { MobilePageContent } from '@/components/nutri-planner/mobile-page-content';
 import { MobileAssistant } from '@/components/nutri-planner/mobile-assistant';
+import { WeekHistorySheet } from '@/components/nutri-planner/week-history-sheet';
 import { Logo } from '@/components/icons/logo';
 
 const MobilePageLoader = () => (
@@ -21,7 +23,10 @@ function MobilePageWrapper() {
     const recipeState = useRecipeState();
     const weekPlanState = useWeekPlanState();
     const profileState = useUserProfileState();
+    const { history, isLoading: historyLoading, saveCurrentWeek, deleteSnapshot } = useWeekHistory();
+
     const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
     const combinedState = {
         ...recipeState,
@@ -35,6 +40,20 @@ function MobilePageWrapper() {
                 activeGoalMacros={profileState.activeGoalMacros || null}
                 dietPreference={profileState.currentDietPreference}
                 onAssistantOpen={() => setIsAssistantOpen(true)}
+                onHistorialOpen={() => setIsHistoryOpen(true)}
+            />
+            <WeekHistorySheet
+                isOpen={isHistoryOpen}
+                onOpenChange={setIsHistoryOpen}
+                weekPlan={weekPlanState.currentWeekPlan ?? []}
+                history={history}
+                isLoading={historyLoading}
+                onSave={saveCurrentWeek}
+                onDelete={deleteSnapshot}
+                onRestore={(days) => {
+                    weekPlanState.handleRestoreWeek(days);
+                    setIsHistoryOpen(false);
+                }}
             />
             <MobileAssistant
                 isOpen={isAssistantOpen}

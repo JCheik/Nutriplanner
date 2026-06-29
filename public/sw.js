@@ -2,10 +2,15 @@
  * Hand-written (no build plugin) so it never interferes with the Next/Turbopack
  * build or the Firebase requests. Registered only in production. */
 
-const CACHE = 'nutriplanner-v1';
+// Bump this on every deploy that changes the precached shell. The activate
+// handler deletes every cache whose name !== CACHE, so bumping forces a clean
+// purge of stale assets (the old 'v1' cache never got cleared because the name
+// never changed).
+const CACHE = 'nutriplanner-v2';
 const APP_SHELL = [
   '/',
   '/dashboard',
+  '/mobile',
   '/manifest.webmanifest',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
@@ -38,8 +43,10 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/')) return;
 
-  // Page navigations: network-first (fresh when online), fall back to cache or
-  // the dashboard shell when offline.
+  // Page navigations: network-first (fresh when online), fall back to the cached
+  // page or the root shell when offline. The root ('/') re-runs the viewport
+  // router, so it works for both mobile and desktop — '/dashboard' would have
+  // served the desktop UI to phones.
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
@@ -48,7 +55,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE).then((c) => c.put(request, copy)).catch(() => {});
           return res;
         })
-        .catch(() => caches.match(request).then((r) => r || caches.match('/dashboard')))
+        .catch(() => caches.match(request).then((r) => r || caches.match('/')))
     );
     return;
   }

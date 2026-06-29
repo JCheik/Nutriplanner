@@ -41,7 +41,7 @@ export default function MobileLayout({
   return (
     <div className="flex flex-col min-h-screen">
         <PageHeader />
-        <main className="flex-1 pb-16 h-[calc(100vh-4rem)]">
+        <main className="flex-1 pb-16 h-[calc(100vh-4rem)] overflow-y-auto">
           <Suspense fallback={<MobileLoader/>}>
             <MobileAuthGuard>
               {children}

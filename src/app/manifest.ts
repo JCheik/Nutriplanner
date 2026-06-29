@@ -2,11 +2,13 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    id: '/dashboard',
+    id: '/',
     name: 'Nutrilp',
     short_name: 'Nutrilp',
     description: 'Planifica tus comidas, crea recetas y sigue tu nutrición.',
-    start_url: '/dashboard',
+    // Launch at the root so the auth/viewport router picks the mobile or desktop
+    // layout. Hard-coding /dashboard opened the desktop UI on phones.
+    start_url: '/',
     scope: '/',
     lang: 'es',
     display: 'standalone',
