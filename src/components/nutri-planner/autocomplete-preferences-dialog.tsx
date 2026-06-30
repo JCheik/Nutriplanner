@@ -49,15 +49,15 @@ export function AutocompletePreferencesDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md bg-glass">
-        <DialogHeader>
+      <DialogContent className="max-w-md bg-glass flex flex-col max-h-[90dvh]">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Autocompletar semana</DialogTitle>
           <DialogDescription>
             Dinos tus preferencias para que la IA genere el mejor plan posible.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-2">
+        <div className="space-y-6 py-2 flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
           {/* Repetición */}
           <div className="space-y-3">
             <Label className="font-semibold text-sm">¿Repetir recetas?</Label>
@@ -167,7 +167,7 @@ export function AutocompletePreferencesDialog({
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 shrink-0">
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
             Cancelar
           </Button>
