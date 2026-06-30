@@ -32,7 +32,12 @@ function MobilePageWrapper() {
     const [isAutocompletePrefsOpen, setIsAutocompletePrefsOpen] = useState(false);
     const [isAutocompleting, setIsAutocompleting] = useState(false);
 
-    const handleOpenAutocomplete = useCallback(() => setIsAutocompletePrefsOpen(true), []);
+    // Close the assistant chat first; otherwise the preferences dialog opens
+    // hidden behind the full-screen assistant and nothing seems to happen.
+    const handleOpenAutocomplete = useCallback(() => {
+        setIsAssistantOpen(false);
+        setIsAutocompletePrefsOpen(true);
+    }, []);
 
     const handleAutocompleteConfirm = useCallback(async (preferences: AutocompletePreferences) => {
         setIsAutocompletePrefsOpen(false);

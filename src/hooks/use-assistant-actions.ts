@@ -72,7 +72,7 @@ export function useAssistantActions(ctx: AssistantContext) {
     const def = ASSISTANT_ACTIONS[name];
     const parsed = def.schema.safeParse(rawArgs ?? {});
     if (!parsed.success) {
-      return { ok: false, message: 'No entendí bien los datos de esa acción. ¿Puedes repetirla?' };
+      return { ok: false, message: 'Uy, no me ha quedado claro. ¿Me lo dices de otra forma?' };
     }
     const args = parsed.data as Record<string, string>;
 
@@ -84,46 +84,46 @@ export function useAssistantActions(ctx: AssistantContext) {
     switch (name) {
       case 'add_recipe_to_meal': {
         const dayPlan = resolveDay(args.day);
-        if (!dayPlan) return { ok: false, message: `No encontré el día "${args.day}".` };
+        if (!dayPlan) return { ok: false, message: `No veo ningún "${args.day}" en tu semana. ¿Me lo dices otra vez?` };
         const meal = resolveMeal(dayPlan, args.meal);
-        if (!meal) return { ok: false, message: `No encontré la comida "${args.meal}" en ${dayPlan.day}.` };
+        if (!meal) return { ok: false, message: `No encuentro "${args.meal}" en ${dayPlan.day}. ¿Cómo se llama esa comida?` };
         const recipe = resolveRecipe(args.recipe);
-        if (!recipe) return { ok: false, message: `No encontré la receta "${args.recipe}".` };
+        if (!recipe) return { ok: false, message: `No tengo ninguna receta que se llame "${args.recipe}". ¿Quieres que te la cree?` };
         const target = ctx.activeGoalMacros
           ? ctx.activeGoalMacros.calories * mealCalorieRatio(meal.mealTypes ?? [])
           : null;
         ctx.onDrop(dayPlan.day, meal.id, recipe, suggestedServings(recipe, target));
-        return { ok: true, message: `Añadí "${recipe.name}" a ${meal.title} del ${dayPlan.day}.` };
+        return { ok: true, message: `¡Hecho! ${recipe.name} para ${meal.title} del ${dayPlan.day}.` };
       }
       case 'clear_meal': {
         const dayPlan = resolveDay(args.day);
-        if (!dayPlan) return { ok: false, message: `No encontré el día "${args.day}".` };
+        if (!dayPlan) return { ok: false, message: `No veo ningún "${args.day}" en tu semana. ¿Me lo dices otra vez?` };
         const meal = resolveMeal(dayPlan, args.meal);
-        if (!meal) return { ok: false, message: `No encontré la comida "${args.meal}" en ${dayPlan.day}.` };
+        if (!meal) return { ok: false, message: `No encuentro "${args.meal}" en ${dayPlan.day}. ¿Cómo se llama esa comida?` };
         ctx.onClearMeal(dayPlan.day, meal.id);
-        return { ok: true, message: `Vacié ${meal.title} del ${dayPlan.day}.` };
+        return { ok: true, message: `Listo, ${meal.title} del ${dayPlan.day} otra vez en blanco.` };
       }
       case 'clear_day': {
         const dayPlan = resolveDay(args.day);
-        if (!dayPlan) return { ok: false, message: `No encontré el día "${args.day}".` };
+        if (!dayPlan) return { ok: false, message: `No veo ningún "${args.day}" en tu semana. ¿Me lo dices otra vez?` };
         ctx.onClearDay(dayPlan.day);
-        return { ok: true, message: `Vacié todas las comidas del ${dayPlan.day}.` };
+        return { ok: true, message: `Venga, ${dayPlan.day} libre del todo.` };
       }
       case 'clear_week': {
         ctx.onClearWeek();
-        return { ok: true, message: 'Vacié todo el plan semanal.' };
+        return { ok: true, message: 'Hecho, semana vacía. Empezamos de cero.' };
       }
       case 'autocomplete_week': {
         ctx.onAutocomplete();
-        return { ok: true, message: 'Abriendo el autocompletado del plan.' };
+        return { ok: true, message: 'Te abro las opciones para montarte la semana.' };
       }
       case 'set_goal': {
         const goal = args.goal as GoalType;
         ctx.onSetGoal(goal);
-        return { ok: true, message: `Objetivo cambiado a "${GOAL_LABEL[goal]}".` };
+        return { ok: true, message: `Perfecto, te pongo el objetivo en "${GOAL_LABEL[goal]}".` };
       }
       default:
-        return { ok: false, message: 'Acción no reconocida.' };
+        return { ok: false, message: 'Uy, esa no la pillo. ¿Me lo dices de otra forma?' };
     }
   }, [ctx, resolveDay, resolveMeal, resolveRecipe]);
 
@@ -133,12 +133,12 @@ export function useAssistantActions(ctx: AssistantContext) {
 function confirmationPrompt(name: AssistantActionName, args: Record<string, string>): string {
   switch (name) {
     case 'clear_meal':
-      return `¿Seguro que quieres vaciar ${args.meal} del ${args.day}?`;
+      return `¿Te vacío ${args.meal} del ${args.day}?`;
     case 'clear_day':
-      return `¿Seguro que quieres vaciar todas las comidas del ${args.day}?`;
+      return `¿Seguro que quieres dejar el ${args.day} en blanco?`;
     case 'clear_week':
-      return '¿Seguro que quieres vaciar TODO el plan semanal?';
+      return 'Ojo, esto borra TODO el plan de la semana. ¿Lo hago?';
     default:
-      return '¿Confirmas esta acción?';
+      return '¿Lo confirmo?';
   }
 }

@@ -433,8 +433,8 @@ export function AssistantDialog({
             )}
           </div>
           <DialogDescription>
-            Pídeme cosas como “añade ensalada césar al martes” o “vacía el lunes”. Toca 📷 para escanear tu nevera.
-            {sttSupported && ' Toca el micro para hablar.'}
+            Dime lo que necesites: “ponme ensalada césar el martes”, “autocompleta la semana” o “vacía el lunes”. Toca 📷 para enseñarme tu nevera.
+            {sttSupported && ' O dale al micro y háblame.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -443,7 +443,7 @@ export function AssistantDialog({
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center text-center text-muted-foreground py-10">
                 <Bot className="h-8 w-8 mb-2" />
-                <p className="text-sm">¿En qué te ayudo con tu plan?</p>
+                <p className="text-sm">¡Hola! ¿Con qué te echo una mano hoy?</p>
               </div>
             )}
             {messages.map((m, i) => (

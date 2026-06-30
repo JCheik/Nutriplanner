@@ -87,7 +87,7 @@ function DeleteConfirmButton({ onConfirm }: { onConfirm: () => void }) {
   );
 }
 
-function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngredients, isSaving, onSave, onCancel, onDelete }: { recipe?: Partial<Recipe>, isInitiallyGlobal?: boolean, aiIngredients?: AiIngredientEstimate[], isSaving: boolean, onSave: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void, onCancel: () => void, onDelete: (id: string, isGlobal: boolean) => void }) {
+function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngredients, isSaving, onSave, onCancel, onDelete, isMobile }: { recipe?: Partial<Recipe>, isInitiallyGlobal?: boolean, aiIngredients?: AiIngredientEstimate[], isSaving: boolean, onSave: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void, onCancel: () => void, onDelete: (id: string, isGlobal: boolean) => void, isMobile?: boolean }) {
   const isEditing = !!initialRecipe && !!initialRecipe.id;
   const { user, isAdmin } = useUser();
   const firestore = useFirestore();
@@ -371,10 +371,13 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
 
   return (
     <>
-      <DialogHeader>
+      <DialogHeader className={cn(isMobile && 'shrink-0')}>
         <DialogTitle>{isEditing ? 'Editar Receta' : 'Crear Nueva Receta'}</DialogTitle>
       </DialogHeader>
-      <div className="grid md:grid-cols-2 gap-8 py-4">
+      <div className={cn(
+        'grid md:grid-cols-2 gap-8 py-4',
+        isMobile && 'flex-1 min-h-0 overflow-y-auto -mx-1 px-1'
+      )}>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -623,7 +626,7 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
 
         </div>
       </div>
-      <DialogFooter className="justify-between pt-4">
+      <DialogFooter className={cn('justify-between pt-4', isMobile && 'shrink-0 border-t mt-0 bg-glass')}>
         {isEditing && initialRecipe?.id && onDelete ? (
             <DeleteConfirmButton onConfirm={() => onDelete(initialRecipe?.id as string, saveAsGlobal)} />
         ) : <div></div> }
@@ -664,7 +667,7 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe, is
 
   return (
      <>
-      <DialogHeader className="mb-4">
+      <DialogHeader className={cn('mb-4', isMobile && 'shrink-0 mb-2')}>
         <DialogTitle className="text-2xl">{recipe.name}</DialogTitle>
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <DialogDescription>{recipe.description}</DialogDescription>
@@ -680,7 +683,7 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe, is
           ))}
         </div>
       </DialogHeader>
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className={cn('grid md:grid-cols-2 gap-6', isMobile && 'flex-1 min-h-0 overflow-y-auto -mx-1 px-1')}>
         <div>
           <div className="relative aspect-video rounded-lg overflow-hidden mb-4 bg-black/10 flex items-center justify-center text-muted-foreground">
              {recipe.imageUrl ? (
@@ -757,7 +760,7 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe, is
           </div>
         </ScrollArea>
       </div>
-      <DialogFooter className="mt-6 flex flex-row justify-between items-center w-full">
+      <DialogFooter className={cn('mt-6 flex flex-row justify-between items-center w-full', isMobile && 'shrink-0 mt-2 pt-3 border-t bg-glass')}>
          <div className="flex gap-2">
             {onDelete && canEdit && (
               <DeleteConfirmButton onConfirm={() => onDelete(recipe.id, isNutriPlannerRecipe)} />
@@ -818,7 +821,7 @@ export function RecipeDialog({ dialogState, isSaving = false, onClose, onSave, o
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className={cn(
         "max-w-4xl bg-glass",
-        isMobile && "h-[90vh] overflow-y-auto"
+        isMobile && "h-[90dvh] flex flex-col gap-2"
         )}>
         {dialogState.open && (
           dialogState.mode === 'view' && dialogState.recipe ? (
@@ -839,6 +842,7 @@ export function RecipeDialog({ dialogState, isSaving = false, onClose, onSave, o
               onSave={onSave!}
               onCancel={onClose}
               onDelete={onDelete!}
+              isMobile={isMobile}
             />
           )
         )}
