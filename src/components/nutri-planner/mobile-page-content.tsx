@@ -1,15 +1,21 @@
 'use client';
 
 import { useState, useMemo, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import type { DayPlan, Meal, Recipe, RecipeInstance, GoalMacros, DietTag } from '@/lib/types';
 import { DAY_ORDER } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { RecipeDialog, DialogState } from '@/components/nutri-planner/recipe-dialog';
 import { RecipeSelectionDialog } from '@/components/nutri-planner/recipe-selection-dialog';
 import {
-  X, Plus, Minus, UtensilsCrossed, Mic,
+  X, Plus, Minus, UtensilsCrossed,
   Sparkles, History, Pencil, GripVertical, LayoutGrid, CalendarDays, ChevronRight, Flame,
+  Target, Trash2, Eraser,
 } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import type { useRecipeState } from '@/hooks/use-recipe-state';
 import type { useWeekPlanState } from '@/hooks/use-week-plan-state';
@@ -87,11 +93,14 @@ export function MobilePageContent({
   handleRemoveRecipeFromMeal,
   handleUpdateServingsEaten,
   handleAddMeal,
+  handleClearDay,
+  handleClearWeek,
   activeGoalMacros,
   dietPreference = [],
   onAssistantOpen,
   onHistorialOpen,
 }: MobilePageContentProps) {
+  const router = useRouter();
   const todayIndex = useMemo(() => todayDayIndex(), []);
   const [view, setView] = useState<ViewMode>('day');
   const [activeDayIndex, setActiveDayIndex] = useState(todayIndex);
@@ -100,6 +109,8 @@ export function MobilePageContent({
   const [selectedMealDay, setSelectedMealDay] = useState<DayPlan['day'] | null>(null);
   const [isRecipeSelectorOpen, setIsRecipeSelectorOpen] = useState(false);
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
+  // Destructive bulk-clear actions go through a confirm dialog.
+  const [clearTarget, setClearTarget] = useState<'day' | 'week' | null>(null);
 
   const touchStartX = useRef<number | null>(null);
 
@@ -233,6 +244,11 @@ export function MobilePageContent({
             accent
           />
           <ActionChip
+            icon={<Target className="h-3 w-3" />}
+            label="Objetivos"
+            onClick={() => router.push('/mobile/objetivos')}
+          />
+          <ActionChip
             icon={<History className="h-3 w-3" />}
             label="Historial"
             onClick={onHistorialOpen ?? (() => {})}
@@ -295,13 +311,30 @@ export function MobilePageContent({
                 />
               ))}
               {editMode && (
-                <button
-                  onClick={() => handleAddMeal(activeDayName, dayMeals.length)}
-                  className="w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-medium transition-colors text-primary"
-                  style={{ background: C.primaryLight, border: `0.5px dashed ${C.primaryBorder}` }}
-                >
-                  <Plus className="h-4 w-4" /> Añadir comida
-                </button>
+                <>
+                  <button
+                    onClick={() => handleAddMeal(activeDayName, dayMeals.length)}
+                    className="w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-medium transition-colors text-primary"
+                    style={{ background: C.primaryLight, border: `0.5px dashed ${C.primaryBorder}` }}
+                  >
+                    <Plus className="h-4 w-4" /> Añadir comida
+                  </button>
+                  {/* Bulk-clear actions (confirmed) */}
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <button
+                      onClick={() => setClearTarget('day')}
+                      className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-medium text-destructive border border-destructive/30 bg-destructive/5"
+                    >
+                      <Eraser className="h-4 w-4" /> Vaciar día
+                    </button>
+                    <button
+                      onClick={() => setClearTarget('week')}
+                      className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-medium text-destructive border border-destructive/30 bg-destructive/5"
+                    >
+                      <Trash2 className="h-4 w-4" /> Vaciar semana
+                    </button>
+                  </div>
+                </>
               )}
 
               {/* Objectives summary — below the meals */}
@@ -352,16 +385,6 @@ export function MobilePageContent({
         />
       )}
 
-      {/* FAB */}
-      <button
-        onClick={onAssistantOpen}
-        aria-label="Hablar con el asistente"
-        className="fixed bottom-20 right-4 z-40 h-14 w-14 rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform"
-        style={{ background: C.primary, color: '#FDF8F4' }}
-      >
-        <Mic className="h-6 w-6" />
-      </button>
-
       <RecipeDialog dialogState={dialogState} onClose={handleDialogClose} isMobile={true} />
 
       {selectedMeal && (
@@ -374,6 +397,35 @@ export function MobilePageContent({
           dietPreference={dietPreference}
         />
       )}
+
+      {/* Confirm bulk clear */}
+      <AlertDialog open={clearTarget !== null} onOpenChange={(o) => { if (!o) setClearTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {clearTarget === 'week' ? '¿Vaciar toda la semana?' : `¿Vaciar ${activeDayName}?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {clearTarget === 'week'
+                ? 'Se quitarán todas las recetas de los 7 días. Las comidas (slots) se mantienen vacías. Esta acción no se puede deshacer.'
+                : 'Se quitarán todas las recetas de este día. Las comidas (slots) se mantienen vacías. Esta acción no se puede deshacer.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (clearTarget === 'week') handleClearWeek();
+                else handleClearDay(activeDayName);
+                setClearTarget(null);
+              }}
+            >
+              {clearTarget === 'week' ? 'Vaciar semana' : 'Vaciar día'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
@@ -452,35 +504,32 @@ function MealCard({
                   <p className="text-xs text-muted-foreground mt-0.5">{se} rac · {kcal} kcal</p>
                 </button>
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  {editMode ? (
-                    <button
-                      onClick={() => onRemoveRecipe(recipe.instanceId)}
-                      className="h-7 w-7 rounded-full flex items-center justify-center"
-                      style={{ background: C.primaryLight, color: C.primary }}
-                      aria-label="Eliminar receta"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => onUpdateServings(recipe.instanceId, Math.max(1, se - 1))}
-                        className="h-7 w-7 rounded-full flex items-center justify-center"
-                        style={{ background: C.beige }}
-                        aria-label="Quitar ración"
-                      >
-                        <Minus className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={() => onUpdateServings(recipe.instanceId, se + 1)}
-                        className="h-7 w-7 rounded-full flex items-center justify-center"
-                        style={{ background: C.beige }}
-                        aria-label="Añadir ración"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                      </button>
-                    </>
-                  )}
+                  {/* Servings -/+ and a delete x are ALWAYS visible so removing a
+                      single recipe never requires hunting for edit mode. */}
+                  <button
+                    onClick={() => onUpdateServings(recipe.instanceId, Math.max(1, se - 1))}
+                    className="h-7 w-7 rounded-full flex items-center justify-center"
+                    style={{ background: C.beige }}
+                    aria-label="Quitar ración"
+                  >
+                    <Minus className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => onUpdateServings(recipe.instanceId, se + 1)}
+                    className="h-7 w-7 rounded-full flex items-center justify-center"
+                    style={{ background: C.beige }}
+                    aria-label="Añadir ración"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => onRemoveRecipe(recipe.instanceId)}
+                    className="h-7 w-7 rounded-full flex items-center justify-center text-destructive"
+                    style={{ background: 'rgba(217,82,26,0.08)' }}
+                    aria-label="Quitar receta del plan"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </div>
             );

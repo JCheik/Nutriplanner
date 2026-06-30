@@ -1,6 +1,7 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useRecipeState } from '@/hooks/use-recipe-state';
 import { useWeekPlanState } from '@/hooks/use-week-plan-state';
 import { useUserProfileState } from '@/hooks/use-user-profile-state';
@@ -27,6 +28,17 @@ function MobilePageWrapper() {
 
     const [isAssistantOpen, setIsAssistantOpen] = useState(false);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+    // The bottom-nav "Asistente IA" item links here with ?assistant=1. Open the
+    // assistant and clean the URL so re-tapping it works again.
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    useEffect(() => {
+        if (searchParams.get('assistant') === '1') {
+            setIsAssistantOpen(true);
+            router.replace('/mobile');
+        }
+    }, [searchParams, router]);
 
     const combinedState = {
         ...recipeState,
@@ -58,7 +70,6 @@ function MobilePageWrapper() {
             <MobileAssistant
                 isOpen={isAssistantOpen}
                 onClose={() => setIsAssistantOpen(false)}
-                autoListen
                 recipeState={recipeState}
                 weekPlanState={weekPlanState}
                 profileState={profileState}
