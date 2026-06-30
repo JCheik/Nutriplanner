@@ -818,7 +818,7 @@ export function RecipeDialog({ dialogState, isSaving = false, onClose, onSave, o
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className={cn(
         "max-w-4xl bg-glass",
-        isMobile && "h-[90vh] flex flex-col"
+        isMobile && "h-[90vh] overflow-y-auto"
         )}>
         {dialogState.open && (
           dialogState.mode === 'view' && dialogState.recipe ? (

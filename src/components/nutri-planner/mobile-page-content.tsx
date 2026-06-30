@@ -25,7 +25,7 @@ type CombinedState = ReturnType<typeof useRecipeState> & ReturnType<typeof useWe
 interface MobilePageContentProps extends CombinedState {
   activeGoalMacros: GoalMacros | null;
   dietPreference?: DietTag[];
-  onAssistantOpen: () => void;
+  onOpenAutocomplete: () => void;
   onHistorialOpen?: () => void;
 }
 
@@ -97,7 +97,7 @@ export function MobilePageContent({
   handleClearWeek,
   activeGoalMacros,
   dietPreference = [],
-  onAssistantOpen,
+  onOpenAutocomplete,
   onHistorialOpen,
 }: MobilePageContentProps) {
   const router = useRouter();
@@ -240,7 +240,7 @@ export function MobilePageContent({
           <ActionChip
             icon={<Sparkles className="h-3 w-3" />}
             label="Autocompletar"
-            onClick={onAssistantOpen}
+            onClick={onOpenAutocomplete}
             accent
           />
           <ActionChip

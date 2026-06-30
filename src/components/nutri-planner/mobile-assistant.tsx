@@ -18,6 +18,8 @@ interface MobileAssistantProps {
   recipeState: ReturnType<typeof useRecipeState>;
   weekPlanState: ReturnType<typeof useWeekPlanState>;
   profileState: ReturnType<typeof useUserProfileState>;
+  /** When provided, opening autocomplete shows the preferences dialog instead of running with defaults. */
+  onOpenAutocomplete?: () => void;
   /** Start listening as soon as the assistant opens (one-tap-to-talk). */
   autoListen?: boolean;
 }
@@ -33,6 +35,7 @@ export function MobileAssistant({
   recipeState,
   weekPlanState,
   profileState,
+  onOpenAutocomplete,
   autoListen,
 }: MobileAssistantProps) {
   const { toast } = useToast();
@@ -48,9 +51,14 @@ export function MobileAssistant({
     setAiRecipeDialog({ open: false });
   };
 
-  // Mobile has no autocomplete-preferences dialog, so the assistant's
-  // `autocomplete_week` action runs the flow directly with sensible defaults.
+  // If the parent provides `onOpenAutocomplete`, delegate to the preferences
+  // dialog (same flow as the "Autocompletar" chip). Otherwise fall back to
+  // running the flow immediately with sensible defaults (e.g. recipes tab).
   const handleAutocomplete = useCallback(async () => {
+    if (onOpenAutocomplete) {
+      onOpenAutocomplete();
+      return;
+    }
     const quota = await checkAiQuota();
     if (!quota.allowed) {
       toast({ title: 'Límite de IA', description: quota.message ?? 'Has alcanzado el límite de peticiones de IA por hoy.' });
@@ -80,7 +88,7 @@ export function MobileAssistant({
     } catch (e) {
       toast({ variant: 'destructive', title: 'Error al autocompletar', description: getAiErrorMessage(e, 'No se pudo generar el plan semanal.') });
     }
-  }, [recipeState.currentUserRecipes, recipeState.nutriplannerRecipes, weekPlanState, profileState, toast, checkAiQuota]);
+  }, [onOpenAutocomplete, recipeState.currentUserRecipes, recipeState.nutriplannerRecipes, weekPlanState, profileState, toast, checkAiQuota]);
 
   return (
     <>
