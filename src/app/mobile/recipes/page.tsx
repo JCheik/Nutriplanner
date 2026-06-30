@@ -7,21 +7,21 @@ import { useWeekPlanState } from '@/hooks/use-week-plan-state';
 import { useUserProfileState } from '@/hooks/use-user-profile-state';
 import { MobileRecipesPageContent } from '@/components/nutri-planner/mobile-recipes-page-content';
 import { MobileAssistant } from '@/components/nutri-planner/mobile-assistant';
-import { Logo } from '@/components/icons/logo';
+import { MobileLoader } from '@/components/layout/mobile-loader';
 import { useUser } from '@/firebase';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, PencilLine, Link2 } from 'lucide-react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { RecipeDialog, DialogState } from '@/components/nutri-planner/recipe-dialog';
+import { RecipeImportDialog } from '@/components/nutri-planner/recipe-import-dialog';
 import type { Recipe } from '@/lib/types';
 
-const MobilePageLoader = () => (
-    <div className="flex items-center justify-center h-full">
-        <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
-            <Logo className="h-12 w-12 text-primary animate-pulse" />
-            <p className="text-lg text-muted-foreground">Cargando recetas...</p>
-        </div>
-    </div>
-);
+const MobilePageLoader = () => <MobileLoader label="Cargando tus recetas…" />;
 
 function MobileRecipesWrapper() {
     const router = useRouter();
@@ -39,6 +39,7 @@ function MobileRecipesWrapper() {
 
     const [dialogState, setDialogState] = useState<DialogState>({ open: false });
     const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+    const [isImportOpen, setIsImportOpen] = useState(false);
 
     const handleSaveRecipe = async (recipeData: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
         await recipeState.handleSaveRecipe(recipeData, imageFile, isGlobal, existingId);
@@ -55,11 +56,24 @@ function MobileRecipesWrapper() {
                 {...recipeState}
                 onAssistantOpen={() => setIsAssistantOpen(true)}
             />
-            {/* New blank recipe */}
-            <div className="fixed bottom-20 right-4 z-40 flex flex-col gap-3">
-                <Button className="rounded-full h-14 w-14 shadow-lg" size="icon" onClick={() => setDialogState({ open: true, mode: 'create' })}>
-                    <Plus className="h-8 w-8" />
-                </Button>
+            {/* Create actions: blank recipe or import from a URL (the URL import was
+                previously desktop-only). */}
+            <div className="fixed bottom-20 right-4 z-40">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button className="rounded-full h-14 w-14 shadow-lg" size="icon" aria-label="Añadir receta">
+                            <Plus className="h-8 w-8" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="top" align="end" className="bg-glass mb-2">
+                        <DropdownMenuItem onClick={() => setDialogState({ open: true, mode: 'create' })}>
+                            <PencilLine className="mr-2 h-4 w-4" /> Crear receta nueva
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setIsImportOpen(true)}>
+                            <Link2 className="mr-2 h-4 w-4" /> Importar desde URL
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
             <RecipeDialog
                 dialogState={dialogState}
@@ -70,6 +84,16 @@ function MobileRecipesWrapper() {
                 onEdit={(recipe, isGlobal) => setDialogState({ open: true, mode: 'edit', recipe, isNutriPlannerRecipe: isGlobal })}
                 onCopy={recipeState.handleCopyRecipe}
                 isMobile
+            />
+            <RecipeImportDialog
+                isOpen={isImportOpen}
+                onClose={() => setIsImportOpen(false)}
+                onRecipeImported={(recipe) => {
+                    // Open the imported recipe in the editor for review before saving,
+                    // same flow as the AI-generated recipes.
+                    setIsImportOpen(false);
+                    setDialogState({ open: true, mode: 'create', recipe: recipe as Recipe });
+                }}
             />
             <MobileAssistant
                 isOpen={isAssistantOpen}

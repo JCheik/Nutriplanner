@@ -5,17 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '@/firebase';
 import { useUserProfileState } from '@/hooks/use-user-profile-state';
 import { GoalsContent } from '@/components/nutri-planner/floating-goals';
-import { Logo } from '@/components/icons/logo';
+import { MobileLoader } from '@/components/layout/mobile-loader';
 import { Target } from 'lucide-react';
 
-const MobilePageLoader = () => (
-    <div className="flex items-center justify-center h-full">
-        <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
-            <Logo className="h-12 w-12 text-primary animate-pulse" />
-            <p className="text-lg text-muted-foreground">Cargando tus objetivos...</p>
-        </div>
-    </div>
-);
+const MobilePageLoader = () => <MobileLoader label="Cargando tus objetivos…" />;
 
 function MobileGoalsWrapper() {
     const router = useRouter();

@@ -9,16 +9,9 @@ import { useWeekHistory } from '@/hooks/use-week-history';
 import { MobilePageContent } from '@/components/nutri-planner/mobile-page-content';
 import { MobileAssistant } from '@/components/nutri-planner/mobile-assistant';
 import { WeekHistorySheet } from '@/components/nutri-planner/week-history-sheet';
-import { Logo } from '@/components/icons/logo';
+import { MobileLoader } from '@/components/layout/mobile-loader';
 
-const MobilePageLoader = () => (
-    <div className="flex items-center justify-center h-full">
-        <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
-          <Logo className="h-12 w-12 text-primary animate-pulse" />
-          <p className="text-lg text-muted-foreground">Cargando tu plan...</p>
-        </div>
-    </div>
-);
+const MobilePageLoader = () => <MobileLoader label="Cargando tu plan…" />;
 
 function MobilePageWrapper() {
     const recipeState = useRecipeState();
