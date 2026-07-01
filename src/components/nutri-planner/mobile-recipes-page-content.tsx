@@ -77,7 +77,7 @@ export function MobileRecipesPageContent({
                     onAddToPlan={handleAddToPlan}
                     onAssistantOpen={onAssistantOpen}
                     isMobile={true}
-                    initialViewMode="grid"
+                    initialViewMode="list"
                 />
             </div>
             <RecipeDialog

@@ -386,7 +386,7 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="max-w-2xl bg-glass max-h-[90vh] flex flex-col">
-        <DialogHeader>
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Link2 className="h-5 w-5" />
             Importar receta desde post
@@ -457,7 +457,8 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
 
         {/* INPUT */}
         {step === 'input' && (
-          <div className="space-y-4 py-2">
+          <div className="space-y-4 py-2 flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
+
             {error && (
               <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />

@@ -4,7 +4,7 @@ import { useState, type DragEvent } from 'react';
 import type { Recipe } from '@/lib/types';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { GripVertical, Flame, EggFried, Wheat, Droplets } from 'lucide-react';
+import { GripVertical, Flame, EggFried, Wheat, Droplets, UtensilsCrossed } from 'lucide-react';
 import Image from 'next/image';
 import { dragStore } from '@/lib/drag-store';
 
@@ -74,7 +74,7 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
               <GripVertical className="h-5 w-5" />
             </div>
           )}
-          <div className="flex-1 p-3">
+          <div className="flex-1 p-3 pr-10 min-w-0">
             <h3 className="font-bold text-sm line-clamp-1 font-headline">{recipe.name}</h3>
             <p className="text-xs text-muted-foreground line-clamp-1 mb-2">{recipe.description}</p>
             <div className="flex flex-wrap gap-x-3 gap-y-1 items-center text-muted-foreground">
@@ -115,7 +115,7 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
             <GripVertical className="h-5 w-5 text-muted-foreground" />
           </div>
         )}
-        <div className="relative w-full aspect-[4/3] flex-shrink-0">
+        <div className={cn("relative w-full flex-shrink-0", isMobile ? "aspect-[3/2]" : "aspect-[4/3]")}>
             {recipe.imageUrl ? (
                 <Image
                     src={recipe.imageUrl}
@@ -126,17 +126,17 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
                     data-ai-hint={recipe.imageHint}
                 />
             ) : (
-                <div className="w-full h-full flex items-center justify-center p-4 bg-secondary">
-                    <span className="text-center font-headline text-lg leading-tight text-secondary-foreground">
-                        {recipe.name}
-                    </span>
+                /* No image: show a neutral icon, NOT the recipe name — the name is
+                   already the <h3> below, so repeating it here looked duplicated. */
+                <div className="w-full h-full flex items-center justify-center bg-secondary">
+                    <UtensilsCrossed className="h-8 w-8 text-secondary-foreground/25" />
                 </div>
             )}
         </div>
-        <div className={cn("flex-1 flex flex-col", isMobile ? "p-3 gap-2" : "p-2 justify-center")}>
+        <div className={cn("flex-1 flex flex-col", isMobile ? "p-2.5 gap-1.5" : "p-2 justify-center")}>
              <h3 className={cn(
                 "font-headline text-foreground text-center",
-                isMobile ? "text-[15px] leading-snug line-clamp-2" : "text-base leading-tight",
+                isMobile ? "text-sm leading-snug line-clamp-2" : "text-base leading-tight",
                 className,
              )}>{recipe.name}</h3>
             {isMobile ? (

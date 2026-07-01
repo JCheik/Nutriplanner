@@ -381,11 +381,16 @@ export function RecipeLibrary({
       return (saved.sortCriteria as SortCriteria) ?? 'name-asc';
     } catch { return 'name-asc'; }
   });
+  // Persist the view mode separately per device: phones default to (and remember)
+  // list view, while the desktop grid preference is kept under its own key. Sharing
+  // one key meant a desktop "grid" choice forced grid onto mobile, where the cards
+  // are cramped and list reads better.
+  const viewModeKey = isMobile ? 'viewModeMobile' : 'viewMode';
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
     if (typeof window === 'undefined') return initialViewMode;
     try {
       const saved = JSON.parse(localStorage.getItem('nutriplanner_prefs') ?? '{}');
-      return (saved.viewMode as 'grid' | 'list') ?? initialViewMode;
+      return (saved[viewModeKey] as 'grid' | 'list') ?? initialViewMode;
     } catch { return initialViewMode; }
   });
 
@@ -400,9 +405,9 @@ export function RecipeLibrary({
   useEffect(() => {
     try {
       const current = JSON.parse(localStorage.getItem('nutriplanner_prefs') ?? '{}');
-      localStorage.setItem('nutriplanner_prefs', JSON.stringify({ ...current, viewMode }));
+      localStorage.setItem('nutriplanner_prefs', JSON.stringify({ ...current, [viewModeKey]: viewMode }));
     } catch { /* localStorage unavailable */ }
-  }, [viewMode]);
+  }, [viewMode, viewModeKey]);
 
   const togglePillFilter = (filter: string) => {
     setActivePillFilters(prev =>
