@@ -72,17 +72,17 @@ export function MissingIngredientRow({
           onCheckedChange={onToggle}
           onClick={(e) => e.stopPropagation()}
         />
-        <span className="text-sm font-medium">{ing.name}</span>
+        <span className="text-sm font-medium truncate min-w-0 flex-1">{ing.name}</span>
         {ing.corrected && (
           <span
             title={ing.note || 'Corregido por IA'}
-            className="flex items-center gap-1 text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded-full px-2 py-0.5 cursor-help"
+            className="flex items-center gap-1 text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded-full px-2 py-0.5 cursor-help shrink-0"
           >
             <Info className="h-3 w-3" />
             Corregido
           </span>
         )}
-        <span className="text-xs text-muted-foreground ml-auto">
+        <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">
           {ing.quantity} {ing.unit}
         </span>
       </div>
@@ -91,7 +91,7 @@ export function MissingIngredientRow({
       )}
 
       {ing.selected && (
-        <div className="flex gap-2 pt-1">
+        <div className="flex gap-2 pt-1 flex-wrap">
           <MacroInput label="Kcal" value={ing.calories} onChange={(v) => onMacroChange('calories', v)} />
           <MacroInput label="Prot (g)" value={ing.protein} onChange={(v) => onMacroChange('protein', v)} />
           <MacroInput label="Carbs (g)" value={ing.carbs} onChange={(v) => onMacroChange('carbs', v)} />

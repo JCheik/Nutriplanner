@@ -392,10 +392,10 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
       </DialogHeader>
       <div className={cn(
         'grid md:grid-cols-2 gap-8 py-4',
-        isMobile && 'flex-1 min-h-0 overflow-y-auto -mx-1 px-1'
+        isMobile && 'flex-1 min-h-0 overflow-y-auto overflow-x-hidden -mx-1 px-1 gap-4'
       )}>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-4 min-w-0">
+          <div className={cn('grid gap-4', isMobile ? 'grid-cols-1' : 'grid-cols-2')}>
             <div>
               <Label htmlFor="name">Nombre de la Receta</Label>
               <Input id="name" value={name} onChange={e => setName(e.target.value)} />
@@ -540,7 +540,7 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
             <Textarea id="instructions" value={instructions} onChange={e => setInstructions(e.target.value)} className="h-48" />
           </div>
         </div>
-        <div className="space-y-4">
+        <div className="space-y-4 min-w-0">
             <div className="space-y-3">
                 <Label>Ingredientes</Label>
                 <Card className="bg-transparent">
@@ -578,15 +578,15 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
 
                         {selectedIngredient && (
                             <div className="flex gap-2 items-end bg-black/10 p-2 rounded-md">
-                                <div className="flex-grow">
+                                <div className="flex-1 min-w-0">
                                     <Label className="text-xs">Ingrediente seleccionado</Label>
-                                    <p className="font-semibold">{selectedIngredient.name}</p>
+                                    <p className="font-semibold truncate">{selectedIngredient.name}</p>
                                 </div>
-                                <div className="w-24">
-                                    <Label htmlFor='qty' className="text-xs">Cantidad (g)</Label>
+                                <div className="w-20 shrink-0">
+                                    <Label htmlFor='qty' className="text-xs">Cant. (g)</Label>
                                     <Input id='qty' type="number" value={newIngredientQty} onChange={e => setNewIngredientQty(e.target.value)} />
                                 </div>
-                                <Button size="icon" onClick={addIngredient}><Plus className="h-4 w-4" /></Button>
+                                <Button size="icon" className="shrink-0" onClick={addIngredient}><Plus className="h-4 w-4" /></Button>
                             </div>
                         )}
                         
@@ -595,10 +595,10 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
                             <ScrollArea className="h-36 border border-white/10 rounded-lg p-2">
                                 <div className="space-y-2 pr-2">
                                     {ingredientDisplayList.map(ing => (
-                                    <div key={ing.id} className="flex items-center justify-between bg-black/10 p-2 rounded-md text-sm">
-                                        <span>{ing.quantity}{ing.unit} <strong>{ing.name}</strong></span>
-                                        <div className='flex items-center gap-2'>
-                                            <span className='text-xs text-muted-foreground'>{Math.round(ing.calories)} kcal</span>
+                                    <div key={ing.id} className="flex items-center justify-between gap-2 bg-black/10 p-2 rounded-md text-sm">
+                                        <span className="truncate min-w-0">{ing.quantity}{ing.unit} <strong>{ing.name}</strong></span>
+                                        <div className='flex items-center gap-2 shrink-0'>
+                                            <span className='text-xs text-muted-foreground whitespace-nowrap'>{Math.round(ing.calories)} kcal</span>
                                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeIngredient(ing.id)}><Trash2 className="h-4 w-4" /></Button>
                                         </div>
                                     </div>
