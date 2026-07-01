@@ -35,6 +35,23 @@ import { useToast } from '@/hooks/use-toast';
 // 'creating'  → saving to Firestore
 type ImportStep = 'input' | 'fetching' | 'analyzing' | 'reviewing' | 'creating';
 
+// Instagram and TikTok block automated access to their pages (verified: real
+// posts return a generic bot-wall with no usable content), so pasting a URL
+// from those platforms can't reliably extract text, an image, or the video —
+// only the uploaded-video path works for them. YouTube is the exception:
+// Gemini analyzes it directly from the URL, no download needed.
+function detectPlatform(rawUrl: string): 'youtube' | 'blocked' | 'other' | null {
+  if (!rawUrl.trim()) return null;
+  try {
+    const host = new URL(rawUrl.trim()).hostname.toLowerCase().replace(/^www\./, '');
+    if (host.endsWith('youtube.com') || host === 'youtu.be') return 'youtube';
+    if (host.endsWith('instagram.com') || host.endsWith('tiktok.com')) return 'blocked';
+    return 'other';
+  } catch {
+    return null;
+  }
+}
+
 interface RecipeImportDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -167,21 +184,35 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
         setImageDataUrl(pageData.imageDataUrl);
       }
 
+      const isBlockedPlatform = detectPlatform(url) === 'blocked';
+
       if (pageData.videoUrl) {
         setCachedVideoUrl(pageData.videoUrl);
         setVideoUrlKind('cdn');
-        setFetchStatus('ok');
-        setFetchStatusMsg(
-          extracted.length > 30
-            ? 'Texto extraído y URL de vídeo encontrada. Prueba a analizar sin descarga.'
-            : 'URL de vídeo encontrada. Prueba a analizar sin descarga.'
-        );
+        // Instagram/TikTok's own CDN link almost always rejects a direct fetch even
+        // though we found it — don't tell the user to "try without downloading",
+        // steer them to the reliable path instead.
+        if (isBlockedPlatform) {
+          setFetchStatus('warn');
+          setFetchStatusMsg('Encontré un enlace al vídeo, pero Instagram/TikTok suelen bloquear su descarga automática. Sube el vídeo arriba para asegurar el análisis.');
+        } else {
+          setFetchStatus('ok');
+          setFetchStatusMsg(
+            extracted.length > 30
+              ? 'Texto extraído y URL de vídeo encontrada. Prueba a analizar sin descarga.'
+              : 'URL de vídeo encontrada. Prueba a analizar sin descarga.'
+          );
+        }
       } else if (extracted.length > 30) {
         setFetchStatus('ok');
         setFetchStatusMsg('Texto extraído. Revísalo y añade más detalles si es necesario.');
       } else {
         setFetchStatus('warn');
-        setFetchStatusMsg('No se pudo extraer contenido del post. Pega el texto manualmente o sube el vídeo.');
+        setFetchStatusMsg(
+          isBlockedPlatform
+            ? 'Instagram y TikTok bloquean el acceso a sus publicaciones desde aquí, así que no pude leer nada. Sube el vídeo arriba o pega el texto manualmente.'
+            : 'No se pudo extraer contenido del post. Pega el texto manualmente o sube el vídeo.'
+        );
       }
     } catch {
       setFetchStatus('warn');
@@ -414,7 +445,8 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
             Importar receta desde post
           </DialogTitle>
           <DialogDescription>
-            Sube el vídeo descargado del reel para que la IA lo analice, o pega el texto de la publicación.
+            Un enlace de YouTube se analiza directamente. Para Instagram y TikTok, descarga el
+            vídeo y súbelo — esas plataformas no dejan analizarlo solo con la URL.
           </DialogDescription>
         </DialogHeader>
 
@@ -500,7 +532,13 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
 
             {/* Video upload */}
             <div className="space-y-1.5">
-              <Label>Vídeo del reel (recomendado)</Label>
+              <Label>Vídeo del reel</Label>
+              <p className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
+                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                Instagram y TikTok bloquean el acceso directo al vídeo desde el enlace. Para esas
+                dos, esta es la única forma de que la IA vea el vídeo real — descárgalo desde la
+                app (⋯ · Guardar vídeo) y súbelo aquí.
+              </p>
               {videoFile ? (
                 <div className="flex items-center gap-2 rounded-lg border bg-card/50 px-3 py-2.5">
                   <Video className="h-5 w-5 text-violet-500 shrink-0" />
@@ -551,16 +589,16 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
             <div className="relative">
               <Separator />
               <span className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-xs text-muted-foreground">
-                o sin vídeo
+                o por enlace
               </span>
             </div>
 
             {/* URL row */}
             <div className="space-y-1.5">
-              <Label>URL del post (opcional)</Label>
+              <Label>URL de YouTube, o del post (opcional)</Label>
               <div className="flex gap-2">
                 <Input
-                  placeholder="https://www.instagram.com/p/... o https://www.tiktok.com/..."
+                  placeholder="https://youtube.com/... · instagram.com/... · tiktok.com/..."
                   value={url}
                   onChange={(e) => {
                     setUrl(e.target.value);
@@ -578,6 +616,20 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
                   Extraer texto
                 </Button>
               </div>
+              {/* Live guidance based on the pasted URL, before any fetch attempt */}
+              {fetchStatus === 'idle' && detectPlatform(url) === 'youtube' && (
+                <p className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  YouTube funciona directo: la IA analiza el vídeo solo con este enlace.
+                </p>
+              )}
+              {fetchStatus === 'idle' && detectPlatform(url) === 'blocked' && (
+                <p className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  Este enlace no se puede leer directamente. Se guardará como fuente, pero sube el
+                  vídeo arriba para que la IA lo analice de verdad.
+                </p>
+              )}
               {fetchStatus === 'ok' && (
                 <p className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
                   <CheckCircle2 className="h-3.5 w-3.5" />
