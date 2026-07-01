@@ -35,6 +35,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 
 interface RecipeLibraryProps {
   userRecipes: Recipe[];
@@ -278,6 +279,53 @@ function RecipeList({ recipes, onRecipeClick, onCopyClick, onAddToPlanClick, onE
   );
 }
 
+const FilterGroups = ({
+  activePillFilters,
+  activeDietFilters,
+  onTogglePill,
+  onToggleDiet,
+}: {
+  activePillFilters: string[];
+  activeDietFilters: DietTag[];
+  onTogglePill: (filter: string) => void;
+  onToggleDiet: (diet: DietTag) => void;
+}) => (
+  <div className="space-y-5">
+    <div className="space-y-2">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Macros</p>
+      <div className="flex flex-wrap gap-2">
+        {MACRO_PILL_FILTERS.map(filter => (
+          <Button
+            key={filter}
+            variant={activePillFilters.includes(filter) ? 'default' : 'secondary'}
+            size="sm"
+            className="rounded-full h-7 text-xs"
+            onClick={() => onTogglePill(filter)}
+          >
+            {filter}
+          </Button>
+        ))}
+      </div>
+    </div>
+    <div className="space-y-2">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dieta</p>
+      <div className="flex flex-wrap gap-2">
+        {DIET_TAGS.map(diet => (
+          <Button
+            key={diet.value}
+            variant={activeDietFilters.includes(diet.value) ? 'default' : 'secondary'}
+            size="sm"
+            className="rounded-full h-7 text-xs"
+            onClick={() => onToggleDiet(diet.value)}
+          >
+            {diet.label}
+          </Button>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
 const CategorySection = ({
   totalCount,
   selectedCategory,
@@ -378,6 +426,11 @@ export function RecipeLibrary({
     );
   };
   const activeFilterCount = activePillFilters.length + activeDietFilters.length;
+  const handleClearFilters = () => {
+    setActivePillFilters([]);
+    dietTouched.current = true;
+    setActiveDietFilters([]);
+  };
 
   // Read persisted prefs from localStorage on mount (runs only in browser).
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>(() => {
@@ -659,8 +712,8 @@ export function RecipeLibrary({
                           </DropdownMenuRadioGroup>
                         </DropdownMenuContent>
                       </DropdownMenu>
-                      <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
-                        <SheetTrigger asChild>
+                      {(() => {
+                        const filterTrigger = (
                           <Button variant="outline" className="shrink-0 relative">
                             <Filter className="mr-2 h-4 w-4" />
                             Filtros
@@ -670,64 +723,59 @@ export function RecipeLibrary({
                               </span>
                             )}
                           </Button>
-                        </SheetTrigger>
-                        <SheetContent side="bottom" className="h-[70vh] bg-glass flex flex-col">
-                          <SheetHeader>
-                            <SheetTitle>Filtros</SheetTitle>
-                          </SheetHeader>
-                          <ScrollArea className="flex-1 pt-2">
-                            <div className="space-y-5 pb-4 pr-2">
-                              <div className="space-y-2">
-                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                  Macros
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                  {MACRO_PILL_FILTERS.map(filter => (
-                                    <Button
-                                      key={filter}
-                                      variant={activePillFilters.includes(filter) ? 'default' : 'secondary'}
-                                      size="sm"
-                                      className="rounded-full h-7 text-xs"
-                                      onClick={() => togglePillFilter(filter)}
-                                    >
-                                      {filter}
-                                    </Button>
-                                  ))}
-                                </div>
+                        );
+                        const clearButton = activeFilterCount > 0 && (
+                          <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={handleClearFilters}>
+                            <X className="mr-1.5 h-3.5 w-3.5" />
+                            Limpiar filtros
+                          </Button>
+                        );
+
+                        // Mobile: bottom sheet, matching the Categorías sheet already used
+                        // here. Desktop: a small anchored popover, matching the Ordenar
+                        // dropdown right next to it — a full-height sheet looked out of
+                        // place on desktop.
+                        if (isMobile) {
+                          return (
+                            <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
+                              <SheetTrigger asChild>{filterTrigger}</SheetTrigger>
+                              <SheetContent side="bottom" className="h-[70vh] bg-glass flex flex-col">
+                                <SheetHeader>
+                                  <SheetTitle>Filtros</SheetTitle>
+                                </SheetHeader>
+                                <ScrollArea className="flex-1 pt-2">
+                                  <div className="pb-4 pr-2">
+                                    <FilterGroups
+                                      activePillFilters={activePillFilters}
+                                      activeDietFilters={activeDietFilters}
+                                      onTogglePill={togglePillFilter}
+                                      onToggleDiet={toggleDietFilter}
+                                    />
+                                  </div>
+                                </ScrollArea>
+                                {clearButton}
+                              </SheetContent>
+                            </Sheet>
+                          );
+                        }
+                        return (
+                          <Popover open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
+                            <PopoverTrigger asChild>{filterTrigger}</PopoverTrigger>
+                            <PopoverContent align="end" className="w-80 bg-glass max-h-[70vh] overflow-y-auto space-y-4 p-4">
+                              <div className="flex items-center justify-between">
+                                <p className="font-semibold text-sm">Filtros</p>
+                                {clearButton}
                               </div>
-                              <div className="space-y-2">
-                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                  Dieta
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                  {DIET_TAGS.map(diet => (
-                                    <Button
-                                      key={diet.value}
-                                      variant={activeDietFilters.includes(diet.value) ? 'default' : 'secondary'}
-                                      size="sm"
-                                      className="rounded-full h-7 text-xs"
-                                      onClick={() => toggleDietFilter(diet.value)}
-                                    >
-                                      {diet.label}
-                                    </Button>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                          </ScrollArea>
-                          {activeFilterCount > 0 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="shrink-0 text-muted-foreground"
-                              onClick={() => { setActivePillFilters([]); dietTouched.current = true; setActiveDietFilters([]); }}
-                            >
-                              <X className="mr-1.5 h-3.5 w-3.5" />
-                              Limpiar filtros
-                            </Button>
-                          )}
-                        </SheetContent>
-                      </Sheet>
+                              <FilterGroups
+                                activePillFilters={activePillFilters}
+                                activeDietFilters={activeDietFilters}
+                                onTogglePill={togglePillFilter}
+                                onToggleDiet={toggleDietFilter}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        );
+                      })()}
                       <div className="p-1 border bg-muted rounded-md flex">
                           <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('grid')} className="h-8 w-8">
                               <LayoutGrid className="h-4 w-4" />
