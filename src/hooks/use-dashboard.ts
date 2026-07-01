@@ -10,6 +10,7 @@ import { useUserProfileState } from '@/hooks/use-user-profile-state';
 import { useWeekHistory } from '@/hooks/use-week-history';
 import { useUser } from '@/firebase';
 import { autocompleteWeek } from '@/ai/flows/autocomplete-flow';
+import { autocompleteToast } from '@/lib/autocomplete-summary';
 import { getAiErrorMessage } from '@/lib/ai-error';
 import { useAiQuota } from '@/hooks/use-ai-quota';
 import { mealCalorieRatio, suggestedServings } from '@/lib/serving-utils';
@@ -155,19 +156,17 @@ export function useDashboard() {
     try {
       setIsAutocompleting(true);
       const availableRecipes = [...currentUserRecipes, ...nutriplannerRecipes];
-      const placements = await autocompleteWeek({
+      const { placements, unfilled } = await autocompleteWeek({
         weekPlan: currentWeekPlan,
         availableRecipes,
         activeGoal: activeGoalMacros || null,
         preferences: { ...preferences, diet: currentDietPreference },
       });
-      if (placements && Array.isArray(placements)) {
-        placements.forEach(p => {
-          const recipe = availableRecipes.find(r => r.id === p.recipeId);
-          if (recipe) handleDrop(p.day, p.mealId, recipe, p.servings);
-        });
-        toast({ title: 'Semana autocompletada', description: 'Se han rellenado los huecos vacíos de tu planificador.' });
-      }
+      placements.forEach(p => {
+        const recipe = availableRecipes.find(r => r.id === p.recipeId);
+        if (recipe) handleDrop(p.day, p.mealId, recipe, p.servings);
+      });
+      toast(autocompleteToast(placements.length, unfilled));
     } catch (e) {
       console.error(e);
       toast({ variant: 'destructive', title: 'Error al autocompletar', description: getAiErrorMessage(e, 'No se pudo generar el plan semanal completo.') });

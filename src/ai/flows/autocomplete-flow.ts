@@ -27,13 +27,24 @@ const AutocompleteModelOutputSchema = z.array(z.object({
   recipeId: z.string(),
 }));
 
-// What the flow returns to callers: assignment + suggested servings for the goal.
-const AutocompleteOutputSchema = z.array(z.object({
-  day: z.string(),
-  mealId: z.string(),
-  recipeId: z.string(),
-  servings: z.number(),
-}));
+// What the flow returns to callers: the placements it could make (whole
+// servings only, within the goal margin when priority is "goal"), plus the
+// slots it deliberately left empty because no eligible recipe could hit the
+// target with a realistic whole number of servings.
+const AutocompleteOutputSchema = z.object({
+  placements: z.array(z.object({
+    day: z.string(),
+    mealId: z.string(),
+    recipeId: z.string(),
+    servings: z.number(),
+  })),
+  unfilled: z.array(z.object({
+    day: z.string(),
+    mealTitle: z.string(),
+  })),
+});
+
+export type AutocompleteResult = z.infer<typeof AutocompleteOutputSchema>;
 
 // Calorie share of the daily goal for a single meal type.
 function ratioForType(type: MealCategory): number {
@@ -64,6 +75,43 @@ function inferTypeFromTitle(mealTitle: string): MealCategory {
   if (t.includes('snack')) return 'snack';
   if (t.includes('postre') || t.includes('dessert')) return 'postre';
   return 'otro';
+}
+
+// A meal slot is at most this many servings of ONE recipe — beyond that, no
+// realistic whole-serving amount of a single dish should be suggested.
+const MAX_SERVINGS_PER_SLOT = 3;
+
+// Search every eligible recipe at every realistic whole-serving count (1..max)
+// for one that lands the slot's calories within ±marginPercent of the target.
+// Keeps `preferredRecipeId` (the model's pick) if it can hit the margin at some
+// serving count, even if another recipe would fit slightly tighter — switching
+// recipes should be a last resort, not a tie-breaker. Returns null when nothing
+// eligible can realistically hit the margin.
+function bestFitWithinMargin(
+  eligibleIds: string[],
+  simplifiedById: Map<string, { caloriesPerServing: number }>,
+  targetCalories: number,
+  marginPercent: number,
+  preferredRecipeId: string | undefined,
+  maxServings: number
+): { recipeId: string; servings: number } | null {
+  const lo = targetCalories * (1 - marginPercent / 100);
+  const hi = targetCalories * (1 + marginPercent / 100);
+  let best: { recipeId: string; servings: number; deviation: number; preferred: boolean } | null = null;
+
+  for (const id of eligibleIds) {
+    const r = simplifiedById.get(id);
+    if (!r || r.caloriesPerServing <= 0) continue;
+    for (let servings = 1; servings <= maxServings; servings++) {
+      const cals = r.caloriesPerServing * servings;
+      if (cals < lo || cals > hi) continue;
+      const deviation = Math.abs(cals - targetCalories);
+      const preferred = id === preferredRecipeId;
+      const better = !best || (preferred && !best.preferred) || (preferred === best.preferred && deviation < best.deviation);
+      if (better) best = { recipeId: id, servings, deviation, preferred };
+    }
+  }
+  return best ? { recipeId: best.recipeId, servings: best.servings } : null;
 }
 
 const autocompleteWeekFlow = ai.defineFlow(
@@ -141,7 +189,7 @@ const autocompleteWeekFlow = ai.defineFlow(
       )
     );
 
-    if (emptySlots.length === 0) return [];
+    if (emptySlots.length === 0) return { placements: [], unfilled: [] };
 
     const repetitionRule =
       preferences.allowRepetition === 'no_repeat'
@@ -154,8 +202,8 @@ const autocompleteWeekFlow = ai.defineFlow(
     const priorityRule =
       preferences.priority === 'goal' && goal
         ? `Each slot already has a pre-computed "targetCalories" and "targetProtein" (derived from the daily goal of ${goal.calories} kcal / ${goal.protein}g protein split proportionally by meal type).
-For EACH slot independently, choose the recipe whose caloriesPerServing is CLOSEST to that slot's targetCalories (within ±${margin}% if possible).
-If no recipe fits within the margin, pick the closest one rather than leaving the slot empty.
+For EACH slot independently, choose the recipe whose caloriesPerServing is CLOSEST to that slot's targetCalories (within ±${margin}% if possible, counting only whole numbers of servings — 1x, 2x, 3x caloriesPerServing).
+If no recipe fits within the margin at a whole number of servings, still pick your best candidate — the app will decide whether to place it or leave the slot empty for the user to adjust.
 Do NOT try to balance across all meals simultaneously — just minimise the gap for each individual slot.`
         : preferences.priority === 'protein'
         ? 'Prioritize recipes with the highest proteinPerServing.'
@@ -214,35 +262,52 @@ Return ONLY a JSON array. Each element: { "day": string, "mealId": string, "reci
     });
 
     const assignments = response.output || [];
-
-    // Deterministic safety net: enforce the category constraint regardless of what
-    // the model returned. If the model picked a recipe outside a slot's eligible
-    // set (or no recipe), replace it with an eligible one closest to the target.
-    // Also attach the suggested servings so the slot is sized to THIS user's goal.
-    const slotByKey = new Map(emptySlots.map(s => [`${s.day}|${s.mealId}`, s]));
+    const assignmentBySlotKey = new Map(assignments.map(a => [`${a.day}|${a.mealId}`, a]));
+    const simplifiedById = new Map(simplifiedRecipes.map(r => [r.id, r]));
     const recipeById = new Map(recipes.map(r => [r.id, r]));
+    const useGoalMargin = preferences.priority === 'goal' && !!goal;
 
-    return assignments.map(a => {
-      const slot = slotByKey.get(`${a.day}|${a.mealId}`);
-      if (!slot) return { ...a, servings: 1 };
+    // Deterministic placement pass: enforce the category constraint regardless of
+    // what the model returned, and — when optimising for the goal — never place a
+    // fractional serving. Either a whole-serving amount of an eligible recipe hits
+    // the margin, or the slot is deliberately left empty for the user to fix (wider
+    // margin, or a recipe closer to that slot's calorie target).
+    const placements: { day: string; mealId: string; recipeId: string; servings: number }[] = [];
 
-      let recipeId = a.recipeId;
-      if (!slot.eligibleRecipeIds.includes(recipeId)) {
-        const simplifiedById = new Map(simplifiedRecipes.map(r => [r.id, r]));
-        const target = slot.targetCalories;
-        recipeId = slot.eligibleRecipeIds
-          .map(id => simplifiedById.get(id))
-          .filter((r): r is NonNullable<typeof r> => !!r)
-          .sort((x, y) => {
-            if (target == null) return 0;
-            return Math.abs(x.caloriesPerServing - target) - Math.abs(y.caloriesPerServing - target);
-          })[0]?.id ?? slot.eligibleRecipeIds[0];
+    for (const slot of emptySlots) {
+      const key = `${slot.day}|${slot.mealId}`;
+      const modelPick = assignmentBySlotKey.get(key)?.recipeId;
+
+      // Closest-to-target eligible recipe — used when the model's pick is missing
+      // or outside the eligible set, and as the margin search's preferred seed.
+      const fallbackId = slot.eligibleRecipeIds
+        .map(id => simplifiedById.get(id))
+        .filter((r): r is NonNullable<typeof r> => !!r)
+        .sort((x, y) => {
+          if (slot.targetCalories == null) return 0;
+          return Math.abs(x.caloriesPerServing - slot.targetCalories) - Math.abs(y.caloriesPerServing - slot.targetCalories);
+        })[0]?.id ?? slot.eligibleRecipeIds[0];
+
+      const candidateId = modelPick && slot.eligibleRecipeIds.includes(modelPick) ? modelPick : fallbackId;
+      if (!candidateId) continue; // no eligible recipe at all for this slot
+
+      if (useGoalMargin && slot.targetCalories != null) {
+        const fit = bestFitWithinMargin(slot.eligibleRecipeIds, simplifiedById, slot.targetCalories, margin, candidateId, MAX_SERVINGS_PER_SLOT);
+        if (fit) placements.push({ day: slot.day, mealId: slot.mealId, recipeId: fit.recipeId, servings: fit.servings });
+        // else: leave the slot empty rather than force an unrealistic serving amount.
+      } else {
+        const recipe = recipeById.get(candidateId);
+        const servings = recipe ? suggestedServings(recipe, slot.targetCalories) : 1;
+        placements.push({ day: slot.day, mealId: slot.mealId, recipeId: candidateId, servings });
       }
+    }
 
-      const recipe = recipeById.get(recipeId);
-      const servings = recipe ? suggestedServings(recipe, slot.targetCalories) : 1;
-      return { day: a.day, mealId: a.mealId, recipeId, servings };
-    });
+    const filledKeys = new Set(placements.map(p => `${p.day}|${p.mealId}`));
+    const unfilled = emptySlots
+      .filter(s => !filledKeys.has(`${s.day}|${s.mealId}`))
+      .map(s => ({ day: s.day, mealTitle: s.mealTitle }));
+
+    return { placements, unfilled };
   }
 );
 
@@ -257,6 +322,6 @@ export async function autocompleteWeek(input: {
     goalMarginPercent?: number;
     diet?: DietTag[];
   };
-}): Promise<{ day: string; mealId: string; recipeId: string; servings: number }[]> {
+}): Promise<AutocompleteResult> {
   return autocompleteWeekFlow(input);
 }

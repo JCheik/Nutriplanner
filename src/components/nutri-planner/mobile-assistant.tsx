@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { AssistantDialog } from '@/components/nutri-planner/assistant-dialog';
 import { RecipeDialog, DialogState } from '@/components/nutri-planner/recipe-dialog';
 import { autocompleteWeek } from '@/ai/flows/autocomplete-flow';
+import { autocompleteToast } from '@/lib/autocomplete-summary';
 import { getAiErrorMessage } from '@/lib/ai-error';
 import { useToast } from '@/hooks/use-toast';
 import { useAiQuota } from '@/hooks/use-ai-quota';
@@ -66,7 +67,7 @@ export function MobileAssistant({
     }
     try {
       const availableRecipes = [...recipeState.currentUserRecipes, ...recipeState.nutriplannerRecipes];
-      const placements = await autocompleteWeek({
+      const { placements, unfilled } = await autocompleteWeek({
         weekPlan: weekPlanState.currentWeekPlan,
         availableRecipes,
         activeGoal: profileState.activeGoalMacros || null,
@@ -78,13 +79,11 @@ export function MobileAssistant({
           diet: profileState.currentDietPreference,
         },
       });
-      if (Array.isArray(placements)) {
-        placements.forEach(p => {
-          const recipe = availableRecipes.find(r => r.id === p.recipeId);
-          if (recipe) weekPlanState.handleDrop(p.day, p.mealId, recipe, p.servings);
-        });
-        toast({ title: 'Semana autocompletada', description: 'Se han rellenado los huecos vacíos de tu planificador.' });
-      }
+      placements.forEach(p => {
+        const recipe = availableRecipes.find(r => r.id === p.recipeId);
+        if (recipe) weekPlanState.handleDrop(p.day, p.mealId, recipe, p.servings);
+      });
+      toast(autocompleteToast(placements.length, unfilled));
     } catch (e) {
       toast({ variant: 'destructive', title: 'Error al autocompletar', description: getAiErrorMessage(e, 'No se pudo generar el plan semanal.') });
     }

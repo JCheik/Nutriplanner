@@ -14,6 +14,7 @@ import { WeekHistorySheet } from '@/components/nutri-planner/week-history-sheet'
 import { AutocompletePreferencesDialog, type AutocompletePreferences } from '@/components/nutri-planner/autocomplete-preferences-dialog';
 import { MobileLoader } from '@/components/layout/mobile-loader';
 import { autocompleteWeek } from '@/ai/flows/autocomplete-flow';
+import { autocompleteToast } from '@/lib/autocomplete-summary';
 import { getAiErrorMessage } from '@/lib/ai-error';
 
 const MobilePageLoader = () => <MobileLoader label="Cargando tu plan…" />;
@@ -49,7 +50,7 @@ function MobilePageWrapper() {
         setIsAutocompleting(true);
         try {
             const availableRecipes = [...recipeState.currentUserRecipes, ...recipeState.nutriplannerRecipes];
-            const placements = await autocompleteWeek({
+            const { placements, unfilled } = await autocompleteWeek({
                 weekPlan: weekPlanState.currentWeekPlan,
                 availableRecipes,
                 activeGoal: profileState.activeGoalMacros || null,
@@ -58,13 +59,11 @@ function MobilePageWrapper() {
                     diet: profileState.currentDietPreference,
                 },
             });
-            if (Array.isArray(placements)) {
-                placements.forEach(p => {
-                    const recipe = availableRecipes.find(r => r.id === p.recipeId);
-                    if (recipe) weekPlanState.handleDrop(p.day, p.mealId, recipe, p.servings);
-                });
-                toast({ title: 'Semana autocompletada', description: 'Se han rellenado los huecos vacíos de tu planificador.' });
-            }
+            placements.forEach(p => {
+                const recipe = availableRecipes.find(r => r.id === p.recipeId);
+                if (recipe) weekPlanState.handleDrop(p.day, p.mealId, recipe, p.servings);
+            });
+            toast(autocompleteToast(placements.length, unfilled));
         } catch (e) {
             toast({ variant: 'destructive', title: 'Error al autocompletar', description: getAiErrorMessage(e, 'No se pudo generar el plan semanal.') });
         } finally {
