@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { RecipeCard } from './recipe-card';
-import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Plus, Folders, Edit, LayoutGrid, List, Sparkles, Camera, Link2, MoreVertical, Wand2, Target, ShoppingCart, History } from 'lucide-react';
+import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Plus, Folders, Edit, LayoutGrid, List, Sparkles, Camera, Link2, MoreVertical, Wand2, Target, ShoppingCart, History, Filter, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -52,6 +52,8 @@ interface RecipeLibraryProps {
   initialViewMode?: 'grid' | 'list';
   dietPreference?: DietTag[];
 }
+
+const MACRO_PILL_FILTERS = ['Alta en Proteína', 'Baja en Carbohidratos', 'Baja en Calorías', 'Pocos Ingredientes'];
 
 const sortOptions: { value: SortCriteria; label: string }[] = [
     { value: 'name-asc', label: 'Nombre (A-Z)' },
@@ -343,6 +345,9 @@ export function RecipeLibrary({
   // null = "Todas las recetas"; otherwise a smart-category key.
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [categorySheetOpen, setCategorySheetOpen] = useState(false);
+  // Macro/diet filters live behind this sheet instead of always-visible rows,
+  // to keep the search bar area uncluttered.
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
 
   const [filterQuery, setFilterQuery] = useState('');
   const [activePillFilters, setActivePillFilters] = useState<string[]>([]);
@@ -372,6 +377,7 @@ export function RecipeLibrary({
       prev.includes(diet) ? prev.filter(d => d !== diet) : [...prev, diet]
     );
   };
+  const activeFilterCount = activePillFilters.length + activeDietFilters.length;
 
   // Read persisted prefs from localStorage on mount (runs only in browser).
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>(() => {
@@ -653,6 +659,75 @@ export function RecipeLibrary({
                           </DropdownMenuRadioGroup>
                         </DropdownMenuContent>
                       </DropdownMenu>
+                      <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
+                        <SheetTrigger asChild>
+                          <Button variant="outline" className="shrink-0 relative">
+                            <Filter className="mr-2 h-4 w-4" />
+                            Filtros
+                            {activeFilterCount > 0 && (
+                              <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                                {activeFilterCount}
+                              </span>
+                            )}
+                          </Button>
+                        </SheetTrigger>
+                        <SheetContent side="bottom" className="h-[70vh] bg-glass flex flex-col">
+                          <SheetHeader>
+                            <SheetTitle>Filtros</SheetTitle>
+                          </SheetHeader>
+                          <ScrollArea className="flex-1 pt-2">
+                            <div className="space-y-5 pb-4 pr-2">
+                              <div className="space-y-2">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                  Macros
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {MACRO_PILL_FILTERS.map(filter => (
+                                    <Button
+                                      key={filter}
+                                      variant={activePillFilters.includes(filter) ? 'default' : 'secondary'}
+                                      size="sm"
+                                      className="rounded-full h-7 text-xs"
+                                      onClick={() => togglePillFilter(filter)}
+                                    >
+                                      {filter}
+                                    </Button>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                  Dieta
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {DIET_TAGS.map(diet => (
+                                    <Button
+                                      key={diet.value}
+                                      variant={activeDietFilters.includes(diet.value) ? 'default' : 'secondary'}
+                                      size="sm"
+                                      className="rounded-full h-7 text-xs"
+                                      onClick={() => toggleDietFilter(diet.value)}
+                                    >
+                                      {diet.label}
+                                    </Button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </ScrollArea>
+                          {activeFilterCount > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="shrink-0 text-muted-foreground"
+                              onClick={() => { setActivePillFilters([]); dietTouched.current = true; setActiveDietFilters([]); }}
+                            >
+                              <X className="mr-1.5 h-3.5 w-3.5" />
+                              Limpiar filtros
+                            </Button>
+                          )}
+                        </SheetContent>
+                      </Sheet>
                       <div className="p-1 border bg-muted rounded-md flex">
                           <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('grid')} className="h-8 w-8">
                               <LayoutGrid className="h-4 w-4" />
@@ -663,38 +738,6 @@ export function RecipeLibrary({
                       </div>
                     </div>
                   </div>
-                  
-                  {/* Pill Filters Container */}
-                  <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                    {['Alta en Proteína', 'Baja en Carbohidratos', 'Baja en Calorías', 'Pocos Ingredientes'].map(filter => (
-                      <Button
-                        key={filter}
-                        variant={activePillFilters.includes(filter) ? 'default' : 'secondary'}
-                        size="sm"
-                        className="rounded-full shrink-0 h-7 text-xs"
-                        onClick={() => togglePillFilter(filter)}
-                      >
-                        {filter}
-                      </Button>
-                    ))}
-                  </div>
-
-                  {/* Diet Filters */}
-                  <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide items-center">
-                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide shrink-0">Dieta</span>
-                    {DIET_TAGS.map(diet => (
-                      <Button
-                        key={diet.value}
-                        variant={activeDietFilters.includes(diet.value) ? 'default' : 'secondary'}
-                        size="sm"
-                        className="rounded-full shrink-0 h-7 text-xs"
-                        onClick={() => toggleDietFilter(diet.value)}
-                      >
-                        {diet.label}
-                      </Button>
-                    ))}
-                  </div>
-
                 </div>
                 <div className="flex-1 mt-2 min-h-0 overflow-auto">
                   {crossSearchResults ? (
