@@ -584,7 +584,11 @@ export function RecipeLibrary({
 
   return (
     <>
-      <Card className={cn("flex flex-col bg-glass", isMobile ? 'h-full border-0 shadow-none bg-transparent' : 'h-[500px]')}>
+      {/* Desktop: a tall, viewport-relative box (was a cramped fixed 500px with a
+          tiny internal scroll) so more recipes are visible before you need to
+          scroll inside the card. Mobile is unaffected — it already fills the
+          screen (h-full). */}
+      <Card className={cn("flex flex-col bg-glass", isMobile ? 'h-full border-0 shadow-none bg-transparent' : 'h-[80vh] min-h-[600px]')}>
         <CardHeader className={cn(isMobile && "p-0 mb-2")}>
           <div className="flex justify-between items-start gap-4">
              {!isMobile && (
