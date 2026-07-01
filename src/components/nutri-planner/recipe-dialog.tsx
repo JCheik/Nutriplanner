@@ -819,34 +819,60 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe, is
           <ScrollArea className="h-96">{ingredientsAndInstructions}</ScrollArea>
         )}
       </div>
-      <DialogFooter className={cn(
-        'mt-6 flex w-full',
-        isMobile ? 'flex-col gap-2' : 'flex-row justify-between items-center',
-        isMobile && 'shrink-0 mt-2 pt-3 border-t bg-glass'
-      )}>
-         <div className="flex flex-wrap gap-2">
+      {isMobile ? (
+        // Mobile: a clear hierarchy instead of one flat row — primary action full
+        // width on top, secondary actions evenly split below, destructive action
+        // smallest and last (it was rendering full-width and first, which made
+        // "Borrar" look like the main action).
+        <DialogFooter className="mt-2 pt-3 border-t bg-glass shrink-0 flex flex-col gap-2 w-full">
+          <Button variant="default" className="w-full" onClick={() => setIsCookingModeOpen(true)}>
+            <ChefHat className="mr-2 h-4 w-4" /> Cocinar
+          </Button>
+          {(onCopy || (canEdit && onEdit)) && (
+            <div className="grid grid-cols-2 gap-2">
+              {onCopy && (
+                <Button variant="outline" onClick={() => onCopy(recipe)}>
+                  <Copy className="mr-2 h-4 w-4" /> Clonar
+                </Button>
+              )}
+              {canEdit && onEdit && (
+                <Button variant="outline" onClick={() => onEdit(recipe, isNutriPlannerRecipe)}>
+                  <Edit className="mr-2 h-4 w-4" /> Editar
+                </Button>
+              )}
+            </div>
+          )}
+          {onDelete && canEdit && (
+            <div className="flex justify-center pt-1">
+              <DeleteConfirmButton onConfirm={() => onDelete(recipe.id, isNutriPlannerRecipe)} />
+            </div>
+          )}
+        </DialogFooter>
+      ) : (
+        <DialogFooter className="mt-6 flex flex-row justify-between items-center w-full">
+          <div className="flex flex-wrap gap-2">
             {onDelete && canEdit && (
               <DeleteConfirmButton onConfirm={() => onDelete(recipe.id, isNutriPlannerRecipe)} />
             )}
-         </div>
-
-        <div className={cn('flex flex-wrap gap-2', !isMobile && 'justify-end')}>
-          <Button variant="default" onClick={() => setIsCookingModeOpen(true)}>
-            <ChefHat className="mr-2 h-4 w-4" /> Cocinar
-          </Button>
-          {/* Note: if 'isNutriPlannerRecipe' is true, we ONLY show the copy button (which behaves like clone) when 'onCopy' is available. Wait, we want to clone ANY recipe. The user requested 'Clone' button universally. */}
-          {onCopy && (
-            <Button variant="outline" onClick={() => onCopy(recipe)}>
-              <Copy className="mr-2 h-4 w-4" /> {isMobile ? 'Clonar' : 'Clonar / Usar Plantilla'}
+          </div>
+          <div className="flex flex-wrap gap-2 justify-end">
+            <Button variant="default" onClick={() => setIsCookingModeOpen(true)}>
+              <ChefHat className="mr-2 h-4 w-4" /> Cocinar
             </Button>
-          )}
-          {canEdit && onEdit && (
-            <Button variant="outline" onClick={() => onEdit(recipe, isNutriPlannerRecipe)}>
-                <Edit className="mr-2 h-4 w-4" /> Editar
-            </Button>
-          )}
-        </div>
-      </DialogFooter>
+            {/* Note: if 'isNutriPlannerRecipe' is true, we ONLY show the copy button (which behaves like clone) when 'onCopy' is available. Wait, we want to clone ANY recipe. The user requested 'Clone' button universally. */}
+            {onCopy && (
+              <Button variant="outline" onClick={() => onCopy(recipe)}>
+                <Copy className="mr-2 h-4 w-4" /> Clonar / Usar Plantilla
+              </Button>
+            )}
+            {canEdit && onEdit && (
+              <Button variant="outline" onClick={() => onEdit(recipe, isNutriPlannerRecipe)}>
+                  <Edit className="mr-2 h-4 w-4" /> Editar
+              </Button>
+            )}
+          </div>
+        </DialogFooter>
+      )}
 
       <CookingModeDialog 
         recipe={recipe} 
