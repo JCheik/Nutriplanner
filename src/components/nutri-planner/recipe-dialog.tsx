@@ -700,29 +700,85 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe, is
 
   const canEdit = isAdmin || !isNutriPlannerRecipe;
 
+  const categoryBadges = (recipe.category ?? []).map((cat) => (
+    <span key={cat} className={cn('bg-primary/15 text-primary rounded-md font-medium', isMobile ? 'px-2 py-0.5 text-[11px]' : 'px-2 py-1 text-xs')}>
+      {MEAL_CATEGORY_LABELS[cat] ?? cat}
+    </span>
+  ));
+  const dietBadges = (recipe.dietTags ?? []).map((diet) => (
+    <span key={diet} className={cn('bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 rounded-md font-medium', isMobile ? 'px-2 py-0.5 text-[11px]' : 'px-2 py-1 text-xs')}>
+      {DIET_TAG_LABELS[diet] ?? diet}
+    </span>
+  ));
+
+  // Shared between mobile and desktop; only the wrapper (plain flow vs. its own
+  // ScrollArea) differs — see below.
+  const ingredientsAndInstructions = (
+    <div className="space-y-4">
+      <div>
+        <h3 className="font-semibold mb-2">Ingredientes</h3>
+        <ul className="list-disc list-inside space-y-1 text-sm">
+          {recipe.ingredients.map(ing => {
+            // Always look up the ingredient in the DB map to get live macros
+            const baseIng = ingredientDBMap.get(normalizeText(ing.name));
+            const scale = baseIng ? ing.quantity / 100 : 0;
+            const calories = baseIng ? (baseIng.calories || 0) * scale : 0;
+            return (
+              <li key={ing.id}>
+                  {ing.quantity}{ing.unit} {ing.name}
+                  {baseIng && <span className="text-xs text-muted-foreground ml-2">({Math.round(calories)} kcal)</span>}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+      <div>
+        <h3 className="font-semibold mb-2">Instrucciones</h3>
+        <p className="text-sm whitespace-pre-wrap">{recipe.instructions}</p>
+      </div>
+      {recipe.sourceUrl && (
+        <div>
+          <h3 className="font-semibold mb-2">Fuente</h3>
+          <a
+            href={recipe.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm text-primary hover:underline break-all"
+          >
+            <Globe className="h-4 w-4 shrink-0" />
+            Ver receta original / vídeo
+          </a>
+        </div>
+      )}
+    </div>
+  );
+
   return (
      <>
       <DialogHeader className={cn('mb-4', isMobile && 'shrink-0 mb-2')}>
-        <DialogTitle className="text-2xl">{recipe.name}</DialogTitle>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <DialogDescription>{recipe.description}</DialogDescription>
-          {(recipe.category ?? []).map((cat) => (
-            <span key={cat} className="bg-primary/15 text-primary px-2 py-1 rounded-md text-xs font-medium">
-              {MEAL_CATEGORY_LABELS[cat] ?? cat}
-            </span>
-          ))}
-          {(recipe.dietTags ?? []).map((diet) => (
-            <span key={diet} className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-2 py-1 rounded-md text-xs font-medium">
-              {DIET_TAG_LABELS[diet] ?? diet}
-            </span>
-          ))}
-        </div>
+        <DialogTitle className={cn('text-2xl', isMobile && 'text-lg leading-snug')}>{recipe.name}</DialogTitle>
+        {isMobile ? (
+          <div className="space-y-1.5">
+            {recipe.description && (
+              <DialogDescription className="text-sm line-clamp-2">{recipe.description}</DialogDescription>
+            )}
+            {(categoryBadges.length > 0 || dietBadges.length > 0) && (
+              <div className="flex flex-wrap gap-1.5">{categoryBadges}{dietBadges}</div>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <DialogDescription>{recipe.description}</DialogDescription>
+            {categoryBadges}
+            {dietBadges}
+          </div>
+        )}
       </DialogHeader>
-      <div className={cn('grid md:grid-cols-2 gap-6', isMobile && 'flex-1 min-h-0 overflow-y-auto -mx-1 px-1')}>
-        <div>
+      <div className={cn('grid md:grid-cols-2 gap-6', isMobile && 'flex-1 min-h-0 overflow-y-auto overflow-x-hidden -mx-1 px-1')}>
+        <div className="min-w-0">
           <div className="relative aspect-video rounded-lg overflow-hidden mb-4 bg-black/10 flex items-center justify-center text-muted-foreground">
              {recipe.imageUrl ? (
-              <Image 
+              <Image
                 src={recipe.imageUrl}
                 alt={recipe.name}
                 fill
@@ -755,61 +811,33 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe, is
             </div>
           )}
         </div>
-        <ScrollArea className="h-96">
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-semibold mb-2">Ingredientes</h3>
-              <ul className="list-disc list-inside space-y-1 text-sm">
-                {recipe.ingredients.map(ing => {
-                  // Always look up the ingredient in the DB map to get live macros
-                  const baseIng = ingredientDBMap.get(normalizeText(ing.name));
-                  const scale = baseIng ? ing.quantity / 100 : 0;
-                  const calories = baseIng ? (baseIng.calories || 0) * scale : 0;
-                  return (
-                    <li key={ing.id}>
-                        {ing.quantity}{ing.unit} {ing.name}
-                        {baseIng && <span className="text-xs text-muted-foreground ml-2">({Math.round(calories)} kcal)</span>}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-2">Instrucciones</h3>
-              <p className="text-sm whitespace-pre-wrap">{recipe.instructions}</p>
-            </div>
-            {recipe.sourceUrl && (
-              <div>
-                <h3 className="font-semibold mb-2">Fuente</h3>
-                <a
-                  href={recipe.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm text-primary hover:underline break-all"
-                >
-                  <Globe className="h-4 w-4 shrink-0" />
-                  Ver receta original / vídeo
-                </a>
-              </div>
-            )}
-          </div>
-        </ScrollArea>
+        {/* Mobile: the outer grid already scrolls the whole column, so this flows
+            with it instead of nesting a second, independently-scrolling box. */}
+        {isMobile ? (
+          <div className="min-w-0">{ingredientsAndInstructions}</div>
+        ) : (
+          <ScrollArea className="h-96">{ingredientsAndInstructions}</ScrollArea>
+        )}
       </div>
-      <DialogFooter className={cn('mt-6 flex flex-row justify-between items-center w-full', isMobile && 'shrink-0 mt-2 pt-3 border-t bg-glass')}>
-         <div className="flex gap-2">
+      <DialogFooter className={cn(
+        'mt-6 flex w-full',
+        isMobile ? 'flex-col gap-2' : 'flex-row justify-between items-center',
+        isMobile && 'shrink-0 mt-2 pt-3 border-t bg-glass'
+      )}>
+         <div className="flex flex-wrap gap-2">
             {onDelete && canEdit && (
               <DeleteConfirmButton onConfirm={() => onDelete(recipe.id, isNutriPlannerRecipe)} />
             )}
          </div>
 
-        <div className='flex gap-2'>
+        <div className={cn('flex flex-wrap gap-2', !isMobile && 'justify-end')}>
           <Button variant="default" onClick={() => setIsCookingModeOpen(true)}>
             <ChefHat className="mr-2 h-4 w-4" /> Cocinar
           </Button>
           {/* Note: if 'isNutriPlannerRecipe' is true, we ONLY show the copy button (which behaves like clone) when 'onCopy' is available. Wait, we want to clone ANY recipe. The user requested 'Clone' button universally. */}
           {onCopy && (
             <Button variant="outline" onClick={() => onCopy(recipe)}>
-              <Copy className="mr-2 h-4 w-4" /> Clonar / Usar Plantilla
+              <Copy className="mr-2 h-4 w-4" /> {isMobile ? 'Clonar' : 'Clonar / Usar Plantilla'}
             </Button>
           )}
           {canEdit && onEdit && (
