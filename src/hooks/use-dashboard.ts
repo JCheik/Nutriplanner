@@ -161,12 +161,15 @@ export function useDashboard() {
     }
     try {
       setIsAutocompleting(true);
-      const availableRecipes = [...currentUserRecipes, ...nutriplannerRecipes];
+      const { recipeSource, ...flowPreferences } = preferences;
+      const availableRecipes = recipeSource === 'mine'
+        ? [...currentUserRecipes]
+        : [...currentUserRecipes, ...nutriplannerRecipes];
       const { placements, unfilled } = await autocompleteWeek({
         weekPlan: currentWeekPlan,
         availableRecipes,
         activeGoal: activeGoalMacros || null,
-        preferences: { ...preferences, diet: currentDietPreference },
+        preferences: { ...flowPreferences, diet: currentDietPreference },
       });
       placements.forEach(p => {
         const recipe = availableRecipes.find(r => r.id === p.recipeId);

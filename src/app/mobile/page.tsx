@@ -49,13 +49,16 @@ function MobilePageWrapper() {
         }
         setIsAutocompleting(true);
         try {
-            const availableRecipes = [...recipeState.currentUserRecipes, ...recipeState.nutriplannerRecipes];
+            const { recipeSource, ...flowPreferences } = preferences;
+            const availableRecipes = recipeSource === 'mine'
+                ? [...recipeState.currentUserRecipes]
+                : [...recipeState.currentUserRecipes, ...recipeState.nutriplannerRecipes];
             const { placements, unfilled } = await autocompleteWeek({
                 weekPlan: weekPlanState.currentWeekPlan,
                 availableRecipes,
                 activeGoal: profileState.activeGoalMacros || null,
                 preferences: {
-                    ...preferences,
+                    ...flowPreferences,
                     diet: profileState.currentDietPreference,
                 },
             });

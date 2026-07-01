@@ -21,6 +21,9 @@ export interface AutocompletePreferences {
   priority: 'goal' | 'protein' | 'calories';
   dietaryRestrictions: string;
   goalMarginPercent: number;
+  // Which pool of recipes the AI can pick from: just the user's own, or also
+  // the shared Nutrilp base recipes.
+  recipeSource: 'all' | 'mine';
 }
 
 interface AutocompletePreferencesDialogProps {
@@ -42,9 +45,10 @@ export function AutocompletePreferencesDialog({
   const [priority, setPriority] = useState<AutocompletePreferences['priority']>(hasGoal ? 'goal' : 'protein');
   const [dietaryRestrictions, setDietaryRestrictions] = useState('');
   const [goalMarginPercent, setGoalMarginPercent] = useState(15);
+  const [recipeSource, setRecipeSource] = useState<AutocompletePreferences['recipeSource']>('all');
 
   const handleConfirm = () => {
-    onConfirm({ allowRepetition, priority, dietaryRestrictions, goalMarginPercent });
+    onConfirm({ allowRepetition, priority, dietaryRestrictions, goalMarginPercent, recipeSource });
   };
 
   return (
@@ -80,6 +84,36 @@ export function AutocompletePreferencesDialog({
                   )}
                 >
                   <RadioGroupItem value={value} id={`rep-${value}`} className="mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">{label}</p>
+                    <p className="text-xs text-muted-foreground">{desc}</p>
+                  </div>
+                </label>
+              ))}
+            </RadioGroup>
+          </div>
+
+          {/* Origen de las recetas */}
+          <div className="space-y-3">
+            <Label className="font-semibold text-sm">¿Qué recetas puede usar?</Label>
+            <RadioGroup
+              value={recipeSource}
+              onValueChange={(v) => setRecipeSource(v as AutocompletePreferences['recipeSource'])}
+              className="space-y-2"
+            >
+              {[
+                { value: 'all', label: 'Mis recetas + Nutrilp', desc: 'Usa también el recetario base de la app' },
+                { value: 'mine', label: 'Solo mis recetas', desc: 'Ignora las recetas base de Nutrilp' },
+              ].map(({ value, label, desc }) => (
+                <label
+                  key={value}
+                  htmlFor={`src-${value}`}
+                  className={cn(
+                    'flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
+                    recipeSource === value ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent/30'
+                  )}
+                >
+                  <RadioGroupItem value={value} id={`src-${value}`} className="mt-0.5" />
                   <div>
                     <p className="text-sm font-medium">{label}</p>
                     <p className="text-xs text-muted-foreground">{desc}</p>
