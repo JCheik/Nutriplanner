@@ -95,6 +95,7 @@ function MobilePageWrapper() {
                 dietPreference={profileState.currentDietPreference}
                 onOpenAutocomplete={handleOpenAutocomplete}
                 onHistorialOpen={() => setIsHistoryOpen(true)}
+                isAutocompleting={isAutocompleting}
             />
             <WeekHistorySheet
                 isOpen={isHistoryOpen}

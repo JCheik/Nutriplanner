@@ -6,8 +6,11 @@ import { useUser } from '@/firebase';
 import { Logo } from '@/components/icons/logo';
 import { PageHeader } from '@/components/layout/page-header';
 
+// Explicit opaque bg-background: without it, the fixed kitchen-bg photo on
+// <body> (background-attachment: fixed, see globals.css) shows through this
+// transparent box during load — a jarring flash before the real content paints.
 const DashboardLoader = () => (
-    <div className="flex items-center justify-center min-h-screen">
+    <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="flex flex-col items-center gap-4 p-8 rounded-lg">
           <Logo className="h-12 w-12 text-primary animate-pulse" />
           <p className="text-lg text-muted-foreground">Cargando tu planificador...</p>

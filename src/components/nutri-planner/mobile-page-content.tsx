@@ -10,7 +10,7 @@ import { RecipeSelectionDialog } from '@/components/nutri-planner/recipe-selecti
 import {
   X, Plus, Minus, UtensilsCrossed,
   Sparkles, History, Pencil, GripVertical, LayoutGrid, CalendarDays, ChevronRight, Flame,
-  Target, Trash2, Eraser,
+  Target, Trash2, Eraser, LoaderCircle,
 } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -27,6 +27,9 @@ interface MobilePageContentProps extends CombinedState {
   dietPreference?: DietTag[];
   onOpenAutocomplete: () => void;
   onHistorialOpen?: () => void;
+  /** True while the AI is generating an autocompleted plan — shows a banner so
+   * the user knows something is happening after the preferences dialog closes. */
+  isAutocompleting?: boolean;
 }
 
 type ViewMode = 'day' | 'grid';
@@ -99,10 +102,13 @@ export function MobilePageContent({
   dietPreference = [],
   onOpenAutocomplete,
   onHistorialOpen,
+  isAutocompleting = false,
 }: MobilePageContentProps) {
   const router = useRouter();
   const todayIndex = useMemo(() => todayDayIndex(), []);
-  const [view, setView] = useState<ViewMode>('day');
+  // Grid (week) is the default view — the user opts INTO day view, not the other
+  // way around, so they see the whole week's shape first.
+  const [view, setView] = useState<ViewMode>('grid');
   const [activeDayIndex, setActiveDayIndex] = useState(todayIndex);
   const [editMode, setEditMode] = useState(false);
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
@@ -238,9 +244,12 @@ export function MobilePageContent({
         {/* Action chips */}
         <div className="flex gap-2 px-4 pb-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           <ActionChip
-            icon={<Sparkles className="h-3 w-3" />}
-            label="Autocompletar"
+            icon={isAutocompleting
+              ? <LoaderCircle className="h-3 w-3 animate-spin" />
+              : <Sparkles className="h-3 w-3" />}
+            label={isAutocompleting ? 'Generando…' : 'Autocompletar'}
             onClick={onOpenAutocomplete}
+            disabled={isAutocompleting}
             accent
           />
           <ActionChip
@@ -262,6 +271,20 @@ export function MobilePageContent({
           )}
         </div>
       </div>
+
+      {/* Autocomplete-in-progress banner — visible regardless of day/grid view,
+          so the user can see the AI is working after the preferences dialog closes. */}
+      {isAutocompleting && (
+        <div
+          className="flex items-center gap-2 px-4 py-2.5 border-b"
+          style={{ background: C.primaryLight, borderColor: C.primaryBorder }}
+        >
+          <LoaderCircle className="h-4 w-4 flex-shrink-0 animate-spin" style={{ color: C.primary }} />
+          <span className="text-sm font-medium" style={{ color: C.primary }}>
+            La IA está montando tu plan semanal…
+          </span>
+        </div>
+      )}
 
       {/* Edit mode banner */}
       {editMode && (
@@ -433,17 +456,19 @@ export function MobilePageContent({
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
 function ActionChip({
-  icon, label, onClick, accent = false,
+  icon, label, onClick, accent = false, disabled = false,
 }: {
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
   accent?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium flex-shrink-0 transition-opacity active:opacity-70"
+      disabled={disabled}
+      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium flex-shrink-0 transition-opacity active:opacity-70 disabled:opacity-70"
       style={accent
         ? { background: C.primaryLight, border: `0.5px solid ${C.primaryBorder}`, color: C.primary }
         : { background: C.card, border: `0.5px solid ${C.border}`, color: C.muted }
@@ -598,28 +623,28 @@ function GridView({
           <div
             className="flex-shrink-0 z-10"
             style={{
-              width: 56,
+              width: 64,
               position: 'sticky',
               left: 0,
               background: 'rgba(242,237,228,0.97)',
               backdropFilter: 'blur(4px)',
             }}
           >
-            <div style={{ height: 32, borderBottom: `0.5px solid ${C.border}` }} />
+            <div style={{ height: 36, borderBottom: `0.5px solid ${C.border}` }} />
             {mealRows.map(meal => (
               <div
                 key={meal.id}
                 style={{
-                  height: 64,
+                  height: 76,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'flex-end',
-                  paddingRight: 6,
+                  paddingRight: 8,
                   borderBottom: `0.5px solid ${C.border}`,
                 }}
               >
                 <span style={{
-                  fontSize: 7,
+                  fontSize: 8,
                   fontWeight: 700,
                   textTransform: 'uppercase',
                   letterSpacing: '0.04em',
@@ -631,6 +656,27 @@ function GridView({
                 </span>
               </div>
             ))}
+            {/* Totals row label */}
+            <div
+              style={{
+                height: 52,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                paddingRight: 8,
+              }}
+            >
+              <span style={{
+                fontSize: 8,
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                textAlign: 'right',
+                color: C.muted,
+              }}>
+                Total
+              </span>
+            </div>
           </div>
 
           {/* Day columns */}
@@ -638,14 +684,15 @@ function GridView({
             {DAY_ORDER.map((dayName, dayIndex) => {
               const dayPlan = weekPlan[dayIndex];
               const isToday = dayIndex === todayIndex;
+              const dayTotals = totalsFor(dayPlan?.meals ?? []);
               return (
-                <div key={dayName} style={{ width: 52, flexShrink: 0 }}>
+                <div key={dayName} style={{ width: 68, flexShrink: 0 }}>
                   {/* Day header — tap to go to day view */}
                   <button
                     onClick={() => onOpenDay(dayIndex)}
                     style={{
                       width: '100%',
-                      height: 32,
+                      height: 36,
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
@@ -655,7 +702,7 @@ function GridView({
                       background: isToday ? 'rgba(217,82,26,0.06)' : C.card,
                     }}
                   >
-                    <span style={{ fontSize: 10, fontWeight: 700, color: isToday ? C.primary : '#6B4020' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: isToday ? C.primary : '#6B4020' }}>
                       {DAY_LETTERS[dayIndex]}
                     </span>
                     {isToday && (
@@ -678,12 +725,12 @@ function GridView({
                         onClick={() => handleCellTap(dayIndex, mealIndex)}
                         style={{
                           width: '100%',
-                          height: 64,
+                          height: 76,
                           display: 'flex',
                           flexDirection: 'column',
                           alignItems: isEmpty ? 'center' : 'flex-start',
                           justifyContent: isEmpty ? 'center' : 'space-between',
-                          padding: isEmpty ? 4 : '5px 4px 4px 6px',
+                          padding: isEmpty ? 4 : '6px 5px 5px 7px',
                           borderRight: `0.5px solid ${C.border}`,
                           borderBottom: `0.5px solid ${C.border}`,
                           borderLeft: isSelected ? `2px solid ${C.primary}` : `2px solid ${accent}`,
@@ -698,34 +745,62 @@ function GridView({
                       >
                         {isEmpty ? (
                           <div style={{
-                            width: 20, height: 20, borderRadius: '50%',
+                            width: 22, height: 22, borderRadius: '50%',
                             border: `0.5px dashed ${C.border}`,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                           }}>
-                            <Plus style={{ width: 10, height: 10, color: C.border }} />
+                            <Plus style={{ width: 11, height: 11, color: C.border }} />
                           </div>
                         ) : (
                           <>
                             <p style={{
-                              fontSize: 7.5,
+                              fontSize: 8.5,
                               fontWeight: 500,
                               color: C.brown,
-                              lineHeight: 1.25,
+                              lineHeight: 1.3,
                               overflow: 'hidden',
                               display: '-webkit-box',
-                              WebkitLineClamp: 2,
+                              WebkitLineClamp: 3,
                               WebkitBoxOrient: 'vertical',
                             } as React.CSSProperties}>
                               {recipe?.name}
                             </p>
                             {kcal > 0 && (
-                              <p style={{ fontSize: 6.5, color: C.muted }}>{kcal} kcal</p>
+                              <p style={{ fontSize: 7, color: C.muted }}>{kcal} kcal</p>
                             )}
                           </>
                         )}
                       </button>
                     );
                   })}
+
+                  {/* Day totals footer */}
+                  <div
+                    style={{
+                      height: 52,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 1,
+                      borderRight: `0.5px solid ${C.border}`,
+                      background: isToday ? 'rgba(217,82,26,0.06)' : C.card,
+                    }}
+                  >
+                    {dayTotals.calories > 0 ? (
+                      <>
+                        <span style={{ fontSize: 9.5, fontWeight: 700, color: C.primary }}>
+                          {Math.round(dayTotals.calories)}
+                          <span style={{ fontSize: 6.5, fontWeight: 500, color: C.muted }}> kcal</span>
+                        </span>
+                        <span style={{ fontSize: 7.5, color: C.muted }}>
+                          {Math.round(dayTotals.protein)}g prot
+                        </span>
+                      </>
+                    ) : (
+                      <span style={{ fontSize: 8, color: C.dimText }}>—</span>
+                    )}
+                  </div>
                 </div>
               );
             })}
