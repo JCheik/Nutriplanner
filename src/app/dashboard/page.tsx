@@ -37,7 +37,7 @@ export default function DashboardPage() {
     handleInternalSaveRecipe, handleInternalDeleteRecipe,
     handleMealSlotClick, handleRecipeSelectionSave,
     handlePanelOpen, handlePanelChange,
-    handleAiRecipeGenerated, handleAutocompleteWeek, handleRunAutocomplete,
+    handleAiRecipeGenerated, handleRecipeImported, handleAutocompleteWeek, handleRunAutocomplete,
   } = useDashboard();
 
   return (
@@ -133,7 +133,7 @@ export default function DashboardPage() {
       <RecipeImportDialog
         isOpen={activePanel === 'recipe-import'}
         onClose={() => handlePanelChange('recipe-import', false)}
-        onRecipeImported={handleAiRecipeGenerated}
+        onRecipeImported={handleRecipeImported}
       />
 
       <ShoppingListSheet

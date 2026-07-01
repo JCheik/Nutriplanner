@@ -88,11 +88,12 @@ function MobileRecipesWrapper() {
             <RecipeImportDialog
                 isOpen={isImportOpen}
                 onClose={() => setIsImportOpen(false)}
-                onRecipeImported={(recipe) => {
+                onRecipeImported={(recipe, imageFile) => {
                     // Open the imported recipe in the editor for review before saving,
-                    // same flow as the AI-generated recipes.
+                    // same flow as the AI-generated recipes. `imageFile` (a video
+                    // frame or the post's image) uploads when the user saves.
                     setIsImportOpen(false);
-                    setDialogState({ open: true, mode: 'create', recipe: recipe as Recipe });
+                    setDialogState({ open: true, mode: 'create', recipe: recipe as Recipe, imageFile });
                 }}
             />
             <MobileAssistant

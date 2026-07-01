@@ -52,7 +52,10 @@ export function useUserProfileState() {
     if (userProfileRef) {
       try {
         await setDoc(userProfileRef, { activeGoalPreference: goal }, { merge: true });
-      } catch(e) { console.error("Error saving goal", e) }
+      } catch(e) {
+        console.error("Error saving goal", e);
+        toast({ variant: 'destructive', title: 'No se pudo cambiar el objetivo', description: 'Revisa tu conexión e inténtalo de nuevo.' });
+      }
     }
   };
 
@@ -74,17 +77,23 @@ export function useUserProfileState() {
     if (userProfileRef) {
       try {
         await setDoc(userProfileRef, { shoppingList: list }, { merge: true });
-      } catch(e) { console.error("Error saving shopping list", e) }
+      } catch(e) {
+        console.error("Error saving shopping list", e);
+        toast({ variant: 'destructive', title: 'No se pudo guardar la lista', description: 'Revisa tu conexión e inténtalo de nuevo.' });
+      }
     }
-  }, [userProfileRef]);
+  }, [userProfileRef, toast]);
 
   const handleDietPreferenceChange = useCallback(async (diets: DietTag[]) => {
     if (userProfileRef) {
       try {
         await setDoc(userProfileRef, { dietPreference: diets }, { merge: true });
-      } catch(e) { console.error("Error saving diet preference", e) }
+      } catch(e) {
+        console.error("Error saving diet preference", e);
+        toast({ variant: 'destructive', title: 'No se pudo guardar la dieta', description: 'Revisa tu conexión e inténtalo de nuevo.' });
+      }
     }
-  }, [userProfileRef]);
+  }, [userProfileRef, toast]);
 
   return {
     currentCalorieResult,

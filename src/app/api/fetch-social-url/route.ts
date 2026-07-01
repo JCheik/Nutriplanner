@@ -34,6 +34,42 @@ function extractMeta(html: string, property: string): string | null {
   return null;
 }
 
+// Blocks obviously-private / metadata hosts to keep the image fetch from being
+// abused for SSRF (a page could point og:image at an internal address).
+function isPrivateHost(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  if (h === 'localhost' || h.endsWith('.local') || h.endsWith('.internal')) return true;
+  if (/^(127\.|10\.|192\.168\.|169\.254\.|0\.)/.test(h)) return true;
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(h)) return true;
+  if (h === '::1' || h.startsWith('fd') || h.startsWith('fe80')) return true;
+  return false;
+}
+
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+
+async function fetchImageAsDataUrl(rawUrl: string): Promise<string | null> {
+  try {
+    const u = new URL(rawUrl);
+    if (u.protocol !== 'https:' || isPrivateHost(u.hostname)) return null;
+
+    const res = await fetch(rawUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'image/*' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.startsWith('image/')) return null;
+
+    const buffer = Buffer.from(await res.arrayBuffer());
+    if (buffer.length === 0 || buffer.length > MAX_IMAGE_BYTES) return null;
+
+    return `data:${contentType};base64,${buffer.toString('base64')}`;
+  } catch {
+    return null;
+  }
+}
+
 function decodeEntities(s: string): string {
   return s
     .replace(/&amp;/g, '&')
@@ -108,7 +144,13 @@ export async function POST(req: NextRequest) {
       extractMeta(html, 'twitter:image') ||
       null;
 
-    return NextResponse.json({ success: true, title, description, videoUrl, imageUrl });
+    // Fetch the poster image server-side (no CORS) so the client can re-host it
+    // as the recipe photo. CDN URLs from these posts expire and block hotlinking,
+    // so storing the raw URL would break; we return the bytes instead. Best-effort:
+    // any failure just omits the image, the rest of the import still works.
+    const imageDataUrl = imageUrl ? await fetchImageAsDataUrl(imageUrl) : null;
+
+    return NextResponse.json({ success: true, title, description, videoUrl, imageUrl, imageDataUrl });
   } catch (err: unknown) {
     const status = (err as { status?: number }).status;
     if (status === 401) {

@@ -20,8 +20,9 @@ import { useFirebase, useUser, useCollection, useMemoFirebase } from '@/firebase
 import { importRecipe, type UnifiedRecipe } from '@/ai/flows/import-recipe-flow';
 import { normalizeText } from '@/lib/utils';
 import { getAiErrorMessage, isRetryableAiError } from '@/lib/ai-error';
+import { captureVideoFrame, dataUrlToFile } from '@/lib/media-utils';
 import type { Recipe, BaseIngredient } from '@/lib/types';
-import { Link2, Loader2, CheckCircle2, AlertTriangle, Sparkles, Download, Video, X } from 'lucide-react';
+import { Link2, Loader2, CheckCircle2, AlertTriangle, Sparkles, Download, Video, X, ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MissingIngredientRow, type ReviewIngredient, type ReviewMacroField } from './ingredient-review';
 import { useAiQuota } from '@/hooks/use-ai-quota';
@@ -37,7 +38,9 @@ type ImportStep = 'input' | 'fetching' | 'analyzing' | 'reviewing' | 'creating';
 interface RecipeImportDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onRecipeImported: (recipe: Omit<Recipe, 'id'>) => void;
+  // `imageFile`, when present, is a photo captured for the recipe (a video frame
+  // or the post's og:image) to be uploaded when the user saves from the editor.
+  onRecipeImported: (recipe: Omit<Recipe, 'id'>, imageFile?: File) => void;
 }
 
 export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: RecipeImportDialogProps) {
@@ -61,6 +64,9 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
   const [videoUrlKind, setVideoUrlKind] = useState<'none' | 'youtube' | 'cdn'>('none');
   const [cachedVideoUrl, setCachedVideoUrl] = useState<string | undefined>();
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  // Poster image (og:image) fetched from the post, as a data URL. Used as the
+  // recipe photo when there's no uploaded video to grab a frame from.
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [extractedRecipe, setExtractedRecipe] = useState<UnifiedRecipe | null>(null);
   const [foundIngredients, setFoundIngredients] = useState<string[]>([]);
   const [missingIngredients, setMissingIngredients] = useState<ReviewIngredient[]>([]);
@@ -155,6 +161,10 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
           const existing = prev.trim();
           return existing ? `${extracted}\n\n${existing}` : extracted;
         });
+      }
+
+      if (pageData.imageDataUrl) {
+        setImageDataUrl(pageData.imageDataUrl);
       }
 
       if (pageData.videoUrl) {
@@ -330,7 +340,18 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
         ...(url.trim() ? { sourceUrl: url.trim() } : {}),
       };
 
-      onRecipeImported(recipe);
+      // Recipe photo: prefer a frame grabbed from the uploaded reel (the real
+      // dish), otherwise the post's poster image. Best-effort — if neither works
+      // the recipe just imports without a photo.
+      let imageFile: File | undefined;
+      if (videoFile) {
+        imageFile = (await captureVideoFrame(videoFile)) ?? undefined;
+      }
+      if (!imageFile && imageDataUrl) {
+        imageFile = dataUrlToFile(imageDataUrl, 'portada.jpg') ?? undefined;
+      }
+
+      onRecipeImported(recipe, imageFile);
       handleClose();
     } catch (err) {
       console.error('Create ingredients error:', err);
@@ -353,6 +374,7 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
     setVideoUrlKind('none');
     setCachedVideoUrl(undefined);
     setVideoFile(null);
+    setImageDataUrl(null);
     setExtractedRecipe(null);
     setFoundIngredients([]);
     setMissingIngredients([]);
@@ -646,6 +668,23 @@ Cuanto más detallado sea el texto, mejor resultado obtendrá la IA."
                     {Math.round(extractedRecipe.fat)}g
                   </span>
                 </div>
+
+                {/* Photo indicator: a frame from the uploaded video, or the post's image */}
+                {(videoFile || imageDataUrl) && (
+                  <div className="flex items-center gap-2 pt-1 text-xs text-muted-foreground">
+                    {imageDataUrl && !videoFile ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={imageDataUrl} alt="Portada" className="h-10 w-10 rounded object-cover border" />
+                    ) : (
+                      <ImageIcon className="h-4 w-4 text-primary" />
+                    )}
+                    <span>
+                      {videoFile
+                        ? 'Se añadirá una foto del plato tomada del vídeo.'
+                        : 'Se añadirá la foto del post como portada.'}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Found ingredients */}

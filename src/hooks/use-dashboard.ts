@@ -144,6 +144,12 @@ export function useDashboard() {
     setDialogState({ open: true, mode: 'create', recipe: recipe as Recipe, aiIngredients });
   };
 
+  // URL import: open the editor with the recipe and the captured photo (video
+  // frame or post image), which uploads when the user saves.
+  const handleRecipeImported = (recipe: Omit<Recipe, 'id'>, imageFile?: File) => {
+    setDialogState({ open: true, mode: 'create', recipe: recipe as Recipe, imageFile });
+  };
+
   const handleAutocompleteWeek = () => setIsPreferencesDialogOpen(true);
 
   const handleRunAutocomplete = async (preferences: AutocompletePreferences) => {
@@ -216,6 +222,6 @@ export function useDashboard() {
     handleInternalSaveRecipe, handleInternalDeleteRecipe,
     handleMealSlotClick, handleRecipeSelectionSave,
     handlePanelOpen, handlePanelChange,
-    handleAiRecipeGenerated, handleAutocompleteWeek, handleRunAutocomplete,
+    handleAiRecipeGenerated, handleRecipeImported, handleAutocompleteWeek, handleRunAutocomplete,
   };
 }

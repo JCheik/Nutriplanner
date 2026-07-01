@@ -87,7 +87,7 @@ function DeleteConfirmButton({ onConfirm }: { onConfirm: () => void }) {
   );
 }
 
-function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngredients, isSaving, onSave, onCancel, onDelete, isMobile }: { recipe?: Partial<Recipe>, isInitiallyGlobal?: boolean, aiIngredients?: AiIngredientEstimate[], isSaving: boolean, onSave: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void, onCancel: () => void, onDelete: (id: string, isGlobal: boolean) => void, isMobile?: boolean }) {
+function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngredients, initialImageFile, isSaving, onSave, onCancel, onDelete, isMobile }: { recipe?: Partial<Recipe>, isInitiallyGlobal?: boolean, aiIngredients?: AiIngredientEstimate[], initialImageFile?: File, isSaving: boolean, onSave: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => void, onCancel: () => void, onDelete: (id: string, isGlobal: boolean) => void, isMobile?: boolean }) {
   const isEditing = !!initialRecipe && !!initialRecipe.id;
   const { user, isAdmin } = useUser();
   const firestore = useFirestore();
@@ -135,17 +135,30 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
     })) || []);
     setImageUrl(initialRecipe?.imageUrl || '');
     setSaveAsGlobal(isInitiallyGlobal);
-    setImageFile(null);
+    // Seed with the photo captured at import (video frame / og:image), if any.
+    setImageFile(initialImageFile ?? null);
     setServings(initialRecipe?.servings ?? 1);
     setCategory(initialRecipe?.category ?? []);
     setDietTags(initialRecipe?.dietTags ?? []);
     setSourceUrl(initialRecipe?.sourceUrl || '');
-  }, [initialRecipe, isInitiallyGlobal]);
+  }, [initialRecipe, isInitiallyGlobal, initialImageFile]);
 
   useEffect(() => {
     resetForm();
   }, [resetForm]);
 
+
+  // Live preview: a freshly picked/imported File (object URL) beats the stored
+  // imageUrl. Revoke the object URL when it changes to avoid leaks.
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  useEffect(() => {
+    if (imageFile) {
+      const url = URL.createObjectURL(imageFile);
+      setImagePreview(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setImagePreview(imageUrl || null);
+  }, [imageFile, imageUrl]);
 
   const calculatedTotals = useMemo(() => {
     return ingredients.reduce((acc, ing) => {
@@ -295,6 +308,9 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
       servings,
       category,
       dietTags,
+      // Send the current image URL so the client merge can also CLEAR it (''): if
+      // a new file is uploaded, the server action overrides this with the new URL.
+      imageUrl,
       // Only persist a valid URL; empty string would fail the schema's .url() check.
       ...(sourceUrl.trim() ? { sourceUrl: sourceUrl.trim() } : {}),
       ...macros
@@ -395,31 +411,50 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
               />
             </div>
           </div>
-            {isAdmin && (
-             <div>
-                <Label htmlFor="imageFile">Subir o cambiar imagen</Label>
-                <div className="flex items-center gap-2 mt-1">
-                    <Input 
-                        id="imageFile" 
-                        type="file"
-                        accept="image/png, image/jpeg, image/webp"
-                        onChange={e => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          if (file.size > MAX_IMAGE_BYTES) {
-                            toast({ variant: 'destructive', title: 'Imagen demasiado grande', description: 'La imagen supera los 5 MB. Usa una más ligera.' });
-                            e.target.value = '';
-                            return;
-                          }
-                          setImageFile(file);
-                        }}
-                        className="flex-1"
-                    />
-                    <UploadCloud className="h-5 w-5 text-muted-foreground" />
-                </div>
-                {imageFile && <p className="text-xs text-muted-foreground mt-1">Nuevo archivo: {imageFile.name}</p>}
+           <div>
+              <Label htmlFor="imageFile">Foto de la receta</Label>
+              <div className="mt-1 space-y-2">
+                {imagePreview ? (
+                  <div className="relative aspect-video w-full overflow-hidden rounded-lg border bg-black/5">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={imagePreview} alt="Vista previa de la receta" className="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => { setImageFile(null); setImageUrl(''); }}
+                      className="absolute top-2 right-2 rounded-full bg-black/60 p-1.5 text-white transition-colors hover:bg-black/80"
+                      aria-label="Quitar foto"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label
+                    htmlFor="imageFile"
+                    className="flex aspect-video w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed text-muted-foreground transition-colors hover:bg-accent/20"
+                  >
+                    <UploadCloud className="h-8 w-8" />
+                    <span className="text-sm">Añadir una foto (opcional)</span>
+                    <span className="text-[11px]">JPG, PNG o WebP · máx. 5 MB</span>
+                  </label>
+                )}
+                <Input
+                  id="imageFile"
+                  type="file"
+                  accept="image/png, image/jpeg, image/webp"
+                  className={cn(imagePreview ? 'block' : 'sr-only')}
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > MAX_IMAGE_BYTES) {
+                      toast({ variant: 'destructive', title: 'Imagen demasiado grande', description: 'La imagen supera los 5 MB. Usa una más ligera.' });
+                      e.target.value = '';
+                      return;
+                    }
+                    setImageFile(file);
+                  }}
+                />
+              </div>
              </div>
-            )}
            <FeatureHint
               id="recipe-category"
               title="Categoría y dieta"
@@ -838,6 +873,7 @@ export function RecipeDialog({ dialogState, isSaving = false, onClose, onSave, o
               recipe={dialogState.mode === 'edit' || (dialogState.mode === 'create' && dialogState.recipe) ? dialogState.recipe : undefined}
               isInitiallyGlobal={dialogState.mode === 'edit' ? dialogState.isNutriPlannerRecipe : false}
               aiIngredients={dialogState.mode === 'create' ? dialogState.aiIngredients : undefined}
+              initialImageFile={dialogState.mode === 'create' ? dialogState.imageFile : undefined}
               isSaving={isSaving}
               onSave={onSave!}
               onCancel={onClose}

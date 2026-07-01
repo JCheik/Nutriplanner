@@ -118,7 +118,9 @@ export interface DailyTotal {
 
 export type DialogState =
   | { open: false }
-  | { open: true; mode: 'create', recipe?: Partial<Recipe>; isNutriPlannerRecipe?: boolean; aiIngredients?: AiIngredientEstimate[]; }
+  // `imageFile` carries an image captured at import time (a video frame or a
+  // fetched og:image) into the editor, so it uploads on save like a manual pick.
+  | { open: true; mode: 'create', recipe?: Partial<Recipe>; isNutriPlannerRecipe?: boolean; aiIngredients?: AiIngredientEstimate[]; imageFile?: File; }
   | { open: true; mode: 'view' | 'edit'; recipe: Recipe; isNutriPlannerRecipe?: boolean };
 
 export type SortCriteria = 

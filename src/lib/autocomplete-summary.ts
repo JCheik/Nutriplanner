@@ -15,6 +15,14 @@ export interface AutocompleteToast {
  * could hit the calorie target with a realistic whole number of servings.
  */
 export function autocompleteToast(filledCount: number, unfilled: UnfilledSlot[]): AutocompleteToast {
+  // Nothing to do: no empty slots and nothing skipped.
+  if (filledCount === 0 && unfilled.length === 0) {
+    return {
+      title: 'Todo listo',
+      description: 'No había comidas vacías que rellenar en tu plan.',
+    };
+  }
+
   if (unfilled.length === 0) {
     return {
       title: 'Semana autocompletada',

@@ -5,6 +5,7 @@ import { useUser, useCollection, useFirebase, useMemoFirebase } from '@/firebase
 import { collection, doc } from 'firebase/firestore';
 import { updateDayPlanTransaction } from '@/firebase/firestore-operations';
 import { INITIAL_WEEK_PLAN, DAY_ORDER } from '@/lib/data';
+import { useToast } from '@/hooks/use-toast';
 import type { Recipe, Meal, DayPlan, RecipeInstance, MealCategory } from '@/lib/types';
 
 // Infer a meal's category from its title for legacy slots saved before mealType
@@ -23,6 +24,23 @@ function inferMealType(title: string): MealCategory {
 export function useWeekPlanState() {
   const { user } = useUser();
   const { firestore } = useFirebase();
+  const { toast } = useToast();
+
+  // A failed plan write used to be silent (console only), so the user thought
+  // their change saved when it didn't. Surface it — but throttle, since bulk
+  // actions (autocomplete, clear week) fan out one write per day.
+  const lastErrorToastRef = useRef(0);
+  const notifyWriteError = useCallback((day: string, error: unknown) => {
+    console.error(`Failed to update day plan (${day}):`, error);
+    const now = Date.now();
+    if (now - lastErrorToastRef.current < 4000) return;
+    lastErrorToastRef.current = now;
+    toast({
+      variant: 'destructive',
+      title: 'No se pudo guardar el cambio',
+      description: 'Revisa tu conexión e inténtalo de nuevo. Si persiste, recarga la página.',
+    });
+  }, [toast]);
 
   // --- Firestore Data ---
   const weekPlanCollectionRef = useMemoFirebase(() => (user && firestore) ? collection(firestore, 'users', user.uid, 'weekPlan') : null, [firestore, user]);
@@ -63,10 +81,10 @@ export function useWeekPlanState() {
     const pending = pendingWritesByDayRef.current.get(day) ?? Promise.resolve();
     const next = pending
       .then(() => updateDayPlanTransaction(firestore, user.uid, day, modifierFn))
-      .catch((error) => console.error(`Failed to update day plan (${day}):`, error));
+      .catch((error) => notifyWriteError(day, error));
 
     pendingWritesByDayRef.current.set(day, next);
-  }, [user, firestore]);
+  }, [user, firestore, notifyWriteError]);
 
   // --- Handlers ---
   const handleDrop = useCallback((day: string, mealId: string, droppedRecipe: Recipe, servingsEaten: number = 1) => {
