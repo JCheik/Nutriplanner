@@ -6,7 +6,7 @@
 // handler deletes every cache whose name !== CACHE, so bumping forces a clean
 // purge of stale assets (the old 'v1' cache never got cleared because the name
 // never changed).
-const CACHE = 'nutriplanner-v2';
+const CACHE = 'nutriplanner-v3';
 const APP_SHELL = [
   '/',
   '/dashboard',

@@ -21,8 +21,10 @@ export function mealCalorieRatio(mealTypes: MealCategory[]): number {
 
 /**
  * How many servings of `recipe` cover `targetCalories`, so two users with
- * different goals get different amounts of the same base recipe. Rounded to the
- * nearest 0.25, never below 0.25. Falls back to 1 when there's no usable target.
+ * different goals get different amounts of the same base recipe. Whole servings
+ * only, never below 1 — "cómete 0.5 ensalada" isn't a realistic instruction, so
+ * we round to the nearest full serving rather than fitting the calorie target
+ * exactly. Falls back to 1 when there's no usable target.
  */
 export function suggestedServings(
   recipe: Pick<Recipe, 'calories' | 'servings'>,
@@ -31,6 +33,6 @@ export function suggestedServings(
   if (!targetCalories || targetCalories <= 0) return 1;
   const perServing = recipe.calories / (recipe.servings ?? 1);
   if (!Number.isFinite(perServing) || perServing <= 0) return 1;
-  const rounded = Math.round((targetCalories / perServing) * 4) / 4;
-  return Math.max(0.25, rounded);
+  const rounded = Math.round(targetCalories / perServing);
+  return Math.max(1, rounded);
 }
