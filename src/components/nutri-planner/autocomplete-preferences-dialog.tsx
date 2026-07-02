@@ -187,17 +187,21 @@ export function AutocompletePreferencesDialog({
             </div>
           )}
 
-          {/* Restricciones */}
+          {/* Preferencias alimenticias (gustos y manías, en texto libre) */}
           <div className="space-y-2">
             <Label className="font-semibold text-sm">
-              Restricciones alimentarias{' '}
+              Preferencias alimenticias{' '}
               <span className="font-normal text-muted-foreground">(opcional)</span>
             </Label>
             <Input
               value={dietaryRestrictions}
               onChange={(e) => setDietaryRestrictions(e.target.value)}
-              placeholder="ej: vegetariano, sin gluten, sin lactosa..."
+              placeholder="ej: no me gusta el pollo, nada de ensalada, quiero hamburguesa un día..."
             />
+            <p className="text-xs text-muted-foreground">
+              Cuéntale a la IA lo que te apetece y lo que no: evitará lo que no te gusta e intentará
+              incluir lo que pidas.
+            </p>
           </div>
         </div>
 

@@ -4,9 +4,10 @@ import { useState, type DragEvent } from 'react';
 import type { Recipe } from '@/lib/types';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { GripVertical, Flame, EggFried, Wheat, Droplets, UtensilsCrossed } from 'lucide-react';
+import { GripVertical, Flame, EggFried, Wheat, Droplets, UtensilsCrossed, Users } from 'lucide-react';
 import Image from 'next/image';
 import { dragStore } from '@/lib/drag-store';
+import { perServingMacros } from '@/lib/serving-utils';
 
 interface RecipeCardProps {
   recipe: Recipe;
@@ -43,6 +44,11 @@ const MacroItem = ({ icon: Icon, value, unit, colorClass }: { icon: React.Elemen
 export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isListView = false, isMobile = false, onClick, className }: RecipeCardProps) {
   const [isDragging, setIsDragging] = useState(false);
 
+  // Cards always show PER-SERVING values: a 4-serving recipe used to display the
+  // calories of the whole batch, which made plans impossible to reason about.
+  const perServing = perServingMacros(recipe);
+  const isMultiServing = perServing.servings > 1;
+
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
     if (!isDraggable) return;
     e.dataTransfer.setData('application/json', JSON.stringify(recipe));
@@ -78,10 +84,16 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
             <h3 className="font-bold text-sm line-clamp-1 font-headline">{recipe.name}</h3>
             <p className="text-xs text-muted-foreground line-clamp-1 mb-2">{recipe.description}</p>
             <div className="flex flex-wrap gap-x-3 gap-y-1 items-center text-muted-foreground">
-                <MacroItem icon={Flame} value={recipe.calories} unit="kcal" colorClass="text-orange-400" />
-                <MacroItem icon={EggFried} value={recipe.protein} unit="g" colorClass="text-amber-400" />
-                <MacroItem icon={Wheat} value={recipe.carbs} unit="g" colorClass="text-yellow-400" />
-                <MacroItem icon={Droplets} value={recipe.fat} unit="g" colorClass="text-sky-400" />
+                <MacroItem icon={Flame} value={perServing.calories} unit="kcal" colorClass="text-orange-400" />
+                <MacroItem icon={EggFried} value={perServing.protein} unit="g" colorClass="text-amber-400" />
+                <MacroItem icon={Wheat} value={perServing.carbs} unit="g" colorClass="text-yellow-400" />
+                <MacroItem icon={Droplets} value={perServing.fat} unit="g" colorClass="text-sky-400" />
+                {isMultiServing && (
+                  <span className="flex items-center gap-1 text-[10px]">
+                    <Users className="h-3 w-3" />
+                    por ración · rinde {perServing.servings}
+                  </span>
+                )}
             </div>
           </div>
         </div>
@@ -142,35 +154,45 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
             {isMobile ? (
                 /* On the narrow mobile grid card, two large, legible macros beat four
                    cramped ones. The full breakdown lives in the recipe detail view. */
-                <div className="mt-auto flex justify-center gap-4 text-muted-foreground">
-                    <div className="flex items-center gap-1.5">
-                        <Flame className="h-4 w-4 text-orange-400" />
-                        <span className="text-sm font-semibold">{Math.round(recipe.calories)}<span className="text-muted-foreground text-xs font-normal"> kcal</span></span>
+                <div className="mt-auto space-y-0.5">
+                    <div className="flex justify-center gap-4 text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                            <Flame className="h-4 w-4 text-orange-400" />
+                            <span className="text-sm font-semibold">{Math.round(perServing.calories)}<span className="text-muted-foreground text-xs font-normal"> kcal</span></span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <EggFried className="h-4 w-4 text-amber-400" />
+                            <span className="text-sm font-semibold">{Math.round(perServing.protein)}<span className="text-muted-foreground text-xs font-normal">g</span></span>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                        <EggFried className="h-4 w-4 text-amber-400" />
-                        <span className="text-sm font-semibold">{Math.round(recipe.protein)}<span className="text-muted-foreground text-xs font-normal">g</span></span>
-                    </div>
+                    {isMultiServing && (
+                        <p className="text-center text-[10px] text-muted-foreground">por ración · rinde {perServing.servings}</p>
+                    )}
                 </div>
             ) : (
+                <>
                 <div className="mt-2 flex justify-around text-muted-foreground">
                     <div className="flex items-center gap-1">
                         <Flame className="h-3 w-3 text-orange-400" />
-                        <span className="text-xs font-medium">{Math.round(recipe.calories)}<span className="text-muted-foreground text-[10px]">kcal</span></span>
+                        <span className="text-xs font-medium">{Math.round(perServing.calories)}<span className="text-muted-foreground text-[10px]">kcal</span></span>
                     </div>
                     <div className="flex items-center gap-1">
                         <EggFried className="h-3 w-3 text-amber-400" />
-                        <span className="text-xs font-medium">{Math.round(recipe.protein)}<span className="text-muted-foreground text-[10px]">g</span></span>
+                        <span className="text-xs font-medium">{Math.round(perServing.protein)}<span className="text-muted-foreground text-[10px]">g</span></span>
                     </div>
                      <div className="flex items-center gap-1">
                         <Wheat className="h-3 w-3 text-yellow-400" />
-                        <span className="text-xs font-medium">{Math.round(recipe.carbs)}<span className="text-muted-foreground text-[10px]">g</span></span>
+                        <span className="text-xs font-medium">{Math.round(perServing.carbs)}<span className="text-muted-foreground text-[10px]">g</span></span>
                     </div>
                      <div className="flex items-center gap-1">
                         <Droplets className="h-3 w-3 text-sky-400" />
-                        <span className="text-xs font-medium">{Math.round(recipe.fat)}<span className="text-muted-foreground text-[10px]">g</span></span>
+                        <span className="text-xs font-medium">{Math.round(perServing.fat)}<span className="text-muted-foreground text-[10px]">g</span></span>
                     </div>
                 </div>
+                {isMultiServing && (
+                    <p className="text-center text-[9px] text-muted-foreground mt-0.5">por ración · rinde {perServing.servings}</p>
+                )}
+                </>
             )}
         </div>
     </Card>

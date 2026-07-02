@@ -96,6 +96,7 @@ export function MobilePageContent({
   handleRemoveRecipeFromMeal,
   handleUpdateServingsEaten,
   handleAddMeal,
+  handleDeleteMeal,
   handleClearDay,
   handleClearWeek,
   activeGoalMacros,
@@ -115,8 +116,13 @@ export function MobilePageContent({
   const [selectedMealDay, setSelectedMealDay] = useState<DayPlan['day'] | null>(null);
   const [isRecipeSelectorOpen, setIsRecipeSelectorOpen] = useState(false);
   const [dialogState, setDialogState] = useState<DialogState>({ open: false });
-  // Destructive bulk-clear actions go through a confirm dialog.
-  const [clearTarget, setClearTarget] = useState<'day' | 'week' | null>(null);
+  // Destructive bulk-clear actions go through a confirm dialog. Day clears carry
+  // the day name so they also work from the week grid (not just the active day).
+  const [clearTarget, setClearTarget] = useState<
+    { kind: 'week' } | { kind: 'day'; day: DayPlan['day'] } | null
+  >(null);
+  // Deleting a meal slot with recipes inside also asks for confirmation.
+  const [mealToDelete, setMealToDelete] = useState<{ day: DayPlan['day']; meal: Meal } | null>(null);
 
   const touchStartX = useRef<number | null>(null);
 
@@ -262,7 +268,7 @@ export function MobilePageContent({
             label="Historial"
             onClick={onHistorialOpen ?? (() => {})}
           />
-          {view === 'day' && !editMode && (
+          {!editMode && (
             <ActionChip
               icon={<Pencil className="h-3 w-3" />}
               label="Editar"
@@ -331,6 +337,11 @@ export function MobilePageContent({
                     handleUpdateServingsEaten(activeDayName, meal.id, instanceId, n)}
                   onRemoveRecipe={(instanceId) =>
                     handleRemoveRecipeFromMeal(activeDayName, meal.id, instanceId)}
+                  onDeleteMeal={() => {
+                    // Empty slots go straight away; slots with recipes get a confirm.
+                    if (meal.recipes.length === 0) handleDeleteMeal(activeDayName, meal.id);
+                    else setMealToDelete({ day: activeDayName, meal });
+                  }}
                 />
               ))}
               {editMode && (
@@ -345,13 +356,13 @@ export function MobilePageContent({
                   {/* Bulk-clear actions (confirmed) */}
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     <button
-                      onClick={() => setClearTarget('day')}
+                      onClick={() => setClearTarget({ kind: 'day', day: activeDayName })}
                       className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-medium text-destructive border border-destructive/30 bg-destructive/5"
                     >
                       <Eraser className="h-4 w-4" /> Vaciar día
                     </button>
                     <button
-                      onClick={() => setClearTarget('week')}
+                      onClick={() => setClearTarget({ kind: 'week' })}
                       className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-medium text-destructive border border-destructive/30 bg-destructive/5"
                     >
                       <Trash2 className="h-4 w-4" /> Vaciar semana
@@ -360,7 +371,33 @@ export function MobilePageContent({
                 </>
               )}
 
-              {/* Objectives summary — below the meals */}
+              {/* Objectives summary — below the meals. Without a configured goal
+                  we still show the card with a CTA, so every user (not only the
+                  one who already calculated their goal) sees the section. */}
+              {!activeGoalMacros && (
+                <div className="rounded-2xl border bg-card p-4 mt-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider" style={{ color: C.muted, letterSpacing: '0.06em' }}>
+                      Objetivos del día
+                    </span>
+                    {totals.calories > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        <span className="font-bold text-primary text-sm">{Math.round(totals.calories)}</span> kcal
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Aún no tienes un objetivo de calorías. Calcúlalo para ver aquí tu progreso de cada día.
+                  </p>
+                  <button
+                    onClick={() => router.push('/mobile/objetivos')}
+                    className="w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-medium text-primary"
+                    style={{ background: C.primaryLight, border: `0.5px solid ${C.primaryBorder}` }}
+                  >
+                    <Target className="h-4 w-4" /> Calcular mi objetivo
+                  </button>
+                </div>
+              )}
               {activeGoalMacros && (
                 <div className="rounded-2xl border bg-card p-4 mt-1">
                   <div className="flex items-center justify-between mb-2.5">
@@ -402,9 +439,13 @@ export function MobilePageContent({
         <GridView
           weekPlan={weekPlan}
           todayIndex={todayIndex}
+          editMode={editMode}
           onOpenDay={(dayIndex) => { setActiveDayIndex(dayIndex); setView('day'); }}
           onAddRecipe={openRecipeSelector}
           onRemoveRecipe={handleRemoveRecipeFromMeal}
+          onViewRecipe={(r) => setDialogState({ open: true, mode: 'view', recipe: r as Recipe })}
+          onCreateMeal={handleAddMeal}
+          onRequestClearDay={(dayName) => setClearTarget({ kind: 'day', day: dayName })}
         />
       )}
 
@@ -426,10 +467,10 @@ export function MobilePageContent({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {clearTarget === 'week' ? '¿Vaciar toda la semana?' : `¿Vaciar ${activeDayName}?`}
+              {clearTarget?.kind === 'week' ? '¿Vaciar toda la semana?' : `¿Vaciar ${clearTarget?.kind === 'day' ? clearTarget.day : ''}?`}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {clearTarget === 'week'
+              {clearTarget?.kind === 'week'
                 ? 'Se quitarán todas las recetas de los 7 días. Las comidas (slots) se mantienen vacías. Esta acción no se puede deshacer.'
                 : 'Se quitarán todas las recetas de este día. Las comidas (slots) se mantienen vacías. Esta acción no se puede deshacer.'}
             </AlertDialogDescription>
@@ -439,12 +480,40 @@ export function MobilePageContent({
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
-                if (clearTarget === 'week') handleClearWeek();
-                else handleClearDay(activeDayName);
+                if (clearTarget?.kind === 'week') handleClearWeek();
+                else if (clearTarget?.kind === 'day') handleClearDay(clearTarget.day);
                 setClearTarget(null);
               }}
             >
-              {clearTarget === 'week' ? 'Vaciar semana' : 'Vaciar día'}
+              {clearTarget?.kind === 'week' ? 'Vaciar semana' : 'Vaciar día'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirm deleting a meal slot that still has recipes */}
+      <AlertDialog open={mealToDelete !== null} onOpenChange={(o) => { if (!o) setMealToDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar «{mealToDelete?.meal.title}»?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminará esta comida de {mealToDelete?.day} junto con
+              {' '}{mealToDelete?.meal.recipes.length === 1
+                ? 'la receta que contiene'
+                : `las ${mealToDelete?.meal.recipes.length} recetas que contiene`}.
+              Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (mealToDelete) handleDeleteMeal(mealToDelete.day, mealToDelete.meal.id);
+                setMealToDelete(null);
+              }}
+            >
+              Eliminar comida
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -480,7 +549,7 @@ function ActionChip({
 }
 
 function MealCard({
-  meal, editMode, onAddRecipe, onRecipeClick, onUpdateServings, onRemoveRecipe,
+  meal, editMode, onAddRecipe, onRecipeClick, onUpdateServings, onRemoveRecipe, onDeleteMeal,
 }: {
   meal: Meal;
   editMode: boolean;
@@ -488,6 +557,7 @@ function MealCard({
   onRecipeClick: (r: RecipeInstance) => void;
   onUpdateServings: (instanceId: string, n: number) => void;
   onRemoveRecipe: (instanceId: string) => void;
+  onDeleteMeal: () => void;
 }) {
   const mealKcal = meal.recipes.reduce(
     (sum, r) => sum + r.calories * ((r.servingsEaten ?? 1) / (r.servings ?? 1)), 0
@@ -509,6 +579,16 @@ function MealCard({
         </span>
         {mealKcal > 0 && (
           <span className="text-xs text-muted-foreground">{Math.round(mealKcal)} kcal</span>
+        )}
+        {editMode && (
+          <button
+            onClick={onDeleteMeal}
+            className="h-7 w-7 rounded-full flex items-center justify-center text-destructive flex-shrink-0"
+            style={{ background: 'rgba(217,82,26,0.08)' }}
+            aria-label={`Eliminar la comida ${meal.title}`}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
         )}
       </div>
 
@@ -576,13 +656,17 @@ function MealCard({
 }
 
 function GridView({
-  weekPlan, todayIndex, onOpenDay, onAddRecipe, onRemoveRecipe,
+  weekPlan, todayIndex, editMode, onOpenDay, onAddRecipe, onRemoveRecipe, onViewRecipe, onCreateMeal, onRequestClearDay,
 }: {
   weekPlan: DayPlan[];
   todayIndex: number;
+  editMode: boolean;
   onOpenDay: (dayIndex: number) => void;
   onAddRecipe: (meal: Meal, dayName: DayPlan['day']) => void;
   onRemoveRecipe: (dayName: DayPlan['day'], mealId: string, instanceId: string) => void;
+  onViewRecipe: (recipe: RecipeInstance) => void;
+  onCreateMeal: (dayName: DayPlan['day'], index: number) => void;
+  onRequestClearDay: (dayName: DayPlan['day']) => void;
 }) {
   const [selectedCell, setSelectedCell] = useState<{
     dayIndex: number;
@@ -592,13 +676,25 @@ function GridView({
     meal: Meal;
   } | null>(null);
 
-  const mealRows = weekPlan[0]?.meals ?? [];
+  // Days can have different numbers of meal slots (they're added/removed per
+  // day), so the grid renders as many rows as the LONGEST day. Row labels come
+  // from the first day that has a meal at that index. The old version keyed the
+  // rows off Monday only, which hid meals from other days entirely.
+  const rowCount = weekPlan.reduce((max, d) => Math.max(max, d.meals?.length ?? 0), 0);
+  const mealRows = Array.from({ length: rowCount }, (_, i) =>
+    weekPlan.map(d => d.meals?.[i]).find((m): m is Meal => !!m)!
+  );
 
   const handleCellTap = (dayIndex: number, mealIndex: number) => {
     const dayPlan = weekPlan[dayIndex];
+    const dayName = (dayPlan?.day ?? DAY_ORDER[dayIndex]) as DayPlan['day'];
     const meal = dayPlan?.meals[mealIndex];
-    if (!meal) return;
-    const dayName = dayPlan.day as DayPlan['day'];
+    if (!meal) {
+      // This day has no slot at this row yet — create it right here so the
+      // grid is also usable for building the day's structure.
+      if (editMode) onCreateMeal(dayName, mealIndex);
+      return;
+    }
     if (meal.recipes.length > 0) {
       const same = selectedCell?.dayIndex === dayIndex && selectedCell?.mealIndex === mealIndex;
       setSelectedCell(same ? null : { dayIndex, mealIndex, recipe: meal.recipes[0], dayName, meal });
@@ -631,9 +727,11 @@ function GridView({
             }}
           >
             <div style={{ height: 36, borderBottom: `0.5px solid ${C.border}` }} />
-            {mealRows.map(meal => (
+            {/* Spacer matching the per-day "vaciar" row in edit mode */}
+            {editMode && <div style={{ height: 28, borderBottom: `0.5px solid ${C.border}` }} />}
+            {mealRows.map((meal, rowIndex) => (
               <div
-                key={meal.id}
+                key={`row-${rowIndex}`}
                 style={{
                   height: 76,
                   display: 'flex',
@@ -710,18 +808,42 @@ function GridView({
                     )}
                   </button>
 
+                  {/* Edit mode: quick "vaciar día" action per column */}
+                  {editMode && (
+                    <button
+                      onClick={() => onRequestClearDay(dayName as DayPlan['day'])}
+                      aria-label={`Vaciar ${dayName}`}
+                      style={{
+                        width: '100%',
+                        height: 28,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 3,
+                        borderRight: `0.5px solid ${C.border}`,
+                        borderBottom: `0.5px solid ${C.border}`,
+                        background: C.primaryLight,
+                        color: C.primary,
+                      }}
+                    >
+                      <Eraser style={{ width: 11, height: 11 }} />
+                      <span style={{ fontSize: 8, fontWeight: 600 }}>Vaciar</span>
+                    </button>
+                  )}
+
                   {/* Cells — one per meal row */}
                   {mealRows.map((refMeal, mealIndex) => {
                     const actualMeal = dayPlan?.meals[mealIndex];
+                    const isMissing = !actualMeal;
                     const isEmpty = !actualMeal || actualMeal.recipes.length === 0;
                     const recipe = actualMeal?.recipes[0];
                     const kcal = actualMeal ? Math.round(totalsFor([actualMeal]).calories) : 0;
                     const isSelected = selectedCell?.dayIndex === dayIndex && selectedCell?.mealIndex === mealIndex;
-                    const accent = mealColor(refMeal);
+                    const accent = actualMeal ? mealColor(actualMeal) : mealColor(refMeal);
 
                     return (
                       <button
-                        key={refMeal.id}
+                        key={`cell-${mealIndex}`}
                         onClick={() => handleCellTap(dayIndex, mealIndex)}
                         style={{
                           width: '100%',
@@ -733,7 +855,7 @@ function GridView({
                           padding: isEmpty ? 4 : '6px 5px 5px 7px',
                           borderRight: `0.5px solid ${C.border}`,
                           borderBottom: `0.5px solid ${C.border}`,
-                          borderLeft: isSelected ? `2px solid ${C.primary}` : `2px solid ${accent}`,
+                          borderLeft: isSelected ? `2px solid ${C.primary}` : `2px solid ${isMissing ? 'transparent' : accent}`,
                           background: isSelected
                             ? 'rgba(217,82,26,0.1)'
                             : isEmpty
@@ -743,7 +865,21 @@ function GridView({
                           transition: 'background 0.15s',
                         }}
                       >
-                        {isEmpty ? (
+                        {isMissing ? (
+                          // Slot doesn't exist for this day: in edit mode, tap to
+                          // create it; otherwise render as inert background.
+                          editMode ? (
+                            <div style={{
+                              width: 22, height: 22, borderRadius: '50%',
+                              border: `0.5px dashed ${C.primaryBorder}`,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              <Plus style={{ width: 11, height: 11, color: C.primary }} />
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: 8, color: C.dimText }}>—</span>
+                          )
+                        ) : isEmpty ? (
                           <div style={{
                             width: 22, height: 22, borderRadius: '50%',
                             border: `0.5px dashed ${C.border}`,
@@ -808,6 +944,16 @@ function GridView({
         </div>
       </div>
 
+      {/* Empty week structure: guide the user to a day view to start */}
+      {rowCount === 0 && (
+        <div className="flex flex-col items-center text-center px-6 py-8 gap-2">
+          <UtensilsCrossed className="h-8 w-8 text-muted-foreground/30" />
+          <p className="text-sm text-muted-foreground">
+            No hay comidas configuradas esta semana. Toca un día para añadirlas.
+          </p>
+        </div>
+      )}
+
       {/* Scroll hint */}
       <div className="flex items-center justify-center gap-1 py-2 text-[10px] text-muted-foreground">
         <ChevronRight className="h-3 w-3" />
@@ -827,6 +973,14 @@ function GridView({
             <p className="text-[11px] text-muted-foreground line-clamp-1">{selectedCell.recipe.name}</p>
           </div>
           <div className="flex gap-2 flex-shrink-0">
+            {/* Primary: open the recipe (from there you can enter cooking mode) */}
+            <button
+              onClick={() => onViewRecipe(selectedCell.recipe)}
+              className="text-xs rounded-full px-3 py-1.5 font-semibold"
+              style={{ background: C.primary, color: '#fff' }}
+            >
+              Ver receta
+            </button>
             <button
               onClick={() => { onAddRecipe(selectedCell.meal, selectedCell.dayName); setSelectedCell(null); }}
               className="text-xs border border-border rounded-full px-3 py-1.5 bg-card text-muted-foreground"

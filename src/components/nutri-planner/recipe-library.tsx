@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { Recipe, SortCriteria, DietTag } from '@/lib/types';
 import { DIET_TAGS } from '@/lib/constants';
+import { perServingMacros } from '@/lib/serving-utils';
 import {
   type SmartCategory,
   SMART_CATEGORY_LABELS,
@@ -55,6 +56,19 @@ interface RecipeLibraryProps {
 }
 
 const MACRO_PILL_FILTERS = ['Alta en Proteína', 'Baja en Carbohidratos', 'Baja en Calorías', 'Pocos Ingredientes'];
+
+// Macro sort/filter criteria operate on PER-SERVING values, matching what the
+// cards display (a 4-serving batch is not "high calorie" per plate).
+const MACRO_SORT_KEYS = ['calories', 'protein', 'carbs', 'fat'] as const;
+type MacroSortKey = typeof MACRO_SORT_KEYS[number];
+
+function sortableValue(recipe: Recipe, key: keyof Recipe): string | number | undefined {
+  if ((MACRO_SORT_KEYS as readonly string[]).includes(key as string)) {
+    return perServingMacros(recipe)[key as MacroSortKey];
+  }
+  const v = recipe[key];
+  return typeof v === 'string' || typeof v === 'number' ? v : undefined;
+}
 
 const sortOptions: { value: SortCriteria; label: string }[] = [
     { value: 'name-asc', label: 'Nombre (A-Z)' },
@@ -339,7 +353,10 @@ const CategorySection = ({
   smartCategories: Record<string, Recipe[]>;
   smartCategoryLabels: Record<string, string>;
 }) => {
-  const smartCatEntries = Object.entries(smartCategories).filter(([, rs]) => rs.length > 0);
+  // Every bucket is always listed — even empty ones — so the user can see the
+  // full set of categories that exist (postres, snacks…), not just the ones
+  // that already have recipes.
+  const smartCatEntries = Object.entries(smartCategories);
 
   return (
     <div className="space-y-1 pr-2">
@@ -501,9 +518,10 @@ export function RecipeLibrary({
 
       let pillMatch = true;
       if (activePillFilters.length > 0) {
-        if (activePillFilters.includes('Alta en Proteína') && recipe.protein < 30) pillMatch = false;
-        if (activePillFilters.includes('Baja en Carbohidratos') && recipe.carbs > 20) pillMatch = false;
-        if (activePillFilters.includes('Baja en Calorías') && recipe.calories > 400) pillMatch = false;
+        const perServing = perServingMacros(recipe);
+        if (activePillFilters.includes('Alta en Proteína') && perServing.protein < 30) pillMatch = false;
+        if (activePillFilters.includes('Baja en Carbohidratos') && perServing.carbs > 20) pillMatch = false;
+        if (activePillFilters.includes('Baja en Calorías') && perServing.calories > 400) pillMatch = false;
         if (activePillFilters.includes('Pocos Ingredientes') && (recipe.ingredients?.length || 0) > 5) pillMatch = false;
       }
 
@@ -518,8 +536,8 @@ export function RecipeLibrary({
       return textMatch && pillMatch && dietMatch;
     }).sort((a, b) => {
       const [key, order] = sortCriteria.split('-') as [keyof Recipe, 'asc' | 'desc'];
-      let valA = a[key];
-      let valB = b[key];
+      let valA = sortableValue(a, key);
+      let valB = sortableValue(b, key);
 
       if (typeof valA === 'string' && typeof valB === 'string') {
         valA = normalizeText(valA);
@@ -548,8 +566,8 @@ export function RecipeLibrary({
 
     const sortFn = (a: Recipe, b: Recipe) => {
       const [key, order] = sortCriteria.split('-') as [keyof Recipe, 'asc' | 'desc'];
-      let valA = a[key];
-      let valB = b[key];
+      let valA = sortableValue(a, key);
+      let valB = sortableValue(b, key);
       if (typeof valA === 'string' && typeof valB === 'string') {
         valA = normalizeText(valA);
         valB = normalizeText(valB);

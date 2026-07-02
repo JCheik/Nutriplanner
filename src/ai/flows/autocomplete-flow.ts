@@ -210,7 +210,7 @@ Do NOT try to balance across all meals simultaneously — just minimise the gap 
         : 'Prioritize recipes with the lowest caloriesPerServing.';
 
     const restrictionRule = preferences.dietaryRestrictions
-      ? `The user has the following dietary restrictions: "${preferences.dietaryRestrictions}". Only suggest recipes that comply.`
+      ? `The user wrote these free-form food preferences: "${preferences.dietaryRestrictions}". Interpret them naturally: NEVER pick recipes containing ingredients or dishes they dislike or exclude, and when they ask FOR something specific (e.g. "quiero hamburguesas"), try to include a matching recipe in an appropriate slot at least once during the week.`
       : '';
 
     const prompt = `
@@ -247,7 +247,7 @@ RULES — follow ALL of them:
 
 4. NUTRITION (apply only among recipes that already fit the meal type): ${priorityRule}
 
-${restrictionRule ? `5. RESTRICTIONS: ${restrictionRule}` : ''}
+${restrictionRule ? `5. FOOD PREFERENCES: ${restrictionRule}` : ''}
 
 For EVERY slot in the list above, select EXACTLY ONE recipeId from that slot's eligibleRecipeIds.
 Return ONLY a JSON array. Each element: { "day": string, "mealId": string, "recipeId": string }

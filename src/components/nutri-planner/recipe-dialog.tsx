@@ -643,6 +643,12 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
                     <MacroDisplay label="Carbs" value={calculatedTotals.carbs} unit="g" icon={Wheat} />
                     <MacroDisplay label="Grasa" value={calculatedTotals.fat} unit="g" icon={Droplets} />
                 </div>
+                {servings > 1 && (
+                  <p className="text-xs text-muted-foreground text-center mt-1">
+                    Por ración ({servings} raciones): {Math.round(calculatedTotals.calories / servings)} kcal ·{' '}
+                    {Math.round(calculatedTotals.protein / servings)}g prot
+                  </p>
+                )}
             </div>
              {isAdmin && (
                 <div className="flex items-center space-x-2 rounded-lg border border-white/10 p-3">
@@ -793,23 +799,35 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe, is
                 </div>
             )}
           </div>
-          <div className="grid grid-cols-4 gap-2 text-center">
-            <MacroDisplay label="Calorías" value={recipe.calories} unit="kcal" icon={Flame} />
-            <MacroDisplay label="Proteína" value={recipe.protein} unit="g" icon={EggFried} />
-            <MacroDisplay label="Carbs" value={recipe.carbs} unit="g" icon={Wheat} />
-            <MacroDisplay label="Grasa" value={recipe.fat} unit="g" icon={Droplets} />
-          </div>
-          {(recipe.servings ?? 1) > 1 && (
-            <div className="mt-2 p-2 rounded-lg bg-primary/5 border border-primary/10 text-center">
-              <p className="text-xs text-muted-foreground mb-1">Por ración (1 de {recipe.servings})</p>
-              <div className="flex justify-around text-sm font-medium">
-                <span className="text-orange-500">{Math.round(recipe.calories / recipe.servings!)} kcal</span>
-                <span className="text-amber-500">{Math.round(recipe.protein / recipe.servings!)}g prot</span>
-                <span className="text-yellow-500">{Math.round(recipe.carbs / recipe.servings!)}g carbs</span>
-                <span className="text-sky-500">{Math.round(recipe.fat / recipe.servings!)}g grasa</span>
-              </div>
-            </div>
-          )}
+          {/* Per-serving values lead: they're what actually lands on a plate and
+              what the plan counts. The whole-batch total is the secondary note. */}
+          {(() => {
+            const servings = recipe.servings && recipe.servings > 0 ? recipe.servings : 1;
+            return (
+              <>
+                {servings > 1 && (
+                  <p className="text-xs text-muted-foreground text-center mb-1">
+                    Valores por ración · la receta rinde {servings} raciones
+                  </p>
+                )}
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  <MacroDisplay label="Calorías" value={recipe.calories / servings} unit="kcal" icon={Flame} />
+                  <MacroDisplay label="Proteína" value={recipe.protein / servings} unit="g" icon={EggFried} />
+                  <MacroDisplay label="Carbs" value={recipe.carbs / servings} unit="g" icon={Wheat} />
+                  <MacroDisplay label="Grasa" value={recipe.fat / servings} unit="g" icon={Droplets} />
+                </div>
+                {servings > 1 && (
+                  <div className="mt-2 p-2 rounded-lg bg-primary/5 border border-primary/10 text-center">
+                    <p className="text-xs text-muted-foreground">
+                      Receta completa ({servings} raciones): {Math.round(recipe.calories)} kcal ·{' '}
+                      {Math.round(recipe.protein)}g prot · {Math.round(recipe.carbs)}g carbs ·{' '}
+                      {Math.round(recipe.fat)}g grasa
+                    </p>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
         {/* Mobile: the outer grid already scrolls the whole column, so this flows
             with it instead of nesting a second, independently-scrolling box. */}

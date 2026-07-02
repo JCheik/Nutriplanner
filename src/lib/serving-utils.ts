@@ -1,5 +1,24 @@
 import type { MealCategory, Recipe } from './types';
 
+/**
+ * Macros for ONE serving of a recipe. Recipes store the totals of the whole
+ * batch plus how many servings it yields; every user-facing card shows this
+ * per-serving value so the numbers you see match what actually lands on a
+ * plate when building the plan.
+ */
+export function perServingMacros(
+  recipe: Pick<Recipe, 'calories' | 'protein' | 'carbs' | 'fat' | 'servings'>
+): { servings: number; calories: number; protein: number; carbs: number; fat: number } {
+  const servings = recipe.servings && recipe.servings > 0 ? recipe.servings : 1;
+  return {
+    servings,
+    calories: (recipe.calories || 0) / servings,
+    protein: (recipe.protein || 0) / servings,
+    carbs: (recipe.carbs || 0) / servings,
+    fat: (recipe.fat || 0) / servings,
+  };
+}
+
 // Share of the daily calorie goal that a meal type represents. A slot can hold
 // several meal types; size it by the most caloric one.
 function ratioForType(type: MealCategory): number {

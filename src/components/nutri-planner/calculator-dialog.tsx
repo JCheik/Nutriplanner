@@ -206,7 +206,10 @@ export function CalculatorDialog({ isOpen, onClose, onCalculate, initialResult, 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl">
+      {/* max-h + scroll: on mobile the stacked form is taller than the viewport;
+          without this the dialog overflowed off-screen (no close button visible,
+          no scrolling) and looked frozen. */}
+      <DialogContent className="max-w-4xl max-h-[92dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Calculator className="h-6 w-6 text-primary" />

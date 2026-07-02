@@ -11,10 +11,128 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { X, ChefHat, Video } from 'lucide-react';
+import { X, ChefHat, Video, Timer, Play, Pause, RotateCcw, BellRing } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
-import { splitInstructionSteps } from '@/lib/recipe-steps';
+import { splitInstructionSteps, parseStepDurations } from '@/lib/recipe-steps';
+
+function formatCountdown(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/** Short beep sequence + vibration when a step timer finishes. */
+function playTimerAlarm() {
+  try {
+    const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (Ctor) {
+      const ctx = new Ctor();
+      for (let i = 0; i < 4; i++) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 880;
+        const t = ctx.currentTime + i * 0.4;
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(0.4, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+        osc.start(t);
+        osc.stop(t + 0.35);
+      }
+      setTimeout(() => { ctx.close().catch(() => {}); }, 2500);
+    }
+  } catch { /* audio unavailable */ }
+  try { navigator.vibrate?.([300, 150, 300, 150, 300]); } catch { /* no vibration */ }
+}
+
+type TimerStatus = 'idle' | 'running' | 'paused' | 'done';
+
+/**
+ * Inline countdown for a duration detected in a step ("hornea 20 minutos").
+ * Self-contained: start / pause / resume / reset, with an audible + vibrating
+ * alarm on finish. Rendered inside the clickable step card, so every handler
+ * stops propagation to avoid toggling the step's checkbox.
+ */
+function StepTimer({ seconds, label }: { seconds: number; label: string }) {
+  const [status, setStatus] = useState<TimerStatus>('idle');
+  const [remaining, setRemaining] = useState(seconds);
+  const endAtRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (status !== 'running') return;
+    const id = setInterval(() => {
+      const left = Math.max(0, Math.round((endAtRef.current - Date.now()) / 1000));
+      setRemaining(left);
+      if (left <= 0) {
+        setStatus('done');
+        playTimerAlarm();
+      }
+    }, 250);
+    return () => clearInterval(id);
+  }, [status]);
+
+  const start = () => {
+    endAtRef.current = Date.now() + remaining * 1000;
+    setStatus('running');
+  };
+  const reset = () => {
+    setStatus('idle');
+    setRemaining(seconds);
+  };
+
+  const roundBtn = 'h-9 w-9 sm:h-10 sm:w-10 rounded-full flex items-center justify-center shrink-0 transition-colors';
+
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className={cn(
+        'inline-flex items-center gap-2 rounded-full border-2 pl-3 pr-1.5 py-1',
+        status === 'done'
+          ? 'border-primary bg-primary text-primary-foreground animate-pulse'
+          : status === 'running'
+          ? 'border-primary bg-primary/10'
+          : 'border-border bg-card'
+      )}
+    >
+      {status === 'done' ? (
+        <BellRing className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
+      ) : (
+        <Timer className={cn('h-4 w-4 sm:h-5 sm:w-5 shrink-0', status === 'running' && 'text-primary')} />
+      )}
+      {status === 'idle' ? (
+        <span className="text-sm sm:text-base font-medium whitespace-nowrap">{label}</span>
+      ) : status === 'done' ? (
+        <span className="text-sm sm:text-base font-bold whitespace-nowrap">¡Tiempo!</span>
+      ) : (
+        <span className={cn('text-base sm:text-lg font-bold tabular-nums', status === 'running' && 'text-primary')}>
+          {formatCountdown(remaining)}
+        </span>
+      )}
+      {(status === 'idle' || status === 'paused') && (
+        <button type="button" onClick={start} aria-label="Iniciar temporizador"
+          className={cn(roundBtn, 'bg-primary text-primary-foreground hover:bg-primary/90')}>
+          <Play className="h-4 w-4 sm:h-5 sm:w-5" />
+        </button>
+      )}
+      {status === 'running' && (
+        <button type="button" onClick={() => setStatus('paused')} aria-label="Pausar temporizador"
+          className={cn(roundBtn, 'bg-primary text-primary-foreground hover:bg-primary/90')}>
+          <Pause className="h-4 w-4 sm:h-5 sm:w-5" />
+        </button>
+      )}
+      {status !== 'idle' && (
+        <button type="button" onClick={reset} aria-label="Reiniciar temporizador"
+          className={cn(roundBtn, status === 'done' ? 'bg-primary-foreground/20 hover:bg-primary-foreground/30' : 'bg-muted hover:bg-muted-foreground/20')}>
+          <RotateCcw className="h-4 w-4 sm:h-5 sm:w-5" />
+        </button>
+      )}
+    </div>
+  );
+}
 
 interface CookingModeDialogProps {
   recipe: Recipe | null;
@@ -186,6 +304,7 @@ export function CookingModeDialog({ recipe, isOpen, onClose }: CookingModeDialog
               <div className="space-y-4">
                 {steps.map((step, index) => {
                   const isDone = completedSteps.has(index);
+                  const durations = parseStepDurations(step);
 
                   return (
                     <div
@@ -216,6 +335,16 @@ export function CookingModeDialog({ recipe, isOpen, onClose }: CookingModeDialog
                         )}>
                           {step}
                         </p>
+                        {/* Timers stay mounted even when the step is checked off —
+                            you often mark "meter al horno" as done right when its
+                            countdown starts. */}
+                        {durations.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {durations.map((d, i) => (
+                              <StepTimer key={`${index}-${i}-${d.seconds}`} seconds={d.seconds} label={d.label} />
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

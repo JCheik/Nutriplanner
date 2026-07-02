@@ -28,7 +28,13 @@ export function useUserProfileState() {
 
   // --- Memoized Data Sources ---
   const currentCalorieResult = useMemo(() => userProfile?.calorieResult || null, [userProfile]);
-  const activeGoalMacros = useMemo(() => currentCalorieResult && activeGoal ? currentCalorieResult[activeGoal] : null, [currentCalorieResult, activeGoal]);
+  // Fall back to maintenance when the active goal has no macros (e.g. the saved
+  // preference is 'custom' but no custom goal was ever defined). Without this,
+  // users with a saved calculation saw no daily goal at all in the planner.
+  const activeGoalMacros = useMemo(() => {
+    if (!currentCalorieResult) return null;
+    return currentCalorieResult[activeGoal] ?? currentCalorieResult.maintenance ?? null;
+  }, [currentCalorieResult, activeGoal]);
   const currentShoppingList = useMemo(() => userProfile?.shoppingList || [], [userProfile]);
   const currentDietPreference = useMemo(() => userProfile?.dietPreference || [], [userProfile]);
 
