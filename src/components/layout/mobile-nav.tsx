@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, BookHeart, NotebookPen, ShoppingCart, Sparkles } from 'lucide-react';
+import { Home, BookHeart, CircleUserRound, ShoppingCart, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from '@/hooks/use-media-query';
 
@@ -15,9 +15,9 @@ export function MobileNav() {
   // cleans the URL). Objetivos moved to a button on the plan screen.
   const navItems = [
     { href: `/mobile`, label: 'Plan', icon: Home, isAssistant: false },
-    { href: `/mobile/diario`, label: 'Diario', icon: NotebookPen, isAssistant: false },
     { href: `/mobile/recipes`, label: 'Recetas', icon: BookHeart, isAssistant: false },
     { href: `/mobile/shopping-list`, label: 'Compra', icon: ShoppingCart, isAssistant: false },
+    { href: `/mobile/perfil`, label: 'Perfil', icon: CircleUserRound, isAssistant: false },
     { href: `/mobile?assistant=1`, label: 'IA', icon: Sparkles, isAssistant: true },
   ];
 

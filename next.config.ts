@@ -38,6 +38,12 @@ const nextConfig: NextConfig = {
         hostname: 'storage.googleapis.com',
         pathname: '/**',
       },
+      {
+        // Product photos from Open Food Facts ("Añadir producto").
+        protocol: 'https',
+        hostname: 'images.openfoodfacts.org',
+        pathname: '/**',
+      },
     ],
   },
 };

@@ -10,7 +10,7 @@ import { RecipeSelectionDialog } from '@/components/nutri-planner/recipe-selecti
 import {
   X, Plus, Minus, UtensilsCrossed,
   Sparkles, History, Pencil, GripVertical, LayoutGrid, CalendarDays, ChevronRight, Flame,
-  Target, Trash2, Eraser, LoaderCircle,
+  Target, Trash2, Eraser, LoaderCircle, Check,
 } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -19,6 +19,8 @@ import {
 import { cn } from '@/lib/utils';
 import type { useRecipeState } from '@/hooks/use-recipe-state';
 import type { useWeekPlanState } from '@/hooks/use-week-plan-state';
+import { useWeekDiary, diaryEntriesTotals } from '@/hooks/use-diary';
+import type { Macros } from '@/lib/types';
 
 type CombinedState = ReturnType<typeof useRecipeState> & ReturnType<typeof useWeekPlanState>;
 
@@ -86,6 +88,17 @@ function todayDayIndex(): number {
   return js === 0 ? 6 : js - 1;
 }
 
+// Proximity-to-goal colors, same thresholds as the desktop planner's
+// getMacroColorClass: green ±10%, orange ±25%, red beyond. Hex values because
+// the week grid styles are inline (Tailwind JIT purge issues, see `C` above).
+function macroHexColor(current: number, target: number | null | undefined): string {
+  if (!target || target <= 0) return C.muted;
+  const ratio = current / target;
+  if (ratio >= 0.9 && ratio <= 1.1) return '#15803d';
+  if ((ratio >= 0.75 && ratio < 0.9) || (ratio > 1.1 && ratio <= 1.25)) return '#d97706';
+  return '#dc2626';
+}
+
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export function MobilePageContent({
@@ -131,8 +144,53 @@ export function MobilePageContent({
   const activeDayName = (activeDayPlan?.day ?? DAY_ORDER[activeDayIndex]) as DayPlan['day'];
   const dayMeals = useMemo(() => activeDayPlan?.meals ?? [], [activeDayPlan]);
   const totals = useMemo(() => totalsFor(dayMeals), [dayMeals]);
+
+  // Diary of the current week: "lo he comido" checks write here. weekKeys[i]
+  // is the calendar date of DAY_ORDER[i].
+  const { weekKeys, diaryByDate, logPlanRecipe, unlogPlanRecipe } = useWeekDiary();
+  const activeDateKey = weekKeys[activeDayIndex];
+  const activeDayEntries = useMemo(
+    () => diaryByDate.get(activeDateKey)?.entries ?? [],
+    [diaryByDate, activeDateKey]
+  );
+  const eatenInstanceIds = useMemo(
+    () => new Set(activeDayEntries.filter(e => e.planInstanceId).map(e => e.planInstanceId as string)),
+    [activeDayEntries]
+  );
+  const eatenTotals = useMemo(() => diaryEntriesTotals(activeDayEntries), [activeDayEntries]);
+  const toggleEaten = useCallback((recipe: RecipeInstance) => {
+    if (eatenInstanceIds.has(recipe.instanceId)) unlogPlanRecipe(activeDateKey, recipe.instanceId);
+    else logPlanRecipe(activeDateKey, recipe);
+  }, [eatenInstanceIds, activeDateKey, logPlanRecipe, unlogPlanRecipe]);
+
+  // Week summary: everything planned vs. everything actually eaten this week.
+  const weekPlannedTotals = useMemo(
+    () => weekPlan.reduce<Macros>((acc, d) => {
+      const t = totalsFor(d.meals ?? []);
+      return {
+        calories: acc.calories + t.calories,
+        protein: acc.protein + t.protein,
+        carbs: acc.carbs + t.carbs,
+        fat: acc.fat + t.fat,
+      };
+    }, { calories: 0, protein: 0, carbs: 0, fat: 0 }),
+    [weekPlan]
+  );
+  const weekEatenTotals = useMemo(
+    () => weekKeys.reduce<Macros>((acc, key) => {
+      const t = diaryEntriesTotals(diaryByDate.get(key)?.entries);
+      return {
+        calories: acc.calories + t.calories,
+        protein: acc.protein + t.protein,
+        carbs: acc.carbs + t.carbs,
+        fat: acc.fat + t.fat,
+      };
+    }, { calories: 0, protein: 0, carbs: 0, fat: 0 }),
+    [weekKeys, diaryByDate]
+  );
+
   const caloriePercent = activeGoalMacros?.calories
-    ? Math.min(100, (totals.calories / activeGoalMacros.calories) * 100)
+    ? Math.min(100, (eatenTotals.calories / activeGoalMacros.calories) * 100)
     : null;
 
   const goToDay = (index: number) => setActiveDayIndex((index + DAY_ORDER.length) % DAY_ORDER.length);
@@ -261,7 +319,7 @@ export function MobilePageContent({
           <ActionChip
             icon={<Target className="h-3 w-3" />}
             label="Objetivos"
-            onClick={() => router.push('/mobile/objetivos')}
+            onClick={() => router.push('/mobile/perfil?tab=objetivos')}
           />
           <ActionChip
             icon={<History className="h-3 w-3" />}
@@ -331,6 +389,8 @@ export function MobilePageContent({
                   key={meal.id}
                   meal={meal}
                   editMode={editMode}
+                  eatenInstanceIds={eatenInstanceIds}
+                  onToggleEaten={toggleEaten}
                   onAddRecipe={() => openRecipeSelector(meal, activeDayName)}
                   onRecipeClick={(r) => setDialogState({ open: true, mode: 'view', recipe: r as Recipe })}
                   onUpdateServings={(instanceId, n) =>
@@ -390,7 +450,7 @@ export function MobilePageContent({
                     Aún no tienes un objetivo de calorías. Calcúlalo para ver aquí tu progreso de cada día.
                   </p>
                   <button
-                    onClick={() => router.push('/mobile/objetivos')}
+                    onClick={() => router.push('/mobile/perfil?tab=objetivos')}
                     className="w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-medium text-primary"
                     style={{ background: C.primaryLight, border: `0.5px solid ${C.primaryBorder}` }}
                   >
@@ -405,24 +465,45 @@ export function MobilePageContent({
                       Objetivos del día
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      <span className="font-bold text-primary text-sm">{Math.round(totals.calories)}</span>
+                      <span className="font-bold text-primary text-sm">{Math.round(eatenTotals.calories)}</span>
                       {' / '}{Math.round(activeGoalMacros.calories)} kcal
                     </span>
                   </div>
-                  <div className="h-2 rounded-full bg-secondary overflow-hidden mb-3">
+                  {/* Bar = what you ATE (via the "comido" checks); the thin marker
+                      is where the planned total sits against the goal. */}
+                  <div className="relative h-2 rounded-full bg-secondary mb-1">
                     <div
-                      className="h-full rounded-full bg-primary transition-all duration-500"
+                      className="absolute inset-y-0 left-0 rounded-full bg-primary transition-all duration-500"
                       style={{ width: `${Math.min(100, caloriePercent ?? 0)}%` }}
                     />
+                    {totals.calories > 0 && (
+                      <div
+                        className="absolute top-1/2 -translate-y-1/2 h-3.5 w-0.5 rounded-full"
+                        style={{
+                          left: `${Math.min(100, (totals.calories / activeGoalMacros.calories) * 100)}%`,
+                          background: C.brown,
+                          opacity: 0.55,
+                        }}
+                      />
+                    )}
                   </div>
+                  <p className="text-[10px] text-muted-foreground mb-3">
+                    Comido {Math.round(eatenTotals.calories)} · Planificado {Math.round(totals.calories)} kcal.
+                    Marca cada receta con ✓ cuando la comas.
+                  </p>
                   <div className="grid grid-cols-3 gap-2 text-center">
                     {[
-                      { label: 'Proteína', value: totals.protein, target: activeGoalMacros.protein },
-                      { label: 'Carbohidratos', value: totals.carbs, target: activeGoalMacros.carbs },
-                      { label: 'Grasa', value: totals.fat, target: activeGoalMacros.fat },
+                      { label: 'Proteína', value: eatenTotals.protein, target: activeGoalMacros.protein },
+                      { label: 'Carbohidratos', value: eatenTotals.carbs, target: activeGoalMacros.carbs },
+                      { label: 'Grasa', value: eatenTotals.fat, target: activeGoalMacros.fat },
                     ].map(({ label, value, target }) => (
                       <div key={label} className="flex flex-col items-center">
-                        <span className="font-bold text-base">{Math.round(value)}<span className="text-xs font-normal text-muted-foreground">g</span></span>
+                        <span
+                          className="font-bold text-base"
+                          style={{ color: value > 0 ? macroHexColor(value, target) : undefined }}
+                        >
+                          {Math.round(value)}<span className="text-xs font-normal text-muted-foreground">g</span>
+                        </span>
                         <span className="text-[11px] text-muted-foreground leading-tight">{label}</span>
                         <span className="text-[10px] text-muted-foreground/60">de {Math.round(target)}g</span>
                       </div>
@@ -440,6 +521,9 @@ export function MobilePageContent({
           weekPlan={weekPlan}
           todayIndex={todayIndex}
           editMode={editMode}
+          goal={activeGoalMacros}
+          weekPlanned={weekPlannedTotals}
+          weekEaten={weekEatenTotals}
           onOpenDay={(dayIndex) => { setActiveDayIndex(dayIndex); setView('day'); }}
           onAddRecipe={openRecipeSelector}
           onRemoveRecipe={handleRemoveRecipeFromMeal}
@@ -549,10 +633,12 @@ function ActionChip({
 }
 
 function MealCard({
-  meal, editMode, onAddRecipe, onRecipeClick, onUpdateServings, onRemoveRecipe, onDeleteMeal,
+  meal, editMode, eatenInstanceIds, onToggleEaten, onAddRecipe, onRecipeClick, onUpdateServings, onRemoveRecipe, onDeleteMeal,
 }: {
   meal: Meal;
   editMode: boolean;
+  eatenInstanceIds: Set<string>;
+  onToggleEaten: (r: RecipeInstance) => void;
   onAddRecipe: () => void;
   onRecipeClick: (r: RecipeInstance) => void;
   onUpdateServings: (instanceId: string, n: number) => void;
@@ -598,15 +684,31 @@ function MealCard({
             const se = recipe.servingsEaten ?? 1;
             const ts = recipe.servings ?? 1;
             const kcal = Math.round(recipe.calories * (se / ts));
+            const isEaten = eatenInstanceIds.has(recipe.instanceId);
             return (
               <div
                 key={recipe.instanceId}
                 className="flex items-center gap-2 rounded-xl px-3 py-2"
-                style={{ background: C.bg }}
+                style={{ background: isEaten ? 'rgba(21,128,61,0.06)' : C.bg }}
               >
+                {/* "Lo he comido": one tap logs the scaled macros to the diary */}
+                <button
+                  onClick={() => onToggleEaten(recipe)}
+                  className={cn(
+                    'h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 border-2 transition-colors',
+                    isEaten ? 'border-green-700 bg-green-700 text-white' : 'border-border bg-card text-transparent'
+                  )}
+                  aria-label={isEaten ? `Desmarcar ${recipe.name} como comida` : `Marcar ${recipe.name} como comida`}
+                >
+                  <Check className="h-4 w-4" />
+                </button>
                 <button className="flex-1 min-w-0 text-left" onClick={() => onRecipeClick(recipe)}>
-                  <p className="font-medium text-sm leading-tight line-clamp-1">{recipe.name}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{se} rac · {kcal} kcal</p>
+                  <p className={cn('font-medium text-sm leading-tight line-clamp-1', isEaten && 'text-green-900/70')}>
+                    {recipe.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {se} rac · {kcal} kcal{isEaten ? ' · comido ✓' : ''}
+                  </p>
                 </button>
                 <div className="flex items-center gap-1 flex-shrink-0">
                   {/* Servings -/+ and a delete x are ALWAYS visible so removing a
@@ -656,11 +758,15 @@ function MealCard({
 }
 
 function GridView({
-  weekPlan, todayIndex, editMode, onOpenDay, onAddRecipe, onRemoveRecipe, onViewRecipe, onCreateMeal, onRequestClearDay,
+  weekPlan, todayIndex, editMode, goal, weekPlanned, weekEaten,
+  onOpenDay, onAddRecipe, onRemoveRecipe, onViewRecipe, onCreateMeal, onRequestClearDay,
 }: {
   weekPlan: DayPlan[];
   todayIndex: number;
   editMode: boolean;
+  goal: GoalMacros | null;
+  weekPlanned: Macros;
+  weekEaten: Macros;
   onOpenDay: (dayIndex: number) => void;
   onAddRecipe: (meal: Meal, dayName: DayPlan['day']) => void;
   onRemoveRecipe: (dayName: DayPlan['day'], mealId: string, instanceId: string) => void;
@@ -757,7 +863,7 @@ function GridView({
             {/* Totals row label */}
             <div
               style={{
-                height: 52,
+                height: 64,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'flex-end',
@@ -910,27 +1016,38 @@ function GridView({
                     );
                   })}
 
-                  {/* Day totals footer */}
+                  {/* Day totals footer — kcal + macros, coloured by proximity to
+                      the daily goal (same thresholds as the desktop planner). */}
                   <div
                     style={{
-                      height: 52,
+                      height: 64,
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: 1,
+                      gap: 2,
                       borderRight: `0.5px solid ${C.border}`,
                       background: isToday ? 'rgba(217,82,26,0.06)' : C.card,
                     }}
                   >
                     {dayTotals.calories > 0 ? (
                       <>
-                        <span style={{ fontSize: 9.5, fontWeight: 700, color: C.primary }}>
+                        <span style={{ fontSize: 9.5, fontWeight: 700, color: goal ? macroHexColor(dayTotals.calories, goal.calories) : C.primary }}>
                           {Math.round(dayTotals.calories)}
                           <span style={{ fontSize: 6.5, fontWeight: 500, color: C.muted }}> kcal</span>
                         </span>
-                        <span style={{ fontSize: 7.5, color: C.muted }}>
-                          {Math.round(dayTotals.protein)}g prot
+                        <span style={{ fontSize: 7, lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+                          <span style={{ color: goal ? macroHexColor(dayTotals.protein, goal.protein) : C.muted, fontWeight: 600 }}>
+                            {Math.round(dayTotals.protein)}P
+                          </span>
+                          <span style={{ color: C.dimText }}>·</span>
+                          <span style={{ color: goal ? macroHexColor(dayTotals.carbs, goal.carbs) : C.muted, fontWeight: 600 }}>
+                            {Math.round(dayTotals.carbs)}C
+                          </span>
+                          <span style={{ color: C.dimText }}>·</span>
+                          <span style={{ color: goal ? macroHexColor(dayTotals.fat, goal.fat) : C.muted, fontWeight: 600 }}>
+                            {Math.round(dayTotals.fat)}G
+                          </span>
                         </span>
                       </>
                     ) : (
@@ -941,6 +1058,71 @@ function GridView({
               );
             })}
           </div>
+        </div>
+      </div>
+
+      {/* Week summary: planned vs. actually eaten vs. weekly goal. Shows that a
+          single indulgent meal barely moves the week's total. */}
+      <div className="px-3 pt-3">
+        <div className="rounded-2xl border bg-card p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: C.muted, letterSpacing: '0.06em' }}>
+              Total de la semana
+            </span>
+            {goal && (
+              <span className="text-[10px] text-muted-foreground">
+                Objetivo: {Math.round(goal.calories * 7).toLocaleString('es-ES')} kcal
+              </span>
+            )}
+          </div>
+          {goal ? (
+            <>
+              <div className="relative h-2 rounded-full bg-secondary mb-1">
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full bg-primary transition-all duration-500"
+                  style={{ width: `${Math.min(100, (weekEaten.calories / (goal.calories * 7)) * 100)}%` }}
+                />
+                {weekPlanned.calories > 0 && (
+                  <div
+                    className="absolute top-1/2 -translate-y-1/2 h-3.5 w-0.5 rounded-full"
+                    style={{
+                      left: `${Math.min(100, (weekPlanned.calories / (goal.calories * 7)) * 100)}%`,
+                      background: C.brown,
+                      opacity: 0.55,
+                    }}
+                  />
+                )}
+              </div>
+              <p className="text-[10px] text-muted-foreground mb-2.5">
+                Comido {Math.round(weekEaten.calories).toLocaleString('es-ES')} · Planificado{' '}
+                {Math.round(weekPlanned.calories).toLocaleString('es-ES')} kcal
+              </p>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                {[
+                  { label: 'Proteína', eaten: weekEaten.protein, planned: weekPlanned.protein, target: goal.protein * 7 },
+                  { label: 'Carbs', eaten: weekEaten.carbs, planned: weekPlanned.carbs, target: goal.carbs * 7 },
+                  { label: 'Grasa', eaten: weekEaten.fat, planned: weekPlanned.fat, target: goal.fat * 7 },
+                ].map(({ label, eaten, planned, target }) => (
+                  <div key={label} className="flex flex-col items-center">
+                    <span
+                      className="font-bold text-sm"
+                      style={{ color: eaten > 0 ? macroHexColor(eaten, target) : undefined }}
+                    >
+                      {Math.round(eaten)}<span className="text-[10px] font-normal text-muted-foreground">g</span>
+                    </span>
+                    <span className="text-[10px] text-muted-foreground leading-tight">{label}</span>
+                    <span className="text-[9px] text-muted-foreground/60">plan {Math.round(planned)}g</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Planificado: {Math.round(weekPlanned.calories).toLocaleString('es-ES')} kcal · Comido:{' '}
+              {Math.round(weekEaten.calories).toLocaleString('es-ES')} kcal. Configura tu objetivo para
+              comparar con tu meta semanal.
+            </p>
+          )}
         </div>
       </div>
 

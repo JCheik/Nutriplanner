@@ -190,6 +190,9 @@ export interface DiaryEntry extends Macros {
   quantityLabel?: string;
   /** Where the entry came from: the week plan, Open Food Facts, or manual. */
   source: DiaryEntrySource;
+  /** For plan entries: the RecipeInstance.instanceId that was marked as eaten,
+   * so the planner can show/toggle the "comido" state of each planned recipe. */
+  planInstanceId?: string;
   /** Epoch millis when the entry was logged. */
   loggedAt: number;
 }
