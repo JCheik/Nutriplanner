@@ -177,6 +177,31 @@ export interface UserProfile {
 }
 
 
+// ── Food diary ────────────────────────────────────────────────────────────────
+// What the user ACTUALLY ate, as opposed to the forward-looking week plan.
+// One document per calendar day at users/{uid}/diary/{YYYY-MM-DD}.
+
+export type DiaryEntrySource = 'plan' | 'off' | 'manual';
+
+export interface DiaryEntry extends Macros {
+  id: string;
+  name: string;
+  /** Human-readable amount, e.g. "1 ración", "150 g". */
+  quantityLabel?: string;
+  /** Where the entry came from: the week plan, Open Food Facts, or manual. */
+  source: DiaryEntrySource;
+  /** Epoch millis when the entry was logged. */
+  loggedAt: number;
+}
+
+export interface DiaryDay {
+  /** YYYY-MM-DD — also the document id. */
+  date: string;
+  entries: DiaryEntry[];
+  /** Optional morning weigh-in for the progress chart. */
+  weightKg?: number;
+}
+
 export interface UserClaims {
   admin?: boolean;
   // This is where the superuser email check goes

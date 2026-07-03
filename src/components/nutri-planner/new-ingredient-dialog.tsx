@@ -14,6 +14,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PackageSearch } from 'lucide-react';
+import { OffSearchDialog } from './off-search-dialog';
 
 export type EditableIngredient = Omit<BaseIngredient, 'id' | 'createdBy'> & { id?: string; createdBy?: string };
 
@@ -32,6 +34,7 @@ export function NewIngredientDialog({ isOpen, onClose, onSave, ingredientToEdit 
   const [carbs, setCarbs] = useState<number | ''>('');
   const [fat, setFat] = useState<number | ''>('');
   const [fiber, setFiber] = useState<number | ''>('');
+  const [isOffSearchOpen, setIsOffSearchOpen] = useState(false);
 
   const isEditing = !!ingredientToEdit;
 
@@ -103,6 +106,12 @@ export function NewIngredientDialog({ isOpen, onClose, onSave, ingredientToEdit 
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
+          {/* Prefill per-100g macros from Open Food Facts (search or barcode)
+              instead of typing them by hand. */}
+          <Button variant="outline" onClick={() => setIsOffSearchOpen(true)}>
+            <PackageSearch className="mr-2 h-4 w-4" />
+            Buscar en Open Food Facts / escanear código
+          </Button>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="name" className="text-right">
               Nombre
@@ -145,6 +154,20 @@ export function NewIngredientDialog({ isOpen, onClose, onSave, ingredientToEdit 
             <Button onClick={handleSave}>Guardar Alimento</Button>
         </DialogFooter>
       </DialogContent>
+
+      <OffSearchDialog
+        isOpen={isOffSearchOpen}
+        onClose={() => setIsOffSearchOpen(false)}
+        description="Los macros por 100 g se rellenarán con los datos del producto."
+        onSelect={(p) => {
+          setName(p.brand ? `${p.name} (${p.brand})` : p.name);
+          setCalories(Math.round(p.per100g.calories));
+          setProtein(Math.round(p.per100g.protein * 10) / 10);
+          setCarbs(Math.round(p.per100g.carbs * 10) / 10);
+          setFat(Math.round(p.per100g.fat * 10) / 10);
+          setFiber(Math.round(p.per100g.fiber * 10) / 10);
+        }}
+      />
     </Dialog>
   );
 }

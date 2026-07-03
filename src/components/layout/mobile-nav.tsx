@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, BookHeart, ShoppingCart, Sparkles } from 'lucide-react';
+import { Home, BookHeart, NotebookPen, ShoppingCart, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from '@/hooks/use-media-query';
 
@@ -15,9 +15,10 @@ export function MobileNav() {
   // cleans the URL). Objetivos moved to a button on the plan screen.
   const navItems = [
     { href: `/mobile`, label: 'Plan', icon: Home, isAssistant: false },
+    { href: `/mobile/diario`, label: 'Diario', icon: NotebookPen, isAssistant: false },
     { href: `/mobile/recipes`, label: 'Recetas', icon: BookHeart, isAssistant: false },
     { href: `/mobile/shopping-list`, label: 'Compra', icon: ShoppingCart, isAssistant: false },
-    { href: `/mobile?assistant=1`, label: 'Asistente IA', icon: Sparkles, isAssistant: true },
+    { href: `/mobile?assistant=1`, label: 'IA', icon: Sparkles, isAssistant: true },
   ];
 
   const isMobileRoute = pathname.startsWith('/mobile');
@@ -28,7 +29,7 @@ export function MobileNav() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 h-16 bg-background border-t z-50">
-      <div className="grid h-full max-w-lg grid-cols-4 mx-auto">
+      <div className="grid h-full max-w-lg grid-cols-5 mx-auto">
         {navItems.map((item) => {
           const isActive = !item.isAssistant && pathname === item.href;
           return (

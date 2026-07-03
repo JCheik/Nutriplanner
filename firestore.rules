@@ -62,6 +62,17 @@ service cloud.firestore {
     }
 
     /**
+     * @description Food diary: what the user actually ate each day, plus optional weigh-ins.
+     * One document per calendar day (YYYY-MM-DD). Admins have full access.
+     * @path /users/{userId}/diary/{dayId}
+     */
+    match /users/{userId}/diary/{dayId} {
+      allow read, list: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update, delete: if isSignedIn() && (isExistingOwner(userId) || isAdmin());
+    }
+
+    /**
      * @description Meal plans owned by a specific user (legacy, may be deprecated). Admins have full access.
      * @path /users/{userId}/meal_plans/{mealPlanId}
      */
