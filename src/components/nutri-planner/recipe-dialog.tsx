@@ -20,7 +20,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, Plus, Copy, Search, Image as ImageIcon, UploadCloud, Globe, AlertTriangle } from 'lucide-react';
+import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, Plus, Copy, Search, Image as ImageIcon, UploadCloud, Globe, AlertTriangle, ScanBarcode, PackageSearch, LoaderCircle } from 'lucide-react';
+import { searchOffProducts, getOffProductByBarcode, type OffProduct } from '@/lib/open-food-facts';
+import { BarcodeScannerDialog } from './barcode-scanner-dialog';
 import { NewIngredientDialog, EditableIngredient } from './new-ingredient-dialog';
 import { MissingIngredientRow, type ReviewIngredient, type ReviewMacroField } from './ingredient-review';
 import { Card, CardContent } from '../ui/card';
@@ -122,6 +124,11 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIngredient, setSelectedIngredient] = useState<BaseIngredient | null>(null);
   const [newIngredientQty, setNewIngredientQty] = useState<number | string>(100);
+  // Open Food Facts results shown INLINE in the same search dropdown, so the
+  // user never has to know there are two food sources. null = not searched yet.
+  const [offResults, setOffResults] = useState<OffProduct[] | null>(null);
+  const [isOffLoading, setIsOffLoading] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   const resetForm = useCallback(() => {
     setName(initialRecipe?.name || '');
@@ -321,7 +328,69 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
   
   const handleSelectIngredient = (ingredient: BaseIngredient) => {
     setSearchQuery('');
+    setOffResults(null);
     setSelectedIngredient(ingredient);
+  };
+
+  const runOffSearch = async () => {
+    const q = searchQuery.trim();
+    if (!q || isOffLoading) return;
+    setIsOffLoading(true);
+    try {
+      setOffResults(await searchOffProducts(q));
+    } catch (e) {
+      console.error('OFF search failed:', e);
+      toast({ variant: 'destructive', title: 'Open Food Facts no responde', description: 'Inténtalo de nuevo en unos segundos.' });
+    } finally {
+      setIsOffLoading(false);
+    }
+  };
+
+  // Picking an OFF product reuses the matching DB ingredient when one exists
+  // (same normalized name) or silently creates it with the per-100g macros —
+  // one tap instead of the old search → crear alimento → OFF → save dance.
+  const selectOffProduct = async (p: OffProduct) => {
+    const displayName = p.brand ? `${p.name} (${p.brand})` : p.name;
+    const existing =
+      ingredientDBMap.get(normalizeText(displayName)) ?? ingredientDBMap.get(normalizeText(p.name));
+    if (existing) {
+      setSelectedIngredient(existing);
+    } else {
+      if (!ingredientsCollectionRef || !user) return;
+      const data = {
+        name: displayName,
+        calories: Math.round(p.per100g.calories),
+        protein: Math.round(p.per100g.protein * 10) / 10,
+        carbs: Math.round(p.per100g.carbs * 10) / 10,
+        fat: Math.round(p.per100g.fat * 10) / 10,
+        fiber: Math.round(p.per100g.fiber * 10) / 10,
+        createdBy: user.uid,
+      };
+      try {
+        const docRef = await addDoc(ingredientsCollectionRef, data);
+        setSelectedIngredient({ ...data, id: docRef.id });
+      } catch (e) {
+        console.error('No se pudo crear el alimento desde OFF:', e);
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudo guardar el alimento. Inténtalo de nuevo.' });
+        return;
+      }
+    }
+    setSearchQuery('');
+    setOffResults(null);
+  };
+
+  const handleBarcodeDetected = async (code: string) => {
+    setIsOffLoading(true);
+    try {
+      const product = await getOffProductByBarcode(code);
+      if (product) await selectOffProduct(product);
+      else toast({ title: 'Producto no encontrado', description: `El código ${code} no está en Open Food Facts. Créalo a mano.` });
+    } catch (e) {
+      console.error('OFF barcode lookup failed:', e);
+      toast({ variant: 'destructive', title: 'Open Food Facts no responde', description: 'Inténtalo de nuevo en unos segundos.' });
+    } finally {
+      setIsOffLoading(false);
+    }
   };
   
   const addIngredient = () => {
@@ -547,31 +616,83 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
                     <CardContent className="p-4 space-y-4">
                         <div className="space-y-2">
                              <Label>1. Buscar y añadir ingrediente</Label>
-                             <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input 
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    placeholder="Buscar ingrediente..."
-                                    className="pl-10"
-                                />
+                             <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        value={searchQuery}
+                                        onChange={(e) => { setSearchQuery(e.target.value); setOffResults(null); }}
+                                        placeholder="Buscar alimento..."
+                                        className="pl-10"
+                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); runOffSearch(); } }}
+                                    />
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    className="shrink-0"
+                                    title="Escanear código de barras"
+                                    onClick={() => setIsScannerOpen(true)}
+                                >
+                                    <ScanBarcode className="h-4 w-4" />
+                                </Button>
                              </div>
                             {searchQuery && (
                                 <Card className="p-2 bg-glass">
-                                    {filteredIngredients.length > 0 ? (
-                                        filteredIngredients.map((ing) => (
-                                            <div key={ing.id} onClick={() => handleSelectIngredient(ing)} className="p-2 hover:bg-black/10 rounded-md cursor-pointer text-sm">
-                                                {ing.name}
-                                            </div>
-                                        ))
-                                    ) : !ingredientsLoading && (
-                                        <div className="p-4 text-sm text-center">
-                                            <p>No se encontraron resultados.</p>
-                                            <Button variant="link" className="h-auto p-0 mt-1" onClick={() => { setIsNewIngredientOpen(true); }}>
-                                                Crear nuevo alimento
-                                            </Button>
+                                    {/* Local ingredient DB matches */}
+                                    {filteredIngredients.map((ing) => (
+                                        <div key={ing.id} onClick={() => handleSelectIngredient(ing)} className="p-2 hover:bg-black/10 rounded-md cursor-pointer text-sm">
+                                            {ing.name}
                                         </div>
+                                    ))}
+                                    {filteredIngredients.length === 0 && !ingredientsLoading && offResults === null && (
+                                        <p className="p-2 text-sm text-muted-foreground text-center">Nada en tus alimentos guardados.</p>
                                     )}
+
+                                    {/* Open Food Facts, inline in the same list */}
+                                    {offResults === null ? (
+                                        <button
+                                            type="button"
+                                            onClick={runOffSearch}
+                                            disabled={isOffLoading}
+                                            className="w-full flex items-center gap-2 p-2 rounded-md text-sm text-primary hover:bg-black/10 disabled:opacity-60"
+                                        >
+                                            {isOffLoading
+                                                ? <LoaderCircle className="h-4 w-4 animate-spin shrink-0" />
+                                                : <PackageSearch className="h-4 w-4 shrink-0" />}
+                                            Buscar «{searchQuery.trim()}» en Open Food Facts
+                                        </button>
+                                    ) : offResults.length === 0 ? (
+                                        <p className="p-2 text-xs text-muted-foreground text-center">
+                                            Sin resultados en Open Food Facts.
+                                        </p>
+                                    ) : (
+                                        <>
+                                            <p className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                                Open Food Facts (por 100 g)
+                                            </p>
+                                            {offResults.slice(0, 6).map((p, i) => (
+                                                <div
+                                                    key={p.barcode ?? `${p.name}-${i}`}
+                                                    onClick={() => selectOffProduct(p)}
+                                                    className="flex items-center gap-2 p-2 hover:bg-black/10 rounded-md cursor-pointer"
+                                                >
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-sm leading-tight line-clamp-1">{p.name}</p>
+                                                        {p.brand && <p className="text-xs text-muted-foreground line-clamp-1">{p.brand}</p>}
+                                                    </div>
+                                                    <span className="text-xs text-muted-foreground shrink-0">
+                                                        {Math.round(p.per100g.calories)} kcal
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </>
+                                    )}
+
+                                    <Button variant="link" className="h-auto p-2 text-xs" onClick={() => { setIsNewIngredientOpen(true); }}>
+                                        Crear alimento a mano
+                                    </Button>
                                 </Card>
                             )}
                         </div>
@@ -682,6 +803,11 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
         isOpen={isNewIngredientOpen}
         onClose={() => setIsNewIngredientOpen(false)}
         onSave={handleNewIngredientSave}
+      />
+      <BarcodeScannerDialog
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onDetected={handleBarcodeDetected}
       />
     </>
   );

@@ -1,12 +1,12 @@
 /**
- * Thin client for the Open Food Facts public API (no key required).
- * Used to look up branded products by text search or barcode and map them to
- * the app's per-100g macro shape. Client-side only (CORS is enabled by OFF).
+ * Thin client for Open Food Facts (no key required), mapping products to the
+ * app's per-100g macro shape.
  *
  * Endpoints:
- * - Text search: the new Search-a-licious service (the legacy cgi/search.pl
- *   endpoint returns 503 routinely).
- * - Barcode: the v2 product API.
+ * - Text search: goes through OUR /api/off-search proxy. The Search-a-licious
+ *   service has no CORS headers, so a direct browser fetch is blocked; the
+ *   proxy also ranks products sold in Spain first.
+ * - Barcode: the v2 product API directly (it does send CORS headers).
  * Searches only fire on explicit submit, never per keystroke (OFF rate limits).
  */
 
@@ -26,7 +26,6 @@ export interface OffProduct {
   };
 }
 
-const SEARCH_BASE = 'https://search.openfoodfacts.org';
 const PRODUCT_BASE = 'https://world.openfoodfacts.org';
 
 const FIELDS = 'code,product_name,product_name_es,brands,image_front_small_url,nutriments';
@@ -82,12 +81,9 @@ function mapProduct(p: OffApiProduct): OffProduct | null {
   };
 }
 
-/** Text search (Spanish-first ranking). Returns up to 20 products with usable nutrition data. */
+/** Text search (Spain-first ranking, via our proxy). Returns up to 20 products with usable nutrition data. */
 export async function searchOffProducts(query: string): Promise<OffProduct[]> {
-  const url =
-    `${SEARCH_BASE}/search?q=${encodeURIComponent(query)}` +
-    `&langs=es&page_size=20&fields=${FIELDS}`;
-  const res = await fetch(url);
+  const res = await fetch(`/api/off-search?q=${encodeURIComponent(query)}`);
   if (!res.ok) throw new Error(`Open Food Facts respondió ${res.status}`);
   const data = (await res.json()) as { hits?: OffApiProduct[] };
   return (data.hits ?? [])
