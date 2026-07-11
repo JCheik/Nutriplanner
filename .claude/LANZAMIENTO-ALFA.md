@@ -3,52 +3,59 @@
 > Camino mínimo para poner la app en manos de testers reales (alfa cerrado).
 > Distinto de [`HOJA-DE-RUTA.md`](./HOJA-DE-RUTA.md), que recoge mejoras post-alfa.
 >
-> Última actualización: 2026-06-25.
+> Última actualización: 2026-07-11.
 
-## 🔴 Bloqueantes (sin esto no hay alfa)
+## ✅ Hecho (desde la revisión de 2026-06-25)
 
-- [ ] **Activar facturación de Gemini / Google AI.** El free tier es de **20 requests/día**
-  (`generativelanguage.googleapis.com/generate_content_free_tier_requests`), que se agota en una
-  sola sesión de pruebas y deja el asistente, el autocompletar y la generación de recetas con
-  error 429. El código ya muestra un toast de reintento, pero para usuarios reales hay que pasar
-  a un plan con facturación. Revisar también el modelo usado (`gemini-2.5-flash`) y poner límites
-  de gasto/alertas de presupuesto en Google Cloud.
+- [x] **Desplegar en HTTPS** — Firebase App Hosting (backend `nutriplanner`, europe-west4),
+  despliegue automático con cada push a `main`. `GEMINI_API_KEY` en Secret Manager.
+  Micrófono/voz y cámara (código de barras) funcionan en producción por ser contexto seguro.
+- [x] **Reglas publicadas** — Firestore desplegadas (incluida la subcolección `diary`).
+- [x] **Descargo nutricional** — visible en el login y en Objetivos.
+- [x] **Branding Nutrilp** — iconos PWA (`public/icons/`) ya son la "N" de Nutrilp.
+- [x] **Login sin Google** — email + contraseña con registro, reset y errores en español.
+  Ventaja extra: los testers que entren por correo NO pasan por el consentimiento OAuth de
+  Google, así que el modo "testing" de OAuth deja de ser un requisito para ellos.
+- [x] **QA completa de los flujos nuevos** (2026-07-11, cuenta `prueba-claude@example.com`):
+  plan con "comido", productos + Open Food Facts (búsqueda vía proxy propio por CORS),
+  temporizadores del modo cocina, Perfil (peso/progreso/objetivos), lista de la compra.
 
-- [ ] **Desplegar en HTTPS** (Firebase Hosting, que ya se usa).
-  - El micrófono (SpeechRecognition) y la voz **solo funcionan en contexto seguro (HTTPS)** —
-    en producción no irán hasta desplegar.
-  - Configurar `GEMINI_API_KEY` del lado servidor en el entorno de producción.
-  - Añadir el dominio de hosting a **Auth → Dominios autorizados**.
+## 🔴 Bloqueante real que queda (uno)
 
-- [ ] **Publicar las reglas** de Firestore y Storage (`firebase deploy --only firestore:rules,storage`).
-  - Las de Firestore ya están bien escritas (modelo de propiedad por usuario, escritura global
-    solo admin). Solo hay que asegurarse de que están publicadas en producción.
+- [ ] **Facturación de Gemini / Google AI.** El free tier son **20 requests/día para TODA la
+  clave** (no por usuario): con 3-4 testers usando autocompletar, importar reels y el asistente,
+  se agota en una tarde y la IA da error el resto del día para todos.
+  - Alta de facturación + **límite de presupuesto con alertas** (5–10 €/mes sobra de margen;
+    `gemini-2.5-flash` cuesta fracciones de céntimo por petición — un alfa de 5 personas son
+    unos pocos euros al mes).
+  - Alternativa consciente si se pospone: lanzar avisando de que "la IA tiene cupo diario
+    limitado" — la app es usable en modo manual, pero la primera impresión de la IA será mala.
 
-- [ ] **Descargo nutricional** ("esto no es consejo médico, consulta a un profesional").
-  - La app da objetivos de calorías/macros a gente real. Página/aviso estático sencillo.
+## 🟠 Pequeños, recomendados antes de invitar a nadie
 
-## 🟠 Muy recomendable (es el alfa de *Nutrilp*)
-
-- [ ] **Branding Nutrilp**: iconos PWA (`public/icons/`) y logo siguen siendo de NutriPlanner.
-  Es lo primero que ve un tester al instalar la app.
-- [ ] **Canal de feedback**: botón "Enviar feedback" (mailto o formulario). Es el sentido del alfa.
+- [ ] **Plantillas de email de Firebase Auth en español** — el correo de "restablecer
+  contraseña" sale en inglés por defecto. Consola → Authentication → Templates → idioma.
+  (1 minuto; relevante ahora que existe el login por correo.)
+- [ ] **Canal de feedback** — botón "Enviar feedback" (mailto) en Perfil. Es el sentido del alfa.
+  (~15 min de código.)
+- [ ] **Pasada en móviles reales** — todo lo anterior está verificado en navegador emulado;
+  falta 1 pasada en vuestros teléfonos: escanear un código de barras real con la cámara,
+  instalar la PWA, y el micrófono del asistente. 15 minutos entre los dos.
+- [ ] **Copia de seguridad de Firestore** — activar PITR (point-in-time recovery) o exports
+  programados en la consola. Un toggle; perder los datos de un tester sería la peor primera
+  impresión posible.
 
 ## 🟢 No bloquean (post-alfa)
 
-- Micrófono en Opera (degrada bien; funciona en Chrome/Edge).
-- Código de barras, historial semanal, compartir receta, etc. → ver `HOJA-DE-RUTA.md`.
+- Facturación aparte, todo lo del 2026-06-25 que sigue pendiente vive en `HOJA-DE-RUTA.md`.
+- Dominio propio (hoy se comparte la URL larga de `*.hosted.app`; funciona, solo es fea).
+- Registro abierto: cualquiera con la URL puede crearse cuenta por correo. Para un alfa cerrado
+  entre conocidos basta con no difundir la URL; si el grupo crece, restringir registro.
 
-## Atajo práctico: OAuth en modo "testing"
+## Camino mínimo a alfa (estado real)
 
-Para un alfa cerrado, dejar el consentimiento de Google OAuth en modo **testing** y añadir los
-emails de los testers (hasta 100). Así **no se necesita verificación de OAuth** (que exige
-política de privacidad revisada por Google y tarda semanas). La política de privacidad pasa de
-bloqueante a recomendable; el descargo nutricional sí desde el día 1.
-
-## Camino mínimo a alfa
-
-1. Activar facturación de Gemini (+ límites de gasto).
-2. Branding Nutrilp (iconos + logo) — único punto que toca código de la app.
-3. Descargo nutricional.
-4. Deploy a Firebase Hosting + reglas + dominio autorizado.
-5. Añadir emails de testers en OAuth (modo testing).
+1. ~~Deploy HTTPS + reglas + descargo + branding~~ ✅
+2. Activar facturación de Gemini + límites de gasto ← **único bloqueante**
+3. Plantillas de auth en español + botón de feedback + backup (una tarde)
+4. Pasada en móviles reales con el código de barras y la PWA
+5. Invitar testers (por correo ya no hace falta tocar OAuth)

@@ -10,6 +10,7 @@ import { useAiQuota } from '@/hooks/use-ai-quota';
 import { useToast } from '@/hooks/use-toast';
 import { MobilePageContent } from '@/components/nutri-planner/mobile-page-content';
 import { MobileAssistant } from '@/components/nutri-planner/mobile-assistant';
+import { WelcomeGuide } from '@/components/nutri-planner/welcome-guide';
 import { WeekHistorySheet } from '@/components/nutri-planner/week-history-sheet';
 import { AutocompletePreferencesDialog, type AutocompletePreferences } from '@/components/nutri-planner/autocomplete-preferences-dialog';
 import { MobileLoader } from '@/components/layout/mobile-loader';
@@ -92,6 +93,7 @@ function MobilePageWrapper() {
 
     return (
         <>
+            <WelcomeGuide />
             <MobilePageContent
                 {...combinedState}
                 activeGoalMacros={profileState.activeGoalMacros || null}

@@ -12,6 +12,12 @@
 export const SUPERUSER_EMAIL = 'jonicheik@gmail.com';
 
 /**
+ * Where the "Enviar feedback" button sends alpha testers' reports. Kept as a
+ * mailto target (no backend needed for a closed alpha).
+ */
+export const FEEDBACK_EMAIL = 'jonicheik@gmail.com';
+
+/**
  * Meal categories used to tag recipes and meal-plan slots. They act as a GUIDE
  * for the AI autocomplete (it only assigns recipes whose category matches the
  * slot's mealType, or category-less "comodín" recipes). Manual assignment by the

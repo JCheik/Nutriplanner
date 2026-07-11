@@ -2,12 +2,14 @@
 import { useState } from 'react';
 import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
-import { LogOut, User as UserIcon, CheckCircle, UserPlus, Shield, HelpCircle } from 'lucide-react';
+import { LogOut, User as UserIcon, CheckCircle, Shield, HelpCircle, CircleUserRound, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useUser, signInWithGoogle, signOut } from '@/firebase/auth/use-user';
 import { useAuth, useFirestore, useFirebaseApp } from '@/firebase/provider';
 import { useResetOnboarding } from '@/hooks/use-onboarding';
 import { useToast } from '@/hooks/use-toast';
+import { FEEDBACK_EMAIL } from '@/lib/constants';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +30,14 @@ export function PageHeader({}: PageHeaderProps) {
   const firebaseApp = useFirebaseApp();
   const resetOnboarding = useResetOnboarding();
   const { toast } = useToast();
+  const pathname = usePathname();
+
+  // Desktop profile hub lives at /dashboard/perfil; mobile at /mobile/perfil.
+  const perfilHref = pathname.startsWith('/mobile') ? '/mobile/perfil' : '/dashboard/perfil';
+
+  const feedbackHref =
+    `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent('Feedback de Nutrilp (alfa)')}` +
+    `&body=${encodeURIComponent('Cuéntanos qué te ha parecido, qué falla o qué echas en falta:\n\n\n---\n(No borres esto: nos ayuda a ubicar el problema)\n' + (typeof navigator !== 'undefined' ? navigator.userAgent : ''))}`;
 
   const handleResetGuides = async () => {
     await resetOnboarding();
@@ -71,6 +81,15 @@ export function PageHeader({}: PageHeaderProps) {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              {/* On desktop the profile hub isn't reachable from a bottom nav, so
+                  surface it here. Mobile already has a Perfil tab, but keeping the
+                  entry here too is harmless and consistent. */}
+              <DropdownMenuItem asChild className="cursor-pointer">
+                <Link href={perfilHref}>
+                  <CircleUserRound className="mr-2 h-4 w-4" />
+                  <span>Mi perfil y progreso</span>
+                </Link>
+              </DropdownMenuItem>
               {isAdmin && (
                 <DropdownMenuItem asChild className="cursor-pointer">
                   <Link href="/admin">
@@ -82,6 +101,12 @@ export function PageHeader({}: PageHeaderProps) {
               <DropdownMenuItem onClick={handleResetGuides} className="cursor-pointer">
                 <HelpCircle className="mr-2 h-4 w-4" />
                 <span>Ver guías de nuevo</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className="cursor-pointer">
+                <a href={feedbackHref}>
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  <span>Enviar feedback</span>
+                </a>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />
