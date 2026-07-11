@@ -340,7 +340,7 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
       setOffResults(await searchOffProducts(q));
     } catch (e) {
       console.error('OFF search failed:', e);
-      toast({ variant: 'destructive', title: 'Open Food Facts no responde', description: 'Inténtalo de nuevo en unos segundos.' });
+      toast({ variant: 'destructive', title: 'Buscador no disponible', description: 'Open Food Facts no responde ahora mismo. Escanea el código de barras o crea el alimento a mano.' });
     } finally {
       setIsOffLoading(false);
     }

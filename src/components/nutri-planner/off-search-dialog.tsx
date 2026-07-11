@@ -64,8 +64,8 @@ export function OffSearchDialog({ isOpen, onClose, onSelect, description }: OffS
       console.error('OFF search failed:', e);
       toast({
         variant: 'destructive',
-        title: 'Open Food Facts no responde',
-        description: 'Inténtalo de nuevo en unos segundos.',
+        title: 'Buscador no disponible',
+        description: 'Open Food Facts no responde ahora mismo. Escanea el código de barras o añádelo a mano.',
       });
     } finally {
       setIsLoading(false);
