@@ -440,9 +440,9 @@ export function MobilePageContent({
                     <span className="text-xs font-bold uppercase tracking-wider" style={{ color: C.muted, letterSpacing: '0.06em' }}>
                       Objetivos del día
                     </span>
-                    {totals.calories > 0 && (
+                    {eatenTotals.calories > 0 && (
                       <span className="text-xs text-muted-foreground">
-                        <span className="font-bold text-primary text-sm">{Math.round(totals.calories)}</span> kcal
+                        <span className="font-bold text-primary text-sm">{Math.round(eatenTotals.calories)}</span> kcal comidas
                       </span>
                     )}
                   </div>
