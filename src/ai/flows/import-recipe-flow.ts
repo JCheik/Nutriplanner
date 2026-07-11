@@ -2,6 +2,7 @@
 
 import { ai, GEMINI_MODEL } from '@/ai/genkit';
 import { z } from 'zod';
+import { MEAL_CATEGORY_ENUM, DIET_TAG_ENUM } from '@/lib/types';
 
 const ImportRecipeInputSchema = z.object({
   url: z.string().optional(),
@@ -36,6 +37,11 @@ const UnifiedRecipeSchema = z.object({
   carbs: z.number(),
   fat: z.number(),
   ingredients: z.array(UnifiedIngredientSchema),
+  // Guessed from the recipe itself (or an explicit "CATEGORÍA/DIETA SUGERIDA"
+  // hint in the pasted text). Prefills the form's category/diet chips so bulk
+  // imports don't all need manual tagging — still editable/removable there.
+  category: z.array(z.enum(MEAL_CATEGORY_ENUM)).optional(),
+  dietTags: z.array(z.enum(DIET_TAG_ENUM)).optional(),
 });
 
 export type UnifiedRecipe = z.infer<typeof UnifiedRecipeSchema>;
@@ -74,6 +80,14 @@ Devuelve:
 - instructions: pasos numerados separados por \\n
 - servings: raciones que produce
 - imageHint: 2-3 palabras en inglés para búsqueda de imagen
+- category: array con 1 o más de "desayuno", "almuerzo", "merienda", "cena", "snack", "postre", "otro".
+  Si el texto trae una línea "CATEGORÍA SUGERIDA:", úsala como base (traduce a estos valores exactos).
+  Si no, dedúcela tú del plato (p.ej. tortitas/avena → desayuno; guiso/pasta → almuerzo/cena; tarta/bizcocho → postre).
+  Incluye SIEMPRE al menos una.
+- dietTags: array con 0 o más de "omnivora", "vegetariana", "vegana", "keto", "low_carb", "sin_gluten", "sin_lactosa".
+  Si el texto trae una línea "DIETA SUGERIDA:", úsala. Si no, dedúcela de los ingredientes (sin carne/pescado →
+  vegetariana; sin ningún producto animal → vegana; sin gluten si no hay trigo/cebada/centeno/pasta/pan normal; etc.).
+  Vacío si no aplica ninguna con certeza — no fuerces una etiqueta dudosa.
 - calories, protein, carbs, fat: totales de la receta completa
 - ingredients: array. Cada uno:
   · id: "ing-1", "ing-2"...

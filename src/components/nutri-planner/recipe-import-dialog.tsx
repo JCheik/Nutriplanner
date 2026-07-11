@@ -19,6 +19,7 @@ import { collection, addDoc } from 'firebase/firestore';
 import { useFirebase, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { importRecipe, type UnifiedRecipe } from '@/ai/flows/import-recipe-flow';
 import { normalizeText } from '@/lib/utils';
+import { MEAL_CATEGORY_LABELS, DIET_TAG_LABELS } from '@/lib/constants';
 import { getAiErrorMessage, isRetryableAiError } from '@/lib/ai-error';
 import { captureVideoFrame, dataUrlToFile } from '@/lib/media-utils';
 import type { Recipe, BaseIngredient } from '@/lib/types';
@@ -367,6 +368,10 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
         fat: extractedRecipe.fat,
         servings: extractedRecipe.servings ?? 1,
         imageHint: extractedRecipe.imageHint,
+        // AI-guessed (or taken from a "CATEGORÍA/DIETA SUGERIDA" hint in the
+        // pasted text) — still editable in the form before saving.
+        category: extractedRecipe.category ?? [],
+        dietTags: extractedRecipe.dietTags ?? [],
         // Persist the source URL so the user can revisit the original post/video.
         ...(url.trim() ? { sourceUrl: url.trim() } : {}),
       };
@@ -720,6 +725,22 @@ Cuanto más detallado sea el texto, mejor resultado obtendrá la IA."
                     {Math.round(extractedRecipe.fat)}g
                   </span>
                 </div>
+
+                {/* Category/diet the AI guessed — editable in the form after importing */}
+                {((extractedRecipe.category?.length ?? 0) > 0 || (extractedRecipe.dietTags?.length ?? 0) > 0) && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {(extractedRecipe.category ?? []).map((cat) => (
+                      <span key={cat} className="text-xs bg-primary/15 text-primary rounded-md px-2 py-0.5 font-medium">
+                        {MEAL_CATEGORY_LABELS[cat] ?? cat}
+                      </span>
+                    ))}
+                    {(extractedRecipe.dietTags ?? []).map((diet) => (
+                      <span key={diet} className="text-xs bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 rounded-md px-2 py-0.5 font-medium">
+                        {DIET_TAG_LABELS[diet] ?? diet}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
                 {/* Photo indicator: a frame from the uploaded video, or the post's image */}
                 {(videoFile || imageDataUrl) && (

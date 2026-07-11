@@ -14,7 +14,7 @@
  */
 import { ai, GEMINI_MODEL } from '@/ai/genkit';
 import { z } from 'zod';
-import { DIET_TAG_ENUM } from '@/lib/types';
+import { DIET_TAG_ENUM, MEAL_CATEGORY_ENUM } from '@/lib/types';
 import type { DietTag } from '@/lib/types';
 import { DIET_TAG_LABELS } from '@/lib/constants';
 
@@ -62,6 +62,7 @@ const GeneratedRecipeSchema = z.object({
   imageHint: z.string().optional(),
   servings: z.number().min(1).optional(),
   dietTags: z.array(z.enum(DIET_TAG_ENUM)).optional(),
+  category: z.array(z.enum(MEAL_CATEGORY_ENUM)).optional(),
 });
 export type GeneratedRecipe = z.infer<typeof GeneratedRecipeSchema>;
 export type GeneratedIngredient = z.infer<typeof GeneratedIngredientSchema>;
@@ -121,6 +122,9 @@ Devuelve SOLO el objeto de la receta con estos campos:
   · corrected: true si corregiste la estimación, false si estaba bien
   · note: explicación breve si corrected=true; omitir si false
 - calories, protein, carbs, fat: estimación TOTAL de la receta = suma de (cantidad/100 × macros_por_100g) de cada ingrediente
+- category: array con 1 o más de "desayuno", "almuerzo", "merienda", "cena", "snack", "postre", "otro", según el
+  plato que hayas creado (p.ej. tortitas/avena → desayuno; guiso/pasta → almuerzo/cena; tarta/bizcocho → postre).
+  Incluye SIEMPRE al menos una.
 ${diet && diet.length > 0 ? `- dietTags: exactamente ["${diet.join('", "')}"]` : ''}
 
 Usa cantidades realistas y valores nutricionales plausibles. No añadas texto fuera del objeto.

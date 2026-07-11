@@ -313,6 +313,7 @@ export function AssistantDialog({
             imageHint: generated.imageHint,
             servings: generated.servings,
             dietTags: generated.dietTags,
+            category: generated.category,
           };
           const aiIngredients: AiIngredientEstimate[] = generated.ingredients.map((i) => ({
             name: i.name,
