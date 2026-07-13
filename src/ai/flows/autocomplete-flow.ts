@@ -6,7 +6,10 @@ import { DIET_TAG_ENUM, type WeekPlan, type GoalMacros, type Recipe, type MealCa
 import { suggestedServings } from '@/lib/serving-utils';
 
 const AutocompletePreferencesSchema = z.object({
-  allowRepetition: z.enum(['no_repeat', 'max_twice', 'free']),
+  // 'max_twice' is the legacy value (fixed limit of 2); 'max_n' uses the
+  // user-chosen `maxRepetitions`. Both kept so cached PWA clients keep working.
+  allowRepetition: z.enum(['no_repeat', 'max_n', 'max_twice', 'free']),
+  maxRepetitions: z.number().int().min(2).max(7).optional(),
   priority: z.enum(['goal', 'protein', 'calories']),
   dietaryRestrictions: z.string().optional(),
   goalMarginPercent: z.number().optional(),
@@ -191,12 +194,15 @@ const autocompleteWeekFlow = ai.defineFlow(
 
     if (emptySlots.length === 0) return { placements: [], unfilled: [] };
 
+    // 'max_twice' (legacy) behaves as a fixed limit of 2; 'max_n' uses the
+    // user-chosen maxRepetitions (defaulting to 2 if somehow absent).
+    const maxReps = preferences.allowRepetition === 'max_twice' ? 2 : preferences.maxRepetitions ?? 2;
     const repetitionRule =
       preferences.allowRepetition === 'no_repeat'
         ? 'Each recipe can only appear ONCE across the entire week. Do not repeat any recipe.'
-        : preferences.allowRepetition === 'max_twice'
-        ? 'Each recipe can appear at most 2 times across the entire week.'
-        : 'There is no restriction on recipe repetition.';
+        : preferences.allowRepetition === 'free'
+        ? 'There is no restriction on recipe repetition.'
+        : `Each recipe can appear at most ${maxReps} times across the entire week.`;
 
     const margin = preferences.goalMarginPercent ?? 15;
     const priorityRule =
@@ -316,7 +322,8 @@ export async function autocompleteWeek(input: {
   availableRecipes: unknown;
   activeGoal: unknown;
   preferences: {
-    allowRepetition: 'no_repeat' | 'max_twice' | 'free';
+    allowRepetition: 'no_repeat' | 'max_n' | 'max_twice' | 'free';
+    maxRepetitions?: number;
     priority: 'goal' | 'protein' | 'calories';
     dietaryRestrictions?: string;
     goalMarginPercent?: number;

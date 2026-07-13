@@ -17,7 +17,10 @@ import { Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface AutocompletePreferences {
-  allowRepetition: 'no_repeat' | 'max_twice' | 'free';
+  allowRepetition: 'no_repeat' | 'max_n' | 'free';
+  // Only meaningful when allowRepetition === 'max_n': how many times the same
+  // recipe may appear across the week (user-chosen, 2–7).
+  maxRepetitions?: number;
   priority: 'goal' | 'protein' | 'calories';
   dietaryRestrictions: string;
   goalMarginPercent: number;
@@ -41,14 +44,15 @@ export function AutocompletePreferencesDialog({
   isLoading,
   hasGoal,
 }: AutocompletePreferencesDialogProps) {
-  const [allowRepetition, setAllowRepetition] = useState<AutocompletePreferences['allowRepetition']>('max_twice');
+  const [allowRepetition, setAllowRepetition] = useState<AutocompletePreferences['allowRepetition']>('max_n');
+  const [maxRepetitions, setMaxRepetitions] = useState(2);
   const [priority, setPriority] = useState<AutocompletePreferences['priority']>(hasGoal ? 'goal' : 'protein');
   const [dietaryRestrictions, setDietaryRestrictions] = useState('');
   const [goalMarginPercent, setGoalMarginPercent] = useState(15);
   const [recipeSource, setRecipeSource] = useState<AutocompletePreferences['recipeSource']>('all');
 
   const handleConfirm = () => {
-    onConfirm({ allowRepetition, priority, dietaryRestrictions, goalMarginPercent, recipeSource });
+    onConfirm({ allowRepetition, maxRepetitions, priority, dietaryRestrictions, goalMarginPercent, recipeSource });
   };
 
   return (
@@ -70,26 +74,71 @@ export function AutocompletePreferencesDialog({
               onValueChange={(v) => setAllowRepetition(v as AutocompletePreferences['allowRepetition'])}
               className="space-y-2"
             >
-              {[
-                { value: 'no_repeat', label: 'Sin repetición', desc: 'Cada receta aparece como máximo una vez' },
-                { value: 'max_twice', label: 'Máximo 2 veces por semana', desc: 'Permite alguna repetición puntual' },
-                { value: 'free', label: 'Sin restricción', desc: 'La IA elige libremente' },
-              ].map(({ value, label, desc }) => (
-                <label
-                  key={value}
-                  htmlFor={`rep-${value}`}
-                  className={cn(
-                    'flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
-                    allowRepetition === value ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent/30'
-                  )}
-                >
-                  <RadioGroupItem value={value} id={`rep-${value}`} className="mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium">{label}</p>
-                    <p className="text-xs text-muted-foreground">{desc}</p>
+              <label
+                htmlFor="rep-no_repeat"
+                className={cn(
+                  'flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
+                  allowRepetition === 'no_repeat' ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent/30'
+                )}
+              >
+                <RadioGroupItem value="no_repeat" id="rep-no_repeat" className="mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">Sin repetición</p>
+                  <p className="text-xs text-muted-foreground">Cada receta aparece como máximo una vez</p>
+                </div>
+              </label>
+
+              {/* Limited repetition with a user-chosen cap (2–7 times per week) */}
+              <label
+                htmlFor="rep-max_n"
+                className={cn(
+                  'flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
+                  allowRepetition === 'max_n' ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent/30'
+                )}
+              >
+                <RadioGroupItem value="max_n" id="rep-max_n" className="mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Repetición limitada</p>
+                  <p className="text-xs text-muted-foreground">
+                    Cada receta puede aparecer hasta {maxRepetitions} veces por semana
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    {[2, 3, 4, 5, 6, 7].map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => {
+                          setMaxRepetitions(n);
+                          setAllowRepetition('max_n');
+                        }}
+                        aria-label={`Máximo ${n} veces por semana`}
+                        className={cn(
+                          'h-7 w-7 rounded-full border text-xs font-medium transition-colors',
+                          allowRepetition === 'max_n' && maxRepetitions === n
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'border-border text-muted-foreground hover:bg-accent/40'
+                        )}
+                      >
+                        {n}
+                      </button>
+                    ))}
                   </div>
-                </label>
-              ))}
+                </div>
+              </label>
+
+              <label
+                htmlFor="rep-free"
+                className={cn(
+                  'flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
+                  allowRepetition === 'free' ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent/30'
+                )}
+              >
+                <RadioGroupItem value="free" id="rep-free" className="mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">Sin restricción</p>
+                  <p className="text-xs text-muted-foreground">La IA elige libremente</p>
+                </div>
+              </label>
             </RadioGroup>
           </div>
 

@@ -72,7 +72,8 @@ export function MobileAssistant({
         availableRecipes,
         activeGoal: profileState.activeGoalMacros || null,
         preferences: {
-          allowRepetition: 'max_twice',
+          allowRepetition: 'max_n',
+          maxRepetitions: 2,
           priority: profileState.activeGoalMacros ? 'goal' : 'protein',
           dietaryRestrictions: '',
           goalMarginPercent: 15,
