@@ -10,18 +10,31 @@ export interface Macros {
 export interface BaseIngredient extends Macros {
   id: string;
   name: string;
+  // Optional brand (e.g. "Hacendado"). Shown separately from the name — like
+  // Open Food Facts does — instead of being baked into the title. Together with
+  // `name` it forms the ingredient's identity (see `ingredientKey`).
+  brand?: string;
+  // Optional natural unit so the food can be added by pieces instead of grams
+  // (e.g. 1 loncha = 30 g, 1 yogur = 120 g). Macros are still stored per 100g;
+  // this is only a convenience for entering/reading quantities.
+  unitName?: string;   // e.g. "loncha", "yogur", "rebanada"
+  unitWeight?: number; // grams in one such unit
   // per 100g or 100ml
   fiber: number;
   createdBy: string;
 }
 
 // An ingredient within a recipe no longer stores its own macros.
-// It references a BaseIngredient via its name.
+// It references a BaseIngredient via its name (+ optional brand).
 const IngredientSchema = z.object({
   id: z.string(),
   name: z.string(),
+  brand: z.string().optional(),
   quantity: z.number(),
+  // 'g'/'ml' → quantity is grams; any other unit is a piece count and
+  // `unitWeight` (grams per piece) is snapshotted so macros stay correct.
   unit: z.string(),
+  unitWeight: z.number().optional(),
 });
 export type Ingredient = z.infer<typeof IngredientSchema>;
 

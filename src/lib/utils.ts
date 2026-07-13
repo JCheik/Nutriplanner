@@ -18,4 +18,17 @@ export function normalizeText(text: string): string {
     .replace(/[\u0300-\u036f]/g, ""); // Removes the diacritics
 }
 
+/**
+ * Identity key for an ingredient, combining its name and optional brand so two
+ * products with the same name but different brands (e.g. "yogur natural" from
+ * Hacendado vs. Danone) resolve to different base ingredients and don't clash
+ * in the lookup maps. Falls back to name-only when there's no brand, which keeps
+ * it backward-compatible with ingredients saved before brands existed.
+ */
+export function ingredientKey(name: string, brand?: string): string {
+  const n = normalizeText(name);
+  const b = normalizeText(brand ?? '');
+  return b ? `${n}||${b}` : n;
+}
+
     

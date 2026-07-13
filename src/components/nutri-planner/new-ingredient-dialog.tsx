@@ -27,6 +27,9 @@ interface NewIngredientDialogProps {
 export function NewIngredientDialog({ isOpen, onClose, onSave, ingredientToEdit }: NewIngredientDialogProps) {
   const { user } = useUser();
   const [name, setName] = useState('');
+  const [brand, setBrand] = useState('');
+  const [unitName, setUnitName] = useState('');
+  const [unitWeight, setUnitWeight] = useState<number | ''>('');
   const [calories, setCalories] = useState<number | ''>('');
   const [protein, setProtein] = useState<number | ''>('');
   const [carbs, setCarbs] = useState<number | ''>('');
@@ -38,6 +41,9 @@ export function NewIngredientDialog({ isOpen, onClose, onSave, ingredientToEdit 
   useEffect(() => {
     if (isOpen && ingredientToEdit) {
       setName(ingredientToEdit.name || '');
+      setBrand(ingredientToEdit.brand || '');
+      setUnitName(ingredientToEdit.unitName || '');
+      setUnitWeight(ingredientToEdit.unitWeight ?? '');
       setCalories(ingredientToEdit.calories ?? '');
       setProtein(ingredientToEdit.protein ?? '');
       setCarbs(ingredientToEdit.carbs ?? '');
@@ -50,8 +56,17 @@ export function NewIngredientDialog({ isOpen, onClose, onSave, ingredientToEdit 
 
   const handleSave = () => {
     if (!name || !user) return;
+    const trimmedBrand = brand.trim();
+    const trimmedUnitName = unitName.trim();
+    const parsedUnitWeight = Number(unitWeight) || 0;
     const newIngredient: EditableIngredient = {
       name,
+      // Only include optional fields when set — Firestore rejects `undefined`.
+      ...(trimmedBrand ? { brand: trimmedBrand } : {}),
+      // A usable unit needs both a name and a positive weight.
+      ...(trimmedUnitName && parsedUnitWeight > 0
+        ? { unitName: trimmedUnitName, unitWeight: parsedUnitWeight }
+        : {}),
       calories: Number(calories) || 0,
       protein: Number(protein) || 0,
       carbs: Number(carbs) || 0,
@@ -73,6 +88,9 @@ export function NewIngredientDialog({ isOpen, onClose, onSave, ingredientToEdit 
 
   const resetForm = () => {
     setName('');
+    setBrand('');
+    setUnitName('');
+    setUnitWeight('');
     setCalories('');
     setProtein('');
     setCarbs('');
@@ -110,6 +128,12 @@ export function NewIngredientDialog({ isOpen, onClose, onSave, ingredientToEdit 
             <Input id="name" name="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="brand" className="text-right">
+              Marca
+            </Label>
+            <Input id="brand" name="brand" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Opcional · ej. Hacendado" className="col-span-3" />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="calories" className="text-right">
               Calorías (kcal)
             </Label>
@@ -138,6 +162,25 @@ export function NewIngredientDialog({ isOpen, onClose, onSave, ingredientToEdit 
               Fibra (g)
             </Label>
             <Input id="fiber" name="fiber" type="number" value={fiber} onChange={handleNumericChange(setFiber)} className="col-span-3" />
+          </div>
+
+          {/* Optional natural unit, so the food can be added to recipes by pieces
+              instead of grams (e.g. 1 loncha = 30 g). Macros above stay per 100g. */}
+          <div className="border-t border-white/10 pt-4 space-y-2">
+            <Label className="text-sm font-medium">Unidad <span className="font-normal text-muted-foreground">(opcional)</span></Label>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label htmlFor="unitName" className="text-xs text-muted-foreground">Nombre</Label>
+                <Input id="unitName" name="unitName" value={unitName} onChange={(e) => setUnitName(e.target.value)} placeholder="ej. loncha, yogur" />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="unitWeight" className="text-xs text-muted-foreground">Peso (g)</Label>
+                <Input id="unitWeight" name="unitWeight" type="number" value={unitWeight} onChange={handleNumericChange(setUnitWeight)} placeholder="ej. 30" />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Para poder añadirlo por piezas. Ej.: 1 loncha = 30 g, así 2 lonchas serán 60 g.
+            </p>
           </div>
         </div>
         <DialogFooter>

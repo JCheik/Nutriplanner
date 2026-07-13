@@ -28,13 +28,62 @@ import { MissingIngredientRow, type ReviewIngredient, type ReviewMacroField } fr
 import { Card, CardContent } from '../ui/card';
 import Image from 'next/image';
 import { Switch } from '../ui/switch';
-import { normalizeText, cn } from '@/lib/utils';
+import { normalizeText, ingredientKey, cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { CookingModeDialog } from './cooking-mode-dialog';
 import { ChefHat } from 'lucide-react';
 import { FeatureHint } from './feature-hint';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // matches storage.rules limit
+
+/**
+ * Builds the lookup map from the ingredient DB. Keyed primarily by name+brand
+ * (`ingredientKey`) so same-named products of different brands stay distinct,
+ * with a name-only fallback entry so recipe ingredients saved before brands
+ * existed still resolve.
+ */
+function buildIngredientDBMap(ingredientDB: BaseIngredient[] | null | undefined) {
+  const map = new Map<string, BaseIngredient>();
+  (ingredientDB ?? []).forEach(ing => {
+    map.set(ingredientKey(ing.name, ing.brand), ing);
+    const nameOnly = normalizeText(ing.name);
+    if (!map.has(nameOnly)) map.set(nameOnly, ing);
+  });
+  return map;
+}
+
+/** Resolves a recipe ingredient to its base ingredient: name+brand, then name. */
+function lookupBaseIngredient(
+  map: Map<string, BaseIngredient>,
+  name: string,
+  brand?: string,
+): BaseIngredient | undefined {
+  return map.get(ingredientKey(name, brand)) ?? map.get(normalizeText(name));
+}
+
+/**
+ * Grams a recipe ingredient represents, for macro maths (macros are per 100g).
+ * 'g'/'ml' → the quantity itself. A piece unit (e.g. "loncha") multiplies the
+ * count by grams-per-piece, taken from the snapshot on the ingredient or, for
+ * older recipes, from the matching base ingredient. Legacy free-text units with
+ * no known weight fall back to treating the quantity as grams (prior behaviour).
+ */
+/** Naive Spanish pluralization for a piece unit label ("loncha" → "lonchas"). */
+function pluralizeUnit(unit: string, quantity: number): string {
+  if (quantity === 1 || !unit) return unit;
+  return /[aeiouáéíóú]$/i.test(unit) ? `${unit}s` : `${unit}es`;
+}
+
+function ingredientGrams(ing: Ingredient, baseIng?: BaseIngredient): number {
+  const unit = (ing.unit || '').toLowerCase();
+  if (unit === 'g' || unit === 'ml' || unit === '') return ing.quantity;
+  const weight =
+    ing.unitWeight ??
+    (baseIng?.unitName && normalizeText(baseIng.unitName) === normalizeText(ing.unit)
+      ? baseIng.unitWeight
+      : undefined);
+  return weight ? ing.quantity * weight : ing.quantity;
+}
 
 export type DialogState = DialogStateBase;
 
@@ -97,14 +146,8 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
 
   const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);
   const { data: ingredientDB, isLoading: ingredientsLoading } = useCollection<BaseIngredient>(ingredientsCollectionRef);
-  
-  const ingredientDBMap = useMemo(() => {
-    const map = new Map<string, BaseIngredient>();
-    if (ingredientDB) {
-      ingredientDB.forEach(ing => map.set(normalizeText(ing.name), ing));
-    }
-    return map;
-  }, [ingredientDB]);
+
+  const ingredientDBMap = useMemo(() => buildIngredientDBMap(ingredientDB), [ingredientDB]);
 
 
   const [name, setName] = useState('');
@@ -124,6 +167,9 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIngredient, setSelectedIngredient] = useState<BaseIngredient | null>(null);
   const [newIngredientQty, setNewIngredientQty] = useState<number | string>(100);
+  // How the quantity above is expressed: grams, or pieces of the selected
+  // ingredient's natural unit (only offered when it defines one).
+  const [addByUnit, setAddByUnit] = useState(false);
   // Open Food Facts results shown INLINE in the same search dropdown, so the
   // user never has to know there are two food sources. null = not searched yet.
   const [offResults, setOffResults] = useState<OffProduct[] | null>(null);
@@ -137,6 +183,8 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
     setIngredients(initialRecipe?.ingredients?.map(ing => ({
         id: ing.id || self.crypto.randomUUID(),
         name: ing.name,
+        // Preserve the brand so editing a recipe keeps the product identity.
+        ...(ing.brand ? { brand: ing.brand } : {}),
         quantity: ing.quantity,
         unit: ing.unit,
     })) || []);
@@ -169,10 +217,10 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
 
   const calculatedTotals = useMemo(() => {
     return ingredients.reduce((acc, ing) => {
-        const baseIng = ingredientDBMap.get(normalizeText(ing.name));
+        const baseIng = lookupBaseIngredient(ingredientDBMap, ing.name, ing.brand);
         if (!baseIng) return acc;
-      
-        const scale = ing.quantity / 100;
+
+        const scale = ingredientGrams(ing, baseIng) / 100;
         acc.calories += (baseIng.calories || 0) * scale;
         acc.protein += (baseIng.protein || 0) * scale;
         acc.carbs += (baseIng.carbs || 0) * scale;
@@ -289,10 +337,10 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
     if (aiEstimateMap.size > 0) {
       const reviewByKey = new Map(reviewIngredients.map(r => [normalizeText(r.name), r]));
       const totals = ingredients.reduce((acc, ing) => {
-        const key = normalizeText(ing.name);
-        const src = ingredientDBMap.get(key) ?? reviewByKey.get(key);
+        const dbIng = lookupBaseIngredient(ingredientDBMap, ing.name, ing.brand);
+        const src = dbIng ?? reviewByKey.get(normalizeText(ing.name));
         if (src) {
-          const scale = ing.quantity / 100;
+          const scale = ingredientGrams(ing, dbIng) / 100;
           acc.calories += (src.calories || 0) * scale;
           acc.protein += (src.protein || 0) * scale;
           acc.carbs += (src.carbs || 0) * scale;
@@ -326,10 +374,20 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
     onSave(recipeData as Omit<Recipe, 'id'>, imageFile, saveAsGlobal, initialRecipe?.id);
   };
   
+  // Selecting an ingredient defaults the quantity input to its natural unit when
+  // it has one (1 piece), otherwise to 100 g — whichever the user is more likely
+  // to want.
+  const chooseIngredient = (ingredient: BaseIngredient) => {
+    const hasUnit = !!(ingredient.unitName && ingredient.unitWeight);
+    setSelectedIngredient(ingredient);
+    setAddByUnit(hasUnit);
+    setNewIngredientQty(hasUnit ? 1 : 100);
+  };
+
   const handleSelectIngredient = (ingredient: BaseIngredient) => {
     setSearchQuery('');
     setOffResults(null);
-    setSelectedIngredient(ingredient);
+    chooseIngredient(ingredient);
   };
 
   const runOffSearch = async () => {
@@ -347,18 +405,21 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
   };
 
   // Picking an OFF product reuses the matching DB ingredient when one exists
-  // (same normalized name) or silently creates it with the per-100g macros —
-  // one tap instead of the old search → crear alimento → OFF → save dance.
+  // (same name + brand) or silently creates it with the per-100g macros — one
+  // tap instead of the old search → crear alimento → OFF → save dance. The brand
+  // is stored in its own field (not baked into the name) so it shows separately.
   const selectOffProduct = async (p: OffProduct) => {
-    const displayName = p.brand ? `${p.name} (${p.brand})` : p.name;
     const existing =
-      ingredientDBMap.get(normalizeText(displayName)) ?? ingredientDBMap.get(normalizeText(p.name));
+      ingredientDBMap.get(ingredientKey(p.name, p.brand)) ??
+      // Back-compat: older entries baked the brand into the name as "name (brand)".
+      (p.brand ? ingredientDBMap.get(normalizeText(`${p.name} (${p.brand})`)) : undefined);
     if (existing) {
-      setSelectedIngredient(existing);
+      chooseIngredient(existing);
     } else {
       if (!ingredientsCollectionRef || !user) return;
       const data = {
-        name: displayName,
+        name: p.name,
+        ...(p.brand ? { brand: p.brand } : {}),
         calories: Math.round(p.per100g.calories),
         protein: Math.round(p.per100g.protein * 10) / 10,
         carbs: Math.round(p.per100g.carbs * 10) / 10,
@@ -368,7 +429,7 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
       };
       try {
         const docRef = await addDoc(ingredientsCollectionRef, data);
-        setSelectedIngredient({ ...data, id: docRef.id });
+        chooseIngredient({ ...data, id: docRef.id });
       } catch (e) {
         console.error('No se pudo crear el alimento desde OFF:', e);
         toast({ variant: 'destructive', title: 'Error', description: 'No se pudo guardar el alimento. Inténtalo de nuevo.' });
@@ -396,20 +457,36 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
   const addIngredient = () => {
     if (!selectedIngredient) return;
 
+    const useUnit = addByUnit && !!(selectedIngredient.unitName && selectedIngredient.unitWeight);
+    const qty = Number(newIngredientQty) || (useUnit ? 1 : 100);
+
     const newIng: Ingredient = {
       id: self.crypto.randomUUID(),
       name: selectedIngredient.name,
-      quantity: Number(newIngredientQty) || 100,
-      unit: 'g',
+      // Carry the brand so this exact product resolves later (and shows apart).
+      ...(selectedIngredient.brand ? { brand: selectedIngredient.brand } : {}),
+      quantity: qty,
+      // Piece unit: store its name + grams-per-piece snapshot; else grams.
+      ...(useUnit
+        ? { unit: selectedIngredient.unitName!, unitWeight: selectedIngredient.unitWeight! }
+        : { unit: 'g' }),
     };
 
     setIngredients(prev => [...prev, newIng]);
     setSelectedIngredient(null);
     setNewIngredientQty(100);
+    setAddByUnit(false);
   };
-  
+
   const removeIngredient = (id: string) => {
     setIngredients(prev => prev.filter(i => i.id !== id));
+  };
+
+  // Modify an already-added ingredient's quantity inline (empty = keep editing).
+  const updateIngredientQuantity = (id: string, value: string) => {
+    const parsed = value === '' ? 0 : Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0) return;
+    setIngredients(prev => prev.map(i => (i.id === id ? { ...i, quantity: parsed } : i)));
   };
   
   const handleNewIngredientSave = (ingredientData: EditableIngredient) => {
@@ -423,7 +500,7 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
     addDoc(ingredientsCollectionRef, newIngredientWithUser).then(docRef => {
         if (docRef) {
           const newOptimisticIngredient: BaseIngredient = { ...newIngredientWithUser, id: docRef.id };
-          setSelectedIngredient(newOptimisticIngredient);
+          chooseIngredient(newOptimisticIngredient);
         }
     });
 
@@ -432,11 +509,15 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
   
   const ingredientDisplayList = useMemo(() => {
     return ingredients.map(ing => {
-        const baseIng = ingredientDBMap.get(normalizeText(ing.name));
-        const scale = ing.quantity / 100;
+        const baseIng = lookupBaseIngredient(ingredientDBMap, ing.name, ing.brand);
+        const grams = ingredientGrams(ing, baseIng);
+        const scale = grams / 100;
         const calories = baseIng ? (baseIng.calories || 0) * scale : 0;
+        // Prefer the brand stored on the recipe ingredient; fall back to the DB.
         return {
             ...ing,
+            brand: ing.brand ?? baseIng?.brand,
+            grams,
             calories,
         };
     });
@@ -448,7 +529,10 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
     if (!normalizedQuery) return [];
     
     return (ingredientDB || [])
-        .filter(ingredient => normalizeText(ingredient.name).includes(normalizedQuery))
+        .filter(ingredient =>
+          normalizeText(ingredient.name).includes(normalizedQuery) ||
+          (ingredient.brand ? normalizeText(ingredient.brand).includes(normalizedQuery) : false)
+        )
         .sort((a, b) => a.name.localeCompare(b.name))
         .slice(0, 5);
   }, [searchQuery, ingredientDB]);
@@ -643,7 +727,8 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
                                     {/* Local ingredient DB matches */}
                                     {filteredIngredients.map((ing) => (
                                         <div key={ing.id} onClick={() => handleSelectIngredient(ing)} className="p-2 hover:bg-black/10 rounded-md cursor-pointer text-sm">
-                                            {ing.name}
+                                            <span className="leading-tight">{ing.name}</span>
+                                            {ing.brand && <span className="ml-2 text-xs text-muted-foreground">{ing.brand}</span>}
                                         </div>
                                     ))}
                                     {filteredIngredients.length === 0 && !ingredientsLoading && offResults === null && (
@@ -697,33 +782,76 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
                             )}
                         </div>
 
-                        {selectedIngredient && (
-                            <div className="flex gap-2 items-end bg-black/10 p-2 rounded-md">
-                                <div className="flex-1 min-w-0">
-                                    <Label className="text-xs">Ingrediente seleccionado</Label>
-                                    <p className="font-semibold truncate">{selectedIngredient.name}</p>
+                        {selectedIngredient && (() => {
+                            const hasUnit = !!(selectedIngredient.unitName && selectedIngredient.unitWeight);
+                            const unitMode = addByUnit && hasUnit;
+                            const count = Number(newIngredientQty) || 0;
+                            const grams = unitMode ? count * (selectedIngredient.unitWeight ?? 0) : count;
+                            return (
+                              <div className="bg-black/10 p-2 rounded-md space-y-2">
+                                <div className="flex gap-2 items-end">
+                                    <div className="flex-1 min-w-0">
+                                        <Label className="text-xs">Ingrediente seleccionado</Label>
+                                        <p className="font-semibold truncate leading-tight">{selectedIngredient.name}</p>
+                                        {selectedIngredient.brand && <p className="text-xs text-muted-foreground truncate leading-tight">{selectedIngredient.brand}</p>}
+                                    </div>
+                                    <div className="w-20 shrink-0">
+                                        <Label htmlFor='qty' className="text-xs">{unitMode ? 'Cant.' : 'Cant. (g)'}</Label>
+                                        <Input id='qty' type="number" inputMode="decimal" value={newIngredientQty} onChange={e => setNewIngredientQty(e.target.value)} />
+                                    </div>
+                                    <Button size="icon" className="shrink-0" aria-label="Añadir ingrediente" onClick={addIngredient}><Plus className="h-4 w-4" /></Button>
                                 </div>
-                                <div className="w-20 shrink-0">
-                                    <Label htmlFor='qty' className="text-xs">Cant. (g)</Label>
-                                    <Input id='qty' type="number" value={newIngredientQty} onChange={e => setNewIngredientQty(e.target.value)} />
-                                </div>
-                                <Button size="icon" className="shrink-0" onClick={addIngredient}><Plus className="h-4 w-4" /></Button>
-                            </div>
-                        )}
+                                {/* Unit toggle + live conversion, only when the food defines a unit. */}
+                                {hasUnit && (
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex rounded-md border border-white/10 overflow-hidden text-xs">
+                                        <button type="button" onClick={() => { setAddByUnit(false); setNewIngredientQty(100); }} className={cn('px-2 py-1', !unitMode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>gramos</button>
+                                        <button type="button" onClick={() => { setAddByUnit(true); setNewIngredientQty(1); }} className={cn('px-2 py-1', unitMode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>{pluralizeUnit(selectedIngredient.unitName!, 2)}</button>
+                                    </div>
+                                    <span className="text-xs text-muted-foreground">
+                                        {unitMode
+                                          ? `${count || 0} ${pluralizeUnit(selectedIngredient.unitName!, count)} = ${Math.round(grams)} g`
+                                          : `1 ${selectedIngredient.unitName} = ${selectedIngredient.unitWeight} g`}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                        })()}
                         
                         <div className='space-y-2'>
                             <Label>2. Ingredientes de la Receta</Label>
                             <ScrollArea className="h-36 border border-white/10 rounded-lg p-2">
                                 <div className="space-y-2 pr-2">
-                                    {ingredientDisplayList.map(ing => (
-                                    <div key={ing.id} className="flex items-center justify-between gap-2 bg-black/10 p-2 rounded-md text-sm">
-                                        <span className="truncate min-w-0">{ing.quantity}{ing.unit} <strong>{ing.name}</strong></span>
-                                        <div className='flex items-center gap-2 shrink-0'>
-                                            <span className='text-xs text-muted-foreground whitespace-nowrap'>{Math.round(ing.calories)} kcal</span>
-                                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeIngredient(ing.id)}><Trash2 className="h-4 w-4" /></Button>
+                                    {ingredientDisplayList.map(ing => {
+                                    const isPiece = ing.unit && !['g', 'ml'].includes(ing.unit.toLowerCase());
+                                    return (
+                                    <div key={ing.id} className="flex items-center gap-2 bg-black/10 p-2 rounded-md text-sm">
+                                        {/* Name + brand truncate; the controls on the right never shrink,
+                                            so the delete button is always reachable even for long names. */}
+                                        <div className="flex-1 min-w-0">
+                                            <p className="truncate font-semibold leading-tight">{ing.name}</p>
+                                            {ing.brand && <p className="truncate text-xs text-muted-foreground leading-tight">{ing.brand}</p>}
+                                            <p className="text-xs text-muted-foreground">
+                                              {Math.round(ing.calories)} kcal
+                                              {isPiece && ing.grams > 0 && ` · ${Math.round(ing.grams)} g`}
+                                            </p>
+                                        </div>
+                                        <div className='flex items-center gap-1 shrink-0'>
+                                            <Input
+                                              type="number"
+                                              inputMode="decimal"
+                                              aria-label={`Cantidad de ${ing.name}`}
+                                              value={ing.quantity}
+                                              onChange={e => updateIngredientQuantity(ing.id, e.target.value)}
+                                              className="h-8 w-16 px-1 text-center"
+                                            />
+                                            <span className="text-xs text-muted-foreground min-w-8">{isPiece ? pluralizeUnit(ing.unit, ing.quantity) : ing.unit}</span>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive hover:text-destructive" aria-label={`Quitar ${ing.name}`} onClick={() => removeIngredient(ing.id)}><Trash2 className="h-4 w-4" /></Button>
                                         </div>
                                     </div>
-                                    ))}
+                                    );
+                                    })}
                                     {ingredients.length === 0 && (
                                         <p className="text-sm text-muted-foreground text-center pt-8">Añade ingredientes para verlos aquí.</p>
                                     )}
@@ -822,13 +950,7 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe, is
   const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);
   const { data: ingredientDB } = useCollection<BaseIngredient>(ingredientsCollectionRef);
   
-  const ingredientDBMap = useMemo(() => {
-    const map = new Map<string, BaseIngredient>();
-    if (ingredientDB) {
-      ingredientDB.forEach(ing => map.set(normalizeText(ing.name), ing));
-    }
-    return map;
-  }, [ingredientDB]);
+  const ingredientDBMap = useMemo(() => buildIngredientDBMap(ingredientDB), [ingredientDB]);
 
   const canEdit = isAdmin || !isNutriPlannerRecipe;
 
@@ -852,12 +974,18 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe, is
         <ul className="list-disc list-inside space-y-1 text-sm">
           {recipe.ingredients.map(ing => {
             // Always look up the ingredient in the DB map to get live macros
-            const baseIng = ingredientDBMap.get(normalizeText(ing.name));
-            const scale = baseIng ? ing.quantity / 100 : 0;
+            const baseIng = lookupBaseIngredient(ingredientDBMap, ing.name, ing.brand);
+            const grams = ingredientGrams(ing, baseIng);
+            const scale = baseIng ? grams / 100 : 0;
             const calories = baseIng ? (baseIng.calories || 0) * scale : 0;
+            const brand = ing.brand ?? baseIng?.brand;
+            // For piece units, also show the gram equivalent (e.g. "2 lonchas · 60 g").
+            const isPiece = ing.unit && !['g', 'ml'].includes(ing.unit.toLowerCase());
             return (
               <li key={ing.id}>
-                  {ing.quantity}{ing.unit} {ing.name}
+                  {ing.quantity} {isPiece ? pluralizeUnit(ing.unit, ing.quantity) : ing.unit} {ing.name}
+                  {isPiece && grams > 0 && <span className="text-xs text-muted-foreground ml-1">· {Math.round(grams)} g</span>}
+                  {brand && <span className="text-xs text-muted-foreground ml-1">· {brand}</span>}
                   {baseIng && <span className="text-xs text-muted-foreground ml-2">({Math.round(calories)} kcal)</span>}
               </li>
             );
