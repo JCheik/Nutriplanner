@@ -4,9 +4,11 @@ service firebase.storage {
   match /b/{bucket}/o {
 
     // Recipe images live at recipes/<uid|global>/<recipeId>.<ext>.
-    // They are uploaded server-side via the Admin SDK (which bypasses these
-    // rules), so direct client writes aren't used in practice; this is
-    // defense-in-depth. Public read is required to render the images.
+    // They are uploaded directly from the client (signed-in user) via the
+    // Firebase Storage SDK, so these rules are what actually authorize the write:
+    // any authenticated user may upload an image under 5MB. Public read is
+    // required to render the images. (Global recipes use ownerId "global";
+    // writing the recipe doc itself is still admin-gated by Firestore rules.)
     match /recipes/{ownerId}/{imageName} {
       allow read;
       allow write: if request.auth != null &&

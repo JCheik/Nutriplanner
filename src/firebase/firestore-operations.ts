@@ -1,4 +1,5 @@
 import { Firestore, doc, runTransaction, setDoc, deleteDoc, collection, getDoc } from 'firebase/firestore';
+import { FirebaseStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { DayPlan, Recipe, Meal, RecipeInstance, WeekHistoryEntry } from '@/lib/types';
 import { INITIAL_WEEK_PLAN, DAY_ORDER } from '@/lib/data';
 
@@ -10,12 +11,36 @@ function stripUndefined<T extends Record<string, any>>(obj: T): T {
 }
 
 /**
+ * Uploads a recipe photo to Storage from the client SDK and returns its public
+ * download URL. Runs as the signed-in user, so it respects the Storage security
+ * rules (`recipes/<uid|global>/…`, authenticated + image + <5MB) and does NOT
+ * need the Admin SDK / a service account — which is why it works in local dev,
+ * where the server-side Admin credentials aren't configured.
+ */
+export async function uploadRecipeImageClient(
+  storage: FirebaseStorage,
+  userId: string,
+  recipeId: string,
+  isGlobal: boolean,
+  imageFile: File
+): Promise<string> {
+  const extension = imageFile.name.split('.').pop() || 'jpg';
+  const path = `recipes/${isGlobal ? 'global' : userId}/${recipeId}.${extension}`;
+  const fileRef = storageRef(storage, path);
+  await uploadBytes(fileRef, imageFile, { contentType: imageFile.type });
+  return getDownloadURL(fileRef);
+}
+
+/**
  * Saves (creates or updates) a recipe directly from the client SDK.
  *
  * This works in local development and respects Firestore security rules, so it
- * does NOT depend on the Admin SDK / a service account being configured. Image
- * uploads still require the server action (Admin SDK + Storage); this path is
- * used whenever there is no new image file to upload.
+ * does NOT depend on the Admin SDK / a service account being configured.
+ *
+ * When `opts.storage` and `opts.imageFile` are provided, the photo is uploaded
+ * to Storage from the client first (see `uploadRecipeImageClient`) and the
+ * resulting URL is written with the recipe. Without them, an existing
+ * `recipeData.imageUrl` is preserved as-is.
  *
  * Uses `{ merge: true }` so editing a recipe without re-sending `imageUrl`
  * preserves the existing image instead of wiping it.
@@ -25,7 +50,8 @@ export async function saveRecipeClient(
   userId: string,
   recipeData: Omit<Recipe, 'id'>,
   isGlobal: boolean,
-  existingId?: string
+  existingId?: string,
+  opts?: { storage: FirebaseStorage; imageFile: File },
 ): Promise<string> {
   const collectionRef = isGlobal
     ? collection(firestore, 'nutriplanner_recipes')
@@ -33,8 +59,15 @@ export async function saveRecipeClient(
 
   const docRef = existingId ? doc(collectionRef, existingId) : doc(collectionRef);
 
+  // Upload the photo first (if any) so the recipe is written with its final URL.
+  // The recipe doc id doubles as the image filename, keeping one image per recipe.
+  const imageUrl = opts
+    ? await uploadRecipeImageClient(opts.storage, userId, docRef.id, isGlobal, opts.imageFile)
+    : recipeData.imageUrl;
+
   const recipeToSave = stripUndefined({
     ...recipeData,
+    ...(imageUrl !== undefined ? { imageUrl } : {}),
     id: docRef.id,
   });
 
