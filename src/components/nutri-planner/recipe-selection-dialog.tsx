@@ -6,11 +6,19 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Filter } from 'lucide-react';
-import type { Meal, Recipe, DietTag } from '@/lib/types';
+import { Search, Filter, ArrowUpDown } from 'lucide-react';
+import type { Meal, Recipe, DietTag, SortCriteria } from '@/lib/types';
 import { DIET_TAG_LABELS } from '@/lib/constants';
+import { RECIPE_SORT_OPTIONS, compareRecipes } from '@/lib/recipe-sort';
 import { normalizeText, cn } from '@/lib/utils';
 import { RecipeCard } from './recipe-card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   SMART_CATEGORY_ORDER,
   SMART_CATEGORY_LABELS,
@@ -37,6 +45,8 @@ export function RecipeSelectionDialog({ isOpen, onClose, meal, allRecipes, onSav
   // Default to filtering by the user's saved diet (when they have one); they can
   // toggle it off to see every recipe.
   const [dietFilterOn, setDietFilterOn] = useState(dietPreference.length > 0);
+  // Same options as the recipe library (macros are per serving).
+  const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
 
   const hasDietPref = dietPreference.length > 0;
   const dietLabel = dietPreference.map((d) => DIET_TAG_LABELS[d] ?? d).join(', ');
@@ -47,6 +57,7 @@ export function RecipeSelectionDialog({ isOpen, onClose, meal, allRecipes, onSav
       setSearchQuery('');
       setActiveCategory('all');
       setDietFilterOn(hasDietPref);
+      setSortCriteria('name-asc');
     }
   }, [isOpen, meal, hasDietPref]);
 
@@ -91,8 +102,8 @@ export function RecipeSelectionDialog({ isOpen, onClose, meal, allRecipes, onSav
         if (tags.length > 0 && !dietPreference.some(d => tags.includes(d))) return false;
       }
       return true;
-    });
-  }, [searchQuery, allRecipes, meal.recipes, dietFilterOn, hasDietPref, dietPreference]);
+    }).sort(compareRecipes(sortCriteria));
+  }, [searchQuery, allRecipes, meal.recipes, dietFilterOn, hasDietPref, dietPreference, sortCriteria]);
 
   // Group the filtered recipes by smart category, keeping only non-empty buckets
   // in their canonical order.
@@ -130,14 +141,42 @@ export function RecipeSelectionDialog({ isOpen, onClose, meal, allRecipes, onSav
           </DialogDescription>
         </DialogHeader>
 
-        <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-                placeholder="Buscar recetas..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="pl-10"
-            />
+        <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                    placeholder="Buscar recetas..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                />
+            </div>
+            {/* Same sort options as the library: macros compared per serving */}
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button
+                      variant={sortCriteria === 'name-asc' ? 'outline' : 'default'}
+                      size="icon"
+                      className="shrink-0"
+                      aria-label="Ordenar recetas"
+                      title="Ordenar por calorías, proteína, carbohidratos o grasa"
+                    >
+                        <ArrowUpDown className="h-4 w-4" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-glass">
+                    <DropdownMenuRadioGroup
+                      value={sortCriteria}
+                      onValueChange={(value) => setSortCriteria(value as SortCriteria)}
+                    >
+                        {RECIPE_SORT_OPTIONS.map((option) => (
+                            <DropdownMenuRadioItem key={option.value} value={option.value}>
+                                {option.label}
+                            </DropdownMenuRadioItem>
+                        ))}
+                    </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+            </DropdownMenu>
         </div>
 
         {hasDietPref && (

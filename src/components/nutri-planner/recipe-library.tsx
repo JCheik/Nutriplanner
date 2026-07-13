@@ -5,6 +5,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import type { Recipe, SortCriteria, DietTag } from '@/lib/types';
 import { DIET_TAGS } from '@/lib/constants';
 import { perServingMacros } from '@/lib/serving-utils';
+import { RECIPE_SORT_OPTIONS, compareRecipes } from '@/lib/recipe-sort';
 import {
   type SmartCategory,
   SMART_CATEGORY_LABELS,
@@ -57,31 +58,9 @@ interface RecipeLibraryProps {
 
 const MACRO_PILL_FILTERS = ['Alta en Proteína', 'Baja en Carbohidratos', 'Baja en Calorías', 'Pocos Ingredientes'];
 
-// Macro sort/filter criteria operate on PER-SERVING values, matching what the
-// cards display (a 4-serving batch is not "high calorie" per plate).
-const MACRO_SORT_KEYS = ['calories', 'protein', 'carbs', 'fat'] as const;
-type MacroSortKey = typeof MACRO_SORT_KEYS[number];
-
-function sortableValue(recipe: Recipe, key: keyof Recipe): string | number | undefined {
-  if ((MACRO_SORT_KEYS as readonly string[]).includes(key as string)) {
-    return perServingMacros(recipe)[key as MacroSortKey];
-  }
-  const v = recipe[key];
-  return typeof v === 'string' || typeof v === 'number' ? v : undefined;
-}
-
-const sortOptions: { value: SortCriteria; label: string }[] = [
-    { value: 'name-asc', label: 'Nombre (A-Z)' },
-    { value: 'name-desc', label: 'Nombre (Z-A)' },
-    { value: 'calories-asc', label: 'Calorías (Bajas a Altas)' },
-    { value: 'calories-desc', label: 'Calorías (Altas a Bajas)' },
-    { value: 'protein-asc', label: 'Proteína (Baja a Alta)' },
-    { value: 'protein-desc', label: 'Proteína (Alta a Baja)' },
-    { value: 'carbs-asc', label: 'Carbs (Bajos a Altos)' },
-    { value: 'carbs-desc', label: 'Carbs (Altos a Bajos)' },
-    { value: 'fat-asc', label: 'Grasa (Baja a Alta)' },
-    { value: 'fat-desc', label: 'Grasa (Alta a Baja)' },
-];
+// Sorting (per-serving macro values + labels) lives in lib/recipe-sort so the
+// slot recipe-selection dialog offers exactly the same ordering.
+const sortOptions = RECIPE_SORT_OPTIONS;
 
 function CategoryButton({
   name,
@@ -534,23 +513,7 @@ export function RecipeLibrary({
       }
 
       return textMatch && pillMatch && dietMatch;
-    }).sort((a, b) => {
-      const [key, order] = sortCriteria.split('-') as [keyof Recipe, 'asc' | 'desc'];
-      let valA = sortableValue(a, key);
-      let valB = sortableValue(b, key);
-
-      if (typeof valA === 'string' && typeof valB === 'string') {
-        valA = normalizeText(valA);
-        valB = normalizeText(valB);
-      }
-
-      if (valA === undefined || valA === null) return 1;
-      if (valB === undefined || valB === null) return -1;
-
-      if (valA < valB) return order === 'asc' ? -1 : 1;
-      if (valA > valB) return order === 'asc' ? 1 : -1;
-      return 0;
-    });
+    }).sort(compareRecipes(sortCriteria));
   }, [filterQuery, activePillFilters, activeDietFilters, sortCriteria, recipesInSelectedCategory]);
 
   // Cross-tab search: when query is active, search both collections simultaneously.
@@ -564,20 +527,7 @@ export function RecipeLibrary({
       return nameMatch || ingMatch;
     };
 
-    const sortFn = (a: Recipe, b: Recipe) => {
-      const [key, order] = sortCriteria.split('-') as [keyof Recipe, 'asc' | 'desc'];
-      let valA = sortableValue(a, key);
-      let valB = sortableValue(b, key);
-      if (typeof valA === 'string' && typeof valB === 'string') {
-        valA = normalizeText(valA);
-        valB = normalizeText(valB);
-      }
-      if (valA === undefined || valA === null) return 1;
-      if (valB === undefined || valB === null) return -1;
-      if (valA < valB) return order === 'asc' ? -1 : 1;
-      if (valA > valB) return order === 'asc' ? 1 : -1;
-      return 0;
-    };
+    const sortFn = compareRecipes(sortCriteria);
 
     return {
       user: userRecipes.filter(matchRecipe).sort(sortFn),
@@ -639,10 +589,6 @@ export function RecipeLibrary({
                 )}
                 {activeTab === 'user-recipes' && !isMobile && (
                   <>
-                    <Button variant="outline" onClick={onRecipeImportOpen} data-tour="recipe-import">
-                      <Link2 className="mr-2 h-4 w-4" />
-                      Importar URL
-                    </Button>
                     <Button variant="outline" onClick={onEmptyFridgeOpen} data-tour="fridge-scanner">
                       <Camera className="mr-2 h-4 w-4" />
                       Escanear Nevera
@@ -659,10 +605,22 @@ export function RecipeLibrary({
                         Asistente
                       </Button>
                     </FeatureHint>
-                    <Button onClick={() => onRecipeAction('create')}>
-                      <PlusCircle className="mr-2 h-4 w-4" />
-                      Nueva Receta
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button data-tour="recipe-import">
+                          <PlusCircle className="mr-2 h-4 w-4" />
+                          Nueva Receta
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-glass">
+                        <DropdownMenuItem onClick={() => onRecipeAction('create')}>
+                          <Edit className="mr-2 h-4 w-4" /> Crear receta en blanco
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={onRecipeImportOpen}>
+                          <Link2 className="mr-2 h-4 w-4" /> Importar desde URL
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </>
                 )}
               </div>
