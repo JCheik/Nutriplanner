@@ -42,12 +42,22 @@ export function useRecipeState() {
         try {
           recipeName = await saveRecipeClient(firestore, user.uid, recipeData, isGlobal, existingId, { storage, imageFile });
         } catch (imgError: any) {
-          // Photo upload failed (e.g. Storage rules/quota). Don't lose the whole
-          // recipe — save it without the photo and warn the user.
+          // Photo upload failed. Don't lose the whole recipe — save it without
+          // the photo and tell the user WHY, so the cause is actionable
+          // (unauthorized = Storage rules not deployed / signed out).
           console.error('Recipe image upload failed, saving without photo:', imgError);
+          const code: string = imgError?.code ?? '';
+          const reason =
+            code === 'storage/unauthorized'
+              ? 'Firebase rechazó la subida (reglas de Storage sin publicar o sesión caducada).'
+              : code === 'storage/quota-exceeded'
+              ? 'Se superó la cuota de almacenamiento.'
+              : code === 'storage/retry-limit-exceeded'
+              ? 'Problema de conexión: se agotaron los reintentos.'
+              : code || imgError?.message || 'error desconocido';
           const { imageUrl: _drop, ...withoutImage } = recipeData as Recipe;
           recipeName = await saveRecipeClient(firestore, user.uid, { ...withoutImage, imageUrl: '' }, isGlobal, existingId);
-          toast({ variant: 'destructive', title: 'Receta guardada sin foto', description: 'No se pudo subir la imagen, pero la receta se guardó. Inténtalo de nuevo más tarde para añadir la foto.' });
+          toast({ variant: 'destructive', title: 'Receta guardada sin foto', description: `No se pudo subir la imagen: ${reason}` });
           return;
         }
       } else {
