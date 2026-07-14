@@ -381,17 +381,21 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
   const [isEditing, setIsEditing] = useState(false);
   const [hoveredSlot, setHoveredSlot] = useState<{day: string, mealId: string} | null>(null);
   const plannerRef = useRef<HTMLDivElement>(null);
+  // Dedicated export layout (see the offscreen block at the bottom). Capturing
+  // the live planner produced a messy shot: truncated names, serving steppers
+  // and "1 ración · X kcal" controls baked into the image.
+  const exportRef = useRef<HTMLDivElement>(null);
 
   const handleDownloadImage = async () => {
-    if (!plannerRef.current) return;
+    if (!exportRef.current) return;
 
-    const canvas = await html2canvas(plannerRef.current, {
+    const canvas = await html2canvas(exportRef.current, {
       useCORS: true,
-      backgroundColor: '#ffffff', // Explicitly set a white background for the capture
+      backgroundColor: '#FFFDF9',
       scale: 2, // Increase resolution for better quality
     });
     const link = document.createElement('a');
-    link.download = 'plan-de-comidas.png';
+    link.download = 'plan-semanal-nutrilp.png';
     link.href = canvas.toDataURL('image/png');
     link.click();
   };
@@ -540,6 +544,64 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
           })}
         </div>
       </CardContent>
+
+      {/* ── Offscreen export layout ─────────────────────────────────────────
+          A clean, purpose-built "cuadrante" captured by handleDownloadImage:
+          full recipe names (wrapped, never truncated), servings as ×N, daily
+          kcal totals — and none of the interactive controls. Inline hex styles
+          on purpose: html2canvas renders them reliably, with brand colors. */}
+      <div
+        ref={exportRef}
+        aria-hidden
+        style={{
+          position: 'fixed', left: -10000, top: 0, width: 1680, zIndex: -1,
+          background: '#FFFDF9', color: '#3A2414', padding: '36px 40px 32px',
+          fontFamily: "'Segoe UI', Arial, sans-serif",
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 22 }}>
+          <span style={{ fontFamily: 'Georgia, serif', fontSize: 34, fontWeight: 700, color: '#D9531F' }}>
+            Plan de comidas de la semana
+          </span>
+          <span style={{ fontSize: 16, color: '#8A6A4A' }}>Nutrilp</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 14, alignItems: 'stretch' }}>
+          {weekPlan.map((dayPlan) => {
+            const totals = dailyTotals.find(d => d.day === dayPlan.day)?.totals;
+            return (
+              <div key={dayPlan.day} style={{ display: 'flex', flexDirection: 'column', background: '#FBF6EE', border: '1px solid #E7DCC9', borderRadius: 14, padding: '12px 12px 10px' }}>
+                <div style={{ fontFamily: 'Georgia, serif', fontSize: 19, fontWeight: 700, color: '#D9531F', borderBottom: '2px solid #D9531F', paddingBottom: 6, marginBottom: 10, textAlign: 'center' }}>
+                  {dayPlan.day}
+                </div>
+                {dayPlan.meals.map((meal) => (
+                  <div key={meal.id} style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#8A6A4A', marginBottom: 3 }}>
+                      {meal.title}
+                    </div>
+                    {meal.recipes.length > 0 ? meal.recipes.map((recipe) => (
+                      <div key={recipe.instanceId} style={{ fontSize: 14.5, lineHeight: 1.3, marginBottom: 3, overflowWrap: 'break-word' }}>
+                        {recipe.name}
+                        {(recipe.servingsEaten ?? 1) !== 1 && (
+                          <span style={{ color: '#8A6A4A', fontSize: 12.5 }}> ×{recipe.servingsEaten}</span>
+                        )}
+                      </div>
+                    )) : (
+                      <div style={{ fontSize: 13, color: '#C6B593' }}>—</div>
+                    )}
+                  </div>
+                ))}
+                <div style={{ marginTop: 'auto' }}>
+                  {totals && totals.calories > 0 && (
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: '#D9531F', borderTop: '1px solid #E7DCC9', paddingTop: 6, textAlign: 'right' }}>
+                      {Math.round(totals.calories)} kcal
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </Card>
   );
 }

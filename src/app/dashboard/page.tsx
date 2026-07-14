@@ -4,10 +4,8 @@ import { useDashboard } from '@/hooks/use-dashboard';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
 import { MealPlanner } from '@/components/nutri-planner/meal-planner';
 import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
-import { FloatingGoals } from '@/components/nutri-planner/floating-goals';
 import { ShoppingListSheet } from '@/components/nutri-planner/shopping-list';
 import { RecipeSelectionDialog } from '@/components/nutri-planner/recipe-selection-dialog';
-import { EmptyFridgeScanner } from '@/components/nutri-planner/empty-fridge-scanner';
 import { WelcomeGuide } from '@/components/nutri-planner/welcome-guide';
 import { AssistantDialog } from '@/components/nutri-planner/assistant-dialog';
 import { RecipeImportDialog } from '@/components/nutri-planner/recipe-import-dialog';
@@ -25,9 +23,9 @@ export default function DashboardPage() {
     handleUpdateMealTitle, handleUpdateMealTypes, handleAddMeal, handleDeleteMeal, handleUpdateServingsEaten,
     // Week history
     weekHistory,
-    // User profile state
-    currentCalorieResult, activeGoalMacros, currentShoppingList, currentDietPreference, activeGoal,
-    handleCalorieResultSave, handleActiveGoalChange, handleSaveCustomGoal, handleShoppingListUpdate, handleDietPreferenceChange,
+    // User profile state (goals editing now lives in /dashboard/perfil)
+    activeGoalMacros, currentShoppingList, currentDietPreference,
+    handleActiveGoalChange, handleShoppingListUpdate,
     // UI state
     dialogState, activePanel, activeDropTarget, setActiveDropTarget,
     isRecipeSelectorOpen, setIsRecipeSelectorOpen, selectedMealForAddition,
@@ -74,9 +72,7 @@ export default function DashboardPage() {
             onCopyRecipe={handleCopyRecipe}
             onAddToPlan={handleAddToPlan}
             onAssistantOpen={() => handlePanelOpen('assistant')}
-            onEmptyFridgeOpen={() => handlePanelOpen('empty-fridge')}
             onRecipeImportOpen={() => handlePanelOpen('recipe-import')}
-            onGoalsOpen={() => handlePanelOpen('goals')}
             onShoppingListOpen={() => handlePanelOpen('shopping-list')}
             onHistoryOpen={() => handlePanelOpen('history')}
             dietPreference={currentDietPreference}
@@ -121,13 +117,6 @@ export default function DashboardPage() {
         hasGoal={!!activeGoalMacros}
       />
 
-      <EmptyFridgeScanner
-        isOpen={activePanel === 'empty-fridge'}
-        onClose={() => handlePanelChange('empty-fridge', false)}
-        onRecipeAction={handleRecipeAction}
-        nutritionalGoal={activeGoalMacros || null}
-      />
-
       <RecipeImportDialog
         isOpen={activePanel === 'recipe-import'}
         onClose={() => handlePanelChange('recipe-import', false)}
@@ -142,18 +131,7 @@ export default function DashboardPage() {
         onListChange={handleShoppingListUpdate}
       />
 
-      <FloatingGoals
-        calorieResult={currentCalorieResult}
-        onCalorieResultSave={handleCalorieResultSave}
-        isOpen={activePanel === 'goals'}
-        onOpenChange={(isOpen) => handlePanelChange('goals', isOpen)}
-        onGoalSelect={handleActiveGoalChange}
-        onSaveCustomGoal={handleSaveCustomGoal}
-        activeGoal={activeGoal || null}
-        dietPreference={currentDietPreference}
-        onDietPreferenceChange={handleDietPreferenceChange}
-      />
-
+      {/* Goals moved to /dashboard/perfil (Mi perfil) — no floating panel here. */}
       <WeekHistorySheet
         isOpen={activePanel === 'history'}
         onOpenChange={(isOpen) => handlePanelChange('history', isOpen)}

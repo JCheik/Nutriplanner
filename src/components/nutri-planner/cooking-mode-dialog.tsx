@@ -154,9 +154,9 @@ interface CookingModeDialogProps {
 export function CookingModeDialog({ recipe, isOpen, onClose }: CookingModeDialogProps) {
   const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(new Set());
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
-  // How many servings the user is actually cooking now. Defaults to what the
-  // recipe yields (so batch recipes and the written steps still match), but can
-  // be dropped to 1 when you only want a single portion.
+  // How many servings the user is actually cooking now. Defaults to 1 (the
+  // common case: cook a single portion of a batch recipe); the note under the
+  // stepper reminds that the written steps describe the full recipe.
   const [servingsToMake, setServingsToMake] = useState(1);
 
   // Keep the screen-wake lock in a ref so requesting/releasing it never feeds back
@@ -194,8 +194,9 @@ export function CookingModeDialog({ recipe, isOpen, onClose }: CookingModeDialog
     requestWakeLock();
     setCheckedIngredients(new Set());
     setCompletedSteps(new Set());
-    // Start from what the recipe yields; the written steps assume that amount.
-    setServingsToMake(recipe?.servings && recipe.servings > 0 ? recipe.servings : 1);
+    // Default to ONE serving — batch recipes (bagels for 8) shouldn't show the
+    // whole batch when you just want your portion. Bump it up if cooking more.
+    setServingsToMake(1);
 
     // Re-acquire the lock when the tab becomes visible again.
     const handleVisibilityChange = () => {
@@ -206,7 +207,7 @@ export function CookingModeDialog({ recipe, isOpen, onClose }: CookingModeDialog
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       releaseWakeLock();
     };
-  }, [isOpen, recipe?.servings, requestWakeLock, releaseWakeLock]);
+  }, [isOpen, requestWakeLock, releaseWakeLock]);
 
   if (!recipe) return null;
 

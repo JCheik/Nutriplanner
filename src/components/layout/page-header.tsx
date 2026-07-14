@@ -147,7 +147,18 @@ export function PageHeader({}: PageHeaderProps) {
                 Nutrilp
               </span>
             </Link>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              {/* Evident entry to the profile hub (goals + progress), instead of
+                  hiding it inside the avatar menu. Hidden on phones: the mobile
+                  layout already has a Perfil tab in the bottom nav. */}
+              {user && (
+                <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
+                  <Link href={perfilHref}>
+                    <CircleUserRound className="mr-2 h-4 w-4" />
+                    Mi perfil
+                  </Link>
+                </Button>
+              )}
               {renderUserAuth()}
             </div>
           </div>

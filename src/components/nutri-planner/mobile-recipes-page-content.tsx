@@ -98,7 +98,7 @@ export function MobileRecipesPageContent({
                                 <PencilLine className="mr-2 h-4 w-4" /> Crear receta en blanco
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setIsImportOpen(true)}>
-                                <Link2 className="mr-2 h-4 w-4" /> Importar desde URL
+                                <Link2 className="mr-2 h-4 w-4" /> Importar
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>

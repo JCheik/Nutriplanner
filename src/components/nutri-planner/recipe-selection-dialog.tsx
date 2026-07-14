@@ -6,19 +6,19 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Filter, ArrowUpDown } from 'lucide-react';
+import { Search } from 'lucide-react';
 import type { Meal, Recipe, DietTag, SortCriteria } from '@/lib/types';
 import { DIET_TAG_LABELS } from '@/lib/constants';
 import { RECIPE_SORT_OPTIONS, compareRecipes } from '@/lib/recipe-sort';
 import { normalizeText, cn } from '@/lib/utils';
 import { RecipeCard } from './recipe-card';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   SMART_CATEGORY_ORDER,
   SMART_CATEGORY_LABELS,
@@ -123,14 +123,6 @@ export function RecipeSelectionDialog({ isOpen, onClose, meal, allRecipes, onSav
     ? groups
     : groups.filter(g => g.cat === effectiveCategory);
 
-  const chipClass = (active: boolean) =>
-    cn(
-      'px-2.5 py-1 rounded-full text-xs font-medium border transition-colors whitespace-nowrap',
-      active
-        ? 'bg-primary text-primary-foreground border-primary'
-        : 'bg-background text-muted-foreground border-border hover:bg-muted'
-    );
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className={cn("max-w-md h-[90vh] flex flex-col bg-glass")}>
@@ -141,78 +133,66 @@ export function RecipeSelectionDialog({ isOpen, onClose, meal, allRecipes, onSav
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                    placeholder="Buscar recetas..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                />
-            </div>
-            {/* Same sort options as the library: macros compared per serving */}
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button
-                      variant={sortCriteria === 'name-asc' ? 'outline' : 'default'}
-                      size="icon"
-                      className="shrink-0"
-                      aria-label="Ordenar recetas"
-                      title="Ordenar por calorías, proteína, carbohidratos o grasa"
-                    >
-                        <ArrowUpDown className="h-4 w-4" />
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-glass">
-                    <DropdownMenuRadioGroup
-                      value={sortCriteria}
-                      onValueChange={(value) => setSortCriteria(value as SortCriteria)}
-                    >
-                        {RECIPE_SORT_OPTIONS.map((option) => (
-                            <DropdownMenuRadioItem key={option.value} value={option.value}>
-                                {option.label}
-                            </DropdownMenuRadioItem>
-                        ))}
-                    </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-            </DropdownMenu>
+        <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+                placeholder="Buscar recetas..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="pl-10"
+            />
         </div>
 
-        {hasDietPref && (
-          <button
-            type="button"
-            onClick={() => setDietFilterOn(v => !v)}
-            title={dietLabel}
-            className={cn(
-              'inline-flex items-center gap-1.5 self-start px-2.5 py-1 rounded-full text-xs font-medium border transition-colors max-w-full',
-              dietFilterOn
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-background text-muted-foreground border-border hover:bg-muted'
-            )}
-          >
-            <Filter className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{dietFilterOn ? `Solo mi dieta: ${dietLabel}` : 'Ver todas las dietas'}</span>
-          </button>
-        )}
-
-        {groups.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            <button type="button" className={chipClass(effectiveCategory === 'all')} onClick={() => setActiveCategory('all')}>
-              Todas
-            </button>
-            {groups.map(g => (
-              <button
-                key={g.cat}
-                type="button"
-                className={chipClass(effectiveCategory === g.cat)}
-                onClick={() => setActiveCategory(g.cat)}
-              >
-                {g.label} ({g.recipes.length})
-              </button>
-            ))}
+        {/* Compact controls: category / diet filter / sort as dropdowns instead
+            of two rows of chips (the old inline sort menu also misbehaved inside
+            this dialog — Select is the pattern that works in dialogs). */}
+        <div className={cn('grid gap-2', hasDietPref ? 'grid-cols-3' : 'grid-cols-2')}>
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Categoría</p>
+            <Select value={effectiveCategory} onValueChange={(v) => setActiveCategory(v as SmartCategory | 'all')}>
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue placeholder="Todas" />
+              </SelectTrigger>
+              <SelectContent className="bg-glass">
+                <SelectItem value="all">Todas ({filteredRecipes.length})</SelectItem>
+                {groups.map(g => (
+                  <SelectItem key={g.cat} value={g.cat}>
+                    {g.label} ({g.recipes.length})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        )}
+          {hasDietPref && (
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Filtro</p>
+              <Select value={dietFilterOn ? 'mine' : 'all'} onValueChange={(v) => setDietFilterOn(v === 'mine')}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-glass">
+                  <SelectItem value="mine">Solo mi dieta ({dietLabel})</SelectItem>
+                  <SelectItem value="all">Todas las dietas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Ordenar por</p>
+            <Select value={sortCriteria} onValueChange={(v) => setSortCriteria(v as SortCriteria)}>
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-glass">
+                {RECIPE_SORT_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
         <ScrollArea className="flex-1 -mx-6">
             <div className="px-6 space-y-4">

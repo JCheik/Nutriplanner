@@ -15,7 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { RecipeCard } from './recipe-card';
-import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Plus, Folders, Edit, LayoutGrid, List, Sparkles, Camera, Link2, MoreVertical, Wand2, Target, ShoppingCart, History, Filter, X } from 'lucide-react';
+import { BookHeart, PlusCircle, Search, ArrowUpDown, Copy, Plus, Folders, Edit, LayoutGrid, List, Sparkles, Link2, MoreVertical, Wand2, ShoppingCart, History, Filter, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -46,9 +46,7 @@ interface RecipeLibraryProps {
   onCopyRecipe: (recipe: Recipe) => void;
   onAddToPlan: (recipe: Recipe) => void;
   onAssistantOpen: () => void;
-  onEmptyFridgeOpen?: () => void;
   onRecipeImportOpen?: () => void;
-  onGoalsOpen?: () => void;
   onShoppingListOpen?: () => void;
   onHistoryOpen?: () => void;
   isMobile?: boolean;
@@ -374,9 +372,7 @@ export function RecipeLibrary({
   onCopyRecipe,
   onAddToPlan,
   onAssistantOpen,
-  onEmptyFridgeOpen,
   onRecipeImportOpen,
-  onGoalsOpen,
   onShoppingListOpen,
   onHistoryOpen,
   isMobile = false,
@@ -568,13 +564,9 @@ export function RecipeLibrary({
                 <CardDescription>Tu colección de recetas y el recetario base de Nutrilp.</CardDescription>
               </div>
             )}
+             {/* Same actions on BOTH tabs (Mis Recetas / Recetas Nutrilp) — the
+                 header used to change per tab, which read as buttons vanishing. */}
              <div className="flex items-center gap-2">
-                {!isMobile && onGoalsOpen && (
-                  <Button variant="outline" onClick={onGoalsOpen} data-tour="goals">
-                    <Target className="mr-2 h-4 w-4" />
-                    Objetivos
-                  </Button>
-                )}
                 {!isMobile && onShoppingListOpen && (
                   <Button variant="outline" onClick={onShoppingListOpen} data-tour="shopping-list">
                     <ShoppingCart className="mr-2 h-4 w-4" />
@@ -587,16 +579,12 @@ export function RecipeLibrary({
                     Historial
                   </Button>
                 )}
-                {activeTab === 'user-recipes' && !isMobile && (
+                {!isMobile && (
                   <>
-                    <Button variant="outline" onClick={onEmptyFridgeOpen} data-tour="fridge-scanner">
-                      <Camera className="mr-2 h-4 w-4" />
-                      Escanear Nevera
-                    </Button>
                     <FeatureHint
                       id="ai-assistant"
                       title="Asistente con IA"
-                      text="Pídele que cree recetas, que rellene tu plan o resuelve dudas de nutrición. También puedes hablarle por voz."
+                      text="Pídele que cree recetas, que rellene tu plan, escanea tu nevera con una foto o resuelve dudas de nutrición. También puedes hablarle por voz."
                       side="bottom"
                       align="end"
                     >
@@ -617,7 +605,7 @@ export function RecipeLibrary({
                           <Edit className="mr-2 h-4 w-4" /> Crear receta en blanco
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={onRecipeImportOpen}>
-                          <Link2 className="mr-2 h-4 w-4" /> Importar desde URL
+                          <Link2 className="mr-2 h-4 w-4" /> Importar
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
