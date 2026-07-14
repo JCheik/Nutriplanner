@@ -31,4 +31,13 @@ export function ingredientKey(name: string, brand?: string): string {
   return b ? `${n}||${b}` : n;
 }
 
+/**
+ * Naive Spanish pluralization for a piece-unit label ("loncha" → "lonchas").
+ * Weight/volume units ('g', 'ml') should not be passed through this.
+ */
+export function pluralizeUnit(unit: string, quantity: number): string {
+  if (quantity === 1 || !unit) return unit;
+  return /[aeiouáéíóú]$/i.test(unit) ? `${unit}s` : `${unit}es`;
+}
+
     

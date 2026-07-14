@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,7 @@ import { collection, addDoc } from 'firebase/firestore';
 import { useFirebase, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { importRecipe, type UnifiedRecipe } from '@/ai/flows/import-recipe-flow';
 import { normalizeText } from '@/lib/utils';
+import { findSimilarIngredient } from '@/lib/ingredient-similarity';
 import { MEAL_CATEGORY_LABELS, DIET_TAG_LABELS } from '@/lib/constants';
 import { getAiErrorMessage, isRetryableAiError } from '@/lib/ai-error';
 import { captureVideoFrame, dataUrlToFile } from '@/lib/media-utils';
@@ -72,6 +73,9 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
     [firestore]
   );
   const { data: ingredientDB } = useCollection<BaseIngredient>(ingredientsRef);
+  // Existing food names, passed to every AI extraction so it reuses canonical
+  // names instead of minting duplicates ("claras de huevo" vs "clara de huevo").
+  const existingIngredientNames = (ingredientDB ?? []).map((i) => i.name);
 
   const [step, setStep] = useState<ImportStep>('input');
   const [url, setUrl] = useState('');
@@ -250,6 +254,7 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
         const fd = new FormData();
         fd.append('video', videoFile);
         if (recipeText.trim()) fd.append('caption', recipeText.trim());
+        fd.append('existingIngredients', JSON.stringify(existingIngredientNames));
         const res = await fetch('/api/analyze-video', {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
@@ -270,7 +275,7 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           signal: controller.signal,
-          body: JSON.stringify({ videoUrl: cachedVideoUrl, caption: recipeText.trim() }),
+          body: JSON.stringify({ videoUrl: cachedVideoUrl, caption: recipeText.trim(), existingIngredients: existingIngredientNames }),
         });
         if (isCancelledRef.current) return;
         const data = await res.json();
@@ -278,7 +283,7 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
           recipe = data.recipe as UnifiedRecipe;
         } else if (videoUrlKind === 'cdn') {
           setCdnFallbackOccurred(true);
-          recipe = await importRecipe({ url: url.trim() || undefined, caption: recipeText.trim() });
+          recipe = await importRecipe({ url: url.trim() || undefined, caption: recipeText.trim(), existingIngredients: existingIngredientNames });
           if (isCancelledRef.current) return;
         } else {
           throw new Error(data.error || 'No se pudo analizar el vídeo desde la URL.');
@@ -289,7 +294,7 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
           ['Extrayendo receta con IA', 'Verificando ingredientes y macros'],
           [8000]
         );
-        recipe = await importRecipe({ url: url.trim() || undefined, caption: recipeText.trim() });
+        recipe = await importRecipe({ url: url.trim() || undefined, caption: recipeText.trim(), existingIngredients: existingIngredientNames });
         if (isCancelledRef.current) return;
       }
 
@@ -434,6 +439,36 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
     setMissingIngredients((prev) =>
       prev.map((ing, i) => (i === index ? { ...ing, selected: !ing.selected } : ing))
     );
+  };
+
+  // Probable duplicates among the "new" ingredients (plural/variant of an
+  // existing DB food). Offered as "usar existente" instead of creating another.
+  const missingSimilarByName = useMemo(() => {
+    const map = new Map<string, BaseIngredient>();
+    missingIngredients.forEach((ing) => {
+      const similar = findSimilarIngredient(ing.name, ingredientDB ?? []);
+      if (similar) map.set(normalizeText(ing.name), similar);
+    });
+    return map;
+  }, [missingIngredients, ingredientDB]);
+
+  // "Usar existente": point the recipe at the existing DB food (exact name) and
+  // drop the row — nothing new gets created for it on confirm.
+  const handleUseExisting = (index: number, existing: BaseIngredient) => {
+    const row = missingIngredients[index];
+    if (!row) return;
+    setExtractedRecipe((prev) =>
+      prev
+        ? {
+            ...prev,
+            ingredients: prev.ingredients.map((i) =>
+              normalizeText(i.name) === normalizeText(row.name) ? { ...i, name: existing.name } : i
+            ),
+          }
+        : prev
+    );
+    setFoundIngredients((prev) => (prev.includes(existing.name) ? prev : [...prev, existing.name]));
+    setMissingIngredients((prev) => prev.filter((_, i) => i !== index));
   };
 
   const isLoadingStep = step === 'fetching' || step === 'analyzing' || step === 'creating';
@@ -797,14 +832,19 @@ Cuanto más detallado sea el texto, mejor resultado obtendrá la IA."
                   </p>
 
                   <div className="space-y-2 pl-2">
-                    {missingIngredients.map((ing, index) => (
-                      <MissingIngredientRow
-                        key={ing.name}
-                        ing={ing}
-                        onToggle={() => toggleMissingSelected(index)}
-                        onMacroChange={(field, value) => updateMissingMacro(index, field, value)}
-                      />
-                    ))}
+                    {missingIngredients.map((ing, index) => {
+                      const similar = missingSimilarByName.get(normalizeText(ing.name));
+                      return (
+                        <MissingIngredientRow
+                          key={ing.name}
+                          ing={ing}
+                          onToggle={() => toggleMissingSelected(index)}
+                          onMacroChange={(field, value) => updateMissingMacro(index, field, value)}
+                          similar={similar}
+                          onUseExisting={similar ? () => handleUseExisting(index, similar) : undefined}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               )}

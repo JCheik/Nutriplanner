@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/verify-auth';
+import { existingIngredientsInstruction, UNIT_RULE } from '@/ai/prompt-fragments';
 
 export const maxDuration = 120;
 
@@ -43,9 +44,11 @@ const RECIPE_SCHEMA = {
   required: ['name', 'description', 'instructions', 'ingredients', 'calories', 'protein', 'carbs', 'fat', 'servings'],
 };
 
-const PROMPT = (caption: string) => `Eres un chef nutricionista experto. Analiza el vídeo adjunto — escucha el audio (cantidades, nombres de ingredientes, pasos), lee cualquier texto en pantalla y observa los ingredientes y técnicas visibles.
+const PROMPT = (caption: string, existingIngredients?: string[]) => `Eres un chef nutricionista experto. Analiza el vídeo adjunto — escucha el audio (cantidades, nombres de ingredientes, pasos), lee cualquier texto en pantalla y observa los ingredientes y técnicas visibles.
 
-${caption ? `Texto adicional del post:\n${caption}\n\n` : ''}INSTRUCCIONES:
+${caption ? `Texto adicional del post:\n${caption}\n\n` : ''}${existingIngredientsInstruction(existingIngredients)}
+
+INSTRUCCIONES:
 1. Prioriza lo que ves y oyes en el vídeo. Usa el texto solo como complemento.
 2. Extrae TODOS los ingredientes mencionados o mostrados, con cantidades exactas si se indican.
 3. Para cada ingrediente, estima sus valores nutricionales POR 100g/100ml.
@@ -65,17 +68,19 @@ REFERENCIAS (por 100g):
 Devuelve:
 - name, description (1-2 frases), instructions (pasos con \\n), servings, imageHint (2-3 palabras inglés)
 - calories, protein, carbs, fat: totales de la receta completa
-- ingredients: cada uno con id ("ing-1"...), name (español), quantity (corregida), unit,
+- ingredients: cada uno con id ("ing-1"...), name (español, siguiendo la REGLA DE NOMBRES DE
+  INGREDIENTES de arriba), quantity (corregida, en gramos/ml),
+  ${UNIT_RULE}
   calories/protein/carbs/fat/fiber (POR 100g), corrected (boolean), note (si corrected=true)`;
 
-async function callGemini(parts: object[], caption: string) {
+async function callGemini(parts: object[], caption: string, existingIngredients?: string[]) {
   const res = await fetch(
     `${GEMINI_BASE}/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [...parts, { text: PROMPT(caption) }] }],
+        contents: [{ parts: [...parts, { text: PROMPT(caption, existingIngredients) }] }],
         generation_config: {
           response_mime_type: 'application/json',
           response_schema: RECIPE_SCHEMA,
@@ -102,14 +107,26 @@ function isYouTube(url: string) {
   return /youtube\.com|youtu\.be/i.test(url);
 }
 
-async function analyzeFromUrl(videoUrl: string, caption: string) {
+async function analyzeFromUrl(videoUrl: string, caption: string, existingIngredients?: string[]) {
   // YouTube: no mime_type needed — Gemini handles it natively.
   // Other CDN URLs: declare video/mp4 and hope the URL is publicly accessible.
   const fileData = isYouTube(videoUrl)
     ? { file_uri: videoUrl }
     : { mime_type: 'video/mp4', file_uri: videoUrl };
 
-  return callGemini([{ file_data: fileData }], caption);
+  return callGemini([{ file_data: fileData }], caption, existingIngredients);
+}
+
+/** Parses the optional existing-ingredient-names payload (JSON array of strings). */
+function parseExistingIngredients(raw: unknown): string[] | undefined {
+  try {
+    const arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!Array.isArray(arr)) return undefined;
+    const names = arr.filter((n): n is string => typeof n === 'string').slice(0, 500);
+    return names.length > 0 ? names : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 // ── FILE-BASED ANALYSIS (Google File API) ────────────────────────────────────
@@ -176,13 +193,14 @@ export async function POST(req: NextRequest) {
 
     // ── Mode A: URL-based (JSON body) ─────────────────────────────────────
     if (contentType.includes('application/json')) {
-      const { videoUrl, caption = '' } = await req.json() as { videoUrl: string; caption?: string };
+      const body = await req.json() as { videoUrl: string; caption?: string; existingIngredients?: unknown };
+      const { videoUrl, caption = '' } = body;
 
       if (!videoUrl) {
         return NextResponse.json({ success: false, error: 'videoUrl requerida' }, { status: 400 });
       }
 
-      const recipe = await analyzeFromUrl(videoUrl, caption);
+      const recipe = await analyzeFromUrl(videoUrl, caption, parseExistingIngredients(body.existingIngredients));
       return NextResponse.json({ success: true, recipe, source: 'url' });
     }
 
@@ -190,6 +208,7 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const videoFile = formData.get('video') as File | null;
     const caption = (formData.get('caption') as string) || '';
+    const existingIngredients = parseExistingIngredients(formData.get('existingIngredients'));
 
     if (!videoFile) {
       return NextResponse.json({ success: false, error: 'No se recibió ningún vídeo.' }, { status: 400 });
@@ -208,7 +227,8 @@ export async function POST(req: NextRequest) {
     const active = await waitForFileActive(uploaded.name);
     const recipe = await callGemini(
       [{ file_data: { mime_type: active.mimeType, file_uri: active.uri } }],
-      caption
+      caption,
+      existingIngredients
     );
 
     return NextResponse.json({ success: true, recipe, source: 'upload' });

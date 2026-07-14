@@ -28,7 +28,8 @@ import { MissingIngredientRow, type ReviewIngredient, type ReviewMacroField } fr
 import { Card, CardContent } from '../ui/card';
 import Image from 'next/image';
 import { Switch } from '../ui/switch';
-import { normalizeText, ingredientKey, cn } from '@/lib/utils';
+import { normalizeText, ingredientKey, pluralizeUnit, cn } from '@/lib/utils';
+import { findSimilarIngredient } from '@/lib/ingredient-similarity';
 import { useToast } from '@/hooks/use-toast';
 import { CookingModeDialog } from './cooking-mode-dialog';
 import { ChefHat } from 'lucide-react';
@@ -68,12 +69,6 @@ function lookupBaseIngredient(
  * older recipes, from the matching base ingredient. Legacy free-text units with
  * no known weight fall back to treating the quantity as grams (prior behaviour).
  */
-/** Naive Spanish pluralization for a piece unit label ("loncha" → "lonchas"). */
-function pluralizeUnit(unit: string, quantity: number): string {
-  if (quantity === 1 || !unit) return unit;
-  return /[aeiouáéíóú]$/i.test(unit) ? `${unit}s` : `${unit}es`;
-}
-
 function ingredientGrams(ing: Ingredient, baseIng?: BaseIngredient): number {
   const unit = (ing.unit || '').toLowerCase();
   if (unit === 'g' || unit === 'ml' || unit === '') return ing.quantity;
@@ -284,6 +279,27 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
     setReviewIngredients(prev => prev.map((r, i) => (i === index ? { ...r, selected: !r.selected } : r)));
   const updateReviewMacro = (index: number, field: ReviewMacroField, value: number) =>
     setReviewIngredients(prev => prev.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
+
+  // Probable duplicates: for each "new" ingredient, an existing DB food with the
+  // same plural-folded name (or very close). Offered as "usar existente".
+  const reviewSimilarByName = useMemo(() => {
+    const map = new Map<string, BaseIngredient>();
+    reviewIngredients.forEach(r => {
+      const similar = findSimilarIngredient(r.name, ingredientDB ?? []);
+      if (similar) map.set(normalizeText(r.name), similar);
+    });
+    return map;
+  }, [reviewIngredients, ingredientDB]);
+
+  // "Usar existente": rename the recipe ingredient to the DB food's exact
+  // name(+brand). The row then stops being "missing" and macros resolve for real.
+  const applyExistingIngredient = (reviewName: string, existing: BaseIngredient) => {
+    setIngredients(prev => prev.map(i =>
+      normalizeText(i.name) === normalizeText(reviewName)
+        ? { ...i, name: existing.name, ...(existing.brand ? { brand: existing.brand } : {}) }
+        : i
+    ));
+  };
 
   const handleSave = async () => {
     const trimmedName = name.trim();
@@ -872,14 +888,19 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
                   La IA creó estos alimentos pero no están en tu base de datos. Revisa los macros estimados (por 100g) y márcalos para añadirlos; así contarán de verdad en la receta en vez de sumar 0 kcal.
                 </p>
                 <div className="space-y-2">
-                  {reviewIngredients.map((ing, index) => (
-                    <MissingIngredientRow
-                      key={normalizeText(ing.name)}
-                      ing={ing}
-                      onToggle={() => toggleReviewSelected(index)}
-                      onMacroChange={(field, value) => updateReviewMacro(index, field, value)}
-                    />
-                  ))}
+                  {reviewIngredients.map((ing, index) => {
+                    const similar = reviewSimilarByName.get(normalizeText(ing.name));
+                    return (
+                      <MissingIngredientRow
+                        key={normalizeText(ing.name)}
+                        ing={ing}
+                        onToggle={() => toggleReviewSelected(index)}
+                        onMacroChange={(field, value) => updateReviewMacro(index, field, value)}
+                        similar={similar}
+                        onUseExisting={similar ? () => applyExistingIngredient(ing.name, similar) : undefined}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             )}

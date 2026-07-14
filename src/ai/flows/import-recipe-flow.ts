@@ -3,12 +3,15 @@
 import { ai, GEMINI_MODEL } from '@/ai/genkit';
 import { z } from 'zod';
 import { MEAL_CATEGORY_ENUM, DIET_TAG_ENUM } from '@/lib/types';
+import { existingIngredientsInstruction, UNIT_RULE } from '@/ai/prompt-fragments';
 
 const ImportRecipeInputSchema = z.object({
   url: z.string().optional(),
   caption: z.string().optional(),
   videoUrl: z.string().optional(),
   imageUrl: z.string().optional(),
+  // Existing ingredient-DB names; the model reuses them verbatim to avoid dupes.
+  existingIngredients: z.array(z.string()).optional(),
 });
 
 const UnifiedIngredientSchema = z.object({
@@ -47,10 +50,12 @@ const UnifiedRecipeSchema = z.object({
 export type UnifiedRecipe = z.infer<typeof UnifiedRecipeSchema>;
 export type UnifiedIngredient = z.infer<typeof UnifiedIngredientSchema>;
 
-const PROMPT = (contextLines: string) =>
+const PROMPT = (contextLines: string, existingIngredients?: string[]) =>
   `Eres un chef nutricionista experto. Extrae la receta a partir del texto y estima los macros nutricionales.
 
 ${contextLines || 'Analiza el contenido multimedia adjunto.'}
+
+${existingIngredientsInstruction(existingIngredients)}
 
 INSTRUCCIONES:
 1. Usa ÚNICAMENTE los ingredientes mencionados. NO añadas ingredientes que no estén en el texto.
@@ -91,9 +96,9 @@ Devuelve:
 - calories, protein, carbs, fat: totales de la receta completa
 - ingredients: array. Cada uno:
   · id: "ing-1", "ing-2"...
-  · name: en español, simple (ej: "pechuga de pollo")
-  · quantity: cantidad en la receta (ya corregida si era errónea)
-  · unit: g/ml/ud/taza/cucharada...
+  · name: en español, siguiendo la REGLA DE NOMBRES DE INGREDIENTES de arriba
+  · quantity: cantidad en la receta en gramos/ml (ya corregida si era errónea)
+  · ${UNIT_RULE}
   · calories, protein, carbs, fat, fiber: POR 100g
   · corrected: true si corregiste algo, false si estaba bien
   · note: explicación breve si corrected=true, omitir si false`;
@@ -104,7 +109,7 @@ const importRecipeFlow = ai.defineFlow(
     inputSchema: ImportRecipeInputSchema,
     outputSchema: UnifiedRecipeSchema,
   },
-  async ({ url, caption, videoUrl, imageUrl }) => {
+  async ({ url, caption, videoUrl, imageUrl, existingIngredients }) => {
     const contextLines = [
       url && `URL de origen: ${url}`,
       caption && `Texto de la publicación:\n${caption}`,
@@ -113,7 +118,7 @@ const importRecipeFlow = ai.defineFlow(
       .join('\n\n');
 
     const promptParts: ({ text: string } | { media: { url: string } })[] = [
-      { text: PROMPT(contextLines) },
+      { text: PROMPT(contextLines, existingIngredients) },
     ];
     if (videoUrl) {
       promptParts.push({ media: { url: videoUrl } });
@@ -136,6 +141,7 @@ export async function importRecipe(input: {
   caption?: string;
   videoUrl?: string;
   imageUrl?: string;
+  existingIngredients?: string[];
 }): Promise<UnifiedRecipe> {
   return importRecipeFlow(input);
 }

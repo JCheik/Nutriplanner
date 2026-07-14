@@ -17,6 +17,7 @@ import { z } from 'zod';
 import { DIET_TAG_ENUM, MEAL_CATEGORY_ENUM } from '@/lib/types';
 import type { DietTag } from '@/lib/types';
 import { DIET_TAG_LABELS } from '@/lib/constants';
+import { existingIngredientsInstruction, UNIT_RULE } from '@/ai/prompt-fragments';
 
 const GoalMacrosSchema = z.object({
   calories: z.number(),
@@ -29,6 +30,10 @@ const GenerateRecipeInputSchema = z.object({
   description: z.string(),
   nutritionalGoal: GoalMacrosSchema.nullable().optional(),
   diet: z.array(z.enum(DIET_TAG_ENUM)).optional(),
+  // Names already in the shared ingredient DB. The model must reuse these exact
+  // names instead of inventing variants ("claras de huevo" vs "clara de huevo"),
+  // which is the main source of duplicate ingredients.
+  existingIngredients: z.array(z.string()).optional(),
 });
 export type GenerateRecipeInput = z.infer<typeof GenerateRecipeInputSchema>;
 
@@ -76,19 +81,22 @@ function dietInstruction(diet?: DietTag[]): string {
   return `El usuario sigue esta dieta: ${labels}. La receta DEBE cumplirla estrictamente e incluir "dietTags": ["${values}"].`;
 }
 
+
 const generateRecipeFlow = ai.defineFlow(
   {
     name: 'generateRecipeFlow',
     inputSchema: GenerateRecipeInputSchema,
     outputSchema: GeneratedRecipeSchema.nullable(),
   },
-  async ({ description, nutritionalGoal, diet }) => {
+  async ({ description, nutritionalGoal, diet, existingIngredients }) => {
     const prompt = `
 Eres el asistente de cocina de Nutrilp. Crea UNA receta a partir de la petición del usuario.
 
 PETICIÓN: "${description}"
 ${nutritionalGoal ? `OBJETIVO NUTRICIONAL (referencia para una ración razonable): ${nutritionalGoal.calories} kcal, ${nutritionalGoal.protein}g proteína, ${nutritionalGoal.carbs}g carbohidratos, ${nutritionalGoal.fat}g grasa. No tiene que ser exacto, pero sí una contribución coherente al día.` : ''}
 ${dietInstruction(diet)}
+
+${existingIngredientsInstruction(existingIngredients)}
 
 Para cada ingrediente estima sus valores nutricionales POR 100g/100ml (no por la cantidad usada). Auto-revisa cada estimación con las referencias de abajo: si corriges algo → corrected=true y una nota breve en español; si está bien → corrected=false.
 
@@ -115,9 +123,9 @@ Devuelve SOLO el objeto de la receta con estos campos:
 - imageHint: dos o tres palabras clave en inglés para un generador de imágenes (p.ej. "lemon chicken")
 - ingredients: array de objetos. Cada uno:
   · id: UUID aleatorio
-  · name: en español, simple (ej: "pechuga de pollo")
-  · quantity: cantidad en la receta (número)
-  · unit: g/ml/ud/cucharada...
+  · name: en español, siguiendo la REGLA DE NOMBRES DE INGREDIENTES de arriba
+  · quantity: cantidad en la receta (número, en gramos o ml)
+  · ${UNIT_RULE}
   · calories, protein, carbs, fat, fiber: POR 100g (no por la cantidad usada)
   · corrected: true si corregiste la estimación, false si estaba bien
   · note: explicación breve si corrected=true; omitir si false

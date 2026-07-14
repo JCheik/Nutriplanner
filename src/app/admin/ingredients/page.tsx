@@ -1,12 +1,14 @@
 'use client';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { collection, doc } from 'firebase/firestore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { deleteDoc, addDoc, updateDoc } from 'firebase/firestore';
+import { deleteDoc, addDoc, updateDoc, deleteField } from 'firebase/firestore';
 import type { BaseIngredient } from '@/lib/types';
+import { normalizeText } from '@/lib/utils';
+import { singularKey } from '@/lib/ingredient-similarity';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, Edit, ArrowLeft, PlusCircle } from 'lucide-react';
+import { Trash2, Edit, ArrowLeft, PlusCircle, Merge, AlertTriangle } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { NewIngredientDialog, EditableIngredient } from '@/components/nutri-planner/new-ingredient-dialog';
 import {
@@ -35,7 +37,31 @@ export default function AdminIngredientsPage() {
 
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [ingredientToEdit, setIngredientToEdit] = useState<EditableIngredient | null>(null);
-    
+    // Per duplicate group: which ingredient survives the merge (default: first).
+    const [mergeKeep, setMergeKeep] = useState<Record<string, string>>({});
+    const [isMerging, setIsMerging] = useState(false);
+
+    // Alphabetical order (accent-insensitive) so near-duplicates sit together.
+    const sortedIngredients = useMemo(
+        () => [...(ingredients ?? [])].sort((a, b) =>
+            normalizeText(a.name).localeCompare(normalizeText(b.name)) ||
+            normalizeText(a.brand ?? '').localeCompare(normalizeText(b.brand ?? ''))
+        ),
+        [ingredients]
+    );
+
+    // Suspected duplicates: same plural-folded name AND same brand. "clara de
+    // huevo" / "claras de huevo" group together; same-name different-brand
+    // products are legitimately distinct and do NOT.
+    const duplicateGroups = useMemo(() => {
+        const byKey = new Map<string, BaseIngredient[]>();
+        sortedIngredients.forEach(ing => {
+            const key = `${singularKey(ing.name)}||${normalizeText(ing.brand ?? '')}`;
+            byKey.set(key, [...(byKey.get(key) ?? []), ing]);
+        });
+        return [...byKey.entries()].filter(([, group]) => group.length > 1);
+    }, [sortedIngredients]);
+
     const handleEdit = (ingredient: BaseIngredient) => {
         setIngredientToEdit(ingredient);
         setIsDialogOpen(true);
@@ -51,14 +77,43 @@ export default function AdminIngredientsPage() {
         }
     };
 
+    /** Deletes every ingredient in the group except the chosen survivor. */
+    const handleMerge = async (groupKey: string, group: BaseIngredient[]) => {
+        if (!firestore) return;
+        const keepId = mergeKeep[groupKey] ?? group[0].id;
+        const losers = group.filter(i => i.id !== keepId);
+        setIsMerging(true);
+        try {
+            for (const loser of losers) {
+                await deleteDoc(doc(firestore, 'ingredients', loser.id));
+            }
+            const kept = group.find(i => i.id === keepId);
+            toast({
+                title: 'Duplicados fusionados',
+                description: `Se conservó «${kept?.name}» y se eliminaron ${losers.length} duplicado(s).`,
+            });
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron eliminar todos los duplicados.' });
+        } finally {
+            setIsMerging(false);
+        }
+    };
+
     const handleSave = async (ingredientData: EditableIngredient) => {
         if (!globalIngredientsRef || !firestore) return;
-        
+
         try {
             if (ingredientData.id) {
-                // Editing existing ingredient
+                // Editing: optional fields the user cleared must be REMOVED from the
+                // doc — leaving them out of updateDoc would silently keep the old value.
                 const docRef = doc(firestore, 'ingredients', ingredientData.id);
-                await updateDoc(docRef, ingredientData);
+                const { id: _id, ...data } = ingredientData;
+                await updateDoc(docRef, {
+                    ...data,
+                    brand: data.brand ?? deleteField(),
+                    unitName: data.unitName ?? deleteField(),
+                    unitWeight: data.unitWeight ?? deleteField(),
+                });
                 toast({ title: 'Ingrediente actualizado' });
             } else {
                 await addDoc(globalIngredientsRef, ingredientData);
@@ -81,6 +136,75 @@ export default function AdminIngredientsPage() {
                             <Link href="/admin"><ArrowLeft className="mr-2 h-4 w-4" /> Volver al Panel</Link>
                         </Button>
                     </div>
+
+                    {/* Suspected duplicates: same folded name + same brand */}
+                    {duplicateGroups.length > 0 && (
+                        <Card className="border-amber-500/40">
+                            <CardHeader>
+                                <div className="flex items-center gap-2">
+                                    <AlertTriangle className="h-5 w-5 text-amber-500" />
+                                    <CardTitle>Posibles duplicados ({duplicateGroups.length})</CardTitle>
+                                </div>
+                                <CardDescription>
+                                    Alimentos con el mismo nombre (ignorando plurales y tildes) y la misma marca.
+                                    Elige cuál conservar y fusiona: los demás se eliminan de la base compartida.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {duplicateGroups.map(([groupKey, group]) => {
+                                    const keepId = mergeKeep[groupKey] ?? group[0].id;
+                                    return (
+                                        <div key={groupKey} className="rounded-lg border p-3 space-y-2">
+                                            {group.map(ing => (
+                                                <label key={ing.id} className="flex items-center gap-3 cursor-pointer text-sm">
+                                                    <input
+                                                        type="radio"
+                                                        name={`merge-${groupKey}`}
+                                                        checked={keepId === ing.id}
+                                                        onChange={() => setMergeKeep(prev => ({ ...prev, [groupKey]: ing.id }))}
+                                                        className="accent-primary"
+                                                    />
+                                                    <span className="font-medium">{ing.name}</span>
+                                                    {ing.brand && <span className="text-xs text-muted-foreground">{ing.brand}</span>}
+                                                    <span className="text-xs text-muted-foreground ml-auto whitespace-nowrap">
+                                                        {ing.calories} kcal · P {ing.protein} · C {ing.carbs} · G {ing.fat}
+                                                    </span>
+                                                </label>
+                                            ))}
+                                            <div className="flex justify-end pt-1">
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button size="sm" variant="outline" disabled={isMerging}>
+                                                            <Merge className="mr-2 h-4 w-4" />
+                                                            Fusionar (conservar seleccionado)
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent className="bg-glass">
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>¿Fusionar este grupo?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                Se conservará «{group.find(i => i.id === keepId)?.name}» y se eliminarán{' '}
+                                                                {group.length - 1} duplicado(s) de la base global. Las recetas que usaban
+                                                                el nombre eliminado mantienen sus totales guardados, pero su editor dejará
+                                                                de resolver ese ingrediente. Esta acción no se puede deshacer.
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleMerge(groupKey, group)}>
+                                                                Sí, fusionar
+                                                            </AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </CardContent>
+                        </Card>
+                    )}
+
                     <Card>
                         <CardHeader>
                             <div className="flex justify-between items-center">
@@ -103,6 +227,8 @@ export default function AdminIngredientsPage() {
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>Nombre</TableHead>
+                                            <TableHead>Marca</TableHead>
+                                            <TableHead>Unidad</TableHead>
                                             <TableHead className="text-center">Calorías</TableHead>
                                             <TableHead className="text-center">Proteínas</TableHead>
                                             <TableHead className="text-center">Carbs</TableHead>
@@ -111,9 +237,13 @@ export default function AdminIngredientsPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {ingredients.map(ing => (
+                                        {sortedIngredients.map(ing => (
                                             <TableRow key={ing.id}>
                                                 <TableCell className="font-medium">{ing.name}</TableCell>
+                                                <TableCell className="text-muted-foreground">{ing.brand ?? '—'}</TableCell>
+                                                <TableCell className="text-muted-foreground">
+                                                    {ing.unitName && ing.unitWeight ? `1 ${ing.unitName} = ${ing.unitWeight} g` : '—'}
+                                                </TableCell>
                                                 <TableCell className="text-center">{ing.calories}</TableCell>
                                                 <TableCell className="text-center">{ing.protein}g</TableCell>
                                                 <TableCell className="text-center">{ing.carbs}g</TableCell>

@@ -34,7 +34,10 @@ import { isAssistantAction } from '@/lib/assistant-actions';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
 import { useAiQuota } from '@/hooks/use-ai-quota';
 import { useSpeechSynthesis } from '@/hooks/use-speech-synthesis';
-import type { WeekPlan, Recipe, GoalMacros, GoalType, DietTag, AiIngredientEstimate } from '@/lib/types';
+import { useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { collection } from 'firebase/firestore';
+import type { WeekPlan, Recipe, GoalMacros, GoalType, DietTag, AiIngredientEstimate, BaseIngredient } from '@/lib/types';
 
 interface ScanResult {
   ingredients: string[];
@@ -111,6 +114,15 @@ export function AssistantDialog({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  // Existing food names, passed to the recipe generator so it reuses canonical
+  // names instead of creating near-duplicates in the shared ingredient DB.
+  const firestore = useFirestore();
+  const ingredientsRef = useMemoFirebase(
+    () => (firestore && isOpen ? collection(firestore, 'ingredients') : null),
+    [firestore, isOpen]
+  );
+  const { data: ingredientDB } = useCollection<BaseIngredient>(ingredientsRef);
+  const existingIngredientNames = (ingredientDB ?? []).map((i) => i.name);
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [attachedImage, setAttachedImage] = useState<{ base64: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -295,6 +307,7 @@ export function AssistantDialog({
           description,
           nutritionalGoal: activeGoalMacros,
           diet: dietPreference,
+          existingIngredients: existingIngredientNames,
         });
         if (generated) {
           // Split the model output: a lean Recipe for the form, plus the

@@ -2,8 +2,9 @@
 
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Info } from 'lucide-react';
+import { Info, Link2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { BaseIngredient } from '@/lib/types';
 
 // A recipe ingredient that isn't in the user's ingredient DB yet. Carries the
 // AI's per-100g estimate so the user can review/edit it and choose whether to
@@ -49,15 +50,23 @@ export function MacroInput({
   );
 }
 
-/** One reviewable "new ingredient" row: toggle to add + editable per-100g macros. */
+/**
+ * One reviewable "new ingredient" row: toggle to add + editable per-100g macros.
+ * When `similar` is provided, offers to reuse that existing DB food instead of
+ * creating a near-duplicate ("claras de huevo" when "clara de huevo" exists).
+ */
 export function MissingIngredientRow({
   ing,
   onToggle,
   onMacroChange,
+  similar,
+  onUseExisting,
 }: {
   ing: ReviewIngredient;
   onToggle: () => void;
   onMacroChange: (field: ReviewMacroField, value: number) => void;
+  similar?: BaseIngredient;
+  onUseExisting?: () => void;
 }) {
   return (
     <div
@@ -66,6 +75,22 @@ export function MissingIngredientRow({
         ing.selected ? 'border-border bg-card/40' : 'border-dashed opacity-50'
       )}
     >
+      {similar && onUseExisting && (
+        <div className="flex items-center gap-2 rounded-md bg-primary/10 border border-primary/20 px-2 py-1.5 text-xs">
+          <Link2 className="h-3.5 w-3.5 text-primary shrink-0" />
+          <span className="flex-1 min-w-0">
+            ¿Es lo mismo que <strong>«{similar.name}»</strong>
+            {similar.brand ? ` (${similar.brand})` : ''}? {Math.round(similar.calories)} kcal/100g
+          </span>
+          <button
+            type="button"
+            onClick={onUseExisting}
+            className="shrink-0 font-semibold text-primary underline underline-offset-2 hover:opacity-80"
+          >
+            Usar existente
+          </button>
+        </div>
+      )}
       <div className="flex items-center gap-2 cursor-pointer select-none" onClick={onToggle}>
         <Checkbox
           checked={ing.selected}
