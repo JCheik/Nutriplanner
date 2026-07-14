@@ -8,32 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { PlusCircle, Trash2, Pencil, ShoppingCart, Tag } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getShoppingCategory, formatShoppingQuantity } from '@/lib/shopping-list-utils';
+import type { ShoppingListItem } from '@/lib/types';
 
-const CATEGORIES = {
-  'Frutas y Verduras': ['tomate', 'cebolla', 'ajo', 'lechuga', 'pimiento', 'zanahoria', 'patata', 'brocoli', 'espinaca', 'manzana', 'platano', 'naranja', 'limon', 'limón', 'fresa', 'uva', 'aguacate', 'champiñon', 'calabacin'],
-  'Carnes y Pescados': ['pollo', 'ternera', 'cerdo', 'pavo', 'carne', 'jamón', 'salmon', 'salmón', 'atun', 'atún', 'merluza', 'pescado'],
-  'Lácteos y Huevos': ['leche', 'queso', 'yogur', 'mantequilla', 'nata', 'huevo'],
-  'Despensa': ['arroz', 'pasta', 'pan', 'avena', 'harina', 'macarrones', 'fideos', 'azucar', 'sal', 'pimienta', 'oregano', 'aceite', 'vinagre', 'caldo', 'salsa', 'lenteja', 'garbanzo'],
-};
-
-const getCategory = (itemName: string) => {
-  const lowerName = itemName.toLowerCase();
-  for (const [category, keywords] of Object.entries(CATEGORIES)) {
-    if (keywords.some(kw => lowerName.includes(kw))) {
-      return category;
-    }
-  }
-  return 'Otros';
-};
-
-
-export interface ShoppingListItem {
-  id: string;
-  name: string;
-  quantity: number;
-  unit: string;
-  checked: boolean;
-}
+// Re-exported for the existing importers (web sheet + mobile page); the
+// canonical definition lives in lib/types.
+export type { ShoppingListItem };
 
 interface ShoppingListContentProps {
   list: ShoppingListItem[];
@@ -112,7 +92,7 @@ export const ShoppingListContent = ({ list, onListChange }: ShoppingListContentP
           <div className="space-y-6 pr-4">
             {Object.entries(
               list.reduce((acc, item) => {
-                const cat = getCategory(item.name);
+                const cat = getShoppingCategory(item.name);
                 if (!acc[cat]) acc[cat] = [];
                 acc[cat].push(item);
                 return acc;
@@ -157,7 +137,8 @@ export const ShoppingListContent = ({ list, onListChange }: ShoppingListContentP
                             item.checked && 'line-through text-muted-foreground'
                           )}
                         >
-                          <span className="font-bold">{item.quantity > 0 ? item.quantity.toFixed(0) : ''}{item.unit}</span> {item.name}
+                          <span className="font-bold">{formatShoppingQuantity(item.quantity, item.unit)}</span> {item.name}
+                          {item.brand && <span className="text-sm text-muted-foreground"> · {item.brand}</span>}
                         </Label>
                       )}
                     </div>

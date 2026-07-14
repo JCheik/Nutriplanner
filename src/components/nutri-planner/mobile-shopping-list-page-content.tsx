@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import type { DayPlan } from '@/lib/types';
-import { ShoppingListContent, type ShoppingListItem } from '@/components/nutri-planner/shopping-list-content';
+import { ShoppingListContent } from '@/components/nutri-planner/shopping-list-content';
+import { generateShoppingListFromPlan } from '@/lib/shopping-list-utils';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import {
@@ -24,36 +24,11 @@ type CombinedState = ReturnType<typeof useWeekPlanState> & ReturnType<typeof use
 
 interface MobileShoppingListPageContentProps extends CombinedState {}
 
-const generateListFromPlan = (weekPlan: DayPlan[]): ShoppingListItem[] => {
-    const aggregated: Record<string, { name: string; quantity: number; unit: string }> = {};
-    if (!weekPlan) return [];
-    
-    weekPlan.forEach(dayPlan => {
-      (dayPlan.meals || []).forEach(meal => {
-        (meal.recipes || []).forEach(recipe => {
-          (recipe.ingredients || []).forEach(ingredient => {
-            const key = `${ingredient.name.toLowerCase().trim()}-${ingredient.unit}`;
-            if (aggregated[key]) {
-              aggregated[key].quantity += ingredient.quantity;
-            } else {
-              aggregated[key] = { ...ingredient };
-            }
-          });
-        });
-      });
-    });
-     return Object.values(aggregated).map((item, index) => ({
-      ...item,
-      id: `gen-${index}`,
-      checked: false,
-    })).sort((a, b) => a.name.localeCompare(b.name));
-};
-
 export function MobileShoppingListPageContent({ currentWeekPlan, currentShoppingList, handleShoppingListUpdate }: MobileShoppingListPageContentProps) {
 
   const handleGenerateList = () => {
     if(!currentWeekPlan) return;
-    const newList = generateListFromPlan(currentWeekPlan);
+    const newList = generateShoppingListFromPlan(currentWeekPlan);
     handleShoppingListUpdate(newList);
   };
 

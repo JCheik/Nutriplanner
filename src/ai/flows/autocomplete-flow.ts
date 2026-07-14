@@ -3,7 +3,7 @@
 import { ai, GEMINI_MODEL } from '@/ai/genkit';
 import { z } from 'zod';
 import { DIET_TAG_ENUM, type WeekPlan, type GoalMacros, type Recipe, type MealCategory, type DietTag } from '@/lib/types';
-import { suggestedServings } from '@/lib/serving-utils';
+import { suggestedServings, mealCalorieRatio } from '@/lib/serving-utils';
 
 const AutocompletePreferencesSchema = z.object({
   // 'max_twice' is the legacy value (fixed limit of 2); 'max_n' uses the
@@ -49,24 +49,13 @@ const AutocompleteOutputSchema = z.object({
 
 export type AutocompleteResult = z.infer<typeof AutocompleteOutputSchema>;
 
-// Calorie share of the daily goal for a single meal type.
-function ratioForType(type: MealCategory): number {
-  switch (type) {
-    case 'desayuno': return 0.25;
-    case 'almuerzo': return 0.35;
-    case 'cena': return 0.30;
-    case 'merienda': return 0.10;
-    case 'snack': return 0.10;
-    case 'postre': return 0.10;
-    default: return 0.25;
-  }
-}
-
 // A slot may accept several meal types. Size it by the most caloric one
-// (e.g. "cena + postre" → cena's share, not the sum).
+// (e.g. "cena + postre" → cena's share, not the sum). The per-type calorie
+// shares live in lib/serving-utils (`mealCalorieRatio`), shared with the
+// planner so both always split the day the same way.
 function getMealCalorieRatio(mealTypes: MealCategory[], mealTitle: string): number {
   const types = mealTypes.length > 0 ? mealTypes : [inferTypeFromTitle(mealTitle)];
-  return Math.max(...types.map(ratioForType));
+  return mealCalorieRatio(types);
 }
 
 function inferTypeFromTitle(mealTitle: string): MealCategory {

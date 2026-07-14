@@ -81,7 +81,10 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
             </div>
           )}
           <div className="flex-1 p-3 pr-10 min-w-0">
-            <h3 className="font-bold text-sm line-clamp-1 font-headline">{recipe.name}</h3>
+            <h3 className="font-bold text-sm line-clamp-1 font-headline">
+              {recipe.name}
+              {recipe.brand && <span className="ml-1.5 font-normal text-xs text-muted-foreground">{recipe.brand}</span>}
+            </h3>
             <p className="text-xs text-muted-foreground line-clamp-1 mb-2">{recipe.description}</p>
             <div className="flex flex-wrap gap-x-3 gap-y-1 items-center text-muted-foreground">
                 <MacroItem icon={Flame} value={perServing.calories} unit="kcal" colorClass="text-orange-400" />

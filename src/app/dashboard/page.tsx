@@ -126,8 +126,6 @@ export default function DashboardPage() {
         onClose={() => handlePanelChange('empty-fridge', false)}
         onRecipeAction={handleRecipeAction}
         nutritionalGoal={activeGoalMacros || null}
-        onSaveRecipe={handleSaveRecipe}
-        isSavingRecipe={isSaving}
       />
 
       <RecipeImportDialog

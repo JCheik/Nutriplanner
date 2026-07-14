@@ -60,6 +60,10 @@ const MacrosSchema = z.object({
 export const RecipeSchema = MacrosSchema.extend({
   id: z.string(),
   name: z.string(),
+  // Brand of a supermarket "product" recipe (e.g. "Hacendado"), shown apart
+  // from the name — same convention as BaseIngredient.brand. Absent on
+  // home-cooked recipes.
+  brand: z.string().optional(),
   description: z.string(),
   instructions: z.string(),
   ingredients: z.array(IngredientSchema),
@@ -171,6 +175,8 @@ export interface CalculationResult {
 export interface ShoppingListItem {
   id: string;
   name: string;
+  // Optional brand, shown apart from the name (same convention as ingredients).
+  brand?: string;
   quantity: number;
   unit: string;
   checked: boolean;

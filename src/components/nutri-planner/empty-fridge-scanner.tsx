@@ -9,22 +9,19 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
-import { 
-  Camera, 
-  Upload, 
-  X, 
-  Sparkles, 
-  Loader2, 
-  Flame, 
-  EggFried, 
-  Wheat, 
-  Droplets, 
-  Plus, 
-  Bookmark, 
-  Eye, 
-  ChevronRight,
+import {
+  Camera,
+  Upload,
+  X,
+  Sparkles,
+  Loader2,
+  Flame,
+  EggFried,
+  Wheat,
+  Droplets,
+  Bookmark,
+  Eye,
   UtensilsCrossed,
-  Check
 } from 'lucide-react';
 import type { Recipe, GoalMacros } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -35,8 +32,6 @@ interface EmptyFridgeScannerProps {
   onClose: () => void;
   onRecipeAction: (action: 'view' | 'create' | 'edit', recipe?: Recipe, isNutriPlannerRecipe?: boolean) => void;
   nutritionalGoal: GoalMacros | null;
-  onSaveRecipe: (recipe: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean) => Promise<void>;
-  isSavingRecipe?: boolean;
 }
 
 export function EmptyFridgeScanner({
@@ -44,8 +39,6 @@ export function EmptyFridgeScanner({
   onClose,
   onRecipeAction,
   nutritionalGoal,
-  onSaveRecipe,
-  isSavingRecipe = false,
 }: EmptyFridgeScannerProps) {
   const { toast } = useToast();
   const { check: checkAiQuota } = useAiQuota();
@@ -61,8 +54,6 @@ export function EmptyFridgeScanner({
   const [scannedIngredients, setScannedIngredients] = useState<string[]>([]);
   const [suggestedRecipes, setSuggestedRecipes] = useState<any[]>([]);
   const [hasScanned, setHasScanned] = useState(false);
-  const [savedRecipeIds, setSavedRecipeIds] = useState<Record<string, boolean>>({});
-  const [savingIndex, setSavingIndex] = useState<number | null>(null);
 
   useEffect(() => {
     return () => {
@@ -78,8 +69,6 @@ export function EmptyFridgeScanner({
     setScannedIngredients([]);
     setSuggestedRecipes([]);
     setHasScanned(false);
-    setSavedRecipeIds({});
-    setSavingIndex(null);
   };
 
   const handleFileChange = (file: File) => {
@@ -166,28 +155,24 @@ export function EmptyFridgeScanner({
     }
   };
 
-  const handleSaveSuggestedRecipe = async (recipe: any, index: number) => {
-    setSavingIndex(index);
-    try {
-      const recipeToSave: Omit<Recipe, 'id'> = {
-        name: recipe.name,
-        description: recipe.description,
-        instructions: recipe.instructions,
-        ingredients: recipe.ingredients,
-        calories: recipe.calories,
-        protein: recipe.protein,
-        carbs: recipe.carbs,
-        fat: recipe.fat,
-        imageHint: recipe.imageHint,
-      };
-
-      await onSaveRecipe(recipeToSave, null, false);
-      setSavedRecipeIds(prev => ({ ...prev, [index]: true }));
-    } catch (err) {
-      console.error('Error saving recipe:', err);
-    } finally {
-      setSavingIndex(null);
-    }
+  // Open the suggested recipe in the editor instead of saving it directly:
+  // the editor enforces the mandatory category (otherwise these recipes became
+  // "comodín" wildcards for the autocomplete), lets the user set servings/diet,
+  // and runs the new-ingredient review so its foods don't resolve as 0 kcal.
+  const handleReviewSuggestedRecipe = (recipe: any) => {
+    const recipeToReview = {
+      name: recipe.name,
+      description: recipe.description,
+      instructions: recipe.instructions,
+      ingredients: recipe.ingredients,
+      calories: recipe.calories,
+      protein: recipe.protein,
+      carbs: recipe.carbs,
+      fat: recipe.fat,
+      imageHint: recipe.imageHint,
+    } as Recipe;
+    onRecipeAction('create', recipeToReview, false);
+    onClose();
   };
 
   const handleOpenRecipeDetail = (recipe: any) => {
@@ -389,23 +374,11 @@ export function EmptyFridgeScanner({
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className={cn(
-                                    "h-7 w-7 transition-colors",
-                                    savedRecipeIds[index] 
-                                      ? "text-emerald-500 hover:text-emerald-600 bg-emerald-50" 
-                                      : "text-muted-foreground hover:text-primary"
-                                  )}
-                                  onClick={() => !savedRecipeIds[index] && handleSaveSuggestedRecipe(recipe, index)}
-                                  title={savedRecipeIds[index] ? "Guardado" : "Guardar en mis recetas"}
-                                  disabled={savingIndex !== null}
+                                  className="h-7 w-7 text-muted-foreground hover:text-primary transition-colors"
+                                  onClick={() => handleReviewSuggestedRecipe(recipe)}
+                                  title="Revisar y guardar en mis recetas"
                                 >
-                                  {savingIndex === index ? (
-                                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                                  ) : savedRecipeIds[index] ? (
-                                    <Check className="h-4 w-4 text-emerald-500" />
-                                  ) : (
-                                    <Bookmark className="h-4 w-4" />
-                                  )}
+                                  <Bookmark className="h-4 w-4" />
                                 </Button>
                               </div>
                             </div>

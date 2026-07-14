@@ -38,6 +38,7 @@ export function ProductDialog({ isOpen, onClose, onSave, isSaving = false }: Pro
   const [isOffSearchOpen, setIsOffSearchOpen] = useState(false);
 
   const [name, setName] = useState('');
+  const [brand, setBrand] = useState('');
   const [grams, setGrams] = useState('100');
   const [calories, setCalories] = useState('');
   const [protein, setProtein] = useState('');
@@ -52,7 +53,7 @@ export function ProductDialog({ isOpen, onClose, onSave, isSaving = false }: Pro
 
   useEffect(() => {
     if (!isOpen) {
-      setName(''); setGrams('100'); setCalories(''); setProtein(''); setCarbs(''); setFat('');
+      setName(''); setBrand(''); setGrams('100'); setCalories(''); setProtein(''); setCarbs(''); setFat('');
       setCategory(['snack']); setImageUrl(''); setPer100(null); setMacrosDirty(false);
     }
   }, [isOpen]);
@@ -66,7 +67,10 @@ export function ProductDialog({ isOpen, onClose, onSave, isSaving = false }: Pro
   };
 
   const handleOffSelect = (p: OffProduct) => {
-    setName(p.brand ? `${p.name} (${p.brand})` : p.name);
+    // Brand goes to its own field (shown apart from the name, like ingredients),
+    // not baked into the title as "Nombre (Marca)".
+    setName(p.name);
+    setBrand(p.brand ?? '');
     setImageUrl(p.imageUrl ?? '');
     setPer100(p.per100g);
     setMacrosDirty(false);
@@ -113,6 +117,7 @@ export function ProductDialog({ isOpen, onClose, onSave, isSaving = false }: Pro
     }
     onSave({
       name: name.trim(),
+      ...(brand.trim() ? { brand: brand.trim() } : {}),
       description: `Producto · ración de ${gramsNum} g`,
       instructions: '',
       ingredients: [],
@@ -155,6 +160,15 @@ export function ProductDialog({ isOpen, onClose, onSave, isSaving = false }: Pro
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="ej: Yogur griego natural"
+              />
+            </div>
+            <div>
+              <Label htmlFor="product-brand">Marca</Label>
+              <Input
+                id="product-brand"
+                value={brand}
+                onChange={(e) => setBrand(e.target.value)}
+                placeholder="Opcional · ej. Hacendado"
               />
             </div>
             <div>

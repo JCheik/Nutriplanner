@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ShoppingCart, X, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ShoppingListContent, type ShoppingListItem } from './shopping-list-content';
+import { generateShoppingListFromPlan } from '@/lib/shopping-list-utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,35 +26,10 @@ interface ShoppingListSheetProps {
   onListChange: (list: ShoppingListItem[]) => void;
 }
 
-const generateListFromPlan = (weekPlan: WeekPlan): ShoppingListItem[] => {
-    const aggregated: Record<string, { name: string; quantity: number; unit: string }> = {};
-    if (!weekPlan) return [];
-    
-    weekPlan.forEach(dayPlan => {
-      (dayPlan.meals || []).forEach(meal => {
-        (meal.recipes || []).forEach(recipe => {
-          (recipe.ingredients || []).forEach(ingredient => {
-            const key = `${ingredient.name.toLowerCase().trim()}-${ingredient.unit}`;
-            if (aggregated[key]) {
-              aggregated[key].quantity += ingredient.quantity;
-            } else {
-              aggregated[key] = { ...ingredient };
-            }
-          });
-        });
-      });
-    });
-     return Object.values(aggregated).map((item, index) => ({
-      ...item,
-      id: `gen-${index}`,
-      checked: false,
-    })).sort((a, b) => a.name.localeCompare(b.name));
-};
-
 export function ShoppingListSheet({ weekPlan, isOpen, onOpenChange, currentShoppingList, onListChange }: ShoppingListSheetProps) {
 
     const handleGenerateList = () => {
-        const newList = generateListFromPlan(weekPlan);
+        const newList = generateShoppingListFromPlan(weekPlan);
         onListChange(newList);
     }
 
