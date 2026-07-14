@@ -37,6 +37,9 @@ export function ingredientKey(name: string, brand?: string): string {
  */
 export function pluralizeUnit(unit: string, quantity: number): string {
   if (quantity === 1 || !unit) return unit;
+  // Common abbreviations pluralize by adding "s", not the "-es" rule below
+  // ("ud" → "uds", not "udes").
+  if (/^(ud|u|uds)$/i.test(unit)) return unit.toLowerCase() === 'uds' ? unit : `${unit}s`;
   return /[aeiouáéíóú]$/i.test(unit) ? `${unit}s` : `${unit}es`;
 }
 
