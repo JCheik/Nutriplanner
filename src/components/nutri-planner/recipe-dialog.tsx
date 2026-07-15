@@ -837,16 +837,19 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
                         
                         <div className='space-y-2'>
                             <Label>2. Ingredientes de la Receta</Label>
-                            <ScrollArea className="h-36 border border-white/10 rounded-lg p-2">
+                            {/* Plain overflow-y-auto instead of Radix ScrollArea: ScrollArea's
+                                viewport wraps children in a display:table div, which sizes to the
+                                row's max-content width instead of the available width — so a long
+                                name pushed the quantity input and delete button past the clipped
+                                (overflow-x:hidden) edge, hiding them with no way to scroll to them. */}
+                            <div className="h-36 overflow-y-auto border border-white/10 rounded-lg p-2">
                                 <div className="space-y-2 pr-2">
                                     {ingredientDisplayList.map(ing => {
                                     const isPiece = ing.unit && !['g', 'ml'].includes(ing.unit.toLowerCase());
                                     return (
                                     <div key={ing.id} className="flex items-center gap-2 bg-black/10 p-2 rounded-md text-sm">
-                                        {/* Name + brand truncate; the controls on the right never shrink,
-                                            so the delete button is always reachable even for long names. */}
                                         <div className="flex-1 min-w-0">
-                                            <p className="truncate font-semibold leading-tight">{ing.name}</p>
+                                            <p className="line-clamp-2 break-words font-semibold leading-tight">{ing.name}</p>
                                             {ing.brand && <p className="truncate text-xs text-muted-foreground leading-tight">{ing.brand}</p>}
                                             <p className="text-xs text-muted-foreground">
                                               {Math.round(ing.calories)} kcal
@@ -872,7 +875,7 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
                                         <p className="text-sm text-muted-foreground text-center pt-8">Añade ingredientes para verlos aquí.</p>
                                     )}
                                 </div>
-                            </ScrollArea>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
