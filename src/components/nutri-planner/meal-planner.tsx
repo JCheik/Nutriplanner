@@ -247,7 +247,10 @@ function MealSlot({ day, meal, isEditing, activeGoal, onDrop, onClearMeal, onRec
       onDrop={handleDrop} 
       onClick={handleSlotClick}
       className={cn(
-        "relative flex flex-col p-2 bg-background/80 border rounded-xl h-full min-h-[160px]",
+        // No fixed height: the slot GROWS with its recipes. `h-full` used to pin
+        // it to the (stretched) column height, so extra recipes overflowed and
+        // drew over the next meal's slot. min-height keeps empty slots tidy.
+        "relative flex flex-col p-2 bg-background/80 border rounded-xl min-h-[160px]",
         "cursor-pointer transition-colors duration-200",
         isActiveDropTarget && "ring-2 ring-primary",
         isDragOverSlot && "bg-accent/50 border-primary ring-2 ring-primary/50"
