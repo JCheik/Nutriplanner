@@ -144,12 +144,14 @@ function MealRecipeChip({ recipe, day, mealId, onRecipeClick, onRemove, onUpdate
   const kcal = Math.round(recipe.calories * scale);
 
   return (
-    <div className="w-full relative group/item flex-1 min-h-[60px]">
+    // Auto height + stacked (no flex-1 / min-height): each recipe grows to fit
+    // its name and controls, so 2+ recipes in one slot never clip or hide a card.
+    <div className="w-full relative group/item shrink-0">
       <div
-        className="h-full w-full flex flex-col items-center justify-center p-2 rounded-md bg-secondary/50 hover:bg-secondary/70 transition-colors cursor-pointer gap-1"
+        className="w-full flex flex-col items-center justify-center p-1.5 rounded-md bg-secondary/50 hover:bg-secondary/70 transition-colors cursor-pointer gap-1"
         onClick={(e) => { e.stopPropagation(); onRecipeClick(recipe); }}
       >
-        <span className="text-center font-semibold text-secondary-foreground text-xs leading-tight line-clamp-2">
+        <span className="text-center font-semibold text-secondary-foreground text-xs leading-tight line-clamp-3">
           {recipe.name}
         </span>
         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -334,7 +336,7 @@ function MealSlot({ day, meal, isEditing, activeGoal, onDrop, onClearMeal, onRec
         hasRecipes || isDragOverSlot ? 'bg-transparent' : 'border-2 border-dashed border-border/50 bg-secondary/30'
       )}>
         {hasRecipes ? (
-           <div className="w-full h-full flex flex-col gap-1 flex-1">
+           <div className="w-full flex flex-col gap-1">
                 {meal.recipes.map((recipe: RecipeInstance) => (
                     <MealRecipeChip
                       key={`${recipe.id}-${recipe.instanceId}`}
