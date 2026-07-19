@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Recipe, DialogState, ActiveDropTarget, Meal, PanelType, AiIngredientEstimate } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import { useRecipeState } from '@/hooks/use-recipe-state';
 import { useWeekPlanState } from '@/hooks/use-week-plan-state';
 import { useUserProfileState } from '@/hooks/use-user-profile-state';
@@ -60,12 +61,14 @@ export function useDashboard() {
     activeGoalMacros,
     currentShoppingList,
     currentDietPreference,
+    nutriInterview,
     activeGoal,
     handleCalorieResultSave,
     handleActiveGoalChange,
     handleSaveCustomGoal,
     handleShoppingListUpdate,
     handleDietPreferenceChange,
+    handleNutriInterviewSave,
   } = userProfileState;
 
   // UI state
@@ -75,7 +78,6 @@ export function useDashboard() {
   const [isRecipeSelectorOpen, setIsRecipeSelectorOpen] = useState(false);
   const [selectedMealForAddition, setSelectedMealForAddition] = useState<Meal | null>(null);
   const [isAutocompleting, setIsAutocompleting] = useState(false);
-  const [isPreferencesDialogOpen, setIsPreferencesDialogOpen] = useState(false);
 
   // Handlers
   const handleRecipeAction = useCallback((action: 'view' | 'create' | 'edit', recipe?: Recipe, isNutriPlannerRecipe = false) => {
@@ -150,10 +152,34 @@ export function useDashboard() {
     setDialogState({ open: true, mode: 'create', recipe: recipe as Recipe, imageFile });
   };
 
-  const handleAutocompleteWeek = () => setIsPreferencesDialogOpen(true);
+  // Con la entrevista de Mi Laboratorio rellena, ya no hace falta preguntar
+  // preferencias cada vez: se derivan de ahí y se autocompleta directo. Sin
+  // entrevista, en vez del diálogo de preferencias mandamos a rellenarla —
+  // así el primer autocompletado ya sale personalizado.
+  const handleAutocompleteWeek = () => {
+    if (!nutriInterview) {
+      toast({
+        title: 'Antes de autocompletar…',
+        description: 'Cuéntame tus gustos, lo que evitas y tus alergias en Mi Laboratorio — así te haré un plan mucho mejor que uno genérico.',
+        action: (
+          <ToastAction altText="Ir a Mi Laboratorio" onClick={() => router.push('/dashboard/perfil?tab=entrevista')}>
+            Ir a Mi Laboratorio
+          </ToastAction>
+        ),
+      });
+      return;
+    }
+    handleRunAutocomplete({
+      allowRepetition: nutriInterview.varietyPreference === 'variedad' ? 'no_repeat' : 'max_n',
+      maxRepetitions: nutriInterview.maxRepeatsPerRecipe ?? 3,
+      priority: 'goal',
+      dietaryRestrictions: '',
+      goalMarginPercent: 15,
+      recipeSource: 'all',
+    });
+  };
 
   const handleRunAutocomplete = async (preferences: AutocompletePreferences) => {
-    setIsPreferencesDialogOpen(false);
     const quota = await checkAiQuota();
     if (!quota.allowed) {
       toast({ title: 'Límite de IA', description: quota.message ?? 'Has alcanzado el límite de peticiones de IA por hoy.' });
@@ -165,17 +191,46 @@ export function useDashboard() {
       const availableRecipes = recipeSource === 'mine'
         ? [...currentUserRecipes]
         : [...currentUserRecipes, ...nutriplannerRecipes];
+      // Anti-monotony context: recipe names from the 2 most recent saved weeks,
+      // so the AI doesn't rebuild the exact same plan every time.
+      const recentRecipeNames = [...new Set(
+        weekHistory.history.slice(0, 2).flatMap(snapshot =>
+          snapshot.days.flatMap(d => d.meals.flatMap(m => m.recipes.map(r => r.name)))
+        )
+      )];
       const { placements, unfilled } = await autocompleteWeek({
         weekPlan: currentWeekPlan,
         availableRecipes,
         activeGoal: activeGoalMacros || null,
-        preferences: { ...flowPreferences, diet: currentDietPreference },
+        preferences: {
+          ...flowPreferences,
+          diet: currentDietPreference,
+          ...(nutriInterview ? {
+            interview: {
+              favoriteFoods: nutriInterview.favoriteFoods,
+              avoidFoods: nutriInterview.avoidFoods,
+              allergies: nutriInterview.allergies,
+              weeklyWishes: nutriInterview.weeklyWishes,
+              varietyPreference: nutriInterview.varietyPreference,
+              quickWeekdays: nutriInterview.quickWeekdays,
+              ...(nutriInterview.freeMealsPerWeek ? { freeMealsPerWeek: nutriInterview.freeMealsPerWeek } : {}),
+            },
+          } : {}),
+          ...(recentRecipeNames.length > 0 ? { recentRecipeNames } : {}),
+        },
       });
       placements.forEach(p => {
         const recipe = availableRecipes.find(r => r.id === p.recipeId);
         if (recipe) handleDrop(p.day, p.mealId, recipe, p.servings);
       });
-      toast(autocompleteToast(placements.length, unfilled));
+      const resultToast = autocompleteToast(placements.length, unfilled);
+      // Flexibility reminder: the plan is a guide, not a contract. Swap the
+      // planned recipe on free-meal days, guilt-free.
+      const freeMeals = nutriInterview?.freeMealsPerWeek ?? 0;
+      if (freeMeals > 0 && placements.length > 0 && !resultToast.variant) {
+        resultToast.description += ` Recuerda: tienes ${freeMeals} comida${freeMeals > 1 ? 's' : ''} libre${freeMeals > 1 ? 's' : ''} esta semana — el día que toque, sustituye o borra esa receta sin remordimientos.`;
+      }
+      toast(resultToast);
     } catch (e) {
       console.error(e);
       toast({ variant: 'destructive', title: 'Error al autocompletar', description: getAiErrorMessage(e, 'No se pudo generar el plan semanal completo.') });
@@ -214,12 +269,12 @@ export function useDashboard() {
     // Week history
     weekHistory,
     // User profile state
-    currentCalorieResult, activeGoalMacros, currentShoppingList, currentDietPreference, activeGoal,
-    handleCalorieResultSave, handleActiveGoalChange, handleSaveCustomGoal, handleShoppingListUpdate, handleDietPreferenceChange,
+    currentCalorieResult, activeGoalMacros, currentShoppingList, currentDietPreference, nutriInterview, activeGoal,
+    handleCalorieResultSave, handleActiveGoalChange, handleSaveCustomGoal, handleShoppingListUpdate, handleDietPreferenceChange, handleNutriInterviewSave,
     // UI state
     dialogState, activePanel, activeDropTarget, setActiveDropTarget,
     isRecipeSelectorOpen, setIsRecipeSelectorOpen, selectedMealForAddition,
-    isAutocompleting, isPreferencesDialogOpen, setIsPreferencesDialogOpen,
+    isAutocompleting,
     // Handlers
     handleRecipeAction, handleDialogClose, handleAddToPlan,
     handleInternalSaveRecipe, handleInternalDeleteRecipe,

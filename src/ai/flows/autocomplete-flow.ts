@@ -4,6 +4,7 @@ import { ai, GEMINI_MODEL } from '@/ai/genkit';
 import { z } from 'zod';
 import { DIET_TAG_ENUM, type WeekPlan, type GoalMacros, type Recipe, type MealCategory, type DietTag } from '@/lib/types';
 import { suggestedServings, mealCalorieRatio } from '@/lib/serving-utils';
+import { NutriInterviewPromptSchema, type InterviewForPrompt } from '@/ai/prompt-fragments';
 
 const AutocompletePreferencesSchema = z.object({
   // 'max_twice' is the legacy value (fixed limit of 2); 'max_n' uses the
@@ -14,6 +15,13 @@ const AutocompletePreferencesSchema = z.object({
   dietaryRestrictions: z.string().optional(),
   goalMarginPercent: z.number().optional(),
   diet: z.array(z.enum(DIET_TAG_ENUM)).optional(),
+  // Answers from the "entrevista" questionnaire (Mi Laboratorio). Optional so
+  // callers that predate it (mobile, cached PWA clients) keep working. Shared
+  // schema with the assistant + recipe-generation flows.
+  interview: NutriInterviewPromptSchema.optional(),
+  // Recipe names used in recently saved weeks, so consecutive plans don't come
+  // out identical ("siempre me da el mismo plan").
+  recentRecipeNames: z.array(z.string()).optional(),
 });
 
 const AutocompleteInputSchema = z.object({
@@ -85,7 +93,11 @@ function bestFitWithinMargin(
   targetCalories: number,
   marginPercent: number,
   preferredRecipeId: string | undefined,
-  maxServings: number
+  maxServings: number,
+  // With "comidas libres" planned, going over target is worse than going
+  // under by the same amount: under-target picks leave weekly slack for the
+  // off-plan meals. Overshoot deviations get a 1.5× penalty.
+  preferUnder = false
 ): { recipeId: string; servings: number } | null {
   const lo = targetCalories * (1 - marginPercent / 100);
   const hi = targetCalories * (1 + marginPercent / 100);
@@ -97,7 +109,8 @@ function bestFitWithinMargin(
     for (let servings = 1; servings <= maxServings; servings++) {
       const cals = r.caloriesPerServing * servings;
       if (cals < lo || cals > hi) continue;
-      const deviation = Math.abs(cals - targetCalories);
+      const rawDeviation = cals - targetCalories;
+      const deviation = preferUnder && rawDeviation > 0 ? rawDeviation * 1.5 : Math.abs(rawDeviation);
       const preferred = id === preferredRecipeId;
       const better = !best || (preferred && !best.preferred) || (preferred === best.preferred && deviation < best.deviation);
       if (better) best = { recipeId: id, servings, deviation, preferred };
@@ -114,7 +127,11 @@ const autocompleteWeekFlow = ai.defineFlow(
   },
   async ({ weekPlan, availableRecipes, activeGoal, preferences }) => {
 
-    // Use per-serving macros so the AI can reason about real intake
+    // Use per-serving macros so the AI can reason about real intake.
+    // Shuffled: with a stable ordering the model kept gravitating to the same
+    // early entries, producing near-identical plans run after run. The
+    // deterministic placement pass below works off maps, so order only affects
+    // which candidates the model "sees first".
     const recipes = availableRecipes as Recipe[];
     const simplifiedRecipes = recipes.map(r => ({
       id: r.id,
@@ -125,6 +142,10 @@ const autocompleteWeekFlow = ai.defineFlow(
       proteinPerServing: Math.round(r.protein / (r.servings ?? 1)),
       servings: r.servings ?? 1,
     }));
+    for (let i = simplifiedRecipes.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [simplifiedRecipes[i], simplifiedRecipes[j]] = [simplifiedRecipes[j], simplifiedRecipes[i]];
+    }
 
     // Diet pre-filter: keep recipes compatible with the selected diet (no diet tags
     // = comodín, always compatible). Everything downstream draws from this pool. If
@@ -208,6 +229,45 @@ Do NOT try to balance across all meals simultaneously — just minimise the gap 
       ? `The user wrote these free-form food preferences: "${preferences.dietaryRestrictions}". Interpret them naturally: NEVER pick recipes containing ingredients or dishes they dislike or exclude, and when they ask FOR something specific (e.g. "quiero hamburguesas"), try to include a matching recipe in an appropriate slot at least once during the week.`
       : '';
 
+    // ── Entrevista (questionnaire) rules ────────────────────────────────────
+    const interview = preferences.interview;
+    const interviewRules: string[] = [];
+    if (interview) {
+      if (interview.allergies.length > 0) {
+        interviewRules.push(`ALLERGIES (ABSOLUTE, overrides everything): the user is allergic/intolerant to: ${interview.allergies.join(', ')}. NEVER pick a recipe that plausibly contains any of these — judge by the recipe name; when in doubt, skip it.`);
+      }
+      if (interview.avoidFoods.length > 0) {
+        interviewRules.push(`DISLIKES: the user avoids: ${interview.avoidFoods.join(', ')}. Do not pick recipes featuring them.`);
+      }
+      if (interview.favoriteFoods.length > 0) {
+        interviewRules.push(`FAVOURITES: the user loves: ${interview.favoriteFoods.join(', ')}. When several eligible recipes fit a slot equally well, prefer one featuring a favourite. Spread favourites across the week rather than stacking them all in one day.`);
+      }
+      const wishes: string[] = [];
+      if (interview.weeklyWishes.legumbres) wishes.push(`at least ${interview.weeklyWishes.legumbres} legume dish(es) (lentejas, garbanzos, alubias…)`);
+      if (interview.weeklyWishes.vegetariano) wishes.push(`at least ${interview.weeklyWishes.vegetariano} vegetarian dish(es)`);
+      if (interview.weeklyWishes.pescado) wishes.push(`at least ${interview.weeklyWishes.pescado} fish dish(es)`);
+      if (wishes.length > 0) {
+        interviewRules.push(`WEEKLY GOALS: across the whole week, try to include ${wishes.join('; ')} in lunch/dinner slots. Count recipes already placed in the ALREADY FILLED list towards these goals.`);
+      }
+      if (interview.varietyPreference === 'variedad') {
+        interviewRules.push('VARIETY: the user wants maximum variety. Beyond the repetition limit, also avoid picking several recipes that are minor variations of the same dish (e.g. three different chicken burgers).');
+      } else {
+        interviewRules.push('BATCH COOKING: the user is happy eating the same dish several times — when a recipe fits well, repeating it (within the repetition limit) is welcome.');
+      }
+      if (interview.quickWeekdays) {
+        interviewRules.push('WEEKDAY SPEED: Monday–Friday, prefer quick simple dishes (salads, bowls, wraps, sandwiches, sheet-pan…); leave elaborate dishes for Saturday/Sunday. Judge by the recipe name.');
+      }
+      if ((interview.freeMealsPerWeek ?? 0) > 0) {
+        interviewRules.push(`FLEXIBILITY: the user plans ${interview.freeMealsPerWeek} free meal(s) this week (meals they'll eat off-plan — dinner out, pizza with friends). STILL fill every slot, but when two recipes fit a slot equally well, prefer the slightly LIGHTER one so the week keeps some calorie slack for those free meals.`);
+      }
+    }
+
+    // Anti-monotony: discourage rebuilding the same plan as previous weeks.
+    const recentNames = (preferences.recentRecipeNames ?? []).slice(0, 60);
+    const freshnessRule = recentNames.length > 0
+      ? `RECENTLY USED (from the user's previous saved weeks): ${recentNames.join('; ')}. Prefer eligible recipes NOT on this list so consecutive weeks feel different. This is a soft preference — nutrition rules and meal-type fit always win.`
+      : '';
+
     const prompt = `
 You are an expert nutritionist AI. Fill the empty meal slots in a user's weekly plan.
 
@@ -243,6 +303,11 @@ RULES — follow ALL of them:
 4. NUTRITION (apply only among recipes that already fit the meal type): ${priorityRule}
 
 ${restrictionRule ? `5. FOOD PREFERENCES: ${restrictionRule}` : ''}
+
+${interviewRules.length > 0 ? `6. USER INTERVIEW (their saved nutritional preferences — respect ALL of these):
+${interviewRules.map(r => `   - ${r}`).join('\n')}` : ''}
+
+${freshnessRule ? `7. ${freshnessRule}` : ''}
 
 For EVERY slot in the list above, select EXACTLY ONE recipeId from that slot's eligibleRecipeIds.
 Return ONLY a JSON array. Each element: { "day": string, "mealId": string, "recipeId": string }
@@ -287,7 +352,8 @@ Return ONLY a JSON array. Each element: { "day": string, "mealId": string, "reci
       if (!candidateId) continue; // no eligible recipe at all for this slot
 
       if (useGoalMargin && slot.targetCalories != null) {
-        const fit = bestFitWithinMargin(slot.eligibleRecipeIds, simplifiedById, slot.targetCalories, margin, candidateId, MAX_SERVINGS_PER_SLOT);
+        const preferUnder = (interview?.freeMealsPerWeek ?? 0) > 0;
+        const fit = bestFitWithinMargin(slot.eligibleRecipeIds, simplifiedById, slot.targetCalories, margin, candidateId, MAX_SERVINGS_PER_SLOT, preferUnder);
         if (fit) placements.push({ day: slot.day, mealId: slot.mealId, recipeId: fit.recipeId, servings: fit.servings });
         // else: leave the slot empty rather than force an unrealistic serving amount.
       } else {
@@ -317,6 +383,8 @@ export async function autocompleteWeek(input: {
     dietaryRestrictions?: string;
     goalMarginPercent?: number;
     diet?: DietTag[];
+    interview?: InterviewForPrompt;
+    recentRecipeNames?: string[];
   };
 }): Promise<AutocompleteResult> {
   return autocompleteWeekFlow(input);

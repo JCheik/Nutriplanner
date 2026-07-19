@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
-import { LogOut, User as UserIcon, CheckCircle, Shield, HelpCircle, CircleUserRound, MessageSquare } from 'lucide-react';
+import { LogOut, User as UserIcon, CheckCircle, Shield, HelpCircle, FlaskConical, BookOpen, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useUser, signInWithGoogle, signOut } from '@/firebase/auth/use-user';
@@ -86,10 +86,18 @@ export function PageHeader({}: PageHeaderProps) {
                   entry here too is harmless and consistent. */}
               <DropdownMenuItem asChild className="cursor-pointer">
                 <Link href={perfilHref}>
-                  <CircleUserRound className="mr-2 h-4 w-4" />
-                  <span>Mi perfil y progreso</span>
+                  <FlaskConical className="mr-2 h-4 w-4" />
+                  <span>Mi Laboratorio</span>
                 </Link>
               </DropdownMenuItem>
+              {!pathname.startsWith('/mobile') && (
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link href="/dashboard/librito">
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    <span>El Librito</span>
+                  </Link>
+                </DropdownMenuItem>
+              )}
               {isAdmin && (
                 <DropdownMenuItem asChild className="cursor-pointer">
                   <Link href="/admin">
@@ -152,10 +160,21 @@ export function PageHeader({}: PageHeaderProps) {
                   hiding it inside the avatar menu. Hidden on phones: the mobile
                   layout already has a Perfil tab in the bottom nav. */}
               {user && (
-                <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
+                <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex" data-tour="laboratorio">
                   <Link href={perfilHref}>
-                    <CircleUserRound className="mr-2 h-4 w-4" />
-                    Mi perfil
+                    <FlaskConical className="mr-2 h-4 w-4" />
+                    Mi Laboratorio
+                  </Link>
+                </Button>
+              )}
+              {/* El Librito: guía de referencia, solo escritorio (misma decisión que
+                  Mi Laboratorio) — móvil no tiene tab bar libre y se sustituirá por
+                  la app nativa. */}
+              {user && !pathname.startsWith('/mobile') && (
+                <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex" data-tour="librito">
+                  <Link href="/dashboard/librito">
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    El Librito
                   </Link>
                 </Button>
               )}

@@ -457,10 +457,10 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-            <Button variant="outline" size="icon" onClick={handleDownloadImage}>
+            <Button variant="outline" size="icon" onClick={handleDownloadImage} aria-label="Descargar plan como imagen" data-tour="download-plan">
               <Download className="h-4 w-4" />
             </Button>
-            <Button variant="outline" onClick={() => setIsEditing(!isEditing)}>
+            <Button variant="outline" onClick={() => setIsEditing(!isEditing)} data-tour="edit-plan">
                 {isEditing ? <Check className="mr-2 h-4 w-4" /> : <Edit className="mr-2 h-4 w-4" />}
                 {isEditing ? 'Finalizar Edición' : 'Editar Plan'}
             </Button>

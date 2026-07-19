@@ -4,6 +4,67 @@
  * purpose: server-action files may only export async functions, and these are
  * plain strings/helpers imported BY those files.
  */
+import { z } from 'zod';
+
+/**
+ * The slice of the user's "entrevista nutricional" (Mi Laboratorio) that AI
+ * flows consume. One shared schema so autocomplete/assistant/recipe-generation
+ * never drift apart. All-optional wrapper: callers omit it when the interview
+ * hasn't been filled in.
+ */
+export const NutriInterviewPromptSchema = z.object({
+  favoriteFoods: z.array(z.string()),
+  avoidFoods: z.array(z.string()),
+  allergies: z.array(z.string()),
+  weeklyWishes: z.object({
+    legumbres: z.number().optional(),
+    vegetariano: z.number().optional(),
+    pescado: z.number().optional(),
+  }),
+  varietyPreference: z.enum(['variedad', 'repetir']),
+  maxRepeatsPerRecipe: z.number().int().min(2).max(7).optional(),
+  quickWeekdays: z.boolean(),
+  freeMealsPerWeek: z.number().int().min(0).max(3).optional(),
+});
+export type InterviewForPrompt = z.infer<typeof NutriInterviewPromptSchema>;
+
+/**
+ * Spanish prompt block describing the user's saved interview, for the
+ * Spanish-language flows (assistant chat, recipe generation). Returns '' when
+ * there is nothing useful to say. Allergies are rendered as an absolute ban;
+ * dislikes can be overridden by an explicit user request in the moment.
+ */
+export function interviewInstruction(interview?: InterviewForPrompt | null): string {
+  if (!interview) return '';
+  const lines: string[] = [];
+  if (interview.allergies.length > 0) {
+    lines.push(`- ALERGIAS/INTOLERANCIAS (prohibición ABSOLUTA, por encima de todo lo demás): ${interview.allergies.join(', ')}. Nunca incluyas ni sugieras estos alimentos ni derivados.`);
+  }
+  if (interview.avoidFoods.length > 0) {
+    lines.push(`- No le gustan / evita: ${interview.avoidFoods.join(', ')}. No los uses… salvo que el usuario los pida explícitamente en su mensaje (su petición del momento manda).`);
+  }
+  if (interview.favoriteFoods.length > 0) {
+    lines.push(`- Le encantan: ${interview.favoriteFoods.join(', ')}. Úsalos como inspiración cuando encajen.`);
+  }
+  const wishes: string[] = [];
+  if (interview.weeklyWishes.legumbres) wishes.push(`${interview.weeklyWishes.legumbres}× legumbres`);
+  if (interview.weeklyWishes.vegetariano) wishes.push(`${interview.weeklyWishes.vegetariano}× vegetariano`);
+  if (interview.weeklyWishes.pescado) wishes.push(`${interview.weeklyWishes.pescado}× pescado`);
+  if (wishes.length > 0) {
+    lines.push(`- Cada semana quiere asegurar: ${wishes.join(', ')}.`);
+  }
+  lines.push(interview.varietyPreference === 'variedad'
+    ? '- Prefiere máxima variedad entre platos.'
+    : `- No le importa repetir platos (batch cooking), hasta ${interview.maxRepeatsPerRecipe ?? 3} veces la misma receta en la semana.`);
+  if (interview.quickWeekdays) {
+    lines.push('- Entre semana prefiere platos rápidos (~20 min o menos).');
+  }
+  if ((interview.freeMealsPerWeek ?? 0) > 0) {
+    lines.push(`- Se reserva ${interview.freeMealsPerWeek} comida(s) libre(s) a la semana (comer fuera de plan es parte de su plan, no un fallo — nunca lo llames "trampa" ni generes culpa por ello).`);
+  }
+  return `SOBRE EL USUARIO (su entrevista nutricional guardada — tenla en cuenta en todo lo que respondas o crees):
+${lines.join('\n')}`;
+}
 
 /**
  * Fragment with the existing ingredient-DB names, so the model reuses the exact

@@ -9,10 +9,14 @@
 import { ai, GEMINI_MODEL } from '@/ai/genkit';
 import { z } from 'zod';
 import { describeActions } from '@/lib/assistant-actions';
+import { NutriInterviewPromptSchema, interviewInstruction, type InterviewForPrompt } from '@/ai/prompt-fragments';
 
 const AssistantInputSchema = z.object({
   message: z.string(),
   context: z.string(),
+  // Saved "entrevista nutricional" (Mi Laboratorio). Optional so callers that
+  // predate it keep working.
+  interview: NutriInterviewPromptSchema.optional(),
 });
 
 const AssistantOutputSchema = z.object({
@@ -29,7 +33,8 @@ const assistantFlow = ai.defineFlow(
     inputSchema: AssistantInputSchema,
     outputSchema: AssistantOutputSchema,
   },
-  async ({ message, context }) => {
+  async ({ message, context, interview }) => {
+    const interviewBlock = interviewInstruction(interview);
     const prompt = `
 Eres el asistente de Nutrilp, una app para planificar comidas y nutrición.
 
@@ -56,6 +61,8 @@ ${describeActions()}
 
 ESTADO ACTUAL DEL USUARIO (sus días, comidas y recetas):
 ${context}
+
+${interviewBlock}
 
 REGLAS:
 - Responde SIEMPRE con "reply": una frase para el usuario.
@@ -92,6 +99,6 @@ MENSAJE DEL USUARIO:
   }
 );
 
-export async function askAssistant(input: { message: string; context: string }): Promise<AssistantResult> {
+export async function askAssistant(input: { message: string; context: string; interview?: InterviewForPrompt }): Promise<AssistantResult> {
   return assistantFlow(input);
 }

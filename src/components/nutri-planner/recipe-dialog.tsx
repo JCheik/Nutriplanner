@@ -970,6 +970,11 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe, is
   const { user, isAdmin } = useUser();
   const firestore = useFirestore();
   const [isCookingModeOpen, setIsCookingModeOpen] = useState(false);
+  // Mobile clamps the description to 2 lines; tapping toggles the full text.
+  const [isDescExpanded, setIsDescExpanded] = useState(false);
+  // Rough 2-line capacity at text-sm on a phone; shorter texts never clamp,
+  // so they don't need (or show) the toggle.
+  const isDescLong = (recipe.description?.length ?? 0) > 100;
 
   const ingredientsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'ingredients') : null, [firestore]);
   const { data: ingredientDB } = useCollection<BaseIngredient>(ingredientsCollectionRef);
@@ -1044,7 +1049,20 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe, is
         {isMobile ? (
           <div className="space-y-1.5">
             {recipe.description && (
-              <DialogDescription className="text-sm line-clamp-2">{recipe.description}</DialogDescription>
+              <div
+                onClick={() => isDescLong && setIsDescExpanded(v => !v)}
+                role={isDescLong ? 'button' : undefined}
+                aria-expanded={isDescLong ? isDescExpanded : undefined}
+              >
+                <DialogDescription className={cn('text-sm', !isDescExpanded && 'line-clamp-2')}>
+                  {recipe.description}
+                </DialogDescription>
+                {isDescLong && (
+                  <span className="text-xs font-medium text-primary">
+                    {isDescExpanded ? 'Ver menos' : 'Ver más'}
+                  </span>
+                )}
+              </div>
             )}
             {(categoryBadges.length > 0 || dietBadges.length > 0) && (
               <div className="flex flex-wrap gap-1.5">{categoryBadges}{dietBadges}</div>

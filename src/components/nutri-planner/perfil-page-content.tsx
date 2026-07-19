@@ -47,6 +47,7 @@ export function PerfilPageContent() {
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-primary leading-none mb-0.5">Mi Laboratorio</p>
           <h1 className="text-xl font-bold font-headline leading-tight truncate">
             {user?.displayName ?? 'Tu perfil'}
           </h1>

@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useUser, useDoc, useFirebase, useMemoFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import type { UserProfile, CalculationResult, GoalType, ShoppingListItem, DietTag } from '@/lib/types';
+import type { UserProfile, CalculationResult, GoalType, ShoppingListItem, DietTag, NutriInterview } from '@/lib/types';
 
 export function useUserProfileState() {
   const { user } = useUser();
@@ -37,6 +37,7 @@ export function useUserProfileState() {
   }, [currentCalorieResult, activeGoal]);
   const currentShoppingList = useMemo(() => userProfile?.shoppingList || [], [userProfile]);
   const currentDietPreference = useMemo(() => userProfile?.dietPreference || [], [userProfile]);
+  const nutriInterview = useMemo(() => userProfile?.nutriInterview ?? null, [userProfile]);
 
   // --- Handlers ---
   // NOTE: we use setDoc(..., { merge: true }) instead of updateDoc everywhere so
@@ -90,6 +91,19 @@ export function useUserProfileState() {
     }
   }, [userProfileRef, toast]);
 
+  // Saves the interview and mirrors its dietTags into dietPreference so the
+  // existing diet filter (planner, autocomplete) keeps working with one source.
+  const handleNutriInterviewSave = useCallback(async (interview: NutriInterview) => {
+    if (!userProfileRef) return;
+    try {
+      await setDoc(userProfileRef, { nutriInterview: interview, dietPreference: interview.dietTags }, { merge: true });
+      toast({ title: 'Entrevista guardada', description: 'La IA usará tus preferencias a partir de ahora.' });
+    } catch (e) {
+      console.error('Error saving nutri interview', e);
+      toast({ variant: 'destructive', title: 'Error', description: 'No se pudo guardar la entrevista.' });
+    }
+  }, [userProfileRef, toast]);
+
   const handleDietPreferenceChange = useCallback(async (diets: DietTag[]) => {
     if (userProfileRef) {
       try {
@@ -106,8 +120,10 @@ export function useUserProfileState() {
     activeGoalMacros,
     currentShoppingList,
     currentDietPreference,
+    nutriInterview,
     activeGoal,
     handleCalorieResultSave,
+    handleNutriInterviewSave,
     handleActiveGoalChange,
     handleSaveCustomGoal,
     handleShoppingListUpdate,

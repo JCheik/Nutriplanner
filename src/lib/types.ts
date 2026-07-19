@@ -182,6 +182,42 @@ export interface ShoppingListItem {
   checked: boolean;
 }
 
+// ── Entrevista nutricional ("Mi Laboratorio") ────────────────────────────────
+// Answers to the nutritionist-style interview. Stored on the user profile and
+// fed to every AI flow (autocomplete, assistant, recipe generation) so plans
+// respect real preferences instead of being generic.
+export interface NutriInterview {
+  /** Base diet style; mirrored into UserProfile.dietPreference on save so the
+   * existing diet filter keeps working unchanged. */
+  dietTags: DietTag[];
+  /** Foods/dishes the user loves — the AI favours these. */
+  favoriteFoods: string[];
+  /** Foods the user dislikes/avoids — the AI never includes them. */
+  avoidFoods: string[];
+  /** Allergies/intolerances — ABSOLUTE prohibition, stronger than avoidFoods. */
+  allergies: string[];
+  /** Minimum dishes per week the user wants of each kind (0/absent = no wish). */
+  weeklyWishes: {
+    legumbres?: number;
+    vegetariano?: number;
+    pescado?: number;
+  };
+  /** 'variedad' = maximum variety; 'repetir' = batch-cooking friendly. */
+  varietyPreference: 'variedad' | 'repetir';
+  /** When varietyPreference === 'repetir': how many times a dish can repeat
+   * across the week (2–7) before the AI should stop reusing it. */
+  maxRepeatsPerRecipe?: number;
+  /** Prefer quick dishes (<20 min) on weekdays. */
+  quickWeekdays: boolean;
+  /** "Comidas libres" per week (0–3): meals the user plans to eat off-plan.
+   * Deliberately NOT called "cheat meals" anywhere user-facing — flexibility
+   * is part of the plan, not cheating on it. The autocomplete still fills
+   * every slot but biases slightly under target to leave weekly slack. */
+  freeMealsPerWeek?: number;
+  /** ISO date of the last time the interview was saved. */
+  updatedAt: string;
+}
+
 export interface UserProfile {
   name: string;
   email: string;
@@ -191,6 +227,7 @@ export interface UserProfile {
   activeGoalPreference?: GoalType;
   shoppingList?: ShoppingListItem[];
   dietPreference?: DietTag[];
+  nutriInterview?: NutriInterview;
   // Per-feature onboarding state: key = guide id, value = true once dismissed forever.
   onboardingFlags?: Record<string, boolean>;
 }

@@ -47,6 +47,10 @@ export function useSpeechRecognition(opts?: UseSpeechRecognitionOptions) {
   const [error, setError] = useState<string | null>(null);
 
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  // Accumulates every isFinal chunk across the whole listening session (needed
+  // because continuous mode emits one isFinal result per pause, not one at the end).
+  const finalTranscriptRef = useRef('');
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onResultRef = useRef<UseSpeechRecognitionOptions['onResult']>(opts?.onResult);
   onResultRef.current = opts?.onResult;
   const onErrorRef = useRef<UseSpeechRecognitionOptions['onError']>(opts?.onError);
@@ -56,6 +60,13 @@ export function useSpeechRecognition(opts?: UseSpeechRecognitionOptions) {
     const msg = mapSpeechError(code);
     setError(msg);
     if (msg) onErrorRef.current?.(msg);
+  }, []);
+
+  const clearSilenceTimer = useCallback(() => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
   }, []);
 
   useEffect(() => {
@@ -70,37 +81,50 @@ export function useSpeechRecognition(opts?: UseSpeechRecognitionOptions) {
     const rec: SpeechRecognitionInstance = new SR();
     rec.lang = opts?.lang ?? 'es-ES';
     rec.interimResults = true;
-    rec.continuous = false;
+    // continuous=false makes Chrome finalize and stop on the first ~1-2s pause
+    // mid-sentence, cutting the user off. Instead we keep the session open and
+    // decide when the user is "done" ourselves via a silence timer below.
+    rec.continuous = true;
     rec.maxAlternatives = 1;
 
+    const SILENCE_MS = 2200;
+    const scheduleAutoStop = () => {
+      clearSilenceTimer();
+      silenceTimerRef.current = setTimeout(() => {
+        try { rec.stop(); } catch { /* noop */ }
+      }, SILENCE_MS);
+    };
+
     rec.onresult = (e: any) => {
-      let finalText = '';
       let interimText = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const res = e.results[i];
         const chunk = res?.[0]?.transcript ?? '';
-        if (res?.isFinal) finalText += chunk;
+        if (res?.isFinal) finalTranscriptRef.current += chunk;
         else interimText += chunk;
       }
-      if (finalText) {
-        setTranscript(finalText);
-        onResultRef.current?.(finalText);
-      } else if (interimText) {
-        setTranscript(interimText);
-      }
+      setTranscript((finalTranscriptRef.current + interimText).trim());
+      scheduleAutoStop();
     };
     rec.onerror = (e: any) => {
+      clearSilenceTimer();
       reportError(e?.error ?? 'speech-error');
       setIsListening(false);
     };
-    rec.onend = () => setIsListening(false);
+    rec.onend = () => {
+      clearSilenceTimer();
+      setIsListening(false);
+      const text = finalTranscriptRef.current.trim();
+      if (text) onResultRef.current?.(text);
+    };
 
     recognitionRef.current = rec;
     return () => {
+      clearSilenceTimer();
       try { rec.abort(); } catch { /* noop */ }
       recognitionRef.current = null;
     };
-  }, [opts?.lang, reportError]);
+  }, [opts?.lang, reportError, clearSilenceTimer]);
 
   const start = useCallback(async () => {
     const rec = recognitionRef.current;
@@ -110,6 +134,7 @@ export function useSpeechRecognition(opts?: UseSpeechRecognitionOptions) {
     }
     setError(null);
     setTranscript('');
+    finalTranscriptRef.current = '';
 
     if (navigator.mediaDevices?.getUserMedia) {
       // Prime the audio subsystem. We start recognition WHILE this stream is
@@ -146,9 +171,10 @@ export function useSpeechRecognition(opts?: UseSpeechRecognitionOptions) {
   }, [reportError]);
 
   const stop = useCallback(() => {
+    clearSilenceTimer();
     try { recognitionRef.current?.stop(); } catch { /* noop */ }
     setIsListening(false);
-  }, []);
+  }, [clearSilenceTimer]);
 
   return { isListening, transcript, isSupported, error, start, stop };
 }

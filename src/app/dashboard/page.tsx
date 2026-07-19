@@ -6,10 +6,9 @@ import { MealPlanner } from '@/components/nutri-planner/meal-planner';
 import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
 import { ShoppingListSheet } from '@/components/nutri-planner/shopping-list';
 import { RecipeSelectionDialog } from '@/components/nutri-planner/recipe-selection-dialog';
-import { WelcomeGuide } from '@/components/nutri-planner/welcome-guide';
+import { GuidedTour } from '@/components/nutri-planner/guided-tour';
 import { AssistantDialog } from '@/components/nutri-planner/assistant-dialog';
 import { RecipeImportDialog } from '@/components/nutri-planner/recipe-import-dialog';
-import { AutocompletePreferencesDialog } from '@/components/nutri-planner/autocomplete-preferences-dialog';
 import { WeekHistorySheet } from '@/components/nutri-planner/week-history-sheet';
 
 export default function DashboardPage() {
@@ -24,18 +23,18 @@ export default function DashboardPage() {
     // Week history
     weekHistory,
     // User profile state (goals editing now lives in /dashboard/perfil)
-    activeGoalMacros, currentShoppingList, currentDietPreference,
+    activeGoalMacros, currentShoppingList, currentDietPreference, nutriInterview,
     handleActiveGoalChange, handleShoppingListUpdate,
     // UI state
     dialogState, activePanel, activeDropTarget, setActiveDropTarget,
     isRecipeSelectorOpen, setIsRecipeSelectorOpen, selectedMealForAddition,
-    isAutocompleting, isPreferencesDialogOpen, setIsPreferencesDialogOpen,
+    isAutocompleting,
     // Handlers
     handleRecipeAction, handleDialogClose, handleAddToPlan,
     handleInternalSaveRecipe, handleInternalDeleteRecipe,
     handleMealSlotClick, handleRecipeSelectionSave,
     handlePanelOpen, handlePanelChange,
-    handleAiRecipeGenerated, handleRecipeImported, handleAutocompleteWeek, handleRunAutocomplete,
+    handleAiRecipeGenerated, handleRecipeImported, handleAutocompleteWeek,
   } = useDashboard();
 
   return (
@@ -90,7 +89,8 @@ export default function DashboardPage() {
         onCopy={handleCopyRecipe}
       />
 
-      <WelcomeGuide />
+      {/* Tour guiado por Avo (solo escritorio; móvil conserva WelcomeGuide) */}
+      <GuidedTour />
 
       <AssistantDialog
         isOpen={activePanel === 'assistant'}
@@ -100,6 +100,7 @@ export default function DashboardPage() {
         nutriplannerRecipes={nutriplannerRecipes}
         activeGoalMacros={activeGoalMacros || null}
         dietPreference={currentDietPreference}
+        nutriInterview={nutriInterview}
         onDrop={handleDrop}
         onClearMeal={handleClearMeal}
         onClearDay={handleClearDay}
@@ -107,14 +108,6 @@ export default function DashboardPage() {
         onAutocomplete={handleAutocompleteWeek}
         onSetGoal={handleActiveGoalChange}
         onCreateRecipe={handleAiRecipeGenerated}
-      />
-
-      <AutocompletePreferencesDialog
-        isOpen={isPreferencesDialogOpen}
-        onClose={() => setIsPreferencesDialogOpen(false)}
-        onConfirm={handleRunAutocomplete}
-        isLoading={isAutocompleting}
-        hasGoal={!!activeGoalMacros}
       />
 
       <RecipeImportDialog

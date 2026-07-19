@@ -111,3 +111,24 @@
         line-height: 2.05rem;
     }
 }
+
+/* ── Avo, la mascota del tour guiado ─────────────────────────────────────────
+   Poses animadas por CSS (SVG en avo-mascot.tsx). transform-box: fill-box hace
+   que los transform-origin se midan sobre cada trazo, no sobre el SVG entero. */
+@keyframes avo-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes avo-hop { 0%, 100% { transform: translateY(0); } 30% { transform: translateY(-9px); } 55% { transform: translateY(0); } }
+@keyframes avo-blink { 0%, 91%, 100% { transform: scaleY(1); } 94% { transform: scaleY(0.08); } 97% { transform: scaleY(1); } }
+@keyframes avo-point { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(7deg); } }
+@keyframes avo-wave-l { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(12deg); } }
+@keyframes avo-wave-r { 0%, 100% { transform: rotate(10deg); } 50% { transform: rotate(-12deg); } }
+@keyframes avo-sway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(5deg); } }
+.avo-bob { animation: avo-bob 2.6s ease-in-out infinite; }
+.avo-hop { animation: avo-hop 1.1s ease-in-out infinite; }
+.avo-eyes { animation: avo-blink 4.2s infinite; transform-box: fill-box; transform-origin: center; }
+.avo-leaf { animation: avo-sway 3s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom center; }
+.avo-arm-point { animation: avo-point 1.3s ease-in-out infinite; transform-box: fill-box; transform-origin: 10% 50%; }
+.avo-arm-wave-l { animation: avo-wave-l 1.5s ease-in-out infinite; transform-box: fill-box; transform-origin: 90% 90%; }
+.avo-arm-wave-r { animation: avo-wave-r 1.5s ease-in-out infinite; transform-box: fill-box; transform-origin: 10% 90%; }
+@media (prefers-reduced-motion: reduce) {
+  .avo-bob, .avo-hop, .avo-eyes, .avo-leaf, .avo-arm-point, .avo-arm-wave-l, .avo-arm-wave-r { animation: none; }
+}

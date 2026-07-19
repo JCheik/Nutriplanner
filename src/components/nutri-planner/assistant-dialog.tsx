@@ -18,7 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Bot, Send, LoaderCircle, Wand2, Mic, Volume2, VolumeX, Camera, X as XIcon, EggFried, Flame } from 'lucide-react';
+import { Send, LoaderCircle, Wand2, Mic, Volume2, VolumeX, Camera, X as XIcon, EggFried, Flame } from 'lucide-react';
+import { AvoMascot } from '@/components/nutri-planner/avo-mascot';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
@@ -37,7 +38,7 @@ import { useSpeechSynthesis } from '@/hooks/use-speech-synthesis';
 import { useFirestore, useMemoFirebase } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection } from 'firebase/firestore';
-import type { WeekPlan, Recipe, GoalMacros, GoalType, DietTag, AiIngredientEstimate, BaseIngredient } from '@/lib/types';
+import type { WeekPlan, Recipe, GoalMacros, GoalType, DietTag, AiIngredientEstimate, BaseIngredient, NutriInterview } from '@/lib/types';
 
 interface ScanResult {
   ingredients: string[];
@@ -65,6 +66,8 @@ interface AssistantDialogProps {
   nutriplannerRecipes: Recipe[];
   activeGoalMacros: GoalMacros | null;
   dietPreference?: DietTag[];
+  /** Saved "entrevista nutricional" — personalises replies and generated recipes. */
+  nutriInterview?: NutriInterview | null;
   onDrop: (day: string, mealId: string, recipe: Recipe, servings?: number) => void;
   onClearMeal: (day: string, mealId: string) => void;
   onClearDay: (day: string) => void;
@@ -102,6 +105,7 @@ export function AssistantDialog({
   nutriplannerRecipes,
   activeGoalMacros,
   dietPreference,
+  nutriInterview,
   onDrop,
   onClearMeal,
   onClearDay,
@@ -293,7 +297,17 @@ export function AssistantDialog({
     setIsLoading(true);
     try {
       const context = buildContext(weekPlan, userRecipes, nutriplannerRecipes);
-      const result = await askAssistant({ message: text, context });
+      // Only the fields the AI flows consume (shared InterviewForPrompt shape).
+      const interviewForAi = nutriInterview ? {
+        favoriteFoods: nutriInterview.favoriteFoods,
+        avoidFoods: nutriInterview.avoidFoods,
+        allergies: nutriInterview.allergies,
+        weeklyWishes: nutriInterview.weeklyWishes,
+        varietyPreference: nutriInterview.varietyPreference,
+        quickWeekdays: nutriInterview.quickWeekdays,
+        ...(nutriInterview.freeMealsPerWeek ? { freeMealsPerWeek: nutriInterview.freeMealsPerWeek } : {}),
+      } : undefined;
+      const result = await askAssistant({ message: text, context, interview: interviewForAi });
       if (result.reply) {
         append({ role: 'assistant', text: result.reply });
         say(result.reply);
@@ -308,6 +322,7 @@ export function AssistantDialog({
           nutritionalGoal: activeGoalMacros,
           diet: dietPreference,
           existingIngredients: existingIngredientNames,
+          interview: interviewForAi,
         });
         if (generated) {
           // Split the model output: a lean Recipe for the form, plus the
@@ -456,7 +471,7 @@ export function AssistantDialog({
           <div className="space-y-3 py-2">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center text-center text-muted-foreground py-10">
-                <Bot className="h-8 w-8 mb-2" />
+                <AvoMascot pose="explain" size={48} className="mb-2" />
                 <p className="text-sm">¡Hola! ¿Con qué te echo una mano hoy?</p>
               </div>
             )}

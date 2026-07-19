@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, BookHeart, CircleUserRound, ShoppingCart, Sparkles } from 'lucide-react';
+import { Home, BookHeart, FlaskConical, ShoppingCart, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from '@/hooks/use-media-query';
 
@@ -17,7 +17,9 @@ export function MobileNav() {
     { href: `/mobile`, label: 'Plan', icon: Home, isAssistant: false },
     { href: `/mobile/recipes`, label: 'Recetas', icon: BookHeart, isAssistant: false },
     { href: `/mobile/shopping-list`, label: 'Compra', icon: ShoppingCart, isAssistant: false },
-    { href: `/mobile/perfil`, label: 'Perfil', icon: CircleUserRound, isAssistant: false },
+    // "Mi Laboratorio": the renamed profile hub (progreso + objetivos +
+    // cuestionario nutricional). Short label so it fits the tab bar.
+    { href: `/mobile/perfil`, label: 'Laboratorio', icon: FlaskConical, isAssistant: false },
     { href: `/mobile?assistant=1`, label: 'IA', icon: Sparkles, isAssistant: true },
   ];
 

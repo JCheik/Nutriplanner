@@ -619,7 +619,7 @@ export function RecipeLibrary({
             <div className={cn("flex justify-between items-center border-b", isMobile ? "pr-0" : "pr-1")}>
               <TabsList className={cn(isMobile && "flex-1")}>
                 <TabsTrigger value="user-recipes" className={cn(isMobile && "flex-1")}>Mis Recetas</TabsTrigger>
-                <TabsTrigger value="nutriplanner-recipes" className={cn(isMobile && "flex-1")}>Recetas Nutrilp</TabsTrigger>
+                <TabsTrigger value="nutriplanner-recipes" className={cn(isMobile && "flex-1")} data-tour="nutrilp-tab">Recetas Nutrilp</TabsTrigger>
               </TabsList>
               {isMobile && (
                 <Sheet open={categorySheetOpen} onOpenChange={setCategorySheetOpen}>

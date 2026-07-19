@@ -17,7 +17,7 @@ import { z } from 'zod';
 import { DIET_TAG_ENUM, MEAL_CATEGORY_ENUM } from '@/lib/types';
 import type { DietTag } from '@/lib/types';
 import { DIET_TAG_LABELS } from '@/lib/constants';
-import { existingIngredientsInstruction, UNIT_RULE } from '@/ai/prompt-fragments';
+import { existingIngredientsInstruction, UNIT_RULE, NutriInterviewPromptSchema, interviewInstruction } from '@/ai/prompt-fragments';
 
 const GoalMacrosSchema = z.object({
   calories: z.number(),
@@ -34,6 +34,9 @@ const GenerateRecipeInputSchema = z.object({
   // names instead of inventing variants ("claras de huevo" vs "clara de huevo"),
   // which is the main source of duplicate ingredients.
   existingIngredients: z.array(z.string()).optional(),
+  // Saved "entrevista nutricional" (Mi Laboratorio): allergies are an absolute
+  // ban, dislikes are avoided unless the description explicitly asks for them.
+  interview: NutriInterviewPromptSchema.optional(),
 });
 export type GenerateRecipeInput = z.infer<typeof GenerateRecipeInputSchema>;
 
@@ -88,13 +91,15 @@ const generateRecipeFlow = ai.defineFlow(
     inputSchema: GenerateRecipeInputSchema,
     outputSchema: GeneratedRecipeSchema.nullable(),
   },
-  async ({ description, nutritionalGoal, diet, existingIngredients }) => {
+  async ({ description, nutritionalGoal, diet, existingIngredients, interview }) => {
     const prompt = `
 Eres el asistente de cocina de Nutrilp. Crea UNA receta a partir de la petición del usuario.
 
 PETICIÓN: "${description}"
 ${nutritionalGoal ? `OBJETIVO NUTRICIONAL (referencia para una ración razonable): ${nutritionalGoal.calories} kcal, ${nutritionalGoal.protein}g proteína, ${nutritionalGoal.carbs}g carbohidratos, ${nutritionalGoal.fat}g grasa. No tiene que ser exacto, pero sí una contribución coherente al día.` : ''}
 ${dietInstruction(diet)}
+
+${interviewInstruction(interview)}
 
 ${existingIngredientsInstruction(existingIngredients)}
 
