@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Send, LoaderCircle, Wand2, Mic, Volume2, VolumeX, Camera, X as XIcon, EggFried, Flame } from 'lucide-react';
+import { Send, LoaderCircle, Wand2, Volume2, VolumeX, Camera, X as XIcon, EggFried, Flame } from 'lucide-react';
 import { AvoMascot } from '@/components/nutri-planner/avo-mascot';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -32,7 +32,6 @@ import {
   type AssistantExecResult,
 } from '@/hooks/use-assistant-actions';
 import { isAssistantAction } from '@/lib/assistant-actions';
-import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
 import { useAiQuota } from '@/hooks/use-ai-quota';
 import { useSpeechSynthesis } from '@/hooks/use-speech-synthesis';
 import { useFirestore, useMemoFirebase } from '@/firebase';
@@ -80,8 +79,6 @@ interface AssistantDialogProps {
    * ingredients so the dialog can offer to add the ones missing from the DB.
    */
   onCreateRecipe: (recipe: Omit<Recipe, 'id'>, aiIngredients?: AiIngredientEstimate[]) => void;
-  /** Start listening as soon as the dialog opens (one-tap-to-talk on mobile). */
-  autoListen?: boolean;
 }
 
 function buildContext(weekPlan: WeekPlan, userRecipes: Recipe[], nutriplannerRecipes: Recipe[]): string {
@@ -113,7 +110,6 @@ export function AssistantDialog({
   onAutocomplete,
   onSetGoal,
   onCreateRecipe,
-  autoListen,
 }: AssistantDialogProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -151,27 +147,6 @@ export function AssistantDialog({
 
   const { speak, cancel: cancelSpeech, isSupported: ttsSupported, voices, voiceURI, setVoice } =
     useSpeechSynthesis({ lang: 'es-ES' });
-  const { isListening, isSupported: sttSupported, start: startListening, stop: stopListening } =
-    useSpeechRecognition({
-      lang: 'es-ES',
-      onResult: (t) => sendRef.current(t),
-      onError: (message) => toast({ variant: 'destructive', title: 'Micrófono', description: message }),
-    });
-
-  // One-tap-to-talk: when opened with autoListen (the mobile mic FAB), start
-  // listening immediately. Guarded by a ref so it fires once per open, not every
-  // time `isListening` flips.
-  const autoListenedRef = useRef(false);
-  useEffect(() => {
-    if (!isOpen) {
-      autoListenedRef.current = false;
-      return;
-    }
-    if (autoListen && sttSupported && !autoListenedRef.current) {
-      autoListenedRef.current = true;
-      startListening();
-    }
-  }, [isOpen, autoListen, sttSupported, startListening]);
 
   // Try Google Cloud TTS Neural2 first (natural-sounding); fall back to browser TTS.
   const say = async (text: string) => {
@@ -413,11 +388,6 @@ export function AssistantDialog({
     });
   };
 
-  const toggleMic = () => {
-    if (isListening) stopListening();
-    else startListening();
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={(o) => { if (!o) { currentAudioRef.current?.pause(); currentAudioRef.current = null; onClose(); } }}>
       <DialogContent className="max-w-lg bg-glass flex flex-col h-[70vh] max-h-[85vh] min-h-0">
@@ -463,7 +433,6 @@ export function AssistantDialog({
           </div>
           <DialogDescription>
             Dime lo que necesites: “ponme ensalada césar el martes”, “autocompleta la semana” o “vacía el lunes”. Toca 📷 para enseñarme tu nevera.
-            {sttSupported && ' O dale al micro y háblame.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -570,24 +539,11 @@ export function AssistantDialog({
             >
               <Camera className="h-4 w-4" />
             </Button>
-            {sttSupported && (
-              <Button
-                size="icon"
-                variant={isListening ? 'default' : 'outline'}
-                className={cn('shrink-0', isListening && 'animate-pulse')}
-                title={isListening ? 'Escuchando...' : 'Hablar'}
-                aria-label={isListening ? 'Escuchando, toca para detener' : 'Hablar por voz'}
-                onClick={toggleMic}
-                disabled={isLoading}
-              >
-                <Mic className="h-4 w-4" />
-              </Button>
-            )}
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSend(); }}
-              placeholder={attachedImage ? 'Listo para analizar…' : isListening ? 'Escuchando…' : 'Escribe una instrucción…'}
+              placeholder={attachedImage ? 'Listo para analizar…' : 'Escribe una instrucción…'}
               disabled={isLoading}
             />
             <Button
@@ -599,11 +555,6 @@ export function AssistantDialog({
               <Send className="h-4 w-4" />
             </Button>
           </div>
-          {!sttSupported && (
-            <p className="text-[11px] text-muted-foreground px-1">
-              Tu navegador no admite el dictado por voz. Escribe tu instrucción.
-            </p>
-          )}
         </div>
       </DialogContent>
     </Dialog>

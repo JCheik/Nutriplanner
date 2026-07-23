@@ -21,8 +21,6 @@ interface MobileAssistantProps {
   profileState: ReturnType<typeof useUserProfileState>;
   /** When provided, opening autocomplete shows the preferences dialog instead of running with defaults. */
   onOpenAutocomplete?: () => void;
-  /** Start listening as soon as the assistant opens (one-tap-to-talk). */
-  autoListen?: boolean;
 }
 
 /**
@@ -37,7 +35,6 @@ export function MobileAssistant({
   weekPlanState,
   profileState,
   onOpenAutocomplete,
-  autoListen,
 }: MobileAssistantProps) {
   const { toast } = useToast();
   const { check: checkAiQuota } = useAiQuota();
@@ -95,7 +92,6 @@ export function MobileAssistant({
       <AssistantDialog
         isOpen={isOpen}
         onClose={onClose}
-        autoListen={autoListen}
         weekPlan={weekPlanState.currentWeekPlan}
         userRecipes={recipeState.currentUserRecipes}
         nutriplannerRecipes={recipeState.nutriplannerRecipes}

@@ -51,12 +51,14 @@ export function InstallPrompt() {
   if (!available || !shouldShow) return null;
 
   const handleInstall = async () => {
-    if (deferred) {
-      await deferred.prompt();
-      await deferred.userChoice;
-      setDeferred(null);
-    }
-    dismissForever();
+    if (!deferred) return;
+    await deferred.prompt();
+    await deferred.userChoice;
+    setDeferred(null);
+    // Don't dismissForever() here: once installed, the standalone-mode check
+    // above hides the banner naturally. If the flag were persisted, the
+    // banner would never come back after an uninstall, leaving no way to
+    // reinstall from within the app.
   };
 
   return (
