@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Send, LoaderCircle, Wand2, Volume2, VolumeX, Camera, X as XIcon, EggFried, Flame } from 'lucide-react';
-import { AvoMascot } from '@/components/nutri-planner/avo-mascot';
+import { ChefieMascot } from '@/components/nutri-planner/chefie-mascot';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
@@ -440,7 +440,7 @@ export function AssistantDialog({
           <div className="space-y-3 py-2">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center text-center text-muted-foreground py-10">
-                <AvoMascot pose="explain" size={48} className="mb-2" />
+                <ChefieMascot pose="explain" size={48} className="mb-2" />
                 <p className="text-sm">¡Hola! ¿Con qué te echo una mano hoy?</p>
               </div>
             )}

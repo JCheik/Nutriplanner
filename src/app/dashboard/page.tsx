@@ -89,7 +89,7 @@ export default function DashboardPage() {
         onCopy={handleCopyRecipe}
       />
 
-      {/* Tour guiado por Avo (solo escritorio; móvil conserva WelcomeGuide) */}
+      {/* Tour guiado por Chefie (solo escritorio; móvil conserva WelcomeGuide) */}
       <GuidedTour />
 
       <AssistantDialog

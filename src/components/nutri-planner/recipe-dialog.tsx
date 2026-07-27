@@ -20,9 +20,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, Plus, Copy, Search, Image as ImageIcon, UploadCloud, Globe, AlertTriangle, ScanBarcode, PackageSearch, LoaderCircle } from 'lucide-react';
-import { searchOffProducts, getOffProductByBarcode, type OffProduct } from '@/lib/open-food-facts';
-import { BarcodeScannerDialog } from './barcode-scanner-dialog';
+import { Flame, EggFried, Wheat, Droplets, Trash2, Edit, Plus, Copy, Search, Image as ImageIcon, UploadCloud, Globe, AlertTriangle, PackageSearch, LoaderCircle } from 'lucide-react';
+import { searchOffProducts, type OffProduct } from '@/lib/open-food-facts';
 import { NewIngredientDialog, EditableIngredient } from './new-ingredient-dialog';
 import { MissingIngredientRow, type ReviewIngredient, type ReviewMacroField } from './ingredient-review';
 import { Card, CardContent } from '../ui/card';
@@ -169,7 +168,6 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
   // user never has to know there are two food sources. null = not searched yet.
   const [offResults, setOffResults] = useState<OffProduct[] | null>(null);
   const [isOffLoading, setIsOffLoading] = useState(false);
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   const resetForm = useCallback(() => {
     setName(initialRecipe?.name || '');
@@ -456,20 +454,6 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
     setOffResults(null);
   };
 
-  const handleBarcodeDetected = async (code: string) => {
-    setIsOffLoading(true);
-    try {
-      const product = await getOffProductByBarcode(code);
-      if (product) await selectOffProduct(product);
-      else toast({ title: 'Producto no encontrado', description: `El código ${code} no está en Open Food Facts. Créalo a mano.` });
-    } catch (e) {
-      console.error('OFF barcode lookup failed:', e);
-      toast({ variant: 'destructive', title: 'Open Food Facts no responde', description: 'Inténtalo de nuevo en unos segundos.' });
-    } finally {
-      setIsOffLoading(false);
-    }
-  };
-  
   const addIngredient = () => {
     if (!selectedIngredient) return;
 
@@ -727,16 +711,6 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
                                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); runOffSearch(); } }}
                                     />
                                 </div>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon"
-                                    className="shrink-0"
-                                    title="Escanear código de barras"
-                                    onClick={() => setIsScannerOpen(true)}
-                                >
-                                    <ScanBarcode className="h-4 w-4" />
-                                </Button>
                              </div>
                             {searchQuery && (
                                 <Card className="p-2 bg-glass">
@@ -955,11 +929,6 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
         isOpen={isNewIngredientOpen}
         onClose={() => setIsNewIngredientOpen(false)}
         onSave={handleNewIngredientSave}
-      />
-      <BarcodeScannerDialog
-        isOpen={isScannerOpen}
-        onClose={() => setIsScannerOpen(false)}
-        onDetected={handleBarcodeDetected}
       />
     </>
   );

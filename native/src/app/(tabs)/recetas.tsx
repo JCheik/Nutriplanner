@@ -1,0 +1,190 @@
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { applyRecipeFilters, EMPTY_FILTERS, RecipeFilters, type RecipeFilterState } from '@/components/recipe-filters';
+import { Fonts, Radii } from '@/constants/theme';
+import { useRecipes } from '@/hooks/use-nutrilp-data';
+import { useTheme } from '@/hooks/use-theme';
+import { perServingMacros } from '@/lib/serving-utils';
+import { normalizeText } from '@/lib/utils';
+import type { Recipe } from '@/lib/types';
+
+/**
+ * Biblioteca (boceto 6): Mis recetas / Recetas Nutrilp, búsqueda por nombre o
+ * ingrediente y filtros de categoría/dieta/orden — mismos datos que la web.
+ */
+export default function RecetasScreen() {
+  const c = useTheme();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { userRecipes, globalRecipes, loading } = useRecipes();
+  const [tab, setTab] = useState<'mias' | 'nutrilp'>('mias');
+  const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState<RecipeFilterState>(EMPTY_FILTERS);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const list = useMemo(() => {
+    const source = tab === 'mias' ? userRecipes : globalRecipes;
+    const q = normalizeText(search.trim());
+    const searched = q
+      ? source.filter(
+          (r) =>
+            normalizeText(r.name).includes(q) ||
+            r.ingredients.some((ing) => normalizeText(ing.name).includes(q))
+        )
+      : source;
+    return applyRecipeFilters(searched, filters);
+  }, [tab, userRecipes, globalRecipes, search, filters]);
+
+  const renderItem = ({ item }: { item: Recipe }) => {
+    const per = perServingMacros(item);
+    return (
+      <Pressable
+        onPress={() => router.push({ pathname: '/receta/[id]', params: { id: item.id, global: tab === 'nutrilp' ? '1' : '0' } })}
+        style={[styles.row, { borderColor: c.line, backgroundColor: c.surface }]}
+        accessibilityRole="button"
+        accessibilityLabel={item.name}
+      >
+        {item.imageUrl ? (
+          <Image source={{ uri: item.imageUrl }} style={styles.thumb} contentFit="cover" transition={150} />
+        ) : (
+          <View style={[styles.thumb, { backgroundColor: c.chip }]} />
+        )}
+        <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+          <Text style={{ fontSize: 13.5, fontWeight: '600', color: c.ink, fontFamily: Fonts.sans }} numberOfLines={2}>
+            {item.name}
+            {item.brand ? <Text style={{ fontWeight: '400', color: c.inkSoft }}> · {item.brand}</Text> : null}
+          </Text>
+          <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans }}>
+            {Math.round(per.calories)} kcal · {Math.round(per.protein)} P/rac
+            {item.servings && item.servings > 1 ? ` · rinde ${item.servings}` : ''}
+          </Text>
+        </View>
+      </Pressable>
+    );
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: c.ground, paddingTop: insets.top + 10 }}>
+      <View style={styles.header}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Text style={{ flex: 1, fontSize: 27, fontWeight: '700', color: c.ink, fontFamily: Fonts.serif }}>
+            Recetas
+          </Text>
+          <Pressable
+            onPress={() => router.push('/productos')}
+            style={[styles.addProductBtn, { borderColor: c.terra }]}
+            accessibilityRole="button"
+            accessibilityLabel="Añadir producto del súper"
+          >
+            <Ionicons name="add" size={15} color={c.terra} />
+            <Text style={{ color: c.terra, fontSize: 12, fontWeight: '700', fontFamily: Fonts.sans }}>Producto</Text>
+          </Pressable>
+        </View>
+        <View style={[styles.segment, { borderColor: c.line, backgroundColor: c.surface }]}>
+          {(['mias', 'nutrilp'] as const).map((t) => (
+            <Pressable
+              key={t}
+              onPress={() => setTab(t)}
+              style={[styles.segmentItem, tab === t && { backgroundColor: c.terra }]}
+              accessibilityRole="button"
+            >
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: tab === t ? '700' : '400',
+                  color: tab === t ? '#FFF' : c.inkSoft,
+                  fontFamily: Fonts.sans,
+                }}
+              >
+                {t === 'mias' ? 'Mis recetas' : 'Recetas Nutrilp'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        <TextInput
+          style={[
+            styles.search,
+            { borderColor: c.line, backgroundColor: c.surface, color: c.ink, fontFamily: Fonts.sans },
+          ]}
+          placeholder="Buscar por nombre o ingrediente…"
+          placeholderTextColor={c.inkSoft}
+          value={search}
+          onChangeText={setSearch}
+          autoCapitalize="none"
+        />
+        <RecipeFilters
+          value={filters}
+          onChange={setFilters}
+          open={filtersOpen}
+          onToggleOpen={() => setFiltersOpen((o) => !o)}
+        />
+      </View>
+
+      {loading ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={c.terra} />
+        </View>
+      ) : (
+        <FlatList
+          data={list}
+          keyExtractor={(r) => r.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            <Text style={{ fontSize: 13, color: c.inkSoft, fontFamily: Fonts.sans, textAlign: 'center', marginTop: 30 }}>
+              {search
+                ? 'Nada por aquí con ese filtro.'
+                : tab === 'mias'
+                  ? 'Aún no tienes recetas propias. Crea o importa desde la web (crear aquí llega en F2).'
+                  : 'No se pudieron cargar las recetas de Nutrilp.'}
+            </Text>
+          }
+        />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  header: { paddingHorizontal: 18, paddingBottom: 10, gap: 10 },
+  addProductBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1.5,
+    borderRadius: Radii.pill,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+  },
+  segment: {
+    flexDirection: 'row',
+    borderWidth: 1.5,
+    borderRadius: Radii.card,
+    overflow: 'hidden',
+    alignSelf: 'flex-start',
+  },
+  segmentItem: { paddingHorizontal: 13, paddingVertical: 7 },
+  search: {
+    borderWidth: 1.5,
+    borderRadius: Radii.card,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 13.5,
+  },
+  list: { paddingHorizontal: 18, paddingBottom: 24, gap: 8 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1.5,
+    borderRadius: Radii.card,
+    padding: 9,
+    marginBottom: 8,
+  },
+  thumb: { width: 44, height: 44, borderRadius: 9 },
+});

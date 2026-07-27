@@ -8,7 +8,7 @@ import { RecipeDialog, DialogState } from '@/components/nutri-planner/recipe-dia
 import { RecipeImportDialog } from '@/components/nutri-planner/recipe-import-dialog';
 import { ProductDialog } from '@/components/nutri-planner/product-dialog';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, ScanBarcode, ChevronDown, PencilLine, Link2 } from 'lucide-react';
+import { PlusCircle, PackageSearch, ChevronDown, PencilLine, Link2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -103,7 +103,7 @@ export function MobileRecipesPageContent({
                         </DropdownMenuContent>
                     </DropdownMenu>
                     <Button size="sm" variant="outline" onClick={() => setIsProductOpen(true)}>
-                        <ScanBarcode className="mr-1.5 h-4 w-4" />
+                        <PackageSearch className="mr-1.5 h-4 w-4" />
                         Añadir producto
                     </Button>
                 </div>

@@ -11,10 +11,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, ScanBarcode, LoaderCircle, PackageSearch, Flame } from 'lucide-react';
+import { Search, LoaderCircle, PackageSearch, Flame } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { searchOffProducts, getOffProductByBarcode, type OffProduct } from '@/lib/open-food-facts';
-import { BarcodeScannerDialog } from './barcode-scanner-dialog';
 
 interface OffSearchDialogProps {
   isOpen: boolean;
@@ -26,9 +25,12 @@ interface OffSearchDialogProps {
 }
 
 /**
- * Search Open Food Facts by name or barcode and pick a product. Shared by the
- * food diary (log what you ate) and the ingredient editor (create a base
- * ingredient with verified per-100g macros).
+ * Search Open Food Facts by name (or a barcode typed by hand) and pick a
+ * product. Shared by the food diary (log what you ate) and the ingredient
+ * editor (create a base ingredient with verified per-100g macros).
+ *
+ * The camera barcode scanner was removed in 2026-07-25 (see DECISIONS): typing
+ * the digits still works, which is the part that was actually useful.
  */
 export function OffSearchDialog({ isOpen, onClose, onSelect, description }: OffSearchDialogProps) {
   const { toast } = useToast();
@@ -36,7 +38,6 @@ export function OffSearchDialog({ isOpen, onClose, onSelect, description }: OffS
   const [results, setResults] = useState<OffProduct[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -65,35 +66,7 @@ export function OffSearchDialog({ isOpen, onClose, onSelect, description }: OffS
       toast({
         variant: 'destructive',
         title: 'Buscador no disponible',
-        description: 'Open Food Facts no responde ahora mismo. Escanea el código de barras o añádelo a mano.',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleBarcode = async (barcode: string) => {
-    setIsLoading(true);
-    try {
-      const product = await getOffProductByBarcode(barcode);
-      if (product) {
-        onSelect(product);
-        onClose();
-      } else {
-        setQuery(barcode);
-        setResults([]);
-        setHasSearched(true);
-        toast({
-          title: 'Producto no encontrado',
-          description: `El código ${barcode} no está en Open Food Facts. Puedes añadirlo a mano.`,
-        });
-      }
-    } catch (e) {
-      console.error('OFF barcode lookup failed:', e);
-      toast({
-        variant: 'destructive',
-        title: 'Open Food Facts no responde',
-        description: 'Inténtalo de nuevo en unos segundos.',
+        description: 'Open Food Facts no responde ahora mismo. Puedes añadir el alimento a mano.',
       });
     } finally {
       setIsLoading(false);
@@ -101,7 +74,6 @@ export function OffSearchDialog({ isOpen, onClose, onSelect, description }: OffS
   };
 
   return (
-    <>
       <Dialog open={isOpen} onOpenChange={(o) => { if (!o) onClose(); }}>
         <DialogContent className="max-w-md h-[85dvh] flex flex-col bg-glass">
           <DialogHeader className="shrink-0">
@@ -110,7 +82,7 @@ export function OffSearchDialog({ isOpen, onClose, onSelect, description }: OffS
               Buscar alimento
             </DialogTitle>
             <DialogDescription>
-              {description ?? 'Busca en Open Food Facts por nombre o escanea el código de barras.'}
+              {description ?? 'Busca en Open Food Facts por nombre, o escribe el número del código de barras.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -120,7 +92,7 @@ export function OffSearchDialog({ isOpen, onClose, onSelect, description }: OffS
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="ej: yogur griego, avena…"
+                placeholder="ej: yogur griego, avena, 8410000810004…"
                 className="pl-10"
                 onKeyDown={(e) => { if (e.key === 'Enter') runSearch(); }}
               />
@@ -129,11 +101,6 @@ export function OffSearchDialog({ isOpen, onClose, onSelect, description }: OffS
               {isLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : 'Buscar'}
             </Button>
           </div>
-
-          <Button variant="outline" className="shrink-0" onClick={() => setIsScannerOpen(true)}>
-            <ScanBarcode className="mr-2 h-4 w-4" />
-            Escanear código de barras
-          </Button>
 
           <ScrollArea className="flex-1 -mx-6">
             <div className="px-6 space-y-2 pb-4">
@@ -148,7 +115,7 @@ export function OffSearchDialog({ isOpen, onClose, onSelect, description }: OffS
                   <p className="text-sm">
                     {hasSearched
                       ? 'Sin resultados con datos nutricionales. Prueba otro término.'
-                      : 'Busca un producto o escanea su código de barras.'}
+                      : 'Busca un producto por su nombre.'}
                   </p>
                 </div>
               ) : (
@@ -194,12 +161,5 @@ export function OffSearchDialog({ isOpen, onClose, onSelect, description }: OffS
           </p>
         </DialogContent>
       </Dialog>
-
-      <BarcodeScannerDialog
-        isOpen={isScannerOpen}
-        onClose={() => setIsScannerOpen(false)}
-        onDetected={handleBarcode}
-      />
-    </>
   );
 }

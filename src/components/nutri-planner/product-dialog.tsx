@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PackageSearch, ScanBarcode } from 'lucide-react';
+import { PackageSearch } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { MEAL_CATEGORIES } from '@/lib/constants';
 import type { MealCategory, Recipe } from '@/lib/types';
@@ -148,8 +148,8 @@ export function ProductDialog({ isOpen, onClose, onSave, isSaving = false }: Pro
           </DialogHeader>
 
           <Button variant="outline" onClick={() => setIsOffSearchOpen(true)}>
-            <ScanBarcode className="mr-2 h-4 w-4" />
-            Escanear código / buscar en Open Food Facts
+            <PackageSearch className="mr-2 h-4 w-4" />
+            Buscar en Open Food Facts
           </Button>
 
           <div className="space-y-3">

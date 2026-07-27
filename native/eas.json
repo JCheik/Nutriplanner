@@ -1,0 +1,43 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "base": {
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://nutrilp.com",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyBBIGOaZC868hA07WQmKObqLneYXsM0MNA",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "studio-7693548881-4e207.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "studio-7693548881-4e207",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "studio-7693548881-4e207.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "148314659680",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:148314659680:web:00c0b8b4405047f38bdc05"
+      },
+      "channel": "base"
+    },
+    "development": {
+      "extends": "base",
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development"
+    },
+    "preview": {
+      "extends": "base",
+      "distribution": "internal",
+      "channel": "preview",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "extends": "base",
+      "distribution": "store",
+      "channel": "production",
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

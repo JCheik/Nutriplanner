@@ -1,0 +1,76 @@
+{
+  "expo": {
+    "name": "Nutrilp",
+    "slug": "nutrilp",
+    "owner": "cheik26",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "nutrilp",
+    "userInterfaceStyle": "automatic",
+    "primaryColor": "#D9531F",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "description": "Organiza tu plan de comidas semanal: planifica, cocina con lo que tienes y compra lo justo.",
+    "ios": {
+      "bundleIdentifier": "com.nutrilp.app",
+      "buildNumber": "1",
+      "supportsTablet": false,
+      "infoPlist": {
+        "CFBundleDisplayName": "Nutrilp",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.nutrilp.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#F7F3EC",
+        "foregroundImage": "./assets/images/android-icon-foreground.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F7F3EC",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 120
+        }
+      ],
+      "expo-sharing",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Nutrilp usa la cámara para escanear códigos de barras y analizar la foto de tu nevera."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "83dc963e-7c7a-4804-a320-71e7b285796f"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/83dc963e-7c7a-4804-a320-71e7b285796f"
+    }
+  }
+}

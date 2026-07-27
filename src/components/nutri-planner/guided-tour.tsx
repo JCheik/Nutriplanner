@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Calculator, Check } from 'lucide-react';
-import { AvoMascot, type AvoPose } from './avo-mascot';
+import { ChefieMascot, type ChefiePose } from './chefie-mascot';
 import { CalculatorDialog } from './calculator-dialog';
 import { useOnboardingFlag } from '@/hooks/use-onboarding';
 import { useUserProfileState } from '@/hooks/use-user-profile-state';
 import { useMediaQuery } from '@/hooks/use-media-query';
 
 /**
- * Tour guiado del dashboard de escritorio, presentado por Avo: en vez del
+ * Tour guiado del dashboard de escritorio, presentado por Chefie: en vez del
  * "rectángulo en medio de la pantalla", la mascota se planta JUNTO a cada
  * control real (anclado por su atributo data-tour), lo señala y lo explica en
  * un bocadillo. Reemplaza a WelcomeGuide en escritorio (móvil conserva el
@@ -23,13 +23,13 @@ interface TourStep {
   target?: string;
   title: string;
   text: string;
-  pose?: AvoPose;
+  pose?: ChefiePose;
 }
 
 const STEPS: TourStep[] = [
   {
     id: 'welcome',
-    title: '¡Hola! Soy Avo 🥑',
+    title: '¡Hola! Soy Chefie 👨‍🍳',
     text: 'Bienvenido a Nutrilp: aquí planificas tu semana de comidas, guardas tus recetas y llegas a tu objetivo sin pelearte con los números. ¿Te enseño lo importante? Es un minuto.',
     pose: 'explain',
   },
@@ -171,9 +171,9 @@ export function GuidedTour() {
   if (!shouldShow || isMobile) return null;
 
   const hasGoal = !!currentCalorieResult;
-  const pose: AvoPose = step.pose ?? (rect ? 'point' : 'explain');
+  const pose: ChefiePose = step.pose ?? (rect ? 'point' : 'explain');
 
-  // Colocación del panel respecto al control: derecha → Avo señala a la
+  // Colocación del panel respecto al control: derecha → Chefie señala a la
   // izquierda (flip); izquierda → señala a la derecha; sin hueco → debajo.
   let panelStyle: React.CSSProperties = {};
   let flip = false;
@@ -260,9 +260,9 @@ export function GuidedTour() {
               />
               <div className="fixed z-[97]" style={panelStyle} onClick={e => e.stopPropagation()}>
                 <div className={below ? 'flex items-start gap-1' : 'flex items-center gap-1'}>
-                  {flip && <AvoMascot pose={below ? 'explain' : pose} flip size={74} />}
+                  {flip && <ChefieMascot pose={below ? 'explain' : pose} flip size={74} />}
                   <div className="flex-1 min-w-0">{bubbleCard}</div>
-                  {!flip && <AvoMascot pose={below ? 'explain' : pose} size={74} />}
+                  {!flip && <ChefieMascot pose={below ? 'explain' : pose} size={74} />}
                 </div>
               </div>
             </>
@@ -274,7 +274,7 @@ export function GuidedTour() {
                 onClick={e => e.stopPropagation()}
               >
                 <div className="flex flex-col items-center">
-                  <AvoMascot pose={pose} size={110} />
+                  <ChefieMascot pose={pose} size={110} />
                   <div className="w-full -mt-2">{bubbleCard}</div>
                 </div>
               </div>
