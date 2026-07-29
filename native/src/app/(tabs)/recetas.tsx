@@ -6,7 +6,9 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, Vi
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { applyRecipeFilters, EMPTY_FILTERS, RecipeFilters, type RecipeFilterState } from '@/components/recipe-filters';
-import { Fonts, Radii } from '@/constants/theme';
+import { PaperTexture } from '@/components/paper-texture';
+import { ScreenTitle } from '@/components/screen-scaffold';
+import { Fonts, Radii, Shadows } from '@/constants/theme';
 import { useRecipes } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
 import { perServingMacros } from '@/lib/serving-utils';
@@ -70,19 +72,22 @@ export default function RecetasScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.ground, paddingTop: insets.top + 10 }}>
+      <PaperTexture />
       <View style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Text style={{ flex: 1, fontSize: 27, fontWeight: '700', color: c.ink, fontFamily: Fonts.serif }}>
-            Recetas
-          </Text>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <ScreenTitle compact eyebrow="Tu biblioteca" title="Recetas" />
+          </View>
           <Pressable
-            onPress={() => router.push('/productos')}
-            style={[styles.addProductBtn, { borderColor: c.terra }]}
+            onPress={() => router.push('/receta-crear')}
+            style={[styles.newRecipeBtn, Shadows.card, { backgroundColor: c.terra }]}
             accessibilityRole="button"
-            accessibilityLabel="Añadir producto del súper"
+            accessibilityLabel="Crear una receta nueva"
           >
-            <Ionicons name="add" size={15} color={c.terra} />
-            <Text style={{ color: c.terra, fontSize: 12, fontWeight: '700', fontFamily: Fonts.sans }}>Producto</Text>
+            <Ionicons name="add" size={16} color="#FFF" />
+            <Text style={{ color: '#FFF', fontSize: 12.5, fontWeight: '700', fontFamily: Fonts.sans }}>
+              Nueva receta
+            </Text>
           </Pressable>
         </View>
         <View style={[styles.segment, { borderColor: c.line, backgroundColor: c.surface }]}>
@@ -123,6 +128,19 @@ export default function RecetasScreen() {
           open={filtersOpen}
           onToggleOpen={() => setFiltersOpen((o) => !o)}
         />
+        {/* Entrada discreta a los productos del súper: sigue disponible, pero
+            ya no compite con "Nueva receta". */}
+        <Pressable
+          onPress={() => router.push('/productos')}
+          style={styles.productLink}
+          accessibilityRole="button"
+          accessibilityLabel="Añadir un producto del súper"
+        >
+          <Ionicons name="cart-outline" size={13} color={c.inkSoft} />
+          <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans }}>
+            ¿Un producto del súper? Búscalo y añádelo
+          </Text>
+        </Pressable>
       </View>
 
       {loading ? (
@@ -140,7 +158,7 @@ export default function RecetasScreen() {
               {search
                 ? 'Nada por aquí con ese filtro.'
                 : tab === 'mias'
-                  ? 'Aún no tienes recetas propias. Crea o importa desde la web (crear aquí llega en F2).'
+                  ? 'Aún no tienes recetas propias. Dale a "Nueva receta" y te monto una con lo que me digas.'
                   : 'No se pudieron cargar las recetas de Nutrilp.'}
             </Text>
           }
@@ -152,15 +170,15 @@ export default function RecetasScreen() {
 
 const styles = StyleSheet.create({
   header: { paddingHorizontal: 18, paddingBottom: 10, gap: 10 },
-  addProductBtn: {
+  newRecipeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    borderWidth: 1.5,
     borderRadius: Radii.pill,
-    paddingHorizontal: 11,
-    paddingVertical: 6,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
   },
+  productLink: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingTop: 1 },
   segment: {
     flexDirection: 'row',
     borderWidth: 1.5,

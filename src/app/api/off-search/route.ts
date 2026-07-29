@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+import { verifyAuth } from '@/lib/verify-auth';
+
 /**
  * Server-side proxy for Open Food Facts text search.
  *
@@ -71,6 +73,16 @@ async function searchLegacy(base: string, query: string): Promise<OffHit[]> {
 }
 
 export async function GET(request: Request) {
+  // Requiere sesión (auditoría 2026-07-29): abierto, era un proxy que cualquiera
+  // podía usar para lanzar peticiones salientes desde nuestro servidor. Además
+  // de consumir recursos, Open Food Facts bloquea IPs de datacenter que abusan
+  // (ver KNOWN_ISSUES) — un tercero podía dejar la búsqueda inservible.
+  try {
+    await verifyAuth(request);
+  } catch {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const q = (searchParams.get('q') ?? '').trim();
   if (!q) return NextResponse.json({ hits: [] });

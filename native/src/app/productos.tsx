@@ -15,7 +15,7 @@ import type { Recipe } from '@/lib/types';
 /**
  * Añadir un producto del súper buscándolo por nombre en Open Food Facts. Se
  * guarda como "producto" = receta de 1 ración (misma convención que la web),
- * así se puede planificar y marcar como comido igual que cualquier receta.
+ * así se puede meter en el plan igual que cualquier receta.
  */
 export default function ProductosScreen() {
   const c = useTheme();
@@ -203,7 +203,7 @@ export default function ProductosScreen() {
           </View>
 
           <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 17 }}>
-            Se guarda como producto de 1 ración: podrás ponerlo en el plan y marcarlo como comido igual que una receta.
+            Se guarda como producto de 1 ración: podrás ponerlo en el plan igual que una receta.
           </Text>
 
           {error ? <Text style={{ fontSize: 12.5, color: c.terra, fontFamily: Fonts.sans }}>{error}</Text> : null}

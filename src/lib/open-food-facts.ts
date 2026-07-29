@@ -83,7 +83,12 @@ function mapProduct(p: OffApiProduct): OffProduct | null {
 
 /** Text search (Spain-first ranking, via our proxy). Returns up to 20 products with usable nutrition data. */
 export async function searchOffProducts(query: string): Promise<OffProduct[]> {
-  const res = await fetch(`/api/off-search?q=${encodeURIComponent(query)}`);
+  // El proxy exige sesión (ver la ruta): se manda el ID token del usuario.
+  const { getAuth } = await import('firebase/auth');
+  const token = await getAuth().currentUser?.getIdToken();
+  const res = await fetch(`/api/off-search?q=${encodeURIComponent(query)}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
   if (!res.ok) throw new Error(`Open Food Facts respondió ${res.status}`);
   const data = (await res.json()) as { hits?: OffApiProduct[] };
   return (data.hits ?? [])

@@ -3,6 +3,8 @@
 // retiró del producto (ver DECISIONS 2026-07-25). La búsqueda pasa por
 // nuestro proxy porque Open Food Facts bloquea clientes anónimos/datacenter.
 
+import { auth } from '@/firebase';
+
 const API_BASE = (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://nutrilp.com').replace(/\/$/, '');
 
 export interface OffProduct {
@@ -65,7 +67,11 @@ function mapProduct(p: OffApiProduct): OffProduct | null {
 
 /** Búsqueda por texto (ranking España primero) vía nuestro proxy. */
 export async function searchOffProducts(query: string): Promise<OffProduct[]> {
-  const res = await fetch(`${API_BASE}/api/off-search?q=${encodeURIComponent(query)}`);
+  // El proxy exige sesión (ver la ruta en la web): va el ID token del usuario.
+  const token = await auth.currentUser?.getIdToken();
+  const res = await fetch(`${API_BASE}/api/off-search?q=${encodeURIComponent(query)}`, {
+    headers: token ? { authorization: `Bearer ${token}` } : undefined,
+  });
   if (!res.ok) throw new Error(`Open Food Facts respondió ${res.status}`);
   const data = (await res.json()) as { hits?: OffApiProduct[] };
   return (data.hits ?? []).map(mapProduct).filter((p): p is OffProduct => p !== null);

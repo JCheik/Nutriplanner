@@ -128,6 +128,16 @@ export interface GeneratedRecipe {
   category?: string[];
 }
 
+/**
+ * Importar una receta desde un enlace de redes (lo que llega al compartir un
+ * post de Instagram/TikTok con Nutrilp). El servidor lee la publicación y monta
+ * la receta en una sola llamada; devuelve el mismo shape que `generateRecipe`,
+ * así que la pantalla de revisión es la misma.
+ */
+export function importRecipeFromUrl(input: { url: string; existingIngredients?: string[] }) {
+  return postAi<{ recipe: GeneratedRecipe; imageUrl: string | null }>('import-recipe', input);
+}
+
 export function generateRecipe(input: {
   description: string;
   nutritionalGoal?: GoalMacros | null;

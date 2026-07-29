@@ -2,7 +2,7 @@ import { collection, deleteDoc, doc, runTransaction, setDoc } from 'firebase/fir
 
 import { firestore } from '@/firebase';
 import { DAY_ORDER, INITIAL_WEEK_PLAN } from '@/lib/data';
-import type { DayPlan, Recipe, RecipeInstance, ShoppingListItem, WeekHistoryEntry } from '@/lib/types';
+import type { DayPlan, Meal, Recipe, RecipeInstance, ShoppingListItem, WeekHistoryEntry } from '@/lib/types';
 
 /** Hermes no garantiza crypto.randomUUID — id corto suficiente para instancias. */
 function newInstanceId(): string {
@@ -74,6 +74,36 @@ export function clearDay(userId: string, day: string) {
   return updateDayPlan(userId, day, (plan) => ({
     ...plan,
     meals: plan.meals.map((m) => ({ ...m, recipes: [] })),
+  }));
+}
+
+/**
+ * Pegar un día copiado en otro: SUSTITUYE lo que hubiera en el destino (es lo
+ * que se espera de "copiar el lunes al martes"). Los huecos se emparejan por
+ * título ("Desayuno" con "Desayuno"), no por id, porque los ids llevan el día
+ * dentro (`m-0-lunes`). Cada receta pegada estrena `instanceId`: dos huecos
+ * nunca pueden compartir instancia.
+ */
+export function pasteDayInto(userId: string, targetDay: string, sourceMeals: Meal[]) {
+  return updateDayPlan(userId, targetDay, (plan) => ({
+    ...plan,
+    meals: plan.meals.map((m, i) => {
+      const source = sourceMeals.find((s) => s.title === m.title) ?? sourceMeals[i];
+      if (!source) return { ...m, recipes: [] };
+      return { ...m, recipes: source.recipes.map((r) => ({ ...r, instanceId: newInstanceId() })) };
+    }),
+  }));
+}
+
+/** Pegar las recetas copiadas de un hueco en otro: se AÑADEN a lo que ya haya. */
+export function pasteRecipesIntoMeal(userId: string, day: string, mealId: string, recipes: RecipeInstance[]) {
+  return updateDayPlan(userId, day, (plan) => ({
+    ...plan,
+    meals: plan.meals.map((m) =>
+      m.id === mealId
+        ? { ...m, recipes: [...m.recipes, ...recipes.map((r) => ({ ...r, instanceId: newInstanceId() }))] }
+        : m
+    ),
   }));
 }
 

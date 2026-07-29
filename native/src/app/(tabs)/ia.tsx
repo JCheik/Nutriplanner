@@ -14,6 +14,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ChefieMascot } from '@/components/chefie-mascot';
+import { PaperTexture } from '@/components/paper-texture';
+import { ScreenTitle } from '@/components/screen-scaffold';
 import { Fonts, Radii } from '@/constants/theme';
 import { firestore } from '@/firebase';
 import { askAssistant, autocompleteWeek, generateRecipe, interviewForAi } from '@/firebase/ai-client';
@@ -216,29 +219,48 @@ export default function IaScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={{ flex: 1, backgroundColor: c.ground, paddingTop: insets.top + 10 }}
     >
-      <Text style={[styles.title, { color: c.ink, fontFamily: Fonts.serif }]}>Asistente</Text>
+      <PaperTexture />
+      <View style={styles.header}>
+        <ScreenTitle compact eyebrow="Chefie, tu ayudante" title="Asistente" />
+      </View>
 
       <ScrollView ref={scrollRef} contentContainerStyle={styles.chat}>
         {messages.length === 0 ? (
-          <View style={[styles.bubble, styles.assistantBubble, { borderColor: c.line, backgroundColor: c.surface }]}>
-            <Text style={{ fontSize: 13.5, color: c.ink, fontFamily: Fonts.sans, lineHeight: 20 }}>
-              ¡Hola! Puedo planificar días, añadir o quitar recetas y autocompletarte la semana. ¿Qué necesitas?
-            </Text>
+          // Chefie en grande da la bienvenida: el usuario quería verlo también
+          // fuera del tutorial, y aquí es donde "habla" de verdad.
+          <View style={styles.welcome}>
+            <ChefieMascot pose="explain" size={104} />
+            <View style={[styles.bubble, styles.assistantBubble, { borderColor: c.line, backgroundColor: c.surface }]}>
+              <Text style={{ fontSize: 13.5, color: c.ink, fontFamily: Fonts.sans, lineHeight: 20 }}>
+                ¡Hola! Soy Chefie. Puedo planificar días, añadir o quitar recetas y autocompletarte la semana. ¿Qué
+                necesitas?
+              </Text>
+            </View>
           </View>
         ) : (
-          messages.map((m, i) => (
-            <View
-              key={i}
-              style={[
-                styles.bubble,
-                m.role === 'user'
-                  ? [styles.userBubble, { backgroundColor: c.terraSoft, borderColor: c.terraSoft }]
-                  : [styles.assistantBubble, { borderColor: c.line, backgroundColor: c.surface }],
-              ]}
-            >
-              <Text style={{ fontSize: 13.5, color: c.ink, fontFamily: Fonts.sans, lineHeight: 20 }}>{m.text}</Text>
-            </View>
-          ))
+          messages.map((m, i) =>
+            m.role === 'user' ? (
+              <View
+                key={i}
+                style={[styles.bubble, styles.userBubble, { backgroundColor: c.terraSoft, borderColor: c.terraSoft }]}
+              >
+                <Text style={{ fontSize: 13.5, color: c.ink, fontFamily: Fonts.sans, lineHeight: 20 }}>{m.text}</Text>
+              </View>
+            ) : (
+              // Chefie asoma junto a cada respuesta suya (solo en la primera de
+              // una tanda, para no repetirlo en cada burbuja seguida).
+              <View key={i} style={styles.assistantRow}>
+                <View style={{ width: 30 }}>
+                  {messages[i - 1]?.role !== 'assistant' ? <ChefieMascot pose="idle" size={30} /> : null}
+                </View>
+                <View
+                  style={[styles.bubble, styles.assistantBubble, { borderColor: c.line, backgroundColor: c.surface }]}
+                >
+                  <Text style={{ fontSize: 13.5, color: c.ink, fontFamily: Fonts.sans, lineHeight: 20 }}>{m.text}</Text>
+                </View>
+              </View>
+            )
+          )
         )}
 
         {pending ? (
@@ -317,8 +339,10 @@ export default function IaScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 27, fontWeight: '700', paddingHorizontal: 18, paddingBottom: 8 },
+  header: { paddingHorizontal: 18, paddingBottom: 8 },
   chat: { paddingHorizontal: 18, paddingBottom: 12, gap: 8 },
+  welcome: { alignItems: 'center', gap: 6, paddingTop: 6 },
+  assistantRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
   bubble: { maxWidth: '88%', borderWidth: 1.5, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 9 },
   assistantBubble: { alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
   userBubble: { alignSelf: 'flex-end', borderBottomRightRadius: 4 },

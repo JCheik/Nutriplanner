@@ -2,6 +2,7 @@ import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import { createContext, useContext, useEffect, useState, type PropsWithChildren } from 'react';
 
 import { auth } from '@/firebase';
+import { signOutGoogle } from '@/firebase/auth-operations';
 
 interface AuthState {
   user: User | null;
@@ -25,6 +26,9 @@ export function useAuthUser() {
   return useContext(AuthContext);
 }
 
-export function logOut() {
+export async function logOut() {
+  // Primero Google: si no, la próxima vez entraría solo con la cuenta anterior
+  // sin dar a elegir.
+  await signOutGoogle();
   return signOut(auth);
 }

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { collection } from 'firebase/firestore';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card, CardText, ScreenScaffold } from '@/components/screen-scaffold';
 import { Fonts, Radii } from '@/constants/theme';
@@ -12,8 +12,18 @@ import { useCollection } from '@/firebase/firestore-hooks';
 import { deleteWeekSnapshot, restoreWeek, saveWeekSnapshot } from '@/firebase/plan-operations';
 import { useProfile, useWeekPlan } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
+import { useThemePreference, type ThemePreference } from '@/hooks/use-theme-preference';
 import { DIET_TAG_LABELS } from '@/lib/constants';
 import type { WeekHistoryEntry } from '@/lib/types';
+
+/** La web es donde viven las páginas legales (una sola copia, no duplicarlas). */
+const WEB_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://nutrilp.com').replace(/\/$/, '');
+
+const THEME_OPTIONS: { key: ThemePreference; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[] = [
+  { key: 'light', label: 'Claro', icon: 'sunny-outline' },
+  { key: 'dark', label: 'Oscuro', icon: 'moon-outline' },
+  { key: 'system', label: 'Automático', icon: 'phone-portrait-outline' },
+];
 
 /**
  * Perfil — pestaña 5. Difiere del boceto 9 a propósito: sin pestaña "Progreso"
@@ -26,6 +36,7 @@ export default function PerfilScreen() {
   const { user } = useAuthUser();
   const { profile, activeGoalMacros } = useProfile();
   const { weekPlan } = useWeekPlan();
+  const { preference, setPreference } = useThemePreference();
   const historyRef = useMemo(
     () => (user ? collection(firestore, 'users', user.uid, 'weekHistory') : null),
     [user]
@@ -61,7 +72,7 @@ export default function PerfilScreen() {
     }, 'Semana guardada en el historial.');
 
   return (
-    <ScreenScaffold title="Perfil" subtitle={profile?.name || user?.email || ''}>
+    <ScreenScaffold eyebrow="Tu cuenta" title="Perfil" subtitle={profile?.name || user?.email || ''}>
       <Pressable
         onPress={() => router.push('/objetivos')}
         style={[
@@ -175,11 +186,43 @@ export default function PerfilScreen() {
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 13.5, fontWeight: '700', color: c.ink, fontFamily: Fonts.sans }}>El Librito</Text>
           <Text style={{ fontSize: 12, color: c.inkSoft, fontFamily: Fonts.sans }}>
-            Trucos, precisión de macros y buena relación con la comida.
+            Tutoriales, precisión de macros y buena relación con la comida.
           </Text>
         </View>
         <Text style={{ color: c.inkSoft, fontSize: 15 }}>›</Text>
       </Pressable>
+
+      <Card>
+        <CardText bold>Aspecto</CardText>
+        <CardText>Nutrilp va en claro, como la web. Si prefieres el oscuro, aquí lo cambias.</CardText>
+        <View style={[styles.themeSegment, { borderColor: c.line }]}>
+          {THEME_OPTIONS.map(({ key, label, icon }) => {
+            const active = preference === key;
+            return (
+              <Pressable
+                key={key}
+                onPress={() => setPreference(key)}
+                style={[styles.themeOption, active && { backgroundColor: c.terra }]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={`Aspecto ${label}`}
+              >
+                <Ionicons name={icon} size={14} color={active ? '#FFF' : c.inkSoft} />
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: active ? '700' : '400',
+                    color: active ? '#FFF' : c.inkSoft,
+                    fontFamily: Fonts.sans,
+                  }}
+                >
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </Card>
 
       <Pressable
         onPress={() => logOut()}
@@ -191,6 +234,32 @@ export default function PerfilScreen() {
           Cerrar sesión
         </Text>
       </Pressable>
+
+      <View style={styles.legalRow}>
+        <Pressable
+          onPress={() => Linking.openURL(`${WEB_BASE_URL}/privacidad`)}
+          accessibilityRole="link"
+          accessibilityLabel="Ver la política de privacidad"
+        >
+          <Text style={[styles.legalLink, { color: c.inkSoft, fontFamily: Fonts.sans }]}>Privacidad</Text>
+        </Pressable>
+        <Text style={{ color: c.inkSoft, fontSize: 11 }}>·</Text>
+        <Pressable
+          onPress={() => Linking.openURL(`${WEB_BASE_URL}/terminos`)}
+          accessibilityRole="link"
+          accessibilityLabel="Ver los términos de uso"
+        >
+          <Text style={[styles.legalLink, { color: c.inkSoft, fontFamily: Fonts.sans }]}>Términos</Text>
+        </Pressable>
+        <Text style={{ color: c.inkSoft, fontSize: 11 }}>·</Text>
+        <Pressable
+          onPress={() => router.push('/borrar-cuenta')}
+          accessibilityRole="button"
+          accessibilityLabel="Borrar mi cuenta"
+        >
+          <Text style={[styles.legalLink, { color: c.terra, fontFamily: Fonts.sans }]}>Borrar mi cuenta</Text>
+        </Pressable>
+      </View>
     </ScreenScaffold>
   );
 }
@@ -228,6 +297,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 11,
     marginTop: 4,
+  },
+  legalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 10,
+    flexWrap: 'wrap',
+  },
+  legalLink: { fontSize: 11.5, textDecorationLine: 'underline' },
+  themeSegment: {
+    flexDirection: 'row',
+    borderWidth: 1.5,
+    borderRadius: Radii.card,
+    overflow: 'hidden',
+    marginTop: 6,
+  },
+  themeOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 9,
   },
   historyRow: {
     flexDirection: 'row',

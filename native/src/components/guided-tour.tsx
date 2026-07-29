@@ -34,7 +34,7 @@ const STEPS: Step[] = [
   },
   {
     title: 'Tu día, de un vistazo',
-    text: 'Aquí ves lo que toca hoy y cuánto llevas frente a tu objetivo. Añade comidas en cada franja, ajusta las raciones con − y +, y marca ✓ lo que te vayas comiendo.',
+    text: 'Aquí ves lo que toca hoy y cuánto llevas frente a tu objetivo. Añade comidas en cada franja y ajusta las raciones con − y +.',
     pose: 'point',
     route: '/',
     tabIndex: 0,
@@ -61,15 +61,15 @@ const STEPS: Step[] = [
     tabIndex: 2,
   },
   {
-    title: 'La compra, sola',
-    text: 'Se genera de tu plan y ajustada a tus raciones, así compras lo justo. Toca cada pósit para tacharlo mientras estás en el súper.',
+    title: 'La compra',
+    text: 'Se genera de tu plan y ajustada a tus raciones, así compras lo justo. Recuerda que no se actualiza sola: cada vez que cambies el plan, dale tú a "Generar desde el plan".',
     pose: 'point',
     route: '/compra',
     tabIndex: 3,
   },
   {
     title: 'Tu perfil',
-    text: 'Aquí están tu objetivo diario y la entrevista (cuéntame tus gustos y alergias: la IA acierta mucho más). También guardas semanas que te funcionaron y tienes El Librito con trucos.',
+    text: 'Aquí están tu objetivo diario y la entrevista: cuéntame tus gustos y tus alergias para que pueda montarte una dieta a tu gusto. También guardas semanas que te funcionaron y tienes El Librito con los tutoriales.',
     pose: 'explain',
     route: '/perfil',
     tabIndex: 4,

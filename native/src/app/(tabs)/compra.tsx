@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { Card, CardText, ScreenScaffold } from '@/components/screen-scaffold';
+import { ScreenScaffold } from '@/components/screen-scaffold';
 import { Fonts, Radii } from '@/constants/theme';
 import { useAuthUser } from '@/firebase/auth-context';
 import { saveShoppingList } from '@/firebase/plan-operations';
@@ -13,9 +13,12 @@ import { pluralizeUnit } from '@/lib/utils';
 import type { ShoppingListItem } from '@/lib/types';
 
 /**
- * Compra — pestaña 4 (boceto 8). Artículos como pósits en cuadrícula, agrupados
- * por pasillo del súper igual que en la web (misma función `getShoppingCategory`,
- * así los dos sitios ordenan idéntico). La lista vive en el perfil, compartida.
+ * Compra — pestaña 4. Estilo pósit, como en la web: una hoja amarilla con rayas
+ * por pasillo del súper y los artículos escritos a mano (Fonts.hand, el
+ * equivalente al Kalam de la web). Nada de tarjetas ni recuadros: es una lista
+ * de la compra de papel, se tacha tocándola.
+ * El agrupado usa la misma `getShoppingCategory` que la web, así los dos
+ * ordenan idéntico. La lista vive en el perfil, compartida entre app y web.
  */
 export default function CompraScreen() {
   const c = useTheme();
@@ -67,6 +70,7 @@ export default function CompraScreen() {
 
   return (
     <ScreenScaffold
+      eyebrow="Del plan al súper"
       title="Compra"
       subtitle={items.length ? `${pending} por comprar de ${items.length}` : undefined}
     >
@@ -81,100 +85,107 @@ export default function CompraScreen() {
           Generar desde el plan
         </Text>
       </Pressable>
+      <Text style={{ fontSize: 11, color: c.inkSoft, fontFamily: Fonts.sans, textAlign: 'center' }}>
+        La lista no se actualiza sola: si cambias el plan, vuelve a generarla.
+      </Text>
 
       {error ? <Text style={{ fontSize: 12.5, color: c.terra, fontFamily: Fonts.sans }}>{error}</Text> : null}
 
       {!loading && items.length === 0 ? (
-        <Card>
-          <CardText bold>Tu lista está vacía</CardText>
-          <CardText>Genérala desde tu plan con el botón de arriba, o añade artículos a mano abajo.</CardText>
-        </Card>
+        <View style={[styles.sheet, { backgroundColor: c.note, borderColor: c.noteEdge }]}>
+          <Text style={[styles.hand, styles.sheetTitle, { color: c.notePencil }]}>Tu lista está vacía</Text>
+          <View style={[styles.rule, { backgroundColor: c.noteEdge }]} />
+          <Text style={[styles.hand, { color: c.notePencil, opacity: 0.75 }]}>
+            Genérala desde tu plan con el botón de arriba, o apunta algo a mano abajo.
+          </Text>
+        </View>
       ) : (
-        sections.map(([aisle, aisleItems]) => (
-          <View key={aisle} style={{ gap: 7 }}>
-            <Text style={[styles.aisle, { color: c.inkSoft, fontFamily: Fonts.sans }]}>{aisle.toUpperCase()}</Text>
-            <View style={styles.grid}>
-              {aisleItems.map((item, idx) => {
-                const isWeight = ['g', 'ml', ''].includes((item.unit || '').toLowerCase());
-                const qty =
-                  item.quantity > 0
-                    ? isWeight
-                      ? `${Math.round(item.quantity)} ${item.unit || 'g'}`
-                      : `${item.quantity} ${pluralizeUnit(item.unit, item.quantity)}`
-                    : '';
-                return (
-                  <Pressable
-                    key={item.id}
-                    onPress={() => toggle(item.id)}
+        sections.map(([aisle, aisleItems], sheetIdx) => (
+          <View
+            key={aisle}
+            style={[
+              styles.sheet,
+              {
+                backgroundColor: c.note,
+                borderColor: c.noteEdge,
+                // Ligerísima inclinación alterna: aire de nota pegada en la nevera.
+                transform: [{ rotate: sheetIdx % 2 === 0 ? '-0.35deg' : '0.35deg' }],
+              },
+            ]}
+          >
+            <Text style={[styles.hand, styles.sheetTitle, { color: c.notePencil }]}>{aisle}</Text>
+            <View style={[styles.rule, { backgroundColor: c.noteEdge }]} />
+
+            {aisleItems.map((item) => {
+              const isWeight = ['g', 'ml', ''].includes((item.unit || '').toLowerCase());
+              const qty =
+                item.quantity > 0
+                  ? isWeight
+                    ? `${Math.round(item.quantity)} ${item.unit || 'g'}`
+                    : `${item.quantity} ${pluralizeUnit(item.unit, item.quantity)}`
+                  : '';
+              return (
+                <Pressable
+                  key={item.id}
+                  onPress={() => toggle(item.id)}
+                  style={[styles.line, { borderBottomColor: c.noteEdge }]}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: item.checked }}
+                  accessibilityLabel={item.name}
+                >
+                  <View style={[styles.box, { borderColor: c.notePencil }]}>
+                    {item.checked ? <Ionicons name="checkmark" size={13} color={c.notePencil} /> : null}
+                  </View>
+                  <Text
                     style={[
-                      styles.postit,
-                      {
-                        backgroundColor: item.checked ? c.sageSoft : c.terraSoft,
-                        borderColor: item.checked ? c.sage : c.terra,
-                        // Ligerísima inclinación alterna: aire de nota pegada.
-                        transform: [{ rotate: idx % 2 === 0 ? '-0.7deg' : '0.7deg' }],
-                      },
+                      styles.hand,
+                      styles.lineText,
+                      { color: c.notePencil },
+                      item.checked && { textDecorationLine: 'line-through', opacity: 0.5 },
                     ]}
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: item.checked }}
-                    accessibilityLabel={item.name}
+                    numberOfLines={2}
                   >
-                    <View style={styles.postitTop}>
-                      <Text
-                        style={[
-                          { flex: 1, fontSize: 13, fontWeight: '600', color: c.ink, fontFamily: Fonts.sans, lineHeight: 17 },
-                          item.checked && { textDecorationLine: 'line-through', color: c.inkSoft },
-                        ]}
-                        numberOfLines={3}
-                      >
-                        {item.name}
-                      </Text>
-                      <Pressable
-                        onPress={() => remove(item.id)}
-                        hitSlop={10}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Borrar ${item.name}`}
-                      >
-                        <Ionicons name="close" size={13} color={c.inkSoft} />
-                      </Pressable>
-                    </View>
-                    {item.brand ? (
-                      <Text style={{ fontSize: 10.5, color: c.inkSoft, fontFamily: Fonts.sans }} numberOfLines={1}>
-                        {item.brand}
-                      </Text>
-                    ) : null}
-                    <View style={styles.postitBottom}>
-                      <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans }}>{qty}</Text>
-                      {item.checked ? <Ionicons name="checkmark-circle" size={16} color={c.sage} /> : null}
-                    </View>
+                    {qty ? <Text style={{ fontFamily: Fonts.handBold }}>{qty} </Text> : null}
+                    {item.name}
+                    {item.brand ? <Text style={{ opacity: 0.7 }}> · {item.brand}</Text> : null}
+                  </Text>
+                  <Pressable
+                    onPress={() => remove(item.id)}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Borrar ${item.name}`}
+                  >
+                    <Ionicons name="close" size={14} color={c.notePencil} style={{ opacity: 0.45 }} />
                   </Pressable>
-                );
-              })}
-            </View>
+                </Pressable>
+              );
+            })}
           </View>
         ))
       )}
 
-      <View style={styles.manualRow}>
-        <TextInput
-          style={[
-            styles.manualInput,
-            { borderColor: c.line, backgroundColor: c.surface, color: c.ink, fontFamily: Fonts.sans },
-          ]}
-          placeholder="Añadir artículo a mano…"
-          placeholderTextColor={c.inkSoft}
-          value={manualName}
-          onChangeText={setManualName}
-          onSubmitEditing={addManual}
-        />
-        <Pressable
-          onPress={addManual}
-          style={[styles.manualBtn, { borderColor: c.terra }]}
-          accessibilityRole="button"
-          accessibilityLabel="Añadir artículo"
-        >
-          <Ionicons name="add" size={20} color={c.terra} />
-        </Pressable>
+      {/* Apuntar a mano: una línea más del cuaderno. */}
+      <View style={[styles.sheet, { backgroundColor: c.note, borderColor: c.noteEdge }]}>
+        <View style={[styles.line, styles.lineLast]}>
+          <Ionicons name="pencil" size={13} color={c.notePencil} style={{ opacity: 0.55 }} />
+          <TextInput
+            style={[styles.hand, styles.lineText, styles.input, { color: c.notePencil }]}
+            placeholder="Apuntar algo más…"
+            placeholderTextColor={c.inkSoft}
+            value={manualName}
+            onChangeText={setManualName}
+            onSubmitEditing={addManual}
+            returnKeyType="done"
+          />
+          <Pressable
+            onPress={addManual}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Añadir artículo"
+          >
+            <Ionicons name="add" size={20} color={c.notePencil} />
+          </Pressable>
+        </View>
       </View>
     </ScreenScaffold>
   );
@@ -189,28 +200,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  aisle: { fontSize: 10.5, fontWeight: '700', letterSpacing: 0.8, marginTop: 4 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  postit: {
-    width: '47.5%',
-    minHeight: 78,
-    borderWidth: 1.5,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-    gap: 2,
-    justifyContent: 'space-between',
+  // Hoja de pósit: amarillo, esquina apenas redondeada y sombra corta de papel.
+  sheet: {
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 4,
+    // RN 0.86 cross-platform box shadow (shadow*/elevation are deprecated).
+    boxShadow: '0 2px 6px rgba(58, 36, 20, 0.18)',
   },
-  postitTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
-  postitBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
-  manualRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
-  manualInput: {
-    flex: 1,
-    borderWidth: 1.5,
-    borderRadius: Radii.card,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    fontSize: 13.5,
+  hand: { fontFamily: Fonts.hand, fontSize: 16.5, lineHeight: 23 },
+  sheetTitle: { fontFamily: Fonts.handBold, fontSize: 18 },
+  rule: { height: 1.5, marginTop: 3, marginBottom: 2, opacity: 0.9 },
+  line: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    minHeight: 38,
+    borderBottomWidth: 1,
+    paddingVertical: 4,
   },
-  manualBtn: { width: 44, borderWidth: 1.5, borderRadius: Radii.card, alignItems: 'center', justifyContent: 'center' },
+  lineLast: { borderBottomWidth: 0 },
+  lineText: { flex: 1 },
+  input: { paddingVertical: 0 },
+  box: {
+    width: 17,
+    height: 17,
+    borderWidth: 1.5,
+    borderRadius: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

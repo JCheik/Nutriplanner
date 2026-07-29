@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { verifyAuth } from '@/lib/verify-auth';
+
 /**
  * Proxy to Google Cloud Text-to-Speech API.
  *
@@ -10,8 +12,20 @@ import { NextRequest, NextResponse } from 'next/server';
  * Returns { audioContent: string } — base64-encoded MP3.
  * Returns 503 if the key is not set or the API is not enabled; the caller
  * falls back to browser TTS in that case.
+ *
+ * ⚠️ REQUIERE SESIÓN. Esto es un proxy a una API **de pago** con nuestra clave:
+ * abierto, cualquiera que supiera la URL podía sintetizar voz a nuestra costa
+ * (auditoría 2026-07-29). No lleva cuota propia porque el gasto por llamada es
+ * pequeño y el tope duro es el presupuesto de Cloud, pero exigir token deja el
+ * abuso al alcance solo de usuarios registrados y identificables.
  */
 export async function POST(req: NextRequest) {
+  try {
+    await verifyAuth(req);
+  } catch {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  }
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: 'GEMINI_API_KEY not set' }, { status: 503 });
@@ -51,12 +65,16 @@ export async function POST(req: NextRequest) {
       }
     );
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 502 });
+    console.error('[api/tts] upstream request failed:', err);
+    return NextResponse.json({ error: 'No se pudo generar el audio.' }, { status: 502 });
   }
 
   if (!res.ok) {
+    // El cuerpo de Google puede traer detalles de la clave o del proyecto: se
+    // registra en el servidor y al cliente le va un mensaje neutro.
     const body = await res.text().catch(() => '');
-    return NextResponse.json({ error: body || res.statusText }, { status: res.status });
+    console.error(`[api/tts] upstream ${res.status}:`, body);
+    return NextResponse.json({ error: 'No se pudo generar el audio.' }, { status: res.status });
   }
 
   const { audioContent } = (await res.json()) as { audioContent: string };

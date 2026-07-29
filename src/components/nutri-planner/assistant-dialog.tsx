@@ -35,6 +35,7 @@ import { isAssistantAction } from '@/lib/assistant-actions';
 import { useAiQuota } from '@/hooks/use-ai-quota';
 import { useSpeechSynthesis } from '@/hooks/use-speech-synthesis';
 import { useFirestore, useMemoFirebase } from '@/firebase';
+import { useUser } from '@/firebase/provider';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection } from 'firebase/firestore';
 import type { WeekPlan, Recipe, GoalMacros, GoalType, DietTag, AiIngredientEstimate, BaseIngredient, NutriInterview } from '@/lib/types';
@@ -117,6 +118,7 @@ export function AssistantDialog({
   // Existing food names, passed to the recipe generator so it reuses canonical
   // names instead of creating near-duplicates in the shared ingredient DB.
   const firestore = useFirestore();
+  const { user } = useUser();
   const ingredientsRef = useMemoFirebase(
     () => (firestore && isOpen ? collection(firestore, 'ingredients') : null),
     [firestore, isOpen]
@@ -154,9 +156,13 @@ export function AssistantDialog({
 
     if (cloudTtsRef.current !== false) {
       try {
+        // El proxy de TTS exige sesión (gasta una API de pago con nuestra clave).
+        // Sin usuario se cae directamente a la voz del navegador.
+        const token = await user?.getIdToken();
+        if (!token) throw new Error('sin sesión');
         const res = await fetch('/api/tts', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ text }),
         });
         if (res.ok) {

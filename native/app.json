@@ -3,7 +3,7 @@
     "name": "Nutrilp",
     "slug": "nutrilp",
     "owner": "cheik26",
-    "version": "0.1.0",
+    "version": "0.3.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "nutrilp",
@@ -24,7 +24,7 @@
     },
     "android": {
       "package": "com.nutrilp.app",
-      "versionCode": 1,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#F7F3EC",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
@@ -57,7 +57,9 @@
         {
           "cameraPermission": "Nutrilp usa la cámara para escanear códigos de barras y analizar la foto de tu nevera."
         }
-      ]
+      ],
+      "@react-native-google-signin/google-signin",
+      "expo-share-intent"
     ],
     "experiments": {
       "typedRoutes": true,

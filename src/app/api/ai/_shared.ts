@@ -22,6 +22,19 @@ export function corsPreflight() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
 }
 
+/**
+ * Error con un mensaje ya escrito para el usuario. `runAiEndpoint` lo devuelve
+ * literal, en vez de pasarlo por el traductor de errores del modelo.
+ */
+export class AiEndpointError extends Error {
+  constructor(
+    message: string,
+    readonly status = 400
+  ) {
+    super(message);
+  }
+}
+
 function bearerToken(req: Request): string {
   const h = req.headers.get('authorization') ?? '';
   return h.startsWith('Bearer ') ? h.slice(7) : '';
@@ -63,6 +76,13 @@ export async function runAiEndpoint<TBody>(
     const result = await run(body, uid);
     return NextResponse.json({ result }, { headers: CORS_HEADERS });
   } catch (e) {
+    // Un error nuestro con mensaje pensado para el usuario pasa tal cual. Sin
+    // esto lo tragaría `getAiErrorMessage`, que solo entiende errores del
+    // modelo — y peor: un mensaje que contenga "403" (p. ej. "dominio no
+    // permitido") acabaría diciendo que la IA está mal configurada.
+    if (e instanceof AiEndpointError) {
+      return NextResponse.json({ error: e.message }, { status: e.status, headers: CORS_HEADERS });
+    }
     console.error('[api/ai] flow failed:', e);
     return NextResponse.json(
       { error: getAiErrorMessage(e, fallbackError) },

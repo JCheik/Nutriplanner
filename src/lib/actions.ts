@@ -1,11 +1,10 @@
 'use server';
 
 import { initializeFirebase } from '@/firebase/server-init';
+import { deleteAccountCompletely } from '@/lib/delete-account';
 import { verifyAuth, verifyAdmin } from '@/lib/verify-auth';
 import type { Recipe } from '@/lib/types';
 import { UserRecord } from 'firebase-admin/auth';
-import { Storage } from 'firebase-admin/storage';
-import { Firestore } from 'firebase-admin/firestore';
 
 interface SaveRecipePayload {
   idToken: string;
@@ -159,15 +158,9 @@ export async function deleteUserAccount(idToken: string, uid: string) {
         return { success: false, error: 'No puedes eliminar tu propia cuenta desde el panel de administración.' };
     }
     try {
-        const { auth, firestore, storage } = initializeFirebase();
-
-        // This will trigger the 'delete' extension if installed, which should clean up Firestore/Storage.
-        // If not, we have to do it manually.
-        await auth.deleteUser(uid);
-
-        // Manual cleanup as a fallback
-        await deleteUserRelatedData(uid, firestore, storage);
-
+        // Misma implementación que usa el borrado desde la app (lib/delete-account.ts):
+        // borra primero los datos y después el usuario de Auth.
+        await deleteAccountCompletely(uid);
         return { success: true, message: 'Usuario y todos sus datos han sido eliminados.' };
     } catch (error: any) {
         console.error("Server Action 'deleteUserAccount' failed:", error);
@@ -187,44 +180,6 @@ const mapUserRecord = (user: UserRecord): ClientUserRecord => ({
     isAdmin: user.customClaims?.admin === true,
 });
 
-// Helper for manual data deletion
-async function deleteUserRelatedData(uid: string, firestore: Firestore, storage: Storage) {
-    const userDocRef = firestore.collection('users').doc(uid);
-
-    // Array of sub-collection names to delete
-    const subcollections = ['recipes', 'weekPlan', 'meal_plans'];
-
-    for (const sub of subcollections) {
-        const subCollectionRef = userDocRef.collection(sub);
-        const snapshot = await subCollectionRef.get();
-        if (snapshot.empty) continue;
-
-        // Collect storage image deletions to await them explicitly. Previously
-        // these ran inside an async forEach callback that was never awaited, so
-        // batch.commit() (and the function) could resolve before the images were
-        // deleted — leaving orphaned files in Storage.
-        const imageDeletions: Promise<unknown>[] = [];
-        const bucket = storage.bucket();
-        const urlPrefix = `https://storage.googleapis.com/${bucket.name}/`;
-
-        const batch = firestore.batch();
-        snapshot.forEach((docSnapshot) => {
-            batch.delete(docSnapshot.ref);
-            const url = sub === 'recipes' ? docSnapshot.data().imageUrl : undefined;
-            if (url && typeof url === 'string' && url.startsWith(urlPrefix)) {
-                const path = decodeURIComponent(url.replace(urlPrefix, ''));
-                imageDeletions.push(
-                    bucket.file(path).delete().catch((storageError) => {
-                        console.error(`Failed to delete image for recipe ${docSnapshot.id}:`, storageError);
-                    })
-                );
-            }
-        });
-
-        await Promise.all(imageDeletions);
-        await batch.commit();
-    }
-
-    // Finally, delete the main user document
-    await userDocRef.delete();
-}
+// El borrado de datos vive en `lib/delete-account.ts`, compartido con el
+// endpoint `/api/account/delete` que usa la app para que el usuario se borre a
+// sí mismo. Una sola implementación: si se añade una subcolección, se toca ahí.

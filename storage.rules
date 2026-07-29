@@ -5,13 +5,17 @@ service firebase.storage {
 
     // Recipe images live at recipes/<uid|global>/<recipeId>.<ext>.
     // They are uploaded directly from the client (signed-in user) via the
-    // Firebase Storage SDK, so these rules are what actually authorize the write:
-    // any authenticated user may upload an image under 5MB. Public read is
-    // required to render the images. (Global recipes use ownerId "global";
-    // writing the recipe doc itself is still admin-gated by Firestore rules.)
+    // Firebase Storage SDK, so these rules are what actually authorize the write.
+    // Public read is required to render the images.
+    //
+    // ⚠️ Auditoría 2026-07-29: antes bastaba con estar logueado para escribir en
+    // CUALQUIER carpeta, incluidas la de otro usuario y la "global" — se podía
+    // sobrescribir la foto de la receta de otra persona. Ahora cada uno escribe
+    // solo en su carpeta, y en "global" solo un admin.
     match /recipes/{ownerId}/{imageName} {
       allow read;
-      allow write: if request.auth != null &&
+      allow write: if isSignedIn() &&
+                      (ownerId == request.auth.uid || (ownerId == 'global' && isAdmin())) &&
                       request.resource.contentType.matches('image/.*') &&
                       request.resource.size < 5 * 1024 * 1024;
     }
@@ -19,6 +23,16 @@ service firebase.storage {
     // Deny everything else by default — no blanket public read.
     match /{allPaths=**} {
         allow read, write: if false;
+    }
+
+    // Mismo criterio que firestore.rules (mantener el correo en sincronía con
+    // `SUPERUSER_EMAIL` de src/lib/constants.ts).
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (request.auth.token.admin == true || request.auth.token.email == 'jonicheik@gmail.com');
     }
   }
 }
