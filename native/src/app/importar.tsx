@@ -36,7 +36,7 @@ export default function ImportarScreen() {
   const c = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { url } = useLocalSearchParams<{ url?: string }>();
+  const { url, text } = useLocalSearchParams<{ url?: string; text?: string }>();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(true);
   // Evita que un re-render dispare una segunda importación (y gaste cuota).
@@ -46,8 +46,8 @@ export default function ImportarScreen() {
   const { data: catalog } = useCollection<BaseIngredient>(ingredientsRef);
 
   const runImport = useCallback(async () => {
-    if (!url) {
-      setError('No he recibido ningún enlace.');
+    if (!url && !text) {
+      setError('No he recibido nada que importar.');
       setBusy(false);
       return;
     }
@@ -55,7 +55,8 @@ export default function ImportarScreen() {
     setError(null);
     try {
       const result = await importRecipeFromUrl({
-        url,
+        ...(url ? { url } : {}),
+        ...(text ? { text } : {}),
         existingIngredients: (catalog ?? []).map((i) => i.name),
       });
       if (!result?.recipe) {
@@ -69,7 +70,7 @@ export default function ImportarScreen() {
       setError(e instanceof Error ? e.message : 'No se pudo importar la receta.');
       setBusy(false);
     }
-  }, [url, catalog, router]);
+  }, [url, text, catalog, router]);
 
   useEffect(() => {
     if (startedRef.current) return;
@@ -87,10 +88,12 @@ export default function ImportarScreen() {
         {busy ? (
           <>
             <Text style={[styles.title, { color: c.ink, fontFamily: Fonts.serif }]}>
-              Leyendo {url ? sourceName(url) : 'el enlace'}…
+              {url ? `Leyendo ${sourceName(url)}…` : 'Leyendo lo que me has pasado…'}
             </Text>
             <Text style={[styles.lede, { color: c.inkSoft, fontFamily: Fonts.sans }]}>
-              Saco los ingredientes y estimo los macros. Suele tardar unos segundos.
+              {url
+                ? 'Si el post trae vídeo, lo veo entero para sacar los pasos. Puede tardar hasta un minuto.'
+                : 'Saco los ingredientes y estimo los macros. Suele tardar unos segundos.'}
             </Text>
             <ActivityIndicator color={c.terra} style={{ marginTop: 6 }} />
           </>

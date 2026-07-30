@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -23,8 +23,11 @@ export default function NeveraScreen() {
   const router = useRouter();
   const { user } = useAuthUser();
   const { activeGoalMacros } = useProfile();
+  const { shared } = useLocalSearchParams<{ shared?: string }>();
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
+  // Evita reanalizar la imagen compartida en cada render.
+  const startedRef = useRef(false);
 
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState<FridgeScanResult | null>(null);
@@ -32,26 +35,63 @@ export default function NeveraScreen() {
   const [savingIdx, setSavingIdx] = useState<number | null>(null);
   const [savedIdx, setSavedIdx] = useState<Set<number>>(new Set());
 
+  const analyze = useCallback(
+    async (imageBase64: string) => {
+      setAnalyzing(true);
+      setError(null);
+      try {
+        const scan = await parseFridgeImage({ imageBase64, nutritionalGoal: activeGoalMacros });
+        setResult(scan);
+      } catch (e) {
+        setError(
+          e instanceof Error && e.message !== 'sin imagen'
+            ? e.message
+            : 'No se pudo analizar la foto. Inténtalo de nuevo.'
+        );
+      } finally {
+        setAnalyzing(false);
+      }
+    },
+    [activeGoalMacros]
+  );
+
   const handleCapture = async () => {
     if (analyzing || !cameraRef.current) return;
-    setAnalyzing(true);
-    setError(null);
     try {
       // Calidad baja a propósito: la IA no necesita más y el envío es mucho
       // más rápido con datos móviles.
       const photo = await cameraRef.current.takePictureAsync({ base64: true, quality: 0.5 });
       if (!photo?.base64) throw new Error('sin imagen');
-      const scan = await parseFridgeImage({
-        imageBase64: `data:image/jpeg;base64,${photo.base64}`,
-        nutritionalGoal: activeGoalMacros,
-      });
-      setResult(scan);
-    } catch (e) {
-      setError(e instanceof Error && e.message !== 'sin imagen' ? e.message : 'No se pudo analizar la foto. Inténtalo de nuevo.');
-    } finally {
-      setAnalyzing(false);
+      await analyze(`data:image/jpeg;base64,${photo.base64}`);
+    } catch {
+      setError('No se pudo tomar la foto. Inténtalo de nuevo.');
     }
   };
+
+  /**
+   * Foto que llega de "Compartir" desde otra app (galería, WhatsApp…). Se salta
+   * la cámara y analiza directamente. La URI se convierte a base64 con
+   * fetch+FileReader porque el endpoint espera un data URL, igual que la cámara.
+   */
+  useEffect(() => {
+    if (!shared || startedRef.current) return;
+    startedRef.current = true;
+    (async () => {
+      try {
+        const res = await fetch(shared);
+        const blob = await res.blob();
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(new Error('no se pudo leer la imagen'));
+          reader.readAsDataURL(blob);
+        });
+        await analyze(dataUrl);
+      } catch {
+        setError('No he podido abrir esa imagen. Prueba a hacerle la foto desde aquí.');
+      }
+    })();
+  }, [shared, analyze]);
 
   const handleSaveRecipe = async (recipe: FridgeRecipe, index: number) => {
     if (!user || savingIdx !== null) return;

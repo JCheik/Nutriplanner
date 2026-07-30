@@ -129,19 +129,29 @@ export default function RecetasScreen() {
           open={filtersOpen}
           onToggleOpen={() => setFiltersOpen((o) => !o)}
         />
-        {/* Entrada discreta a los productos del súper: sigue disponible, pero
-            ya no compite con "Nueva receta". */}
-        <Pressable
-          onPress={() => router.push('/productos')}
-          style={styles.productLink}
-          accessibilityRole="button"
-          accessibilityLabel="Añadir un producto del súper"
-        >
-          <Ionicons name="cart-outline" size={13} color={c.inkSoft} />
-          <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans }}>
-            ¿Un producto del súper? Búscalo y añádelo
-          </Text>
-        </Pressable>
+        {/* Entradas secundarias: escribir la receta a mano y buscar un producto
+            del súper. Ninguna compite con "Nueva receta", que es la de la IA. */}
+        <View style={styles.secondaryRow}>
+          <Pressable
+            onPress={() => router.push('/receta-editar')}
+            style={styles.productLink}
+            accessibilityRole="button"
+            accessibilityLabel="Escribir una receta a mano"
+          >
+            <Ionicons name="create-outline" size={13} color={c.inkSoft} />
+            <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans }}>Escribirla a mano</Text>
+          </Pressable>
+          <Text style={{ color: c.inkSoft, fontSize: 11 }}>·</Text>
+          <Pressable
+            onPress={() => router.push('/productos')}
+            style={styles.productLink}
+            accessibilityRole="button"
+            accessibilityLabel="Añadir un producto del súper"
+          >
+            <Ionicons name="cart-outline" size={13} color={c.inkSoft} />
+            <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans }}>Producto del súper</Text>
+          </Pressable>
+        </View>
       </View>
 
       {loading ? (
@@ -184,6 +194,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13,
     paddingVertical: 8,
   },
+  secondaryRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   productLink: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingTop: 1 },
   segment: {
     flexDirection: 'row',

@@ -1,34 +1,52 @@
 import { importRecipe } from '@/ai/flows/import-recipe-flow';
 import { fetchSocialMetadata, SocialUrlError } from '@/lib/social-url';
+import { analyzeVideoFromUrl } from '@/lib/video-recipe';
 
 import { AiEndpointError, corsPreflight, runAiEndpoint } from '../_shared';
 
 export const OPTIONS = corsPreflight;
 
-interface ImportFromUrlInput {
-  url: string;
+// El análisis de vídeo puede tardar: Gemini tiene que ver el clip entero.
+export const maxDuration = 120;
+
+interface ImportInput {
+  /** Enlace de Instagram, TikTok, YouTube… */
+  url?: string;
+  /** Texto suelto compartido (una receta pegada, sin enlace). */
+  text?: string;
   /** Nombres del catálogo, para que la IA reutilice alimentos en vez de duplicarlos. */
   existingIngredients?: string[];
 }
 
 /**
- * Importar una receta desde un enlace, en UNA llamada. Lo usa la app nativa
- * cuando compartes un post de Instagram o TikTok desde la propia red social.
+ * Importar una receta en UNA llamada, para la app nativa: acepta un enlace de
+ * redes o un texto pegado, y devuelve la receta lista para revisar.
  *
- * La web hace este mismo trabajo en dos pasos desde el cliente
- * (`/api/fetch-social-url` y luego el flow como Server Action); aquí se une
- * porque el móvil no debe encadenar llamadas ni conocer el proceso.
+ * La web hace lo mismo en varios pasos desde el cliente (leer el post, decidir
+ * si hay vídeo, analizarlo, y si no tirar del texto); aquí se une porque el
+ * móvil no debe encadenar llamadas ni conocer el proceso.
  *
- * Diferencia consciente con la web: **no se analiza el vídeo**. Ese camino
- * (`/api/analyze-video`) descarga el vídeo entero y lo manda a Gemini, que es
- * caro y lento para un gesto que debe sentirse instantáneo. Se importa del
- * título y la descripción del post, que es el mismo camino de respaldo que usa
- * la web cuando no hay vídeo analizable.
+ * Orden de preferencia, el mismo que la web:
+ *   1. Si el post trae vídeo → se analiza el vídeo (es donde está la receta de
+ *      verdad en Instagram y TikTok; el pie de foto suele ser marketing).
+ *   2. Si no hay vídeo, o su análisis falla → título + descripción del post.
+ *   3. Si lo compartido era texto suelto → ese texto.
  */
 export function POST(req: Request) {
-  return runAiEndpoint<ImportFromUrlInput>(
+  return runAiEndpoint<ImportInput>(
     req,
-    async ({ url, existingIngredients }) => {
+    async ({ url, text, existingIngredients }) => {
+      // ── Texto pegado, sin enlace ──────────────────────────────────────
+      if (!url) {
+        const caption = (text ?? '').trim();
+        if (caption.length < 20) {
+          throw new AiEndpointError('Necesito algo más de texto para sacar una receta de ahí.');
+        }
+        const recipe = await importRecipe({ caption, existingIngredients });
+        return { recipe, imageUrl: null, source: 'texto' };
+      }
+
+      // ── Enlace de redes ───────────────────────────────────────────────
       let meta;
       try {
         meta = await fetchSocialMetadata(url);
@@ -37,16 +55,28 @@ export function POST(req: Request) {
         throw new AiEndpointError('No se pudo leer ese enlace. Puede que la publicación sea privada.', 502);
       }
 
-      const caption = [meta.title, meta.description].filter(Boolean).join('\n\n').trim();
+      const caption = [meta.title, meta.description, text].filter(Boolean).join('\n\n').trim();
+
+      if (meta.videoUrl) {
+        try {
+          const recipe = await analyzeVideoFromUrl(meta.videoUrl, caption, existingIngredients);
+          return { recipe, imageUrl: meta.imageUrl, source: 'video' };
+        } catch (e) {
+          // Las URLs de vídeo de Instagram/TikTok caducan y a menudo Gemini no
+          // puede descargarlas. No es motivo para fallar: se sigue con el texto.
+          console.warn('[import-recipe] video analysis failed, falling back to caption:', e);
+        }
+      }
+
       if (!caption) {
         throw new AiEndpointError(
-          'Ese enlace no trae texto que leer. Si la publicación es privada, copia la receta y pégala en la web.'
+          'Ese enlace no trae texto que leer. Si la publicación es privada, copia la receta y compártela como texto.'
         );
       }
 
       const recipe = await importRecipe({ url, caption, existingIngredients });
-      return { recipe, imageUrl: meta.imageUrl };
+      return { recipe, imageUrl: meta.imageUrl, source: 'texto' };
     },
-    'No se pudo importar la receta de ese enlace.'
+    'No se pudo importar la receta.'
   );
 }

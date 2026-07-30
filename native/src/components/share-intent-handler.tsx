@@ -23,9 +23,21 @@ export function ShareIntentHandler() {
     // Instagram/TikTok mandan la URL en `webUrl`; algunas apps la meten dentro
     // del texto suelto, así que se rescata de ahí como respaldo.
     const url = shareIntent.webUrl ?? shareIntent.text?.match(/https?:\/\/\S+/)?.[0] ?? null;
+    const image = shareIntent.files?.find((f) => f.mimeType?.startsWith('image/'))?.path ?? null;
+    const text = shareIntent.text ?? null;
 
     resetShareIntent();
-    if (url) router.push({ pathname: '/importar', params: { url } });
+
+    // Prioridad: enlace > imagen > texto suelto. Una foto compartida va al
+    // análisis de nevera, que es lo que sabemos hacer con una imagen de comida;
+    // un texto sin enlace se intenta importar como receta pegada.
+    if (url) {
+      router.push({ pathname: '/importar', params: { url } });
+    } else if (image) {
+      router.push({ pathname: '/nevera', params: { shared: image } });
+    } else if (text && text.trim().length >= 20) {
+      router.push({ pathname: '/importar', params: { text } });
+    }
   }, [hasShareIntent, shareIntent, resetShareIntent, router]);
 
   return null;

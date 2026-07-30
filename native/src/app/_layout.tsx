@@ -51,6 +51,7 @@ function Gate() {
         <Stack.Screen name="borrar-cuenta" options={{ presentation: 'modal' }} />
         <Stack.Screen name="importar" options={{ presentation: 'modal' }} />
         <Stack.Screen name="plan-anadir" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="receta-editar" options={{ presentation: 'modal' }} />
       </Stack>
     </>
   );

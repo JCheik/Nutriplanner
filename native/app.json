@@ -59,7 +59,12 @@
         }
       ],
       "@react-native-google-signin/google-signin",
-      "expo-share-intent"
+      [
+        "expo-share-intent",
+        {
+          "androidIntentFilters": ["text/*", "image/*"]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

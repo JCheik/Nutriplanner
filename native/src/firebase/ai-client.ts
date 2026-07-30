@@ -134,8 +134,13 @@ export interface GeneratedRecipe {
  * la receta en una sola llamada; devuelve el mismo shape que `generateRecipe`,
  * así que la pantalla de revisión es la misma.
  */
-export function importRecipeFromUrl(input: { url: string; existingIngredients?: string[] }) {
-  return postAi<{ recipe: GeneratedRecipe; imageUrl: string | null }>('import-recipe', input);
+export function importRecipeFromUrl(input: {
+  url?: string;
+  /** Texto pegado, cuando lo compartido no era un enlace. */
+  text?: string;
+  existingIngredients?: string[];
+}) {
+  return postAi<{ recipe: GeneratedRecipe; imageUrl: string | null; source?: string }>('import-recipe', input);
 }
 
 export function generateRecipe(input: {
