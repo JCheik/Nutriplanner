@@ -76,6 +76,11 @@ en la app**: vive solo en el servidor web, detrás de los endpoints `/api/ai/*`.
 
 ## 📝 Borrador de ficha de tienda
 
+> ⚠️ **OBSOLETO — no usar.** La ficha buena está en `.claude/store/ficha-google-play.md`
+> (reescrita el 2026-07-30). Lo de abajo promete "marca lo que vas comiendo" y el
+> escáner de código de barras, dos funciones **retiradas del producto**. Se deja
+> solo como registro de lo que se llegó a redactar.
+
 **Nombre**: Nutrilp — Plan de comidas
 
 **Descripción corta (Android, 80 car.)**:
