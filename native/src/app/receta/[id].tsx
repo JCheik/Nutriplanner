@@ -3,7 +3,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Fonts, Radii } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+
+import { Fonts, Radii, Shadows } from '@/constants/theme';
 import { useRecipes } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
 import { perServingMacros } from '@/lib/serving-utils';
@@ -99,16 +101,33 @@ export default function RecetaDetailScreen() {
           })}
         </View>
 
+        {/* Acción principal de esta pantalla: llevártela al plan. Antes había que
+            salir a Plan, buscar la franja y volver a buscar la receta. */}
+        <Pressable
+          onPress={() =>
+            router.push({ pathname: '/plan-anadir', params: { recipeId: recipe.id, global: global ?? '0' } })
+          }
+          style={[styles.cookBtn, Shadows.card, { backgroundColor: c.terra }]}
+          accessibilityRole="button"
+          accessibilityLabel="Añadir esta receta al plan"
+        >
+          <Ionicons name="calendar-outline" size={16} color="#FFF" />
+          <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13.5, fontFamily: Fonts.sans }}>
+            Añadir al plan
+          </Text>
+        </Pressable>
+
         {recipe.instructions ? (
           <>
             <Pressable
               onPress={() => router.push({ pathname: '/cocina/[id]', params: { id: recipe.id } })}
-              style={[styles.cookBtn, { backgroundColor: c.terra }]}
+              style={[styles.cookBtn, { borderWidth: 1.5, borderColor: c.line }]}
               accessibilityRole="button"
               accessibilityLabel="Empezar modo cocina"
             >
-              <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13.5, fontFamily: Fonts.sans }}>
-                👨‍🍳 Modo cocina
+              <Ionicons name="restaurant-outline" size={16} color={c.inkSoft} />
+              <Text style={{ color: c.inkSoft, fontWeight: '700', fontSize: 13.5, fontFamily: Fonts.sans }}>
+                Modo cocina
               </Text>
             </Pressable>
             <Text style={[styles.sectionLabel, { color: c.inkSoft, fontFamily: Fonts.sans }]}>PREPARACIÓN</Text>
@@ -142,7 +161,15 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   sectionLabel: { fontSize: 10.5, fontWeight: '700', letterSpacing: 0.8, marginTop: 4 },
-  cookBtn: { borderRadius: Radii.card, paddingVertical: 12, alignItems: 'center', marginTop: 4 },
+  cookBtn: {
+    flexDirection: 'row',
+    gap: 7,
+    borderRadius: Radii.card,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
   ingredientRow: {
     flexDirection: 'row',
     alignItems: 'center',

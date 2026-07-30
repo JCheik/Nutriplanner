@@ -82,7 +82,10 @@ export default function IaScreen() {
   const runAutocomplete = async (): Promise<string> => {
     if (!user) return 'Inicia sesión para esto.';
     if (!interview) {
-      return 'Antes de autocompletar, cuéntame tus gustos y alergias en la entrevista (por ahora en la web, Mi Laboratorio) — así el plan será mucho mejor.';
+      // La entrevista se rellena DENTRO de la app desde 2026-07-25: se abre en
+      // vez de mandar a la web, como decía este mensaje hasta la auditoría.
+      router.push('/entrevista');
+      return 'Antes de autocompletar necesito conocerte: te abro la entrevista para que me cuentes tus gustos y tus alergias. Con eso el plan sale mucho mejor.';
     }
     const availableRecipes = [...userRecipes, ...globalRecipes];
     const { placements, unfilled } = await autocompleteWeek({
@@ -145,7 +148,11 @@ export default function IaScreen() {
       case 'autocomplete_week':
         return runAutocomplete();
       case 'set_goal':
-        return 'Ese cambio de objetivo aún se hace desde la web (calculadora de Mi Laboratorio). En la app llega pronto.';
+        // La calculadora vive en la app desde 2026-07-25. No se toca el objetivo
+        // por mi cuenta: la fórmula necesita peso, altura, edad y actividad, así
+        // que se abre la pantalla y lo confirma el usuario (Calcular → Guardar).
+        router.push('/objetivos');
+        return 'Te abro la calculadora de objetivos: rellena tus datos, dale a Calcular y luego a Guardar y aplicar.';
       case 'create_recipe': {
         const generated = await generateRecipe({
           description: String(args.description ?? ''),

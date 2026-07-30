@@ -24,6 +24,18 @@ export function useOnboardingFlag(id: string) {
     );
   }, [user, id]);
 
+  /**
+   * Vuelve a marcar la guía como no vista. Se usa para "ver el tour otra vez"
+   * desde Perfil: hasta la auditoría, repetir el tour solo se podía desde la
+   * web, y el propio tour lo anunciaba — un callejón sin salida en la app.
+   */
+  const showAgain = useCallback(async () => {
+    if (!user) return;
+    await setDoc(doc(firestore, 'users', user.uid), { onboardingFlags: { [id]: false } }, { merge: true }).catch(
+      () => {}
+    );
+  }, [user, id]);
+
   // Mientras carga el perfil no se muestra nada, para que no parpadee.
-  return { shouldShow: !loading && !!user && !seen, dismissForever };
+  return { shouldShow: !loading && !!user && !seen, dismissForever, showAgain };
 }

@@ -11,6 +11,7 @@ import { logOut, useAuthUser } from '@/firebase/auth-context';
 import { useCollection } from '@/firebase/firestore-hooks';
 import { deleteWeekSnapshot, restoreWeek, saveWeekSnapshot } from '@/firebase/plan-operations';
 import { useProfile, useWeekPlan } from '@/hooks/use-nutrilp-data';
+import { useOnboardingFlag } from '@/hooks/use-onboarding-flag';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemePreference, type ThemePreference } from '@/hooks/use-theme-preference';
 import { DIET_TAG_LABELS } from '@/lib/constants';
@@ -37,6 +38,8 @@ export default function PerfilScreen() {
   const { profile, activeGoalMacros } = useProfile();
   const { weekPlan } = useWeekPlan();
   const { preference, setPreference } = useThemePreference();
+  // Mismo flag que consume `GuidedTour`: al reactivarlo, el tour reaparece solo.
+  const { showAgain: showTourAgain } = useOnboardingFlag('native-tour');
   const historyRef = useMemo(
     () => (user ? collection(firestore, 'users', user.uid, 'weekHistory') : null),
     [user]
@@ -175,6 +178,24 @@ export default function PerfilScreen() {
           ))
         )}
       </Card>
+
+      <Pressable
+        onPress={() => showTourAgain()}
+        style={[styles.librito, { borderColor: c.line, backgroundColor: c.surface }]}
+        accessibilityRole="button"
+        accessibilityLabel="Ver el tour otra vez"
+      >
+        <Ionicons name="compass-outline" size={17} color={c.sage} />
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 13.5, fontWeight: '700', color: c.ink, fontFamily: Fonts.sans }}>
+            Ver el tour otra vez
+          </Text>
+          <Text style={{ fontSize: 12, color: c.inkSoft, fontFamily: Fonts.sans }}>
+            Chefie te vuelve a explicar las pestañas.
+          </Text>
+        </View>
+        <Text style={{ color: c.inkSoft, fontSize: 15 }}>›</Text>
+      </Pressable>
 
       <Pressable
         onPress={() => router.push('/librito')}

@@ -76,7 +76,7 @@ const STEPS: Step[] = [
   },
   {
     title: '¡Listo!',
-    text: 'Ya está. Si te pierdes, puedes volver a ver esto desde "Ver guías de nuevo" en la web. ¡A planificar!',
+    text: 'Ya está. Si te pierdes, en Perfil tienes "Ver el tour otra vez". ¡A planificar!',
     pose: 'celebrate',
   },
 ];
