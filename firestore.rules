@@ -31,16 +31,6 @@ service cloud.firestore {
       allow update, delete: if isSignedIn() && (isExistingOwner(userId) || isAdmin());
     }
 
-     /**
-     * @description Folders for organizing recipes, owned by a specific user. Admins have full access.
-     * @path /users/{userId}/folders/{folderId}
-     */
-    match /users/{userId}/folders/{folderId} {
-      allow read, list: if isSignedIn() && (isOwner(userId) || isAdmin());
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update, delete: if isSignedIn() && (isExistingOwner(userId) || isAdmin());
-    }
-    
     /**
      * @description Weekly meal plan documents for a specific user. Admins have full access.
      * @path /users/{userId}/weekPlan/{day}
@@ -73,16 +63,6 @@ service cloud.firestore {
     }
 
     /**
-     * @description Meal plans owned by a specific user (legacy, may be deprecated). Admins have full access.
-     * @path /users/{userId}/meal_plans/{mealPlanId}
-     */
-    match /users/{userId}/meal_plans/{mealPlanId} {
-      allow read, list: if isSignedIn() && (isOwner(userId) || isAdmin());
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update, delete: if isSignedIn() && (isExistingOwner(userId) || isAdmin());
-    }
-    
-    /**
      * @description Ingredients owned by a specific user. Admins have full access.
      * @path /users/{userId}/ingredients/{ingredientId}
      */
@@ -102,12 +82,16 @@ service cloud.firestore {
     }
     
     /**
-     * @description Global folders for NutriPlanner recipes, managed by administrators.
-     * @path /nutriplanner_folders/{folderId}
+     * @description Consulta por GRUPO de colección sobre todas las subcolecciones
+     * `recipes` a la vez (`collectionGroup(firestore, 'recipes')`). La regla de
+     * arriba solo cubre consultas ya acotadas a un `userId` conocido, así que sin
+     * esta hasta un admin recibía `permission-denied` — confirmado en vivo.
+     * Solo lectura y solo admin: la necesita el panel para saber en qué recetas
+     * de usuarios se usa un ingrediente antes de borrarlo o fusionarlo.
+     * @path /{path=**}/recipes/{recipeId}
      */
-    match /nutriplanner_folders/{folderId} {
-        allow get, list: if isSignedIn();
-        allow create, update, delete: if isAdmin();
+    match /{path=**}/recipes/{recipeId} {
+      allow read, list: if isAdmin();
     }
 
     /**
@@ -128,6 +112,19 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    /**
+     * Admin = custom claim `admin`, o el correo del superusuario como respaldo.
+     *
+     * ⚠️ Ese correo está escrito a mano AQUÍ, en `storage.rules` y en
+     * `src/lib/constants.ts` (SUPERUSER_EMAIL): si se desincronizan, el boquete
+     * es silencioso. Para quitarlo hay que hacerlo EN ESTE ORDEN, o te quedas
+     * fuera de tu propio panel:
+     *   1. Entrar en /admin/users y darse a uno mismo el rol de admin (eso
+     *      escribe el custom claim vía `setUserAdmin`).
+     *   2. Cerrar sesión y volver a entrar, para que el token traiga el claim.
+     *   3. Comprobar que /admin sigue accesible.
+     *   4. Solo entonces, borrar la comparación por correo de las dos reglas.
+     */
     function isAdmin() {
       return isSignedIn() && (request.auth.token.admin == true || request.auth.token.email == 'jonicheik@gmail.com');
     }
