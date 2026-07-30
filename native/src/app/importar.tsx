@@ -81,7 +81,8 @@ export default function ImportarScreen() {
     <View style={{ flex: 1, backgroundColor: c.ground, paddingTop: insets.top + 10 }}>
       <PaperTexture />
       <View style={styles.body}>
-        <ChefieMascot pose={error ? 'idle' : 'explain'} size={104} />
+        {/* Pensando mientras la IA trabaja; encogido de hombros si no salió. */}
+        <ChefieMascot pose={error ? 'shrug' : 'thinking'} size={104} />
 
         {busy ? (
           <>

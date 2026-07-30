@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ChefieMascot } from '@/components/chefie-mascot';
 import { PaperTexture } from '@/components/paper-texture';
 import { ScreenTitle } from '@/components/screen-scaffold';
 import { Fonts, Radii, Shadows } from '@/constants/theme';
@@ -86,7 +87,7 @@ export default function PlanAnadirScreen() {
       <View style={{ flex: 1, backgroundColor: c.ground, paddingTop: insets.top + 10 }}>
         <PaperTexture />
         <View style={styles.doneBody}>
-          <Ionicons name="checkmark-circle" size={54} color={c.sage} />
+          <ChefieMascot pose="thumbsup" size={92} />
           <Text style={{ fontSize: 20, color: c.ink, fontFamily: Fonts.serif, textAlign: 'center' }}>
             Añadido al plan
           </Text>

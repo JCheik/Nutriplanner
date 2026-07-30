@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ChefieMascot } from '@/components/chefie-mascot';
 import { Fonts, Radii, Shadows } from '@/constants/theme';
 import { firestore } from '@/firebase';
 import { generateRecipe, interviewForAi } from '@/firebase/ai-client';
@@ -129,6 +130,15 @@ export default function RecetaCrearScreen() {
         </Text>
 
         {error ? <Text style={{ fontSize: 12.5, color: c.terra, fontFamily: Fonts.sans }}>{error}</Text> : null}
+
+        {/* Chefie pensando mientras la IA monta la receta: da algo que mirar en
+            la espera, que aquí es de varios segundos. */}
+        {busy ? (
+          <View style={{ alignItems: 'center', gap: 4, paddingTop: 6 }}>
+            <ChefieMascot pose="thinking" size={76} />
+            <Text style={{ fontSize: 12.5, color: c.inkSoft, fontFamily: Fonts.sans }}>Montando la receta…</Text>
+          </View>
+        ) : null}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 10) }]}>

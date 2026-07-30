@@ -6,6 +6,7 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, Vi
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { applyRecipeFilters, EMPTY_FILTERS, RecipeFilters, type RecipeFilterState } from '@/components/recipe-filters';
+import { ChefieMascot } from '@/components/chefie-mascot';
 import { PaperTexture } from '@/components/paper-texture';
 import { ScreenTitle } from '@/components/screen-scaffold';
 import { Fonts, Radii, Shadows } from '@/constants/theme';
@@ -154,13 +155,18 @@ export default function RecetasScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
-            <Text style={{ fontSize: 13, color: c.inkSoft, fontFamily: Fonts.sans, textAlign: 'center', marginTop: 30 }}>
-              {search
-                ? 'Nada por aquí con ese filtro.'
-                : tab === 'mias'
-                  ? 'Aún no tienes recetas propias. Dale a "Nueva receta" y te monto una con lo que me digas.'
-                  : 'No se pudieron cargar las recetas de Nutrilp.'}
-            </Text>
+            <View style={{ alignItems: 'center', gap: 8, marginTop: 24, paddingHorizontal: 20 }}>
+              {/* Encogido de hombros si la búsqueda no da nada; bandeja si aún
+                  no hay recetas, que es una invitación, no un error. */}
+              <ChefieMascot pose={search ? 'shrug' : 'serve'} size={86} />
+              <Text style={{ fontSize: 13, color: c.inkSoft, fontFamily: Fonts.sans, textAlign: 'center', lineHeight: 19 }}>
+                {search
+                  ? 'Nada por aquí con ese filtro.'
+                  : tab === 'mias'
+                    ? 'Aún no tienes recetas propias. Dale a "Nueva receta" y te monto una con lo que me digas.'
+                    : 'No se pudieron cargar las recetas de Nutrilp.'}
+              </Text>
+            </View>
           }
         />
       )}
