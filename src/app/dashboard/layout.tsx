@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '@/firebase';
 import { Logo } from '@/components/icons/logo';
 import { PageHeader } from '@/components/layout/page-header';
+import { prefersDesktop } from '@/lib/mobile-redirect';
 
 // Explicit opaque bg-background: without it, the fixed kitchen-bg photo on
 // <body> (background-attachment: fixed, see globals.css) shows through this
@@ -28,7 +29,11 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   // the browser restored, a shared link) and nothing else would route them to
   // the mobile UI — they'd be stuck on the desktop layout until clicking the logo.
   const [isMobileViewport] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
+    () =>
+      typeof window !== 'undefined' &&
+      window.matchMedia('(max-width: 768px)').matches &&
+      // Salvo que ya haya elegido quedarse en la web desde el aterrizaje móvil.
+      !prefersDesktop()
   );
 
   useEffect(() => {

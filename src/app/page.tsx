@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { LoaderCircle, Mail } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { NutritionalDisclaimer } from '@/components/nutri-planner/nutritional-disclaimer';
+import { prefersDesktop } from '@/lib/mobile-redirect';
 
 type EmailMode = 'signin' | 'signup';
 
@@ -38,7 +39,9 @@ function AuthContent() {
       typeof window !== 'undefined' &&
       window.matchMedia('(max-width: 768px)').matches;
 
-    router.replace(isMobile ? '/mobile' : '/dashboard');
+    // `/mobile` es ahora el aterrizaje que ofrece la app. Si el usuario ya eligió
+    // seguir en la web desde ahí, no se le devuelve (ver mobile-redirect.ts).
+    router.replace(isMobile && !prefersDesktop() ? '/mobile' : '/dashboard');
   }, [user, loading, router]);
 
 

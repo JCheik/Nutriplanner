@@ -32,8 +32,9 @@ export function PageHeader({}: PageHeaderProps) {
   const { toast } = useToast();
   const pathname = usePathname();
 
-  // Desktop profile hub lives at /dashboard/perfil; mobile at /mobile/perfil.
-  const perfilHref = pathname.startsWith('/mobile') ? '/mobile/perfil' : '/dashboard/perfil';
+  // Solo queda el hub de escritorio: la web móvil se retiró el 2026-07-30 y
+  // /mobile es ahora una página que ofrece la app.
+  const perfilHref = '/dashboard/perfil';
 
   const feedbackHref =
     `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent('Feedback de Nutrilp (alfa)')}` +
@@ -90,14 +91,12 @@ export function PageHeader({}: PageHeaderProps) {
                   <span>Mi Laboratorio</span>
                 </Link>
               </DropdownMenuItem>
-              {!pathname.startsWith('/mobile') && (
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link href="/dashboard/librito">
-                    <BookOpen className="mr-2 h-4 w-4" />
-                    <span>El Librito</span>
-                  </Link>
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuItem asChild className="cursor-pointer">
+                <Link href="/dashboard/librito">
+                  <BookOpen className="mr-2 h-4 w-4" />
+                  <span>El Librito</span>
+                </Link>
+              </DropdownMenuItem>
               {isAdmin && (
                 <DropdownMenuItem asChild className="cursor-pointer">
                   <Link href="/admin">
@@ -167,10 +166,8 @@ export function PageHeader({}: PageHeaderProps) {
                   </Link>
                 </Button>
               )}
-              {/* El Librito: guía de referencia, solo escritorio (misma decisión que
-                  Mi Laboratorio) — móvil no tiene tab bar libre y se sustituirá por
-                  la app nativa. */}
-              {user && !pathname.startsWith('/mobile') && (
+              {/* El Librito: guía de referencia, en el header a partir de sm. */}
+              {user && (
                 <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex" data-tour="librito">
                   <Link href="/dashboard/librito">
                     <BookOpen className="mr-2 h-4 w-4" />

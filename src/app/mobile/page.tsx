@@ -1,143 +1,73 @@
 'use client';
 
-import { Suspense, useState, useEffect, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useRecipeState } from '@/hooks/use-recipe-state';
-import { useWeekPlanState } from '@/hooks/use-week-plan-state';
-import { useUserProfileState } from '@/hooks/use-user-profile-state';
-import { useWeekHistory } from '@/hooks/use-week-history';
-import { useAiQuota } from '@/hooks/use-ai-quota';
-import { useToast } from '@/hooks/use-toast';
-import { MobilePageContent } from '@/components/nutri-planner/mobile-page-content';
-import { MobileAssistant } from '@/components/nutri-planner/mobile-assistant';
-import { WelcomeGuide } from '@/components/nutri-planner/welcome-guide';
-import { WeekHistorySheet } from '@/components/nutri-planner/week-history-sheet';
-import { AutocompletePreferencesDialog, type AutocompletePreferences } from '@/components/nutri-planner/autocomplete-preferences-dialog';
-import { MobileLoader } from '@/components/layout/mobile-loader';
-import { autocompleteWeek } from '@/ai/flows/autocomplete-flow';
-import { autocompleteToast } from '@/lib/autocomplete-summary';
-import { getAiErrorMessage } from '@/lib/ai-error';
+import { Download, Monitor, Smartphone } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
-const MobilePageLoader = () => <MobileLoader label="Cargando tu plan…" />;
+import { ChefieMascot } from '@/components/nutri-planner/chefie-mascot';
+import { Button } from '@/components/ui/button';
+import { APK_DOWNLOAD_URL } from '@/lib/constants';
+import { rememberDesktopPreference } from '@/lib/mobile-redirect';
 
-function MobilePageWrapper() {
-    const recipeState = useRecipeState();
-    const weekPlanState = useWeekPlanState();
-    const profileState = useUserProfileState();
-    const { history, isLoading: historyLoading, saveCurrentWeek, deleteSnapshot } = useWeekHistory();
+/**
+ * Aterrizaje para móviles. Sustituye a la web móvil entera (7 rutas y ~1.800
+ * líneas), retirada el 2026-07-30 ahora que existe la app nativa: mantener dos
+ * interfaces móviles en paralelo salía caro y toda función nueva había que
+ * hacerla dos veces.
+ *
+ * No se manda al móvil directo al escritorio a propósito: el planificador es de
+ * arrastrar y soltar y en una pantalla pequeña se usa mal. Quien quiera entrar
+ * igualmente tiene el enlace de abajo, que recuerda la preferencia para que la
+ * redirección no lo devuelva aquí (ver `mobile-redirect.ts`).
+ */
+export default function MobileLandingPage() {
+  const router = useRouter();
 
-    const { check: checkAiQuota } = useAiQuota();
-    const { toast } = useToast();
+  const goToDesktop = () => {
+    rememberDesktopPreference();
+    router.replace('/dashboard');
+  };
 
-    const [isAssistantOpen, setIsAssistantOpen] = useState(false);
-    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-    const [isAutocompletePrefsOpen, setIsAutocompletePrefsOpen] = useState(false);
-    const [isAutocompleting, setIsAutocompleting] = useState(false);
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center gap-5 px-7 py-12 text-center">
+      <ChefieMascot pose="celebrate" className="h-28 w-auto" />
 
-    // Close the assistant chat first; otherwise the preferences dialog opens
-    // hidden behind the full-screen assistant and nothing seems to happen.
-    const handleOpenAutocomplete = useCallback(() => {
-        setIsAssistantOpen(false);
-        setIsAutocompletePrefsOpen(true);
-    }, []);
+      <div className="space-y-2">
+        <h1 className="font-headline text-3xl font-bold leading-tight text-foreground">
+          Nutrilp ahora es una app
+        </h1>
+        <p className="mx-auto max-w-sm text-[15px] leading-relaxed text-muted-foreground">
+          Hecha para el móvil de verdad: el cuadrante de la semana, la lista de la compra y el asistente, sin pelearte
+          con una web pensada para pantalla grande.
+        </p>
+      </div>
 
-    const handleAutocompleteConfirm = useCallback(async (preferences: AutocompletePreferences) => {
-        setIsAutocompletePrefsOpen(false);
-        const quota = await checkAiQuota();
-        if (!quota.allowed) {
-            toast({ title: 'Límite de IA', description: quota.message ?? 'Has alcanzado el límite de peticiones de IA por hoy.' });
-            return;
-        }
-        setIsAutocompleting(true);
-        try {
-            const { recipeSource, ...flowPreferences } = preferences;
-            const availableRecipes = recipeSource === 'mine'
-                ? [...recipeState.currentUserRecipes]
-                : [...recipeState.currentUserRecipes, ...recipeState.nutriplannerRecipes];
-            const { placements, unfilled } = await autocompleteWeek({
-                weekPlan: weekPlanState.currentWeekPlan,
-                availableRecipes,
-                activeGoal: profileState.activeGoalMacros || null,
-                preferences: {
-                    ...flowPreferences,
-                    diet: profileState.currentDietPreference,
-                },
-            });
-            placements.forEach(p => {
-                const recipe = availableRecipes.find(r => r.id === p.recipeId);
-                if (recipe) weekPlanState.handleDrop(p.day, p.mealId, recipe, p.servings);
-            });
-            toast(autocompleteToast(placements.length, unfilled));
-        } catch (e) {
-            toast({ variant: 'destructive', title: 'Error al autocompletar', description: getAiErrorMessage(e, 'No se pudo generar el plan semanal.') });
-        } finally {
-            setIsAutocompleting(false);
-        }
-    }, [checkAiQuota, toast, recipeState, weekPlanState, profileState]);
+      <div className="flex w-full max-w-xs flex-col gap-2.5">
+        <Button asChild size="lg" className="w-full gap-2">
+          <a href={APK_DOWNLOAD_URL} download>
+            <Download className="h-4 w-4" />
+            Descargar para Android
+          </a>
+        </Button>
 
-    // The bottom-nav "Asistente IA" item links here with ?assistant=1. Open the
-    // assistant and clean the URL so re-tapping it works again.
-    const router = useRouter();
-    const searchParams = useSearchParams();
-    useEffect(() => {
-        if (searchParams.get('assistant') === '1') {
-            setIsAssistantOpen(true);
-            router.replace('/mobile');
-        }
-    }, [searchParams, router]);
+        <Button variant="outline" size="lg" className="w-full gap-2" onClick={goToDesktop}>
+          <Monitor className="h-4 w-4" />
+          Seguir a la versión web
+        </Button>
+      </div>
 
-    const combinedState = {
-        ...recipeState,
-        ...weekPlanState,
-    };
+      <p className="mx-auto max-w-sm text-xs leading-relaxed text-muted-foreground">
+        <Smartphone className="mr-1 inline h-3 w-3" />
+        Todavía no hay versión para iPhone. Mientras tanto puedes usar la versión web con el botón de arriba — se ve
+        mejor en horizontal.
+      </p>
 
-    return (
-        <>
-            <WelcomeGuide />
-            <MobilePageContent
-                {...combinedState}
-                activeGoalMacros={profileState.activeGoalMacros || null}
-                dietPreference={profileState.currentDietPreference}
-                onOpenAutocomplete={handleOpenAutocomplete}
-                onHistorialOpen={() => setIsHistoryOpen(true)}
-                isAutocompleting={isAutocompleting}
-            />
-            <WeekHistorySheet
-                isOpen={isHistoryOpen}
-                onOpenChange={setIsHistoryOpen}
-                weekPlan={weekPlanState.currentWeekPlan ?? []}
-                history={history}
-                isLoading={historyLoading}
-                onSave={saveCurrentWeek}
-                onDelete={deleteSnapshot}
-                onRestore={(days) => {
-                    weekPlanState.handleRestoreWeek(days);
-                    setIsHistoryOpen(false);
-                }}
-            />
-            <AutocompletePreferencesDialog
-                isOpen={isAutocompletePrefsOpen}
-                onClose={() => setIsAutocompletePrefsOpen(false)}
-                onConfirm={handleAutocompleteConfirm}
-                isLoading={isAutocompleting}
-                hasGoal={!!profileState.activeGoalMacros}
-            />
-            <MobileAssistant
-                isOpen={isAssistantOpen}
-                onClose={() => setIsAssistantOpen(false)}
-                recipeState={recipeState}
-                weekPlanState={weekPlanState}
-                profileState={profileState}
-                onOpenAutocomplete={handleOpenAutocomplete}
-            />
-        </>
-    );
-}
-
-export default function MobilePage() {
-    return (
-        <Suspense fallback={<MobilePageLoader />}>
-            <MobilePageWrapper />
-        </Suspense>
-    )
+      <p className="text-xs text-muted-foreground">
+        Es la misma cuenta y los mismos datos.{' '}
+        <Link href="/privacidad" className="underline underline-offset-2">
+          Privacidad
+        </Link>
+      </p>
+    </main>
+  );
 }

@@ -18,6 +18,17 @@ export const SUPERUSER_EMAIL = 'jonicheik@gmail.com';
 export const FEEDBACK_EMAIL = 'jonicheik@gmail.com';
 
 /**
+ * APK que ofrece el aterrizaje móvil (`/mobile`). Hoy apunta al artefacto de
+ * EAS del build interno; cuando la app esté en Google Play, sustituir por la
+ * URL de la ficha de la tienda y ya está.
+ *
+ * ⚠️ Es una página pública: cualquiera que llegue a nutrilp.com desde un móvil
+ * puede descargarlo. Asumido mientras el registro también sea abierto.
+ */
+export const APK_DOWNLOAD_URL =
+  'https://expo.dev/artifacts/eas/vNsbjQpoIvc2EJHMsUuxr3eNyoXeh8SJY5Wz50CSkZU.apk';
+
+/**
  * Meal categories used to tag recipes and meal-plan slots. They act as a GUIDE
  * for the AI autocomplete (it only assigns recipes whose category matches the
  * slot's mealType, or category-less "comodín" recipes). Manual assignment by the
