@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState, type PropsWithChildren 
 
 import { auth } from '@/firebase';
 import { signOutGoogle } from '@/firebase/auth-operations';
+import { clearOfflineCache } from '@/lib/offline-cache';
 
 interface AuthState {
   user: User | null;
@@ -30,5 +31,8 @@ export async function logOut() {
   // Primero Google: si no, la próxima vez entraría solo con la cuenta anterior
   // sin dar a elegir.
   await signOutGoogle();
+  // Y la caché offline: el plan de nadie debe quedarse en el disco del móvil
+  // después de cerrar sesión.
+  await clearOfflineCache();
   return signOut(auth);
 }

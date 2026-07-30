@@ -105,6 +105,13 @@ export default function PrivacidadPage() {
         recetas sí se guardan, porque son parte de la receta.
       </p>
 
+      <h2>Una copia en tu propio móvil</h2>
+      <p>
+        La app guarda en tu dispositivo una copia de tu plan, tus recetas y tu lista de la compra, para que puedas
+        verlas <strong>sin conexión</strong> — pensando en el supermercado, que es donde suele fallar la cobertura. Esa
+        copia no sale de tu móvil, y <strong>se borra al cerrar sesión</strong>.
+      </p>
+
       <h2>Cuánto tiempo se conservan</h2>
       <p>
         Mientras tengas la cuenta abierta. Cuando la borras, se eliminan tu perfil, tu plan, tus recetas y sus

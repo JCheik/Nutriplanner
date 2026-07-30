@@ -23,7 +23,7 @@ import type { ShoppingListItem } from '@/lib/types';
 export default function CompraScreen() {
   const c = useTheme();
   const { user } = useAuthUser();
-  const { profile, loading } = useProfile();
+  const { profile, loading, fromCache } = useProfile();
   const { weekPlan } = useWeekPlan();
   const [manualName, setManualName] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +88,18 @@ export default function CompraScreen() {
       <Text style={{ fontSize: 11, color: c.inkSoft, fontFamily: Fonts.sans, textAlign: 'center' }}>
         La lista no se actualiza sola: si cambias el plan, vuelve a generarla.
       </Text>
+
+      {/* Sin cobertura se ve la última copia guardada — el caso de uso real es
+          estar en el súper. Se avisa porque marcar no se guardará hasta volver. */}
+      {fromCache ? (
+        <View style={[styles.offline, { borderColor: c.noteEdge, backgroundColor: c.note }]}>
+          <Ionicons name="cloud-offline-outline" size={14} color={c.notePencil} />
+          <Text style={{ flex: 1, fontSize: 11.5, color: c.notePencil, fontFamily: Fonts.sans, lineHeight: 16 }}>
+            Sin conexión: esta es tu última lista guardada. Lo que taches ahora no se guardará hasta que vuelvas a
+            tener datos.
+          </Text>
+        </View>
+      ) : null}
 
       {error ? <Text style={{ fontSize: 12.5, color: c.terra, fontFamily: Fonts.sans }}>{error}</Text> : null}
 
@@ -192,6 +204,15 @@ export default function CompraScreen() {
 }
 
 const styles = StyleSheet.create({
+  offline: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 7,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
   generate: {
     flexDirection: 'row',
     gap: 7,
