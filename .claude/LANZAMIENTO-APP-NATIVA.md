@@ -62,17 +62,22 @@ en la app**: vive solo en el servidor web, detrás de los endpoints `/api/ai/*`.
 
 ## ⚠️ Antes de publicar (deuda conocida)
 
-- **Icono adaptativo de Android**: se está reutilizando el icono PWA, que ya trae fondo
-  y esquinas redondeadas. Android recorta ~33 % del borde en algunos móviles, así que la
-  "N" puede quedar justa. Conviene una versión de foreground con más margen.
-- **Editor manual de recetas**: crear/editar recetas a mano sigue siendo solo web.
-- **Sin persistencia offline de Firestore** en la app (limitación del SDK JS en RN):
-  sin cobertura no se ve el plan. Si molesta en el súper, evaluar react-native-firebase
-  (requiere dev build, que a partir de aquí ya tendrás).
-- **Login con Google** en la app: pendiente, necesita OAuth client IDs por plataforma.
-  Hoy solo email+contraseña.
-- **Pendientes que necesitan dev build** (ya no bloqueados una vez hagas el paso 2):
-  recibir "Compartir" desde Instagram/TikTok, y voz por reconocimiento nativo.
+> Esta lista se resolvió casi entera el 2026-07-30. Se deja tachada, no borrada,
+> para que se vea qué se hizo y cuándo.
+
+- ~~**Icono adaptativo de Android** reutilizando el de la PWA, que Android recorta.~~
+  Resuelto: N geométrica propia, capa de delante al 55 % con margen y fondo
+  adaptativo en terracota (era crema, y con la N crema no se habría visto).
+- ~~**Editor manual de recetas**: solo web.~~ Resuelto (`receta-editar.tsx`).
+- ~~**Sin persistencia offline**.~~ Resuelto con caché propia en AsyncStorage
+  (`lib/offline-cache.ts`); se descartó react-native-firebase por no meter otro
+  módulo nativo. Es caché de LECTURA: escribir sigue necesitando conexión.
+- ~~**Login con Google**.~~ Resuelto con `@react-native-google-signin` en el APK
+  0.2.0 y confirmado funcionando por el usuario.
+- ~~**Recibir "Compartir" desde Instagram/TikTok**.~~ Resuelto con
+  `expo-share-intent`: acepta enlaces, imágenes y texto (APK 0.4.0).
+- **Voz por reconocimiento nativo**: sigue pendiente, es lo único que queda de
+  esta lista. Se retiró el dictado en 2026-07-19 y no se ha retomado.
 
 ## 📝 Borrador de ficha de tienda
 
