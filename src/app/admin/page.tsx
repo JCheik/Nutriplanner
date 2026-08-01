@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Shield, BookOpen, Users, Wheat, ArrowLeft } from 'lucide-react';
+import { Shield, BookOpen, Users, Wheat, ArrowLeft, Inbox } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
@@ -44,6 +44,19 @@ export default function AdminPage() {
                                 </CardTitle>
                                 <CardDescription>
                                     Gestionar las recetas de Nutrilp y sus carpetas.
+                                </CardDescription>
+                            </CardHeader>
+                        </Card>
+                    </Link>
+                    <Link href="/admin/feedback" className="hover:shadow-lg transition-shadow rounded-lg">
+                        <Card className="h-full cursor-pointer">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Inbox className="h-5 w-5" />
+                                    Reportes de testers
+                                </CardTitle>
+                                <CardDescription>
+                                    Lo que envían desde la app en Perfil → &quot;Contar un problema&quot;, con su versión y su móvil.
                                 </CardDescription>
                             </CardHeader>
                         </Card>

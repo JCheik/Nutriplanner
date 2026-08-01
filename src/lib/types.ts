@@ -128,6 +128,29 @@ export interface WeekHistoryEntry {
   days: DayPlan[];
 }
 
+/**
+ * Reporte enviado desde la app ("Contar un problema"). Se lee solo desde
+ * `/admin/feedback`. El contexto (versión, móvil, pantalla) lo rellena la app
+ * sola: sin eso, los reportes llegan como "no me funciona" y no hay por dónde
+ * empezar.
+ */
+export interface FeedbackEntry {
+  id: string;
+  uid: string;
+  email: string;
+  name: string;
+  message: string;
+  /** Versión de la app desde la que se envió (p. ej. "0.4.0"). */
+  appVersion: string;
+  /** Móvil y sistema, p. ej. "Android 14 · Pixel 7". */
+  device: string;
+  /** Ruta desde la que se abrió el formulario, si se sabe. */
+  screen?: string;
+  createdAt: number;
+  /** Lo marca el admin al haberlo revisado. */
+  handled?: boolean;
+}
+
 export interface DailyTotal {
   day: string;
   totals: Macros;

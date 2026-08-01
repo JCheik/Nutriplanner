@@ -95,6 +95,27 @@ service cloud.firestore {
     }
 
     /**
+     * @description Reportes que mandan los usuarios desde la app ("Contar un
+     * problema"). Buzón de una sola dirección: cualquiera logueado deja el suyo
+     * y **solo el admin los lee**, ni siquiera quien lo escribió — así nadie
+     * puede listar los reportes de los demás.
+     *
+     * `uid` obligatorio y forzado al del autor: sin eso, alguien podría firmar
+     * un reporte con el uid de otro. Sin edición ni borrado por el cliente:
+     * un buzón donde el remitente puede borrar lo enviado no sirve de nada.
+     * @path /feedback/{feedbackId}
+     */
+    match /feedback/{feedbackId} {
+      allow create: if isSignedIn()
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.message is string
+                    && request.resource.data.message.size() > 0
+                    && request.resource.data.message.size() <= 4000;
+      allow read, list: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    /**
      * @description Shared, global ingredient database.
      * @path /ingredients/{ingredientId}
      */

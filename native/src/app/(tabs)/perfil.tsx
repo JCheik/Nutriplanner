@@ -179,6 +179,25 @@ export default function PerfilScreen() {
         )}
       </Card>
 
+      {/* Canal de los testers durante el alfa: va al panel, no al correo. */}
+      <Pressable
+        onPress={() => router.push('/feedback')}
+        style={[styles.librito, { borderColor: c.terra, backgroundColor: c.terraSoft }]}
+        accessibilityRole="button"
+        accessibilityLabel="Contar un problema"
+      >
+        <Ionicons name="chatbubble-ellipses-outline" size={17} color={c.terra} />
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 13.5, fontWeight: '700', color: c.ink, fontFamily: Fonts.sans }}>
+            Contar un problema
+          </Text>
+          <Text style={{ fontSize: 12, color: c.inkSoft, fontFamily: Fonts.sans }}>
+            Estamos en pruebas: si algo falla, cuéntamelo.
+          </Text>
+        </View>
+        <Text style={{ color: c.inkSoft, fontSize: 15 }}>›</Text>
+      </Pressable>
+
       <Pressable
         onPress={() => showTourAgain()}
         style={[styles.librito, { borderColor: c.line, backgroundColor: c.surface }]}
