@@ -22,11 +22,15 @@ export const FEEDBACK_EMAIL = 'jonicheik@gmail.com';
  * EAS del build interno; cuando la app esté en Google Play, sustituir por la
  * URL de la ficha de la tienda y ya está.
  *
+ * ⚠️ **Cada compilación nueva cambia esta URL** — el artefacto lleva un hash.
+ * Si se compila y no se actualiza aquí, la web sigue repartiendo la versión
+ * vieja (pasó con la 0.3.0). Versión actual: **0.4.0**.
+ *
  * ⚠️ Es una página pública: cualquiera que llegue a nutrilp.com desde un móvil
  * puede descargarlo. Asumido mientras el registro también sea abierto.
  */
 export const APK_DOWNLOAD_URL =
-  'https://expo.dev/artifacts/eas/vNsbjQpoIvc2EJHMsUuxr3eNyoXeh8SJY5Wz50CSkZU.apk';
+  'https://expo.dev/artifacts/eas/1dc1aZSdqysGIGqa6Vs7leF7NLSnd4cbUHbdUOHm-2Y.apk';
 
 /**
  * Meal categories used to tag recipes and meal-plan slots. They act as a GUIDE
