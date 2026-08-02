@@ -7,6 +7,7 @@ import { ActivityIndicator, View } from 'react-native';
 
 import { LoginScreen } from '@/components/login-screen';
 import { ShareIntentHandler } from '@/components/share-intent-handler';
+import { UpdateBanner } from '@/components/update-banner';
 import { AuthProvider, useAuthUser } from '@/firebase/auth-context';
 import { useTheme } from '@/hooks/use-theme';
 import { ThemePreferenceProvider, useResolvedScheme } from '@/hooks/use-theme-preference';
@@ -88,6 +89,9 @@ export default function RootLayout() {
             invisibles sobre el crema. */}
         <ThemedStatusBar />
         <Gate />
+        {/* Fuera del gate y después de él: pinta por encima de todo y sale
+            también sin sesión iniciada. */}
+        <UpdateBanner />
       </AuthProvider>
     </ThemePreferenceProvider>
   );
