@@ -4,24 +4,48 @@ import { ScrollView, StyleSheet, Text, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 
 import { Fonts, Radii, Shadows } from '@/constants/theme';
+import { useAuthUser } from '@/firebase/auth-context';
+import { deleteUserRecipe } from '@/firebase/recipe-operations';
 import { useRecipes } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
 import { perServingMacros } from '@/lib/serving-utils';
 import { pluralizeUnit } from '@/lib/utils';
 
-/** Vista de receta (solo lectura en F1) — macros por ración, ingredientes y pasos. */
+/** Vista de receta: macros por ración, ingredientes, pasos y acciones. */
 export default function RecetaDetailScreen() {
   const c = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { user } = useAuthUser();
   const { id, global } = useLocalSearchParams<{ id: string; global?: string }>();
   const { userRecipes, globalRecipes } = useRecipes();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const recipe =
     (global === '1' ? globalRecipes : userRecipes).find((r) => r.id === id) ??
     [...userRecipes, ...globalRecipes].find((r) => r.id === id);
+
+  // Editar y borrar solo en las propias: las del recetario de Nutrilp son
+  // globales y las gestiona el admin desde la web (lo imponen las rules).
+  const isOwn = !!recipe && userRecipes.some((r) => r.id === recipe.id);
+
+  const handleDelete = async () => {
+    if (!user || !recipe || deleting) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteUserRecipe(user.uid, recipe.id);
+      router.replace('/recetas');
+    } catch {
+      setError('No se pudo borrar. Revisa tu conexión e inténtalo de nuevo.');
+      setDeleting(false);
+    }
+  };
 
   if (!recipe) {
     return (
@@ -136,6 +160,67 @@ export default function RecetaDetailScreen() {
             </Text>
           </>
         ) : null}
+
+        {/* Editar y borrar, solo si la receta es tuya. */}
+        {isOwn ? (
+          confirmDelete ? (
+            <View style={[styles.confirmBox, { borderColor: c.terra, backgroundColor: c.terraSoft }]}>
+              <Text style={{ fontSize: 13, color: c.ink, fontFamily: Fonts.sans, lineHeight: 19 }}>
+                ¿Borrar &quot;{recipe.name}&quot;? No se puede deshacer. Lo que ya tengas puesto en el plan se queda
+                como está.
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Pressable
+                  onPress={handleDelete}
+                  disabled={deleting}
+                  style={[styles.smallBtn, { backgroundColor: c.terra }, deleting && { opacity: 0.6 }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Sí, borrar la receta"
+                >
+                  <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '700', fontFamily: Fonts.sans }}>
+                    {deleting ? 'Borrando…' : 'Sí, borrar'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setConfirmDelete(false)}
+                  disabled={deleting}
+                  style={[styles.smallBtn, { borderWidth: 1.5, borderColor: c.line }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancelar"
+                >
+                  <Text style={{ color: c.inkSoft, fontSize: 13, fontWeight: '700', fontFamily: Fonts.sans }}>
+                    Cancelar
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.ownActions}>
+              <Pressable
+                onPress={() => router.push({ pathname: '/receta-editar', params: { recipeId: recipe.id } })}
+                style={[styles.smallBtn, styles.ownBtn, { borderWidth: 1.5, borderColor: c.line }]}
+                accessibilityRole="button"
+                accessibilityLabel="Editar receta"
+              >
+                <Ionicons name="create-outline" size={15} color={c.inkSoft} />
+                <Text style={{ color: c.inkSoft, fontSize: 13, fontWeight: '700', fontFamily: Fonts.sans }}>
+                  Editar
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setConfirmDelete(true)}
+                style={[styles.smallBtn, styles.ownBtn, { borderWidth: 1.5, borderColor: c.line }]}
+                accessibilityRole="button"
+                accessibilityLabel="Borrar receta"
+              >
+                <Ionicons name="trash-outline" size={15} color={c.terra} />
+                <Text style={{ color: c.terra, fontSize: 13, fontWeight: '700', fontFamily: Fonts.sans }}>Borrar</Text>
+              </Pressable>
+            </View>
+          )
+        ) : null}
+
+        {error ? <Text style={{ fontSize: 12.5, color: c.terra, fontFamily: Fonts.sans }}>{error}</Text> : null}
       </ScrollView>
     </View>
   );
@@ -169,6 +254,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 4,
+  },
+  ownActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  ownBtn: { flex: 1 },
+  smallBtn: {
+    flexDirection: 'row',
+    gap: 6,
+    borderRadius: Radii.card,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmBox: {
+    borderWidth: 1.5,
+    borderRadius: Radii.card,
+    paddingHorizontal: 13,
+    paddingVertical: 12,
+    gap: 10,
+    marginTop: 12,
   },
   ingredientRow: {
     flexDirection: 'row',

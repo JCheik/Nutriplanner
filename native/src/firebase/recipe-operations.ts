@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, setDoc } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, setDoc } from 'firebase/firestore';
 
 import { firestore } from '@/firebase';
 import type { BaseIngredient, Recipe } from '@/lib/types';
@@ -17,6 +17,18 @@ export async function saveUserRecipe(userId: string, recipe: Omit<Recipe, 'id'>)
   const ref = doc(collection(firestore, 'users', userId, 'recipes'));
   await setDoc(ref, stripUndefined({ ...recipe, id: ref.id }), { merge: true });
   return ref.id;
+}
+
+/**
+ * Borra una receta PROPIA (`users/{uid}/recipes/{id}`). Las del recetario de
+ * Nutrilp no se tocan desde la app: son globales y solo las gestiona el admin
+ * desde la web (así lo imponen también las reglas de Firestore).
+ *
+ * Lo que ya esté puesto en el plan NO se toca: el plan guarda una copia de la
+ * receta en cada hueco, así que la semana que tenías montada sigue en pie.
+ */
+export function deleteUserRecipe(userId: string, recipeId: string) {
+  return deleteDoc(doc(firestore, 'users', userId, 'recipes', recipeId));
 }
 
 /**

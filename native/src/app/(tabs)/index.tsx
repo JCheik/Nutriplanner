@@ -9,6 +9,9 @@ import { ScreenTitle } from '@/components/screen-scaffold';
 import { Fonts, Radii, Shadows, type ThemeColors } from '@/constants/theme';
 import { useAuthUser } from '@/firebase/auth-context';
 import {
+  clearDay,
+  clearMeal,
+  clearWeek,
   pasteDayInto,
   pasteRecipesIntoMeal,
   removeRecipeFromMeal,
@@ -72,6 +75,8 @@ const MEAL_COL_W = 70;
 const HEAD_H = 34;
 const ROW_H = 74;
 const TOTAL_H = 62;
+/** Alto de la fila "vaciar" que aparece bajo cada día en modo edición. */
+const CLEAR_ROW_H = 27;
 
 /** Barra de progreso: relleno = valor, el ancho total = objetivo. */
 function Bar({ value, goal, color, height = 7 }: { value: number; goal?: number; color: string; height?: number }) {
@@ -453,9 +458,29 @@ function SemanaView({
 }) {
   const c = useTheme();
   const router = useRouter();
+  const { user } = useAuthUser();
   const today = todayIndex();
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  // Modo edición: hasta que se activa, tocar una casilla la abre para añadir.
+  // Con él, cada casilla con contenido enseña su ✕ y aparece "vaciar" por día.
+  const [editing, setEditing] = useState(false);
+  const [confirmClearWeek, setConfirmClearWeek] = useState(false);
+
+  const emptyMeal = (day: string, mealId: string) => {
+    if (!user) return;
+    clearMeal(user.uid, day, mealId).catch(() => {});
+  };
+  const emptyDay = (day: string) => {
+    if (!user) return;
+    clearDay(user.uid, day).catch(() => {});
+  };
+  const emptyWeek = () => {
+    if (!user) return;
+    clearWeek(user.uid).catch(() => {});
+    setConfirmClearWeek(false);
+    setEditing(false);
+  };
 
   const mealTitles = weekPlan[0]?.meals.map((m) => m.title) ?? [];
   const perDay = useMemo(() => weekPlan.map(dayTotals), [weekPlan]);
@@ -534,9 +559,38 @@ function SemanaView({
         </View>
       ) : null}
 
-      <Text style={{ fontSize: 11, color: c.inkSoft, fontFamily: Fonts.sans }}>
-        Desliza para ver toda la semana · toca una casilla para editarla, o el día para abrirlo
-      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Text style={{ flex: 1, fontSize: 11, color: c.inkSoft, fontFamily: Fonts.sans }}>
+          {editing
+            ? 'Toca la ✕ de una casilla para vaciarla, o "vaciar" bajo un día'
+            : 'Desliza para ver la semana · toca una casilla para editarla'}
+        </Text>
+        <Pressable
+          onPress={() => {
+            setEditing((e) => !e);
+            setConfirmClearWeek(false);
+          }}
+          style={[
+            styles.chip,
+            editing ? { borderColor: c.terra, backgroundColor: c.terraSoft } : { borderColor: c.line },
+          ]}
+          accessibilityRole="button"
+          accessibilityState={{ selected: editing }}
+          accessibilityLabel={editing ? 'Salir del modo edición' : 'Editar el cuadrante'}
+        >
+          <Ionicons name={editing ? 'checkmark' : 'create-outline'} size={13} color={editing ? c.terra : c.inkSoft} />
+          <Text
+            style={{
+              fontSize: 11.5,
+              fontWeight: '700',
+              color: editing ? c.terra : c.inkSoft,
+              fontFamily: Fonts.sans,
+            }}
+          >
+            {editing ? 'Listo' : 'Editar'}
+          </Text>
+        </Pressable>
+      </View>
 
       <View style={{ flexDirection: 'row' }}>
         {/* Columna fija: las comidas del día, una por fila */}
@@ -552,6 +606,9 @@ function SemanaView({
               </Text>
             </View>
           ))}
+          {/* Hueco que compensa la fila de "vaciar" de cada día: sin él, la
+              columna de etiquetas y la de días dejan de cuadrar al editar. */}
+          {editing ? <View style={{ height: CLEAR_ROW_H }} /> : null}
           <View style={[styles.mealLabelCell, { height: TOTAL_H }]}>
             <Text
               style={{ fontSize: 9.5, fontWeight: '700', letterSpacing: 0.2, color: c.inkSoft, fontFamily: Fonts.sans, textAlign: 'right' }}
@@ -585,46 +642,77 @@ function SemanaView({
                   {d.meals.map((meal) => {
                     const names = meal.recipes.map((r) => r.name);
                     return (
-                      <Pressable
-                        key={meal.id}
-                        onPress={() =>
-                          router.push({
-                            pathname: '/anadir',
-                            params: { day: d.day, mealId: meal.id, title: meal.title },
-                          })
-                        }
-                        style={[
-                          styles.gridCell,
-                          { height: ROW_H - 5, borderColor: c.line, backgroundColor: c.surface },
-                          isToday && { borderColor: c.terra, backgroundColor: c.terraSoft },
-                          names.length === 0 && styles.gridCellEmpty,
-                        ]}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${meal.title} del ${DAY_NAMES[i]}`}
-                      >
-                        {names.length === 0 ? (
-                          <Ionicons name="add" size={15} color={c.inkSoft} />
-                        ) : (
-                          <>
-                            {names.slice(0, 2).map((n, k) => (
-                              <Text
-                                key={k}
-                                numberOfLines={2}
-                                style={{ fontSize: 9.5, lineHeight: 12, color: c.ink, fontFamily: Fonts.sans }}
-                              >
-                                {n}
-                              </Text>
-                            ))}
-                            {names.length > 2 ? (
-                              <Text style={{ fontSize: 8.5, color: c.inkSoft, fontFamily: Fonts.sans }}>
-                                +{names.length - 2} más
-                              </Text>
-                            ) : null}
-                          </>
-                        )}
-                      </Pressable>
+                      // La ✕ va como HERMANA de la casilla, no dentro: anidada,
+                      // el toque caía en las dos y en web salía un <button>
+                      // dentro de otro.
+                      <View key={meal.id}>
+                        <Pressable
+                          onPress={() =>
+                            router.push({
+                              pathname: '/anadir',
+                              params: { day: d.day, mealId: meal.id, title: meal.title },
+                            })
+                          }
+                          style={[
+                            styles.gridCell,
+                            { height: ROW_H - 5, borderColor: c.line, backgroundColor: c.surface },
+                            isToday && { borderColor: c.terra, backgroundColor: c.terraSoft },
+                            names.length === 0 && styles.gridCellEmpty,
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${meal.title} del ${DAY_NAMES[i]}`}
+                        >
+                          {names.length === 0 ? (
+                            <Ionicons name="add" size={15} color={c.inkSoft} />
+                          ) : (
+                            <>
+                              {names.slice(0, 2).map((n, k) => (
+                                <Text
+                                  key={k}
+                                  numberOfLines={2}
+                                  style={{ fontSize: 9.5, lineHeight: 12, color: c.ink, fontFamily: Fonts.sans }}
+                                >
+                                  {n}
+                                </Text>
+                              ))}
+                              {names.length > 2 ? (
+                                <Text style={{ fontSize: 8.5, color: c.inkSoft, fontFamily: Fonts.sans }}>
+                                  +{names.length - 2} más
+                                </Text>
+                              ) : null}
+                            </>
+                          )}
+                        </Pressable>
+
+                        {/* Vacía la casilla entera. Para quitar UNA receta de un
+                            hueco con varias, está la vista Hoy. */}
+                        {editing && names.length > 0 ? (
+                          <Pressable
+                            onPress={() => emptyMeal(d.day, meal.id)}
+                            hitSlop={8}
+                            style={[styles.cellClear, { backgroundColor: c.terra, borderColor: c.ground }]}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Vaciar ${meal.title} del ${DAY_NAMES[i]}`}
+                          >
+                            <Ionicons name="close" size={11} color="#FFF" />
+                          </Pressable>
+                        ) : null}
+                      </View>
                     );
                   })}
+
+                  {editing ? (
+                    <Pressable
+                      onPress={() => emptyDay(d.day)}
+                      style={[styles.dayClear, { borderColor: c.terra }]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Vaciar ${DAY_NAMES[i]} entero`}
+                    >
+                      <Text style={{ fontSize: 9.5, fontWeight: '700', color: c.terra, fontFamily: Fonts.sans }}>
+                        vaciar
+                      </Text>
+                    </Pressable>
+                  ) : null}
 
                   {/* Total del día: kcal, barra frente al objetivo y macros */}
                   <View style={[styles.dayTotalCell, { height: TOTAL_H }]}>
@@ -697,6 +785,50 @@ function SemanaView({
             : 'Define tu objetivo diario en Perfil para que las barras se comparen con algo.'}
         </Text>
       </View>
+
+      {/* Vaciar la semana entera: solo en modo edición y con confirmación, que
+          se cargaría los 7 días de una vez. */}
+      {editing ? (
+        confirmClearWeek ? (
+          <View style={[styles.card, { borderColor: c.terra, backgroundColor: c.terraSoft, gap: 9 }]}>
+            <Text style={{ fontSize: 13, color: c.ink, fontFamily: Fonts.sans, lineHeight: 19 }}>
+              ¿Vaciar los siete días? Se queda todo el cuadrante en blanco y no se puede deshacer.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Pressable
+                onPress={emptyWeek}
+                style={[styles.chip, { backgroundColor: c.terra, borderColor: c.terra }]}
+                accessibilityRole="button"
+                accessibilityLabel="Sí, vaciar la semana entera"
+              >
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFF', fontFamily: Fonts.sans }}>
+                  Sí, vaciar
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setConfirmClearWeek(false)}
+                style={[styles.chip, { borderColor: c.line }]}
+                accessibilityRole="button"
+                accessibilityLabel="Cancelar"
+              >
+                <Text style={{ fontSize: 12, color: c.inkSoft, fontFamily: Fonts.sans }}>Cancelar</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <Pressable
+            onPress={() => setConfirmClearWeek(true)}
+            style={[styles.clearWeekBtn, { borderColor: c.terra }]}
+            accessibilityRole="button"
+            accessibilityLabel="Vaciar la semana entera"
+          >
+            <Ionicons name="trash-outline" size={14} color={c.terra} />
+            <Text style={{ fontSize: 12.5, fontWeight: '700', color: c.terra, fontFamily: Fonts.sans }}>
+              Vaciar la semana entera
+            </Text>
+          </Pressable>
+        )
+      ) : null}
 
       <Pressable
         onPress={handleDownload}
@@ -898,6 +1030,38 @@ const styles = StyleSheet.create({
     gap: 1,
   },
   gridCellEmpty: { borderStyle: 'dashed', backgroundColor: 'transparent', alignItems: 'center' },
+  cellClear: {
+    position: 'absolute',
+    // Asomada por la esquina, pero con la mayor parte DENTRO de su casilla:
+    // saliendo del todo parecía la ✕ de la fila de arriba.
+    top: -3,
+    right: 1,
+    width: 19,
+    height: 19,
+    borderRadius: 10,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayClear: {
+    height: CLEAR_ROW_H - 5,
+    marginRight: 5,
+    marginBottom: 5,
+    borderWidth: 1.2,
+    borderRadius: 8,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   dayTotalCell: { alignItems: 'center', justifyContent: 'center', gap: 3, paddingHorizontal: 6, marginRight: 5 },
   dayRow: { flexDirection: 'row', alignItems: 'center', gap: 9, borderTopWidth: 1, paddingVertical: 7 },
+  clearWeekBtn: {
+    flexDirection: 'row',
+    gap: 7,
+    borderWidth: 1.5,
+    borderRadius: Radii.card,
+    paddingVertical: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
