@@ -246,7 +246,7 @@ export default function ObjetivosScreen() {
         </Pressable>
         {!preview ? (
           <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans, textAlign: 'center' }}>
-            Pulsa "Calcular" para ver el resultado antes de guardarlo.
+            Pulsa &quot;Calcular&quot; para ver el resultado antes de guardarlo.
           </Text>
         ) : null}
       </ScrollView>

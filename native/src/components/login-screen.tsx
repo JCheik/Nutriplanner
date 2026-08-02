@@ -259,7 +259,7 @@ export function LoginScreen() {
           </>
         ) : (
           <Text style={[styles.hint, { color: c.inkSoft, fontFamily: Fonts.sans }]}>
-            ¿Tu cuenta es de Google y aquí no ves el botón? Usa "He olvidado mi contraseña" con ese mismo correo para
+            ¿Tu cuenta es de Google y aquí no ves el botón? Usa &quot;He olvidado mi contraseña&quot; con ese mismo correo para
             ponerle una, y entras con ella. Son la misma cuenta.
           </Text>
         )}
