@@ -30,6 +30,9 @@ const USER_SUBCOLLECTIONS = [
   'meal_plans',
 ] as const;
 
+/** Máximo de operaciones por batch que acepta Firestore. */
+const BATCH_LIMIT = 500;
+
 /**
  * Borra las subcolecciones del usuario y su doc de perfil. NO toca el catálogo
  * global `ingredients`: aunque el usuario creara alguna entrada, otras recetas
@@ -37,8 +40,18 @@ const USER_SUBCOLLECTIONS = [
  */
 export async function deleteUserRelatedData(uid: string, firestore: Firestore, storage: Storage) {
   const userDocRef = firestore.collection('users').doc(uid);
-  const bucket = storage.bucket();
-  const urlPrefix = `https://storage.googleapis.com/${bucket.name}/`;
+
+  // Storage es accesorio: si el bucket no resuelve (mal configurado, sin
+  // permisos), las fotos se quedan huérfanas pero la cuenta DEBE poder
+  // borrarse igual — es una obligación legal, no puede depender de esto.
+  let bucket: ReturnType<Storage['bucket']> | null = null;
+  let urlPrefix = '';
+  try {
+    bucket = storage.bucket();
+    urlPrefix = `https://storage.googleapis.com/${bucket.name}/`;
+  } catch (bucketError) {
+    console.error('No se pudo resolver el bucket de Storage; se borran solo los datos:', bucketError);
+  }
 
   for (const sub of USER_SUBCOLLECTIONS) {
     const snapshot = await userDocRef.collection(sub).get();
@@ -48,15 +61,14 @@ export async function deleteUserRelatedData(uid: string, firestore: Firestore, s
     // de un forEach async sin await, el commit resolvería antes y quedarían
     // ficheros huérfanos en Storage.
     const imageDeletions: Promise<unknown>[] = [];
-    const batch = firestore.batch();
+    const docs = snapshot.docs;
 
-    snapshot.forEach((docSnapshot) => {
-      batch.delete(docSnapshot.ref);
-      const url = sub === 'recipes' ? docSnapshot.data().imageUrl : undefined;
+    for (const docSnapshot of docs) {
+      const url = bucket && sub === 'recipes' ? docSnapshot.data().imageUrl : undefined;
       if (url && typeof url === 'string' && url.startsWith(urlPrefix)) {
         const path = decodeURIComponent(url.replace(urlPrefix, ''));
         imageDeletions.push(
-          bucket
+          bucket!
             .file(path)
             .delete()
             .catch((storageError) => {
@@ -64,10 +76,20 @@ export async function deleteUserRelatedData(uid: string, firestore: Firestore, s
             })
         );
       }
-    });
+    }
 
     await Promise.all(imageDeletions);
-    await batch.commit();
+
+    // En tandas de 500: es el máximo de operaciones por batch de Firestore, y
+    // pasarse hace fallar el commit ENTERO. Con un diario de meses o muchos
+    // alimentos propios se supera de sobra, y entonces no se borraba nada.
+    for (let i = 0; i < docs.length; i += BATCH_LIMIT) {
+      const batch = firestore.batch();
+      for (const docSnapshot of docs.slice(i, i + BATCH_LIMIT)) {
+        batch.delete(docSnapshot.ref);
+      }
+      await batch.commit();
+    }
   }
 
   await userDocRef.delete();

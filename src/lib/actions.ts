@@ -164,7 +164,11 @@ export async function deleteUserAccount(idToken: string, uid: string) {
         return { success: true, message: 'Usuario y todos sus datos han sido eliminados.' };
     } catch (error: any) {
         console.error("Server Action 'deleteUserAccount' failed:", error);
-        return { success: false, error: 'No se pudo eliminar el usuario.' };
+        // El motivo se devuelve tal cual: esto solo lo ven admins ya verificados,
+        // y sin él un fallo de credenciales o de Storage es indistinguible de
+        // "no pasa nada al pulsar".
+        const detail = error?.message ? ` (${error.message})` : '';
+        return { success: false, error: `No se pudo eliminar el usuario.${detail}` };
     }
 }
 

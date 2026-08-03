@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MoreHorizontal, Trash2, User, UserCheck, UserX, ArrowLeft } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -31,6 +31,13 @@ export default function AdminUsersPage() {
     const [users, setUsers] = useState<ClientUserRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    // El diálogo de borrado se controla por estado y se pinta UNA vez, fuera de
+    // la tabla. Antes iba anidado dentro del DropdownMenu con AlertDialogTrigger:
+    // los dos son modales de Radix y se peleaban por el foco, así que el clic en
+    // "Sí, eliminar" no llegaba nunca al handler y parecía que no borraba nada.
+    // Es el mismo patrón que /admin/ingredients, donde sí funcionaba.
+    const [pendingDelete, setPendingDelete] = useState<ClientUserRecord | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
     const { toast } = useToast();
     const { user } = useUser();
 
@@ -75,18 +82,28 @@ export default function AdminUsersPage() {
         }
     };
 
-    const handleDeleteUser = async (uid: string) => {
-        const token = await user?.getIdToken();
-        if (!token) {
-            toast({ variant: 'destructive', title: 'Error', description: 'No autenticado.' });
-            return;
-        }
-        const result = await deleteUserAccount(token, uid);
-        if (result.success) {
-            toast({ title: 'Éxito', description: result.message });
-            fetchUsers(); // Refresh the user list
-        } else {
-            toast({ variant: 'destructive', title: 'Error', description: result.error });
+    const handleDeleteUser = async () => {
+        const target = pendingDelete;
+        if (!target || isDeleting) return;
+        setIsDeleting(true);
+        try {
+            const token = await user?.getIdToken();
+            if (!token) {
+                toast({ variant: 'destructive', title: 'Error', description: 'No autenticado.' });
+                return;
+            }
+            const result = await deleteUserAccount(token, target.uid);
+            if (result.success) {
+                toast({ title: 'Éxito', description: result.message });
+                setPendingDelete(null);
+                fetchUsers(); // Refresh the user list
+            } else {
+                // El diálogo se queda abierto a propósito: si falla, el error se
+                // lee sin haber perdido de vista a quién se estaba borrando.
+                toast({ variant: 'destructive', title: 'No se pudo eliminar', description: result.error });
+            }
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -142,47 +159,29 @@ export default function AdminUsersPage() {
                                                 />
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                <AlertDialog>
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" size="icon">
-                                                                <MoreHorizontal className="h-4 w-4" />
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end" className="bg-glass">
-                                                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                                                            <DropdownMenuSeparator />
-                                                            <DropdownMenuItem asChild className="cursor-pointer">
-                                                                <Link href={`/admin/users/${user.uid}`}>Ver Detalles</Link>
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuItem onSelect={() => handleSetAdmin(user.uid, !user.isAdmin)} className="cursor-pointer" disabled={user.email === SUPERUSER_EMAIL}>
-                                                                {user.isAdmin ? <UserX className="mr-2 h-4 w-4" /> : <UserCheck className="mr-2 h-4 w-4" />}
-                                                                {user.isAdmin ? 'Quitar Admin' : 'Hacer Admin'}
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuSeparator />
-                                                            <AlertDialogTrigger asChild>
-                                                                <DropdownMenuItem className="text-destructive cursor-pointer" onSelect={(e) => e.preventDefault()} disabled={user.email === SUPERUSER_EMAIL}>
-                                                                    <Trash2 className="mr-2 h-4 w-4" />
-                                                                    Eliminar Usuario
-                                                                </DropdownMenuItem>
-                                                            </AlertDialogTrigger>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
-                                                     <AlertDialogContent className="bg-glass">
-                                                        <AlertDialogHeader>
-                                                            <AlertDialogTitle>¿Estás absolutely seguro?</AlertDialogTitle>
-                                                            <AlertDialogDescription>
-                                                                Esta acción es permanente y eliminará al usuario <span className="font-bold">{user.displayName || user.email}</span> y todos sus datos asociados. No se puede deshacer.
-                                                            </AlertDialogDescription>
-                                                        </AlertDialogHeader>
-                                                        <AlertDialogFooter>
-                                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                            <AlertDialogAction onClick={() => handleDeleteUser(user.uid)}>
-                                                                Sí, eliminar usuario
-                                                            </AlertDialogAction>
-                                                        </AlertDialogFooter>
-                                                    </AlertDialogContent>
-                                                </AlertDialog>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="icon">
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end" className="bg-glass">
+                                                        <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem asChild className="cursor-pointer">
+                                                            <Link href={`/admin/users/${user.uid}`}>Ver Detalles</Link>
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onSelect={() => handleSetAdmin(user.uid, !user.isAdmin)} className="cursor-pointer" disabled={user.email === SUPERUSER_EMAIL}>
+                                                            {user.isAdmin ? <UserX className="mr-2 h-4 w-4" /> : <UserCheck className="mr-2 h-4 w-4" />}
+                                                            {user.isAdmin ? 'Quitar Admin' : 'Hacer Admin'}
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem className="text-destructive cursor-pointer" onSelect={() => setPendingDelete(user)} disabled={user.email === SUPERUSER_EMAIL}>
+                                                            <Trash2 className="mr-2 h-4 w-4" />
+                                                            Eliminar Usuario
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -192,6 +191,26 @@ export default function AdminUsersPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            <AlertDialog open={!!pendingDelete} onOpenChange={(open) => { if (!open && !isDeleting) setPendingDelete(null); }}>
+                <AlertDialogContent className="bg-glass">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Eliminar a «{pendingDelete?.displayName || pendingDelete?.email}»?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Se borra la cuenta y todos sus datos: recetas, plan, historial, diario y sus alimentos privados. No se puede deshacer.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={(e) => { e.preventDefault(); handleDeleteUser(); }}
+                            disabled={isDeleting}
+                        >
+                            {isDeleting ? 'Eliminando…' : 'Sí, eliminar usuario'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </main>
     );
 }
