@@ -35,6 +35,7 @@ import {
   resolveMeal,
   resolveRecipe,
 } from '@/lib/assistant';
+import { failJob, finishJob, isJobRunning, startJob } from '@/lib/background-job';
 import { mealCalorieRatio, suggestedServings } from '@/lib/serving-utils';
 
 interface ChatMessage {
@@ -97,28 +98,49 @@ export default function IaScreen() {
         ? 'En la entrevista me pediste planificar solo con tus recetas, y aún no tienes ninguna guardada. Créate alguna, o cambia esa opción para que tire también del recetario de Nutrilp.'
         : 'No tengo recetas con las que planificar todavía.';
     }
-    const { placements, unfilled } = await autocompleteWeek({
-      weekPlan,
-      availableRecipes,
-      activeGoal: activeGoalMacros,
-      preferences: {
-        allowRepetition: interview.varietyPreference === 'variedad' ? 'no_repeat' : 'max_n',
-        maxRepetitions: interview.maxRepeatsPerRecipe ?? 3,
-        priority: activeGoalMacros ? 'goal' : 'protein',
-        dietaryRestrictions: '',
-        goalMarginPercent: 15,
-        interview,
-      },
-    });
-    await Promise.all(
-      placements.map((p) => {
-        const recipe = availableRecipes.find((r) => r.id === p.recipeId);
-        return recipe ? addRecipeToMeal(user.uid, p.day, p.mealId, recipe, p.servings) : Promise.resolve();
-      })
-    );
-    const n = placements.length;
-    if (n === 0) return 'No he podido rellenar huecos que cuadren con tu objetivo. Prueba a ajustarlo o añade recetas.';
-    return `Listo, he colocado ${n} comida${n === 1 ? '' : 's'}${unfilled.length ? `; ${unfilled.length} hueco(s) sin cubrir` : ''}.`;
+    if (isJobRunning()) return 'Estoy con otra cosa ahora mismo. Dame un momento y te la monto.';
+
+    // Montar la semana entera tarda, así que se manda al fondo y se responde ya:
+    // el usuario puede irse a Recetas o a la Compra mientras tanto, y `ChefieBubble`
+    // le avisa. Sin await a propósito — esta función devuelve el mensaje del chat.
+    startJob('Montando tu semana…');
+    void (async () => {
+      try {
+        const { placements, unfilled } = await autocompleteWeek({
+          weekPlan,
+          availableRecipes,
+          activeGoal: activeGoalMacros,
+          preferences: {
+            allowRepetition: interview.varietyPreference === 'variedad' ? 'no_repeat' : 'max_n',
+            maxRepetitions: interview.maxRepeatsPerRecipe ?? 3,
+            priority: activeGoalMacros ? 'goal' : 'protein',
+            dietaryRestrictions: '',
+            goalMarginPercent: 15,
+            interview,
+          },
+        });
+        await Promise.all(
+          placements.map((p) => {
+            const recipe = availableRecipes.find((r) => r.id === p.recipeId);
+            return recipe ? addRecipeToMeal(user.uid, p.day, p.mealId, recipe, p.servings) : Promise.resolve();
+          })
+        );
+        const n = placements.length;
+        if (n === 0) {
+          failJob('No pude cuadrar la semana', 'Nada encajaba con tu objetivo. Prueba a ajustarlo o añade recetas.');
+          return;
+        }
+        finishJob(
+          `Semana lista: ${n} comida${n === 1 ? '' : 's'}`,
+          unfilled.length ? `Quedan ${unfilled.length} hueco(s). Toca para verla.` : 'Toca para verla.',
+          { pathname: '/' }
+        );
+      } catch (e) {
+        failJob('No pude autocompletar', e instanceof Error ? e.message : 'Inténtalo de nuevo.');
+      }
+    })();
+
+    return 'Voy con ello. Sigue a lo tuyo, que te aviso desde la esquina en cuanto la tenga.';
   };
 
   // Applies a validated action against Firestore, returning the reply to show.

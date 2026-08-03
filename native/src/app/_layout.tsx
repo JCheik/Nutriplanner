@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
+import { ChefieBubble } from '@/components/chefie-bubble';
 import { LoginScreen } from '@/components/login-screen';
 import { ShareIntentHandler } from '@/components/share-intent-handler';
 import { UpdateBanner } from '@/components/update-banner';
@@ -55,6 +56,9 @@ function Gate() {
         <Stack.Screen name="receta-editar" options={{ presentation: 'modal' }} />
         <Stack.Screen name="feedback" options={{ presentation: 'modal' }} />
       </Stack>
+      {/* Dentro del gate: los trabajos son de IA y necesitan sesión. Va después
+          del Stack para pintarse encima de cualquier pantalla. */}
+      <ChefieBubble />
     </>
   );
 }
