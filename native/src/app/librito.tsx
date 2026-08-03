@@ -1,14 +1,21 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Fonts, Radii } from '@/constants/theme';
+import { ChefieMascot, type ChefiePose } from '@/components/chefie-mascot';
+import { Fonts, Radii, Shadows } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
  * "El Librito": guía de referencia, siempre disponible. Mismo contenido que la
  * web (`dashboard/librito`) — si se edita allí, actualizar aquí también.
+ *
+ * En la app NO se lee como en la web: allí es un acordeón y cada capítulo suelta
+ * seis párrafos de golpe, que en móvil es un muro de texto. Aquí la lista es
+ * solo el índice, y al entrar en una lección Chefie la cuenta de idea en idea,
+ * avanzando con "Siguiente".
  */
 interface Chapter {
   id: string;
@@ -128,11 +135,143 @@ const CHAPTERS: Chapter[] = [
   },
 ];
 
+/** Una pantalla de la lección: un solo párrafo, con su pose de Chefie. */
+interface LessonStep {
+  lead?: string;
+  text: string;
+  pose: ChefiePose;
+}
+
+/** Los `lead` vienen con "." o ":" al final porque en la web van en línea con
+ *  el texto. Aquí son titulares, y el signo suelto queda raro. */
+function cleanLead(lead: string): string {
+  return lead.replace(/[.:]\s*$/, '');
+}
+
+/**
+ * Los textos que en la web seguían a un lead acabado en ":" empiezan en
+ * minúscula ("Aceite en spray: aunque el bote…"). Separados en titular y
+ * párrafo, esa minúscula parece una errata.
+ */
+function capitalizeFirst(text: string): string {
+  const i = text.search(/[a-záéíóúñ]/);
+  if (i !== 0) return text;
+  return text[0].toUpperCase() + text.slice(1);
+}
+
+// Se van rotando para que no salga siempre la misma postura.
+const BULLET_POSES: ChefiePose[] = ['point', 'explain', 'whisk', 'thumbsup'];
+
+/** Trocea un capítulo en pasos: intro, cada consejo por separado, y el cierre. */
+function buildSteps(ch: Chapter): LessonStep[] {
+  const steps: LessonStep[] = [];
+  if (ch.intro) steps.push({ text: ch.intro, pose: 'explain' });
+  ch.bullets.forEach((b, i) =>
+    steps.push({
+      lead: cleanLead(b.lead),
+      text: capitalizeFirst(b.text),
+      pose: BULLET_POSES[i % BULLET_POSES.length],
+    })
+  );
+  if (ch.outro) steps.push({ text: ch.outro, pose: 'celebrate' });
+  return steps;
+}
+
 export default function LibritoScreen() {
   const c = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [open, setOpen] = useState<Record<string, boolean>>({ redes: true });
+  const [lesson, setLesson] = useState<Chapter | null>(null);
+  const [step, setStep] = useState(0);
+
+  const steps = useMemo(() => (lesson ? buildSteps(lesson) : []), [lesson]);
+
+  const openLesson = (ch: Chapter) => {
+    setLesson(ch);
+    setStep(0);
+  };
+  const closeLesson = () => setLesson(null);
+
+  if (lesson) {
+    const current = steps[step];
+    const isLast = step === steps.length - 1;
+    return (
+      <View style={{ flex: 1, backgroundColor: c.ground, paddingTop: insets.top + 10 }}>
+        <View style={styles.header}>
+          <Pressable
+            onPress={closeLesson}
+            style={[styles.backBtn, { borderColor: c.line }]}
+            accessibilityRole="button"
+            accessibilityLabel="Volver al índice del Librito"
+          >
+            <Text style={{ color: c.inkSoft, fontSize: 15 }}>←</Text>
+          </Pressable>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: c.terra, fontFamily: Fonts.sans, letterSpacing: 0.6 }}>
+              {lesson.icon} LECCIÓN
+            </Text>
+            <Text
+              numberOfLines={2}
+              style={{ fontSize: 16, fontWeight: '700', color: c.ink, fontFamily: Fonts.serif, lineHeight: 21 }}
+            >
+              {lesson.title}
+            </Text>
+          </View>
+        </View>
+
+        {/* Barra de avance: da idea de cuánto queda, que era parte de lo que
+            agobiaba del muro de texto — no se veía el final. */}
+        <View style={[styles.progressTrack, { backgroundColor: c.line }]}>
+          <View
+            style={[styles.progressFill, { backgroundColor: c.terra, width: `${((step + 1) / steps.length) * 100}%` }]}
+          />
+        </View>
+
+        <ScrollView contentContainerStyle={styles.lessonBody}>
+          <ChefieMascot pose={current.pose} size={128} />
+          <View style={[styles.bubble, Shadows.card, { borderColor: c.line, backgroundColor: c.surface }]}>
+            {current.lead ? (
+              <Text style={{ fontSize: 16, fontWeight: '700', color: c.ink, fontFamily: Fonts.serif, lineHeight: 22 }}>
+                {current.lead}
+              </Text>
+            ) : null}
+            <Text style={{ fontSize: 14.5, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 22 }}>
+              {current.text}
+            </Text>
+          </View>
+        </ScrollView>
+
+        <View style={[styles.lessonFooter, { paddingBottom: insets.bottom + 14, borderTopColor: c.line }]}>
+          <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans }}>
+            {step + 1} de {steps.length}
+          </Text>
+          <View style={{ flex: 1 }} />
+          {step > 0 ? (
+            <Pressable
+              onPress={() => setStep((s) => s - 1)}
+              style={[styles.navBtn, { borderWidth: 1.5, borderColor: c.line }]}
+              accessibilityRole="button"
+              accessibilityLabel="Atrás"
+            >
+              <Text style={{ fontSize: 13, fontWeight: '700', color: c.inkSoft, fontFamily: Fonts.sans }}>Atrás</Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            onPress={() => (isLast ? closeLesson() : setStep((s) => s + 1))}
+            style={[styles.navBtn, Shadows.card, { backgroundColor: c.terra, flexDirection: 'row', gap: 6 }]}
+            accessibilityRole="button"
+            accessibilityLabel={isLast ? 'Terminar la lección' : 'Siguiente'}
+          >
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFF', fontFamily: Fonts.sans }}>
+              {isLast ? 'Terminar' : 'Siguiente'}
+            </Text>
+            <Ionicons name={isLast ? 'checkmark' : 'arrow-forward'} size={14} color="#FFF" />
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
 
   return (
     <View style={{ flex: 1, backgroundColor: c.ground, paddingTop: insets.top + 10 }}>
@@ -156,53 +295,32 @@ export default function LibritoScreen() {
       </View>
 
       <ScrollView contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 24 }]}>
+        <Text style={{ fontSize: 12.5, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 18, marginBottom: 2 }}>
+          Cuatro lecciones cortas. Entra en la que quieras y te la cuento poco a poco.
+        </Text>
         {CHAPTERS.map((ch) => {
-          const isOpen = !!open[ch.id];
+          const count = buildSteps(ch).length;
           return (
-            <View key={ch.id} style={[styles.card, { borderColor: c.line, backgroundColor: c.surface }]}>
-              <Pressable
-                onPress={() => setOpen((prev) => ({ ...prev, [ch.id]: !prev[ch.id] }))}
-                style={styles.chapterHead}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: isOpen }}
-                accessibilityLabel={ch.title}
-              >
-                <View style={[styles.chapterIcon, { backgroundColor: c.terraSoft }]}>
-                  <Text style={{ fontSize: 15 }}>{ch.icon}</Text>
-                </View>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={{ fontSize: 13.5, fontWeight: '700', color: c.ink, fontFamily: Fonts.sans, lineHeight: 18 }}>
-                    {ch.title}
-                  </Text>
-                  <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans }}>{ch.subtitle}</Text>
-                </View>
-                <Text style={{ color: c.inkSoft, fontSize: 13 }}>{isOpen ? '⌃' : '⌄'}</Text>
-              </Pressable>
-
-              {isOpen ? (
-                <View style={styles.chapterBody}>
-                  {ch.intro ? (
-                    <Text style={{ fontSize: 13, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 20 }}>
-                      {ch.intro}
-                    </Text>
-                  ) : null}
-                  {ch.bullets.map((b) => (
-                    <View key={b.lead} style={{ flexDirection: 'row', gap: 8 }}>
-                      <Text style={{ color: c.terra, fontSize: 13, lineHeight: 20 }}>•</Text>
-                      <Text style={{ flex: 1, fontSize: 13, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 20 }}>
-                        <Text style={{ color: c.ink, fontWeight: '700' }}>{b.lead} </Text>
-                        {b.text}
-                      </Text>
-                    </View>
-                  ))}
-                  {ch.outro ? (
-                    <Text style={{ fontSize: 13, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 20 }}>
-                      {ch.outro}
-                    </Text>
-                  ) : null}
-                </View>
-              ) : null}
-            </View>
+            <Pressable
+              key={ch.id}
+              onPress={() => openLesson(ch)}
+              style={[styles.card, styles.chapterHead, { borderColor: c.line, backgroundColor: c.surface }]}
+              accessibilityRole="button"
+              accessibilityLabel={`${ch.title}. ${count} pasos`}
+            >
+              <View style={[styles.chapterIcon, { backgroundColor: c.terraSoft }]}>
+                <Text style={{ fontSize: 15 }}>{ch.icon}</Text>
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ fontSize: 13.5, fontWeight: '700', color: c.ink, fontFamily: Fonts.sans, lineHeight: 18 }}>
+                  {ch.title}
+                </Text>
+                <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans }}>
+                  {ch.subtitle} · {count} pasos
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={c.inkSoft} />
+            </Pressable>
           );
         })}
       </ScrollView>
@@ -214,8 +332,21 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 18, paddingBottom: 12 },
   backBtn: { width: 32, height: 32, borderWidth: 1.5, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   body: { paddingHorizontal: 18, gap: 10 },
-  card: { borderWidth: 1.5, borderRadius: Radii.panel, paddingHorizontal: 12, paddingVertical: 10 },
+  card: { borderWidth: 1.5, borderRadius: Radii.panel, paddingHorizontal: 12, paddingVertical: 12 },
   chapterHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   chapterIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  chapterBody: { gap: 8, paddingTop: 10 },
+
+  progressTrack: { height: 3, marginHorizontal: 18, borderRadius: 2, overflow: 'hidden' },
+  progressFill: { height: 3, borderRadius: 2 },
+  lessonBody: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22, paddingVertical: 18, gap: 14 },
+  bubble: { alignSelf: 'stretch', borderWidth: 1.5, borderRadius: Radii.panel, paddingHorizontal: 16, paddingVertical: 16, gap: 7 },
+  lessonFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  navBtn: { borderRadius: Radii.card, paddingHorizontal: 16, paddingVertical: 10, alignItems: 'center', justifyContent: 'center' },
 });
