@@ -57,6 +57,19 @@ export function POST(req: Request) {
 
       const caption = [meta.title, meta.description, text].filter(Boolean).join('\n\n').trim();
 
+      // ── Web de recetas con JSON-LD ────────────────────────────────────
+      // Va ANTES del vídeo: si la página publica la receta estructurada, eso
+      // es la fuente buena. Un blog con vídeo incrustado tiene los pasos
+      // escritos, y leerlos sale mejor y más barato que mirar el clip.
+      if (meta.recipeText) {
+        const recipe = await importRecipe({
+          url,
+          caption: meta.recipeText,
+          existingIngredients,
+        });
+        return { recipe, imageUrl: meta.imageUrl, source: 'web' };
+      }
+
       if (meta.videoUrl) {
         try {
           const recipe = await analyzeVideoFromUrl(meta.videoUrl, caption, existingIngredients);

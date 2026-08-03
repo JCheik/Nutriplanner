@@ -485,6 +485,7 @@ export function RecipeImportDialog({ isOpen, onClose, onRecipeImported }: Recipe
             Importar receta desde post
           </DialogTitle>
           <DialogDescription>
+            Vale cualquier web de recetas: si publica la receta estructurada, se lee entera.
             Un enlace de YouTube se analiza directamente. Para Instagram y TikTok, descarga el
             vídeo y súbelo — esas plataformas no dejan analizarlo solo con la URL.
           </DialogDescription>

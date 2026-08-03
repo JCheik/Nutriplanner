@@ -37,7 +37,7 @@ const STEPS: TourStep[] = [
     id: 'recipe-import',
     target: 'recipe-import',
     title: 'Nueva Receta',
-    text: 'Crea recetas desde cero… o impórtalas: pega un enlace de Instagram, TikTok o YouTube y saco los ingredientes por ti.',
+    text: 'Crea recetas desde cero… o impórtalas: pega el enlace de una web de recetas, un Instagram, un TikTok o un YouTube y saco los ingredientes por ti.',
   },
   {
     id: 'ai-assistant',
