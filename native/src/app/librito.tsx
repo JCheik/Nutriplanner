@@ -31,11 +31,15 @@ const CHAPTERS: Chapter[] = [
   {
     id: 'redes',
     icon: '🔗',
-    title: 'Importar recetas de Instagram, TikTok o YouTube',
+    title: 'Importar recetas de una web, Instagram, TikTok o YouTube',
     subtitle: 'Cómo funciona y qué revisar siempre',
     intro:
-      'Pega el enlace del vídeo o post y Nutrilp analiza el contenido para rellenarte nombre, ingredientes y pasos. Antes de guardarla, revisa esto:',
+      'Pega el enlace y saco nombre, ingredientes y pasos. Si es una web de recetas suele traerla ya estructurada y sale clavada; si es un vídeo, me lo miro entero. Antes de guardarla, revisa esto:',
     bullets: [
+      {
+        lead: 'Las raciones, lo primero.',
+        text: 'Si la receta era para ocho y se guarda como una, todos los macros salen ocho veces más altos. En la pantalla de revisión puedes corregirlo, o pasarla a una sola ración.',
+      },
       {
         lead: 'Cantidades ambiguas.',
         text: 'Si dicen “verdura al gusto” o “un chorrito”, la IA tiene que adivinar una cantidad. Ajusta a lo que tú vayas a poner de verdad.',
@@ -46,7 +50,7 @@ const CHAPTERS: Chapter[] = [
       },
       {
         lead: 'Marcas y productos concretos.',
-        text: 'Si usan un producto de marca, compruébalo con el código de barras — suele ser más exacto que la estimación de la IA.',
+        text: 'Si usan un producto de marca, búscalo en “Producto del súper”: esos datos salen de la etiqueta y son más fiables que la estimación de la IA.',
       },
     ],
     outro: 'La importación te ahorra el tecleo, pero la revisión final la haces tú. Es tu receta, no la del vídeo.',
@@ -62,8 +66,12 @@ const CHAPTERS: Chapter[] = [
         text: 'aunque el bote marque ~900 kcal/100 g, un par de pulsaciones apenas llegan a 1 g. Pésalo una vez para saber cuánto sale por pulsación.',
       },
       {
-        lead: 'Bebidas y salsas “cero”:',
-        text: 'perfectas para marinar o dar sabor con calorías prácticamente nulas. El catálogo ya distingue la versión cero de la normal.',
+        lead: 'Bebidas “cero”:',
+        text: 'los refrescos zero rondan 0-1 kcal por 100 ml. Ahí sí puedes olvidarte de la cuenta y usarlos para dar sabor.',
+      },
+      {
+        lead: 'Salsas “cero” o “light”: ojo, no son cero.',
+        text: 'Bajan mucho respecto a la normal, pero siguen sumando: un kétchup sin azúcar ronda las 25 kcal/100 g, una barbacoa cero puede pasar de 50 y una mayonesa light sigue por encima de 250. Míralo en la etiqueta y cuéntalas.',
       },
       {
         lead: 'Crudo vs. cocinado:',
@@ -83,7 +91,7 @@ const CHAPTERS: Chapter[] = [
     bullets: [
       {
         lead: 'Las recetas Nutrilp son generales.',
-        text: 'Cópialas a “Mis recetas” y ajusta las cantidades a tu ración real — son un punto de partida, no una receta cerrada.',
+        text: 'Son un punto de partida, no una receta cerrada. Al meterlas en el plan ajusta las raciones con − y + hasta que cuadre con lo que tú comes. (Para clonarla y reescribirla a tu gusto, de momento hay que entrar desde la web.)',
       },
       {
         lead: 'La lista de la compra no se rellena sola:',
@@ -99,7 +107,7 @@ const CHAPTERS: Chapter[] = [
       },
       {
         lead: 'El asistente hace más de lo que parece:',
-        text: 'pídele que te rellene huecos concretos del plan, que vacíe un día o que te autocomplete la semana entera.',
+        text: 'pídele que te rellene huecos concretos del plan, que vacíe un día o que te autocomplete la semana entera. Lo largo lo hace en segundo plano: sigue usando la app y te aviso desde la esquina cuando esté.',
       },
       {
         lead: 'Descarga el cuadrante.',
