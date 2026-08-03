@@ -215,6 +215,10 @@ export interface NutriInterview {
    * is part of the plan, not cheating on it. The autocomplete still fills
    * every slot but biases slightly under target to leave weekly slack. */
   freeMealsPerWeek?: number;
+  /** De dónde salen las recetas al autocompletar: 'mias' usa solo las del
+   * usuario; 'todas' (por defecto) añade el recetario de Nutrilp. Ausente
+   * equivale a 'todas', que es como se comportaba antes de existir el campo. */
+  recipeSource?: 'mias' | 'todas';
   /** ISO date of the last time the interview was saved. */
   updatedAt: string;
 }

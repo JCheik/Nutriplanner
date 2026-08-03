@@ -87,7 +87,16 @@ export default function IaScreen() {
       router.push('/entrevista');
       return 'Antes de autocompletar necesito conocerte: te abro la entrevista para que me cuentes tus gustos y tus alergias. Con eso el plan sale mucho mejor.';
     }
-    const availableRecipes = [...userRecipes, ...globalRecipes];
+    // Lo que eligió en la entrevista: solo su recetario, o también el de
+    // Nutrilp. Sin el campo (entrevistas viejas) se usan los dos, que es como
+    // se comportaba antes.
+    const soloMias = profile?.nutriInterview?.recipeSource === 'mias';
+    const availableRecipes = soloMias ? userRecipes : [...userRecipes, ...globalRecipes];
+    if (availableRecipes.length === 0) {
+      return soloMias
+        ? 'En la entrevista me pediste planificar solo con tus recetas, y aún no tienes ninguna guardada. Créate alguna, o cambia esa opción para que tire también del recetario de Nutrilp.'
+        : 'No tengo recetas con las que planificar todavía.';
+    }
     const { placements, unfilled } = await autocompleteWeek({
       weekPlan,
       availableRecipes,

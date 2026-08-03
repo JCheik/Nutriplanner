@@ -152,6 +152,7 @@ export default function EntrevistaScreen() {
   const [maxRepeats, setMaxRepeats] = useState(saved?.maxRepeatsPerRecipe ?? 3);
   const [quickWeekdays, setQuickWeekdays] = useState(saved?.quickWeekdays ?? false);
   const [freeMeals, setFreeMeals] = useState(saved?.freeMealsPerWeek ?? 0);
+  const [recipeSource, setRecipeSource] = useState<'mias' | 'todas'>(saved?.recipeSource ?? 'todas');
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -175,6 +176,7 @@ export default function EntrevistaScreen() {
         ...(variety === 'repetir' ? { maxRepeatsPerRecipe: maxRepeats } : {}),
         quickWeekdays,
         ...(freeMeals > 0 ? { freeMealsPerWeek: freeMeals } : {}),
+        recipeSource,
         updatedAt: new Date().toISOString(),
       };
       await saveNutriInterview(user.uid, interview);
@@ -267,6 +269,41 @@ export default function EntrevistaScreen() {
           <Stepper label="Comidas de legumbres" value={legumbres} onChange={setLegumbres} min={0} max={7} />
           <Stepper label="Comidas vegetarianas" value={vegetariano} onChange={setVegetariano} min={0} max={7} />
           <Stepper label="Comidas de pescado" value={pescado} onChange={setPescado} min={0} max={7} />
+        </View>
+
+        <Text style={[styles.label, { color: c.inkSoft, fontFamily: Fonts.sans }]}>CON QUÉ RECETAS TE PLANIFICO</Text>
+        <View style={{ gap: 6 }}>
+          {([
+            ['todas', 'Las mías y las de Nutrilp', 'Más variedad: tiro también del recetario de Nutrilp.'],
+            ['mias', 'Solo mis recetas', 'Uso únicamente las que tú has guardado.'],
+          ] as const).map(([v, title, desc]) => (
+            <Pressable
+              key={v}
+              onPress={() => setRecipeSource(v)}
+              style={[
+                styles.optionWide,
+                {
+                  borderColor: recipeSource === v ? c.terra : c.line,
+                  backgroundColor: recipeSource === v ? c.terraSoft : c.surface,
+                },
+              ]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: recipeSource === v }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: c.ink, fontFamily: Fonts.sans }}>{title}</Text>
+                <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans }}>{desc}</Text>
+              </View>
+              {recipeSource === v ? <Ionicons name="checkmark-circle" size={18} color={c.terra} /> : null}
+            </Pressable>
+          ))}
+          {/* Con pocas recetas propias, "solo las mías" deja la semana a medias:
+              mejor avisar aquí que dejar que el autocompletado falle luego. */}
+          {recipeSource === 'mias' ? (
+            <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 16 }}>
+              Ojo: si tienes pocas recetas guardadas, me quedaré sin con qué llenar la semana.
+            </Text>
+          ) : null}
         </View>
 
         <Text style={[styles.label, { color: c.inkSoft, fontFamily: Fonts.sans }]}>VARIEDAD</Text>
