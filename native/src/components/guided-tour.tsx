@@ -22,6 +22,15 @@ interface Step {
 const TAB_COUNT = 5;
 
 /**
+ * Alto de la barra SIN el safe area, calculado de `tab-bar.tsx`: paddingTop 8 +
+ * icono 23 + gap 3 + etiqueta ~13. Sirve para recortar el foco justo encima.
+ */
+const TAB_BAR_CONTENT_H = 47;
+/** El círculo de IA va elevado (marginTop -26), así que sobresale de la barra. */
+const IA_OVERHANG = 22;
+const IA_TAB_INDEX = 2;
+
+/**
  * Pasos del tour. El primero y el último van centrados (sin pestaña); el resto
  * NAVEGA de verdad a cada pestaña, que es lo que pidió el usuario: que el
  * tutorial te lleve por la app en vez de ser una sola pantalla.
@@ -109,9 +118,38 @@ export function GuidedTour() {
   // Flecha centrada bajo la pestaña correspondiente de la barra de 5.
   const arrowLeft = anchored ? ((step.tabIndex! + 0.5) * width) / TAB_COUNT - 9 : 0;
 
+  // Foco: en vez de oscurecer la pantalla entera, se pintan tres trozos de
+  // fondo alrededor de la pestaña del paso. El hueco deja ver la barra real a
+  // pleno brillo, que es lo que se pide — que se ilumine lo que explica el texto.
+  const tabW = width / TAB_COUNT;
+  const holeLeft = anchored ? step.tabIndex! * tabW : 0;
+  const holeH =
+    TAB_BAR_CONTENT_H +
+    Math.max(insets.bottom, 6) +
+    (step.tabIndex === IA_TAB_INDEX ? IA_OVERHANG : 0);
+
   return (
     <Modal transparent animationType="fade" visible onRequestClose={dismissForever}>
       <View style={styles.backdrop}>
+        {anchored ? (
+          <>
+            <View style={[styles.dim, { top: 0, left: 0, right: 0, bottom: holeH }]} />
+            <View style={[styles.dim, { bottom: 0, height: holeH, left: 0, width: holeLeft }]} />
+            <View style={[styles.dim, { bottom: 0, height: holeH, left: holeLeft + tabW, right: 0 }]} />
+            {/* Aro terracota alrededor del hueco, para que se lea como foco y
+                no como un trozo de fondo que se olvidaron de oscurecer. */}
+            <View
+              style={[
+                styles.spotRing,
+                { bottom: 5, left: holeLeft + 3, width: tabW - 6, height: holeH - 10, borderColor: c.terra },
+              ]}
+              pointerEvents="none"
+            />
+          </>
+        ) : (
+          <View style={[styles.dim, { top: 0, left: 0, right: 0, bottom: 0 }]} />
+        )}
+
         <View
           style={[
             styles.cardWrap,
@@ -177,7 +215,14 @@ export function GuidedTour() {
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(58,36,20,0.55)', justifyContent: 'center' },
+  backdrop: { flex: 1, justifyContent: 'center' },
+  dim: { position: 'absolute', backgroundColor: 'rgba(58,36,20,0.55)' },
+  spotRing: {
+    position: 'absolute',
+    borderWidth: 2,
+    borderRadius: 14,
+    boxShadow: '0 0 14px rgba(217, 83, 31, 0.75)',
+  },
   cardWrap: {},
   card: {
     borderWidth: 2,
