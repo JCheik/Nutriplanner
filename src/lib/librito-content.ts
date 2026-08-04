@@ -120,7 +120,7 @@ export const LIBRITO_CHAPTERS: LibritoChapter[] = [
       },
       {
         lead: 'Las comidas libres son parte del plan, no un fallo.',
-        text: 'Si las configuraste en tu entrevista, el plan ya cuenta con ellas — disfrútalas sin remordimientos.',
+        text: 'El día que comas fuera, borra del cuadrante la comida que te saltes: al final estás cambiando una comida por otra, no sumando una de más. Disfrútala sin remordimientos.',
       },
       {
         lead: 'Ningún alimento es «trampa».',

@@ -355,8 +355,9 @@ export default function EntrevistaScreen() {
 
         <Text style={[styles.label, { color: c.inkSoft, fontFamily: Fonts.sans }]}>COMIDAS LIBRES</Text>
         <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 16 }}>
-          Comidas a la semana que harás fuera del plan (una cena con amigos, un capricho). Cuento con ellas al
-          planificarte: forman parte del plan, no son un fallo.
+          Comidas a la semana que harás fuera del plan (una cena con amigos, un capricho). Forman parte del plan, no
+          son un fallo. Al planificarte tiro un poco a la baja, y el día que salgas borra del cuadrante la comida que
+          te saltes: ese es el hueco de verdad.
         </Text>
         <Stepper label="Comidas libres por semana" value={freeMeals} onChange={setFreeMeals} min={0} max={3} />
 
