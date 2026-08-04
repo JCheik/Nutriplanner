@@ -7,6 +7,7 @@ import type { Firestore } from 'firebase/firestore';
 import type { BaseIngredient, Ingredient, Recipe } from '@/lib/types';
 import { normalizeText, ingredientKey } from '@/lib/utils';
 import { singularKey } from '@/lib/ingredient-similarity';
+import { findAmbiguousCookState } from '@/lib/cook-state';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Trash2, Edit, ArrowLeft, PlusCircle, Merge, AlertTriangle } from 'lucide-react';
@@ -68,6 +69,43 @@ const MANUAL_GROUPS: { key: string; names: string[] }[] = [
 function retargetIngredient(ing: Ingredient, kept: BaseIngredient): Ingredient {
     const { brand: _oldBrand, ...rest } = ing;
     return kept.brand ? { ...rest, name: kept.name, brand: kept.brand } : { ...rest, name: kept.name };
+}
+
+/**
+ * Renombra un alimento y arrastra con él las recetas globales que lo usaban.
+ *
+ * La identidad de un ingrediente en una receta es su nombre+marca copiados
+ * (`ingredientKey`), no el id del documento. Hasta ahora editar el nombre desde
+ * aquí solo tocaba el doc del alimento: las recetas seguían apuntando al nombre
+ * viejo, dejaban de resolver y sus macros pasaban a 0 en silencio. Devuelve
+ * cuántas recetas se han reescrito.
+ */
+async function renameIngredientAndRetargetRecipes(
+    firestore: Firestore,
+    before: { name: string; brand?: string },
+    after: BaseIngredient
+): Promise<number> {
+    const oldKey = ingredientKey(before.name, before.brand);
+    if (oldKey === ingredientKey(after.name, after.brand)) return 0;
+
+    const globalSnap = await getDocs(collection(firestore, 'nutriplanner_recipes'));
+    const batch = writeBatch(firestore);
+    let recipesUpdated = 0;
+
+    globalSnap.forEach(docSnap => {
+        const recipe = docSnap.data() as Recipe;
+        const list = recipe.ingredients ?? [];
+        if (!list.some(ing => ingredientKey(ing.name, ing.brand) === oldKey)) return;
+        batch.update(docSnap.ref, {
+            ingredients: list.map(ing =>
+                ingredientKey(ing.name, ing.brand) === oldKey ? retargetIngredient(ing, after) : ing
+            ),
+        });
+        recipesUpdated += 1;
+    });
+
+    if (recipesUpdated > 0) await batch.commit();
+    return recipesUpdated;
 }
 
 /**
@@ -181,6 +219,34 @@ export default function AdminIngredientsPage() {
         return [...filteredAuto, ...manualGroups];
     }, [duplicateGroups, manualGroups]);
 
+    // Alimentos que no dicen si están crudos o cocidos y para los que eso
+    // triplica las calorías. Ver `lib/cook-state.ts`.
+    const ambiguous = useMemo(() => findAmbiguousCookState(sortedIngredients), [sortedIngredients]);
+    const [fixingId, setFixingId] = useState<string | null>(null);
+
+    /** Añade "crudo"/"cocido" al nombre y arrastra las recetas que lo usaban. */
+    const applyCookState = async (ing: BaseIngredient, state: 'crudo' | 'cocido') => {
+        if (!firestore || fixingId) return;
+        setFixingId(ing.id);
+        try {
+            const nextName = `${ing.name.trim()} ${state}`;
+            await updateDoc(doc(firestore, 'ingredients', ing.id), { name: nextName });
+            const moved = await renameIngredientAndRetargetRecipes(
+                firestore,
+                { name: ing.name, brand: ing.brand },
+                { ...ing, name: nextName }
+            );
+            toast({
+                title: `Ahora es «${nextName}»`,
+                description: moved > 0 ? `Se han actualizado ${moved} receta(s) que lo usaban.` : undefined,
+            });
+        } catch {
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudo renombrar.' });
+        } finally {
+            setFixingId(null);
+        }
+    };
+
     const handleEdit = (ingredient: BaseIngredient) => {
         setIngredientToEdit(ingredient);
         setIsDialogOpen(true);
@@ -266,13 +332,27 @@ export default function AdminIngredientsPage() {
                 // doc — leaving them out of updateDoc would silently keep the old value.
                 const docRef = doc(firestore, 'ingredients', ingredientData.id);
                 const { id: _id, ...data } = ingredientData;
+                const previous = ingredients?.find(i => i.id === ingredientData.id);
                 await updateDoc(docRef, {
                     ...data,
                     brand: data.brand ?? deleteField(),
                     unitName: data.unitName ?? deleteField(),
                     unitWeight: data.unitWeight ?? deleteField(),
                 });
-                toast({ title: 'Ingrediente actualizado' });
+                // Si ha cambiado el nombre o la marca, las recetas que lo usaban
+                // apuntan a una identidad que ya no existe: hay que moverlas.
+                let moved = 0;
+                if (previous) {
+                    moved = await renameIngredientAndRetargetRecipes(
+                        firestore,
+                        { name: previous.name, brand: previous.brand },
+                        { ...(ingredientData as BaseIngredient), id: ingredientData.id }
+                    );
+                }
+                toast({
+                    title: 'Ingrediente actualizado',
+                    description: moved > 0 ? `Se han actualizado ${moved} receta(s) que lo usaban.` : undefined,
+                });
             } else {
                 await addDoc(globalIngredientsRef, ingredientData);
                 toast({ title: 'Ingrediente creado' });
@@ -294,6 +374,64 @@ export default function AdminIngredientsPage() {
                             <Link href="/admin"><ArrowLeft className="mr-2 h-4 w-4" /> Volver al Panel</Link>
                         </Button>
                     </div>
+
+                    {/* Crudo o cocido sin especificar: el error que más distorsiona
+                        los macros, porque multiplica por tres, no por poco. */}
+                    {ambiguous.length > 0 && (
+                        <Card className="border-destructive/40">
+                            <CardHeader>
+                                <div className="flex items-center gap-2">
+                                    <AlertTriangle className="h-5 w-5 text-destructive" />
+                                    <CardTitle>¿Crudo o cocido? ({ambiguous.length})</CardTitle>
+                                </div>
+                                <CardDescription>
+                                    Estos alimentos triplican su peso al cocerse y su nombre no dice en qué estado
+                                    están. Quien pese arroz cocido y elija «Arroz blanco» (que son 350 kcal crudo) se
+                                    apunta casi el triple de calorías. La sugerencia sale de sus propias kcal/100 g.
+                                    Al renombrar se actualizan también las recetas que lo usaban.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                                {ambiguous.map(({ ingredient: ing, guess }) => (
+                                    <div
+                                        key={ing.id}
+                                        className="flex flex-wrap items-center gap-3 rounded-md border p-3 text-sm"
+                                    >
+                                        <div className="min-w-0 flex-1">
+                                            <p className="font-medium">
+                                                {ing.name}
+                                                {ing.brand && <span className="text-muted-foreground"> · {ing.brand}</span>}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {Math.round(ing.calories ?? 0)} kcal/100 g ·{' '}
+                                                {guess
+                                                    ? `por sus calorías, parece ${guess}`
+                                                    : 'las calorías no aclaran cuál es — míralo tú'}
+                                            </p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                size="sm"
+                                                variant={guess === 'crudo' ? 'default' : 'outline'}
+                                                disabled={fixingId === ing.id}
+                                                onClick={() => applyCookState(ing, 'crudo')}
+                                            >
+                                                Crudo
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant={guess === 'cocido' ? 'default' : 'outline'}
+                                                disabled={fixingId === ing.id}
+                                                onClick={() => applyCookState(ing, 'cocido')}
+                                            >
+                                                Cocido
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </Card>
+                    )}
 
                     {/* Suspected duplicates: same folded name + same brand, plus manually called-out groups */}
                     {displayGroups.length > 0 && (

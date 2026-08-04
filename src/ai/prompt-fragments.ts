@@ -72,15 +72,24 @@ ${lines.join('\n')}`;
  * "clara de huevo" exists — the main source of duplicate foods). Capped to keep
  * the prompt bounded on very large databases.
  */
+/**
+ * Los alimentos que triplican su peso al cocerse necesitan decir en el NOMBRE
+ * si están crudos o cocidos. Sin eso, "arroz blanco" con 350 kcal/100 g (que es
+ * el crudo) se pesa cocido y salen casi el triple de calorías de las reales —
+ * un error de bulto que ya se coló en recetas de usuario.
+ */
+export const COOK_STATE_RULE =
+  'ESTADO (crudo/cocido) OBLIGATORIO en el nombre para arroz, pasta, legumbres (lentejas, garbanzos, alubias), quinoa, cuscús, bulgur, avena y demás cereales y granos: "arroz blanco cocido", "lenteja cruda". Nunca los dejes sin especificar, porque crudos rondan 330-380 kcal/100 g y cocidos 100-180, y confundirlos triplica las calorías. Elige el estado en el que la receta los PESA: si dice "200 g de arroz cocido", es cocido.';
+
 export function existingIngredientsInstruction(names?: string[]): string {
   if (!names || names.length === 0) {
-    return 'REGLA DE NOMBRES DE INGREDIENTES: en singular, genérico y sin marca (ej: "clara de huevo", nunca "claras de huevo").';
+    return `REGLA DE NOMBRES DE INGREDIENTES: en singular, genérico y sin marca (ej: "clara de huevo", nunca "claras de huevo"). ${COOK_STATE_RULE}`;
   }
   const list = names.slice(0, 500).join('; ');
   return `ALIMENTOS YA EXISTENTES EN LA BASE DE DATOS:
 ${list}
 
-REGLA DE NOMBRES DE INGREDIENTES: si un ingrediente de la receta ya está en esa lista (aunque el texto lo mencione en plural, con otra variante o con un sinónimo, p.ej. "cebolla lila" si existe "cebolla morada"), usa EXACTAMENTE el nombre de la lista. Solo usa un nombre nuevo si de verdad no existe: en singular, genérico y sin marca (ej: "clara de huevo", nunca "claras de huevo").`;
+REGLA DE NOMBRES DE INGREDIENTES: si un ingrediente de la receta ya está en esa lista (aunque el texto lo mencione en plural, con otra variante o con un sinónimo, p.ej. "cebolla lila" si existe "cebolla morada"), usa EXACTAMENTE el nombre de la lista. Solo usa un nombre nuevo si de verdad no existe: en singular, genérico y sin marca (ej: "clara de huevo", nunca "claras de huevo"). ${COOK_STATE_RULE}`;
 }
 
 /**
