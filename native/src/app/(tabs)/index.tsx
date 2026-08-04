@@ -78,6 +78,14 @@ const TOTAL_H = 62;
 /** Alto de la fila "vaciar" que aparece bajo cada día en modo edición. */
 const CLEAR_ROW_H = 27;
 
+/**
+ * Lo que se estima que cuesta una comida libre, como fracción del objetivo
+ * DIARIO. 0,35 es lo que pesa un almuerzo en `mealCalorieRatio`: una cena fuera
+ * viene a costar lo que una comida principal del plan. Sirve para no llamar
+ * "margen para tus tres comidas libres" a 29 kcal sueltas.
+ */
+const FREE_MEAL_SHARE = 0.35;
+
 /** Barra de progreso: relleno = valor, el ancho total = objetivo. */
 function Bar({ value, goal, color, height = 7 }: { value: number; goal?: number; color: string; height?: number }) {
   const c = useTheme();
@@ -487,6 +495,9 @@ function SemanaView({
   const weekPlanned = perDay.reduce((sum, d) => sum + d.calories, 0);
   const daysWithPlan = perDay.filter((d) => d.calories > 0).length;
   const weekMargin = goal ? goal.calories * 7 - weekPlanned : 0;
+  // Lo que hace falta de verdad para las comidas libres, para no llamar
+  // "margen para tres comidas fuera" a lo que sobra por redondeo.
+  const freeMealsNeed = goal ? (freeMeals ?? 0) * goal.calories * FREE_MEAL_SHARE : 0;
 
   const handleDownload = async () => {
     if (pdfBusy) return;
@@ -549,11 +560,11 @@ function SemanaView({
             {daysWithPlan < 7
               ? `Te quedan ${7 - daysWithPlan} día${7 - daysWithPlan === 1 ? '' : 's'} sin planificar, así que este total todavía va a subir.`
               : weekMargin > 0
-                ? `La semana entera está planificada y te sobran ${Math.round(weekMargin).toLocaleString('es-ES')} kcal${
-                    freeMeals
-                      ? `: ahí tienes el margen para tus ${freeMeals} comida${freeMeals === 1 ? '' : 's'} libre${freeMeals === 1 ? '' : 's'}.`
-                      : ' de margen.'
-                  }`
+                ? freeMeals
+                  ? weekMargin >= freeMealsNeed
+                    ? `La semana entera está planificada y te sobran ${Math.round(weekMargin).toLocaleString('es-ES')} kcal: da para tus ${freeMeals} comida${freeMeals === 1 ? '' : 's'} libre${freeMeals === 1 ? '' : 's'}, unas ${Math.round(weekMargin / freeMeals).toLocaleString('es-ES')} kcal cada una.`
+                    : `El plan se lleva casi todo tu objetivo: solo sobran ${Math.round(weekMargin).toLocaleString('es-ES')} kcal, y para ${freeMeals} comida${freeMeals === 1 ? '' : 's'} libre${freeMeals === 1 ? '' : 's'} harían falta unas ${Math.round(freeMealsNeed).toLocaleString('es-ES')}. Si vas a salir, quita del plan las comidas que te vayas a saltar.`
+                  : `La semana entera está planificada y te sobran ${Math.round(weekMargin).toLocaleString('es-ES')} kcal de margen.`
                 : `Te has pasado ${Math.round(-weekMargin).toLocaleString('es-ES')} kcal en el total de la semana. Un día flojo lo compensa.`}
           </Text>
         </View>
