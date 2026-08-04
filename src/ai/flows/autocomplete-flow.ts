@@ -87,6 +87,16 @@ const MAX_SERVINGS_PER_SLOT = 3;
 // serving count, even if another recipe would fit slightly tighter — switching
 // recipes should be a last resort, not a tie-breaker. Returns null when nothing
 // eligible can realistically hit the margin.
+/**
+ * Estimación de lo que cuesta una comida fuera de casa. Fija a propósito: la
+ * ración de un restaurante no depende del objetivo de quien la pide.
+ */
+const TYPICAL_MEAL_OUT_KCAL = 1200;
+/** Peso de una comida principal en el día (el de 'almuerzo' en los ratios). */
+const TYPICAL_MEAL_SHARE = 0.35;
+/** Suelo, para que con objetivos muy altos no se reserve prácticamente nada. */
+const MIN_FREE_MEAL_EXTRA = 150;
+
 function bestFitWithinMargin(
   eligibleIds: string[],
   simplifiedById: Map<string, { caloriesPerServing: number }>,
@@ -174,7 +184,28 @@ const autocompleteWeekFlow = ai.defineFlow(
     };
 
     // Extract empty slots with per-slot calorie/protein targets derived from the daily goal
-    const goal = activeGoal as GoalMacros | null;
+    const rawGoal = activeGoal as GoalMacros | null;
+
+    /**
+     * Objetivo diario rebajado para dejar sitio a las comidas libres.
+     *
+     * Una comida fuera NO se suma entera: sustituye a la del plan de ese día,
+     * así que lo que sobra es la DIFERENCIA. Y esa diferencia depende de la
+     * persona en sentido contrario al que parece: la comida de fuera cuesta lo
+     * que cuesta (la ración del restaurante no sabe tu objetivo), pero la que
+     * te ahorras sí escala contigo. Quien menos come es quien más se desvía.
+     *
+     * No se mete el sexo: ya está dentro, porque la calculadora lo usa para
+     * fijar el objetivo diario que entra aquí. Contarlo otra vez sería doble.
+     */
+    const goal: GoalMacros | null = (() => {
+      const freeMeals = preferences.interview?.freeMealsPerWeek ?? 0;
+      if (!rawGoal || freeMeals <= 0) return rawGoal;
+      const plannedMeal = rawGoal.calories * TYPICAL_MEAL_SHARE;
+      const perMeal = Math.max(MIN_FREE_MEAL_EXTRA, TYPICAL_MEAL_OUT_KCAL - plannedMeal);
+      const dailyCut = (freeMeals * perMeal) / 7;
+      return { ...rawGoal, calories: Math.max(rawGoal.calories * 0.6, rawGoal.calories - dailyCut) };
+    })();
     const emptySlots = (weekPlan as WeekPlan).flatMap(dayPlan =>
       dayPlan.meals
         .filter(meal => meal.recipes.length === 0)

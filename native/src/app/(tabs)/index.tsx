@@ -551,7 +551,7 @@ function SemanaView({
               : weekMargin > 0
                 ? `La semana entera está planificada y te sobran ${Math.round(weekMargin).toLocaleString('es-ES')} kcal.${
                     freeMeals
-                      ? ` Cuando comas fuera, borra del plan la comida que te saltes: el hueco lo hace esa comida, no este margen.`
+                      ? ` Es el hueco que te he dejado para tus ${freeMeals} comida${freeMeals === 1 ? '' : 's'} libre${freeMeals === 1 ? '' : 's'}: al comer fuera, borra del plan la comida que te saltes.`
                       : ' '
                   }`.trim()
                 : `Te has pasado ${Math.round(-weekMargin).toLocaleString('es-ES')} kcal en el total de la semana. Un día flojo lo compensa.`}
