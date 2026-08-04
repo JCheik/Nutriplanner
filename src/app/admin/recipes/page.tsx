@@ -9,6 +9,7 @@ import { PlusCircle, Search, ArrowLeft } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { RecipeDialog, DialogState } from '@/components/nutri-planner/recipe-dialog';
 import { RecipeCard } from '@/components/nutri-planner/recipe-card';
+import { OrphanIngredientsCard } from '@/components/nutri-planner/orphan-ingredients-card';
 import { useRecipeState } from '@/hooks/use-recipe-state';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
@@ -77,11 +78,15 @@ export default function AdminRecipesPage() {
             <main className="flex-1 p-4 sm:p-6 lg:p-8">
                 <div className="max-w-screen-xl mx-auto flex flex-col gap-6">
                     <div className="flex justify-between items-center">
-                        <CardTitle>Recetas Globales</CardTitle>
+                        <CardTitle>Recetas</CardTitle>
                         <Button asChild variant="outline">
                             <Link href="/admin"><ArrowLeft className="mr-2 h-4 w-4" /> Volver al Panel</Link>
                         </Button>
                     </div>
+
+                    {/* Toca recetas de TODOS, no solo el recetario global, así que
+                        vive aquí y no con los ingredientes. */}
+                    <OrphanIngredientsCard />
                     <Card>
                         <CardHeader>
                             <div className="flex justify-between items-center">
