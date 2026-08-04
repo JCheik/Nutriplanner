@@ -8,6 +8,9 @@ import type { BaseIngredient, Ingredient, Recipe } from '@/lib/types';
 import { normalizeText, ingredientKey } from '@/lib/utils';
 import { singularKey } from '@/lib/ingredient-similarity';
 import { findAmbiguousCookState } from '@/lib/cook-state';
+import { fixOrphanIngredient, listOrphanIngredients } from '@/lib/actions';
+import type { OrphanRef } from '@/lib/orphan-ingredients';
+import { useUser } from '@/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Trash2, Edit, ArrowLeft, PlusCircle, Merge, AlertTriangle } from 'lucide-react';
@@ -247,6 +250,40 @@ export default function AdminIngredientsPage() {
         }
     };
 
+    // Referencias rotas en TODAS las recetas (también las privadas de cada
+    // usuario, que el panel no puede tocar como cliente). Ver actions.ts.
+    const { user } = useUser();
+    const [orphans, setOrphans] = useState<OrphanRef[] | null>(null);
+    const [scanning, setScanning] = useState(false);
+    const [orphanTarget, setOrphanTarget] = useState<Record<string, string>>({});
+    const [fixingOrphan, setFixingOrphan] = useState<string | null>(null);
+
+    const scanOrphans = async () => {
+        const token = await user?.getIdToken();
+        if (!token) return;
+        setScanning(true);
+        const res = await listOrphanIngredients(token);
+        setScanning(false);
+        if (res.success) setOrphans(res.orphans);
+        else toast({ variant: 'destructive', title: 'Error', description: res.error });
+    };
+
+    const fixOrphan = async (o: OrphanRef) => {
+        const key = ingredientKey(o.name, o.brand);
+        const toId = orphanTarget[key];
+        const token = await user?.getIdToken();
+        if (!toId || !token || fixingOrphan) return;
+        setFixingOrphan(key);
+        const res = await fixOrphanIngredient(token, { name: o.name, brand: o.brand }, toId);
+        setFixingOrphan(null);
+        if (res.success) {
+            toast({ title: 'Arreglado', description: res.message });
+            scanOrphans();
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: res.error });
+        }
+    };
+
     const handleEdit = (ingredient: BaseIngredient) => {
         setIngredientToEdit(ingredient);
         setIsDialogOpen(true);
@@ -374,6 +411,74 @@ export default function AdminIngredientsPage() {
                             <Link href="/admin"><ArrowLeft className="mr-2 h-4 w-4" /> Volver al Panel</Link>
                         </Button>
                     </div>
+
+                    {/* Referencias rotas: líneas de receta que apuntan a un alimento
+                        que ya no existe con ese nombre. Suman 0 al recalcular. */}
+                    <Card>
+                        <CardHeader>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <div className="min-w-0 flex-1">
+                                    <CardTitle>Recetas que apuntan a un alimento inexistente</CardTitle>
+                                    <CardDescription>
+                                        Al renombrar o borrar un alimento, las recetas que lo usaban se quedan
+                                        apuntando al nombre viejo y esa línea pasa a sumar 0. Esto revisa el recetario
+                                        global <strong>y las recetas privadas de cada usuario</strong>, y al
+                                        reapuntarlas recalcula sus macros.
+                                    </CardDescription>
+                                </div>
+                                <Button variant="outline" onClick={scanOrphans} disabled={scanning}>
+                                    {scanning ? 'Revisando…' : 'Revisar recetas'}
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        {orphans !== null && (
+                            <CardContent className="space-y-2">
+                                {orphans.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground">
+                                        Ninguna referencia rota. Todas las recetas resuelven sus ingredientes.
+                                    </p>
+                                ) : (
+                                    orphans.map((o) => {
+                                        const key = ingredientKey(o.name, o.brand);
+                                        return (
+                                            <div key={key} className="flex flex-wrap items-center gap-3 rounded-md border p-3 text-sm">
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="font-medium">
+                                                        {o.name}
+                                                        {o.brand && <span className="text-muted-foreground"> · {o.brand}</span>}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {o.uses} línea(s){o.inUserRecipes && ', incluye recetas de usuarios'} ·{' '}
+                                                        {o.sampleRecipes.join(', ')}
+                                                    </p>
+                                                </div>
+                                                <select
+                                                    className="h-9 rounded-md border bg-background px-2 text-sm"
+                                                    value={orphanTarget[key] ?? ''}
+                                                    onChange={(e) => setOrphanTarget((p) => ({ ...p, [key]: e.target.value }))}
+                                                >
+                                                    <option value="">Apuntar a…</option>
+                                                    {sortedIngredients.map((i) => (
+                                                        <option key={i.id} value={i.id}>
+                                                            {i.name}
+                                                            {i.brand ? ` · ${i.brand}` : ''}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <Button
+                                                    size="sm"
+                                                    disabled={!orphanTarget[key] || fixingOrphan === key}
+                                                    onClick={() => fixOrphan(o)}
+                                                >
+                                                    {fixingOrphan === key ? 'Arreglando…' : 'Arreglar'}
+                                                </Button>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </CardContent>
+                        )}
+                    </Card>
 
                     {/* Crudo o cocido sin especificar: el error que más distorsiona
                         los macros, porque multiplica por tres, no por poco. */}

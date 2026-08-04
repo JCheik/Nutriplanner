@@ -2,6 +2,7 @@
 
 import { initializeFirebase } from '@/firebase/server-init';
 import { deleteAccountCompletely } from '@/lib/delete-account';
+import { findOrphanRefs, retargetOrphanRef } from '@/lib/orphan-ingredients';
 import { verifyAuth, verifyAdmin } from '@/lib/verify-auth';
 import type { Recipe } from '@/lib/types';
 import { UserRecord } from 'firebase-admin/auth';
@@ -169,6 +170,55 @@ export async function deleteUserAccount(idToken: string, uid: string) {
         // "no pasa nada al pulsar".
         const detail = error?.message ? ` (${error.message})` : '';
         return { success: false, error: `No se pudo eliminar el usuario.${detail}` };
+    }
+}
+
+/**
+ * Referencias rotas de ingredientes en TODAS las recetas, incluidas las
+ * privadas de cada usuario. Va por Server Action y no desde el panel porque el
+ * cliente no puede escribir en las recetas de otro: las rules solo le dejan
+ * leerlas. Ver `lib/orphan-ingredients.ts`.
+ */
+export async function listOrphanIngredients(idToken: string) {
+    try {
+        await verifyAdmin(idToken);
+    } catch (error) {
+        return authErrorResult(error);
+    }
+    try {
+        const { firestore } = initializeFirebase();
+        return { success: true as const, orphans: await findOrphanRefs(firestore) };
+    } catch (error: any) {
+        console.error("Server Action 'listOrphanIngredients' failed:", error);
+        return { success: false as const, error: `No se pudieron revisar las recetas.${error?.message ? ` (${error.message})` : ''}` };
+    }
+}
+
+/** Reapunta una referencia rota a un alimento del catálogo y recalcula macros. */
+export async function fixOrphanIngredient(
+    idToken: string,
+    from: { name: string; brand?: string },
+    toIngredientId: string
+) {
+    try {
+        await verifyAdmin(idToken);
+    } catch (error) {
+        return authErrorResult(error);
+    }
+    try {
+        const { firestore } = initializeFirebase();
+        const { recipesUpdated, userRecipesUpdated } = await retargetOrphanRef(firestore, from, toIngredientId);
+        return {
+            success: true as const,
+            message:
+                recipesUpdated === 0
+                    ? 'No había ninguna receta usándolo.'
+                    : `${recipesUpdated} receta(s) actualizadas y con sus macros recalculados` +
+                      `${userRecipesUpdated > 0 ? `, ${userRecipesUpdated} de usuarios` : ''}.`,
+        };
+    } catch (error: any) {
+        console.error("Server Action 'fixOrphanIngredient' failed:", error);
+        return { success: false as const, error: `No se pudo arreglar.${error?.message ? ` (${error.message})` : ''}` };
     }
 }
 
