@@ -273,6 +273,17 @@ Do NOT try to balance across all meals simultaneously — just minimise the gap 
       if (interview.favoriteFoods.length > 0) {
         interviewRules.push(`FAVOURITES: the user loves: ${interview.favoriteFoods.join(', ')}. When several eligible recipes fit a slot equally well, prefer one featuring a favourite. Spread favourites across the week rather than stacking them all in one day.`);
       }
+      // Platos elegidos a dedo por el usuario. Van con los ids reales para que
+      // el modelo no tenga que adivinar cuál es: es lo más cerca de una orden
+      // directa que hay en toda la entrevista.
+      if (interview.favoriteRecipes?.length) {
+        const list = interview.favoriteRecipes
+          .map((r) => `"${r.name}" (id ${r.recipeId}) ${r.perWeek}×`)
+          .join(', ');
+        interviewRules.push(
+          `MUST-HAVE DISHES (highest priority after allergies): the user hand-picked these and how many times a week they want them: ${list}. Place each one that many times, spread across different days, BEFORE filling the remaining slots with anything else. Only skip one if its id is not in the slot's eligibleRecipeIds anywhere in the week.`
+        );
+      }
       const wishes: string[] = [];
       if (interview.weeklyWishes.legumbres) wishes.push(`at least ${interview.weeklyWishes.legumbres} legume dish(es) (lentejas, garbanzos, alubias…)`);
       if (interview.weeklyWishes.vegetariano) wishes.push(`at least ${interview.weeklyWishes.vegetariano} vegetarian dish(es)`);

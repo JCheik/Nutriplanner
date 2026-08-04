@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState, type Dispatch, type SetStateAction } from 'react';
+import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -8,9 +8,10 @@ import { ChefieMascot, type ChefiePose } from '@/components/chefie-mascot';
 import { Fonts, Radii } from '@/constants/theme';
 import { useAuthUser } from '@/firebase/auth-context';
 import { saveNutriInterview } from '@/firebase/profile-operations';
-import { useProfile } from '@/hooks/use-nutrilp-data';
+import { useProfile, useRecipes } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
 import { DIET_TAGS } from '@/lib/constants';
+import { normalizeText } from '@/lib/utils';
 import type { DietTag, NutriInterview } from '@/lib/types';
 
 /**
@@ -156,6 +157,25 @@ export default function EntrevistaScreen() {
   const [quickWeekdays, setQuickWeekdays] = useState(saved?.quickWeekdays ?? false);
   const [freeMeals, setFreeMeals] = useState(saved?.freeMealsPerWeek ?? 0);
   const [recipeSource, setRecipeSource] = useState<'mias' | 'todas'>(saved?.recipeSource ?? 'todas');
+  const [favoriteRecipes, setFavoriteRecipes] = useState<{ recipeId: string; name: string; perWeek: number }[]>(
+    saved?.favoriteRecipes ?? []
+  );
+  const [dishQuery, setDishQuery] = useState('');
+
+  // El catálogo del que se eligen los platos fijos. Respeta lo que haya
+  // marcado arriba: si planifica solo con las suyas, ofrecer las de Nutrilp
+  // sería prometerle platos que luego no va a colocar.
+  const { userRecipes, globalRecipes } = useRecipes();
+  const pickable = useMemo(
+    () => (recipeSource === 'mias' ? userRecipes : [...userRecipes, ...globalRecipes]),
+    [recipeSource, userRecipes, globalRecipes]
+  );
+  const dishMatches = useMemo(() => {
+    const q = normalizeText(dishQuery.trim());
+    if (!q) return [];
+    const chosen = new Set(favoriteRecipes.map((f) => f.recipeId));
+    return pickable.filter((r) => !chosen.has(r.id) && normalizeText(r.name).includes(q)).slice(0, 6);
+  }, [dishQuery, pickable, favoriteRecipes]);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -181,6 +201,7 @@ export default function EntrevistaScreen() {
         quickWeekdays,
         ...(freeMeals > 0 ? { freeMealsPerWeek: freeMeals } : {}),
         recipeSource,
+        ...(favoriteRecipes.length > 0 ? { favoriteRecipes } : {}),
         updatedAt: new Date().toISOString(),
       };
       await saveNutriInterview(user.uid, interview);
@@ -335,6 +356,99 @@ export default function EntrevistaScreen() {
           {recipeSource === 'mias' ? (
             <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 16 }}>
               Ojo: si tienes pocas recetas guardadas, me quedaré sin con qué llenar la semana.
+            </Text>
+          ) : null}
+        </View>
+      ),
+    },
+    {
+      key: 'fijos',
+      pose: 'thumbsup',
+      label: 'PLATOS FIJOS',
+      says: '¿Hay algún plato que quieras sí o sí cada semana? Búscalo y dime cuántas veces. Esos los coloco antes que nada.',
+      body: (
+        <View style={{ gap: 8 }}>
+          <TextInput
+            style={[styles.input, { borderColor: c.line, backgroundColor: c.surface, color: c.ink, fontFamily: Fonts.sans }]}
+            value={dishQuery}
+            onChangeText={setDishQuery}
+            placeholder="Busca un plato por su nombre…"
+            placeholderTextColor={c.inkSoft}
+            autoCapitalize="none"
+            accessibilityLabel="Buscar un plato para fijarlo"
+          />
+
+          {dishQuery.trim() && dishMatches.length === 0 ? (
+            <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans }}>
+              Nada con ese nombre entre las recetas con las que te planifico.
+            </Text>
+          ) : null}
+
+          {dishMatches.map((r) => (
+            <Pressable
+              key={r.id}
+              onPress={() => {
+                setFavoriteRecipes((prev) => [...prev, { recipeId: r.id, name: r.name, perWeek: 1 }]);
+                setDishQuery('');
+              }}
+              style={[styles.optionWide, { borderColor: c.line, backgroundColor: c.surface }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Fijar ${r.name}`}
+            >
+              <Text style={{ flex: 1, fontSize: 13, color: c.ink, fontFamily: Fonts.sans }} numberOfLines={1}>
+                {r.name}
+              </Text>
+              <Ionicons name="add-circle-outline" size={18} color={c.terra} />
+            </Pressable>
+          ))}
+
+          {favoriteRecipes.map((f) => (
+            <View
+              key={f.recipeId}
+              style={[styles.stepperRow, { borderColor: c.terra, backgroundColor: c.terraSoft }]}
+            >
+              <Text style={{ flex: 1, fontSize: 13, color: c.ink, fontFamily: Fonts.sans }} numberOfLines={1}>
+                {f.name}
+              </Text>
+              <Pressable
+                onPress={() =>
+                  setFavoriteRecipes((prev) =>
+                    prev.flatMap((x) =>
+                      x.recipeId !== f.recipeId
+                        ? [x]
+                        : x.perWeek <= 1
+                          ? [] // bajar de 1 lo quita de la lista
+                          : [{ ...x, perWeek: x.perWeek - 1 }]
+                    )
+                  )
+                }
+                style={[styles.roundBtn, { borderColor: c.line }]}
+                accessibilityRole="button"
+                accessibilityLabel={`Menos ${f.name}`}
+              >
+                <Ionicons name="remove" size={15} color={c.inkSoft} />
+              </Pressable>
+              <Text style={{ minWidth: 34, textAlign: 'center', fontSize: 14, fontWeight: '700', color: c.ink, fontFamily: Fonts.serif }}>
+                {f.perWeek}×
+              </Text>
+              <Pressable
+                onPress={() =>
+                  setFavoriteRecipes((prev) =>
+                    prev.map((x) => (x.recipeId === f.recipeId ? { ...x, perWeek: Math.min(7, x.perWeek + 1) } : x))
+                  )
+                }
+                style={[styles.roundBtn, { borderColor: c.line }]}
+                accessibilityRole="button"
+                accessibilityLabel={`Más ${f.name}`}
+              >
+                <Ionicons name="add" size={15} color={c.inkSoft} />
+              </Pressable>
+            </View>
+          ))}
+
+          {favoriteRecipes.length === 0 ? (
+            <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 16 }}>
+              Si no fijas ninguno, monto la semana libremente con tus gustos.
             </Text>
           ) : null}
         </View>

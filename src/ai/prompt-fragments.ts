@@ -25,6 +25,9 @@ export const NutriInterviewPromptSchema = z.object({
   maxRepeatsPerRecipe: z.number().int().min(2).max(7).optional(),
   quickWeekdays: z.boolean(),
   freeMealsPerWeek: z.number().int().min(0).max(3).optional(),
+  favoriteRecipes: z
+    .array(z.object({ recipeId: z.string(), name: z.string(), perWeek: z.number().int().min(1).max(7) }))
+    .optional(),
 });
 export type InterviewForPrompt = z.infer<typeof NutriInterviewPromptSchema>;
 
@@ -45,6 +48,10 @@ export function interviewInstruction(interview?: InterviewForPrompt | null): str
   }
   if (interview.favoriteFoods.length > 0) {
     lines.push(`- Le encantan: ${interview.favoriteFoods.join(', ')}. Úsalos como inspiración cuando encajen.`);
+  }
+  if (interview.favoriteRecipes?.length) {
+    const list = interview.favoriteRecipes.map((r) => `"${r.name}" ×${r.perWeek}`).join(', ');
+    lines.push(`- Platos fijos que quiere cada semana: ${list}. Son PLATOS CONCRETOS que ha elegido él, no una sugerencia: colócalos ese número de veces antes de rellenar con nada más.`);
   }
   const wishes: string[] = [];
   if (interview.weeklyWishes.legumbres) wishes.push(`${interview.weeklyWishes.legumbres}× legumbres`);

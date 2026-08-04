@@ -219,6 +219,14 @@ export interface NutriInterview {
    * usuario; 'todas' (por defecto) añade el recetario de Nutrilp. Ausente
    * equivale a 'todas', que es como se comportaba antes de existir el campo. */
   recipeSource?: 'mias' | 'todas';
+  /**
+   * Platos concretos que el usuario quiere ver sí o sí, y cuántas veces por
+   * semana. Es el paso siguiente a `weeklyWishes`, que solo entiende de
+   * categorías ("3 de legumbres"): aquí se pide un PLATO. Se guarda el nombre
+   * junto al id para que la IA lo lea sin resolver nada y para que la lista
+   * siga teniendo sentido si la receta desaparece.
+   */
+  favoriteRecipes?: { recipeId: string; name: string; perWeek: number }[];
   /** ISO date of the last time the interview was saved. */
   updatedAt: string;
 }

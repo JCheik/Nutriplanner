@@ -18,6 +18,7 @@ export interface InterviewForAi {
   maxRepeatsPerRecipe?: number;
   quickWeekdays: boolean;
   freeMealsPerWeek?: number;
+  favoriteRecipes?: { recipeId: string; name: string; perWeek: number }[];
 }
 
 /** Recorta el perfil guardado a lo que la IA usa (mismo criterio que la web). */
@@ -32,6 +33,7 @@ export function interviewForAi(interview: NutriInterview | undefined | null): In
     ...(interview.maxRepeatsPerRecipe ? { maxRepeatsPerRecipe: interview.maxRepeatsPerRecipe } : {}),
     quickWeekdays: interview.quickWeekdays,
     ...(interview.freeMealsPerWeek ? { freeMealsPerWeek: interview.freeMealsPerWeek } : {}),
+    ...(interview.favoriteRecipes?.length ? { favoriteRecipes: interview.favoriteRecipes } : {}),
   };
 }
 
