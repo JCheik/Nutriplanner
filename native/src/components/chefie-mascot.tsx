@@ -44,8 +44,10 @@ const SPRITES: Record<ChefiePose, { src: number; ratio: number }> = {
   celebrate: { src: require('../../assets/images/chefie/chefie-celebrate.png'), ratio: 380 / 420 },
   thumbsup: { src: require('../../assets/images/chefie/chefie-thumbsup.png'), ratio: 353 / 420 },
   whisk: { src: require('../../assets/images/chefie/chefie-whisk.png'), ratio: 332 / 420 },
-  thinking: { src: require('../../assets/images/chefie/chefie-thinking.png'), ratio: 361 / 420 },
-  serve: { src: require('../../assets/images/chefie/chefie-serve.png'), ratio: 436 / 420 },
+  // thinking y serve se recortaron de nuevo el 2026-08-04: el corte por la
+  // mitad partía el cloche de serve, que se mete en la celda de thinking.
+  thinking: { src: require('../../assets/images/chefie/chefie-thinking.png'), ratio: 323 / 420 },
+  serve: { src: require('../../assets/images/chefie/chefie-serve.png'), ratio: 457 / 420 },
   interview: { src: require('../../assets/images/chefie/chefie-interview.png'), ratio: 314 / 420 },
   inventory: { src: require('../../assets/images/chefie/chefie-inventory.png'), ratio: 322 / 420 },
   rolling: { src: require('../../assets/images/chefie/chefie-rolling.png'), ratio: 322 / 420 },

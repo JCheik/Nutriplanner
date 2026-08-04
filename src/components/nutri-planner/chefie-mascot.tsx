@@ -50,8 +50,10 @@ const SPRITES: Record<ChefiePose, { file: string; ratio: number }> = {
   celebrate: { file: 'chefie-celebrate.png', ratio: 380 / 420 },
   thumbsup: { file: 'chefie-thumbsup.png', ratio: 353 / 420 },
   whisk: { file: 'chefie-whisk.png', ratio: 332 / 420 },
-  thinking: { file: 'chefie-thinking.png', ratio: 361 / 420 },
-  serve: { file: 'chefie-serve.png', ratio: 436 / 420 },
+  // thinking y serve se recortaron de nuevo el 2026-08-04: el corte por la
+  // mitad partía el cloche de serve, que se mete en la celda de thinking.
+  thinking: { file: 'chefie-thinking.png', ratio: 323 / 420 },
+  serve: { file: 'chefie-serve.png', ratio: 457 / 420 },
   interview: { file: 'chefie-interview.png', ratio: 314 / 420 },
   inventory: { file: 'chefie-inventory.png', ratio: 322 / 420 },
   rolling: { file: 'chefie-rolling.png', ratio: 322 / 420 },
