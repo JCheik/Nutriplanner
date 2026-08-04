@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useState, type Dispatch, type SetStateAction } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ChefieMascot, type ChefiePose } from '@/components/chefie-mascot';
 import { Fonts, Radii } from '@/constants/theme';
 import { useAuthUser } from '@/firebase/auth-context';
 import { saveNutriInterview } from '@/firebase/profile-operations';
@@ -102,7 +103,9 @@ function Stepper({
 }: {
   label: string;
   value: number;
-  onChange: (v: number) => void;
+  // Acepta actualizador, no un número ya calculado: con el valor capturado en
+  // el render, tocar rápido tres veces solo contaba una.
+  onChange: Dispatch<SetStateAction<number>>;
   min: number;
   max: number;
 }) {
@@ -111,7 +114,7 @@ function Stepper({
     <View style={[styles.stepperRow, { borderColor: c.line, backgroundColor: c.surface }]}>
       <Text style={{ flex: 1, fontSize: 13, color: c.ink, fontFamily: Fonts.sans }}>{label}</Text>
       <Pressable
-        onPress={() => onChange(Math.max(min, value - 1))}
+        onPress={() => onChange((prev) => Math.max(min, prev - 1))}
         style={[styles.roundBtn, { borderColor: c.line }]}
         accessibilityRole="button"
         accessibilityLabel={`Menos ${label}`}
@@ -122,7 +125,7 @@ function Stepper({
         {value}
       </Text>
       <Pressable
-        onPress={() => onChange(Math.min(max, value + 1))}
+        onPress={() => onChange((prev) => Math.min(max, prev + 1))}
         style={[styles.roundBtn, { borderColor: c.line }]}
         accessibilityRole="button"
         accessibilityLabel={`Más ${label}`}
@@ -156,6 +159,7 @@ export default function EntrevistaScreen() {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stepIndex, setStepIndex] = useState(0);
 
   const handleSave = async () => {
     if (!user || saving) return;
@@ -190,33 +194,30 @@ export default function EntrevistaScreen() {
   const toggleDiet = (d: DietTag) =>
     setDietTags((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
 
-  return (
-    <View style={{ flex: 1, backgroundColor: c.ground, paddingTop: insets.top + 10 }}>
-      <View style={styles.header}>
-        <Pressable
-          onPress={() => router.back()}
-          style={[styles.iconBtn, { borderColor: c.line }]}
-          accessibilityRole="button"
-          accessibilityLabel="Volver"
-        >
-          <Ionicons name="arrow-back" size={17} color={c.inkSoft} />
-        </Pressable>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{ fontSize: 21, fontWeight: '700', color: c.ink, fontFamily: Fonts.serif }}>La entrevista</Text>
-          <Text style={{ fontSize: 12, color: c.inkSoft, fontFamily: Fonts.sans }}>
-            Cuanto mejor te conozca, mejor te planifico
-          </Text>
-        </View>
-      </View>
-
-      <ScrollView contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 24 }]}>
-        <Text style={[styles.label, { color: c.inkSoft, fontFamily: Fonts.sans }]}>TU DIETA</Text>
+  /**
+   * La entrevista, un bloque por pantalla y con Chefie contándola.
+   *
+   * Era un scroll único con nueve secciones seguidas: se rellenaba, pero se
+   * leía como un formulario de gestoría y no se entendía POR QUÉ se preguntaba
+   * cada cosa. Troceada, cada bloque viene con su explicación en la voz de
+   * Chefie, que es donde se justifica solo.
+   */
+  const steps: { key: string; pose: ChefiePose; says: string; label: string; body: React.ReactNode }[] = [
+    {
+      key: 'dieta',
+      pose: 'explain',
+      label: 'TU DIETA',
+      says: 'Empecemos por lo básico: ¿sigues alguna dieta en concreto? Si no, deja «Sin preferencia» y seguimos.',
+      body: (
         <View style={styles.chipRow}>
           <Pressable
             onPress={() => setDietTags([])}
             style={[
               styles.chip,
-              { borderColor: dietTags.length === 0 ? c.terra : c.line, backgroundColor: dietTags.length === 0 ? c.terraSoft : c.surface },
+              {
+                borderColor: dietTags.length === 0 ? c.terra : c.line,
+                backgroundColor: dietTags.length === 0 ? c.terraSoft : c.surface,
+              },
             ]}
             accessibilityRole="button"
             accessibilityState={{ selected: dietTags.length === 0 }}
@@ -238,45 +239,77 @@ export default function EntrevistaScreen() {
             );
           })}
         </View>
-
+      ),
+    },
+    {
+      key: 'encanta',
+      pose: 'thumbsup',
+      label: 'LO QUE TE ENCANTA',
+      says: 'Dime platos o alimentos que te encanten y los sacaré a menudo. Con unos pocos me vale.',
+      body: (
         <ChipsField
           label="LO QUE TE ENCANTA"
-          hint="Platos o alimentos que quieres ver a menudo en tu plan."
           values={favoriteFoods}
           onChange={setFavoriteFoods}
           placeholder="ej. salmón, lentejas…"
         />
-
+      ),
+    },
+    {
+      key: 'evitar',
+      pose: 'shrug',
+      label: 'LO QUE PREFIERES EVITAR',
+      says: 'Y lo que no te apetece ver. Esto no es una alergia: si algún día me lo pides tú, te lo pongo igual.',
+      body: (
         <ChipsField
           label="LO QUE PREFIERES EVITAR"
-          hint="No te gustan. Los evitaré salvo que me los pidas expresamente."
           values={avoidFoods}
           onChange={setAvoidFoods}
           placeholder="ej. brócoli, hígado…"
         />
-
+      ),
+    },
+    {
+      key: 'alergias',
+      pose: 'point',
+      label: 'ALERGIAS E INTOLERANCIAS',
+      says: 'Esto va en serio: lo que pongas aquí no aparecerá nunca en nada que te proponga. Ni rastro, ni por error.',
+      body: (
         <ChipsField
           label="ALERGIAS E INTOLERANCIAS"
-          hint="Prohibición absoluta: nunca aparecerán en nada que te proponga."
           values={allergies}
           onChange={setAllergies}
           placeholder="ej. frutos secos, lactosa…"
           tone="sage"
         />
-
-        <Text style={[styles.label, { color: c.inkSoft, fontFamily: Fonts.sans }]}>CADA SEMANA QUIERO AL MENOS…</Text>
+      ),
+    },
+    {
+      key: 'semanal',
+      pose: 'whisk',
+      label: 'CADA SEMANA QUIERO AL MENOS…',
+      says: '¿Quieres asegurarte un mínimo de algo cada semana? Déjalo a cero si te da igual y lo reparto yo.',
+      body: (
         <View style={{ gap: 6 }}>
           <Stepper label="Comidas de legumbres" value={legumbres} onChange={setLegumbres} min={0} max={7} />
           <Stepper label="Comidas vegetarianas" value={vegetariano} onChange={setVegetariano} min={0} max={7} />
           <Stepper label="Comidas de pescado" value={pescado} onChange={setPescado} min={0} max={7} />
         </View>
-
-        <Text style={[styles.label, { color: c.inkSoft, fontFamily: Fonts.sans }]}>CON QUÉ RECETAS TE PLANIFICO</Text>
+      ),
+    },
+    {
+      key: 'recetas',
+      pose: 'serve',
+      label: 'CON QUÉ RECETAS TE PLANIFICO',
+      says: '¿Tiro solo de tus recetas, o también del recetario de Nutrilp? Con los dos hay bastante más variedad.',
+      body: (
         <View style={{ gap: 6 }}>
-          {([
-            ['todas', 'Las mías y las de Nutrilp', 'Más variedad: tiro también del recetario de Nutrilp.'],
-            ['mias', 'Solo mis recetas', 'Uso únicamente las que tú has guardado.'],
-          ] as const).map(([v, title, desc]) => (
+          {(
+            [
+              ['todas', 'Las mías y las de Nutrilp', 'Más variedad: tiro también del recetario de Nutrilp.'],
+              ['mias', 'Solo mis recetas', 'Uso únicamente las que tú has guardado.'],
+            ] as const
+          ).map(([v, title, desc]) => (
             <Pressable
               key={v}
               onPress={() => setRecipeSource(v)}
@@ -297,27 +330,36 @@ export default function EntrevistaScreen() {
               {recipeSource === v ? <Ionicons name="checkmark-circle" size={18} color={c.terra} /> : null}
             </Pressable>
           ))}
-          {/* Con pocas recetas propias, "solo las mías" deja la semana a medias:
-              mejor avisar aquí que dejar que el autocompletado falle luego. */}
           {recipeSource === 'mias' ? (
             <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 16 }}>
               Ojo: si tienes pocas recetas guardadas, me quedaré sin con qué llenar la semana.
             </Text>
           ) : null}
         </View>
-
-        <Text style={[styles.label, { color: c.inkSoft, fontFamily: Fonts.sans }]}>VARIEDAD</Text>
+      ),
+    },
+    {
+      key: 'variedad',
+      pose: 'idle',
+      label: 'VARIEDAD',
+      says: '¿Prefieres no repetir plato, o cocinas en tandas y te viene bien comer lo mismo un par de veces?',
+      body: (
         <View style={{ gap: 6 }}>
-          {([
-            ['variedad', 'Máxima variedad', 'Que casi no se repitan los platos.'],
-            ['repetir', 'No me importa repetir', 'Cocino en tandas y reaprovecho (batch cooking).'],
-          ] as const).map(([v, title, desc]) => (
+          {(
+            [
+              ['variedad', 'Máxima variedad', 'Que casi no se repitan los platos.'],
+              ['repetir', 'No me importa repetir', 'Cocino en tandas y reaprovecho (batch cooking).'],
+            ] as const
+          ).map(([v, title, desc]) => (
             <Pressable
               key={v}
               onPress={() => setVariety(v)}
               style={[
                 styles.optionWide,
-                { borderColor: variety === v ? c.terra : c.line, backgroundColor: variety === v ? c.terraSoft : c.surface },
+                {
+                  borderColor: variety === v ? c.terra : c.line,
+                  backgroundColor: variety === v ? c.terraSoft : c.surface,
+                },
               ]}
               accessibilityRole="button"
               accessibilityState={{ selected: variety === v }}
@@ -330,11 +372,23 @@ export default function EntrevistaScreen() {
             </Pressable>
           ))}
           {variety === 'repetir' ? (
-            <Stepper label="Veces que puede repetirse un plato" value={maxRepeats} onChange={setMaxRepeats} min={2} max={7} />
+            <Stepper
+              label="Veces que puede repetirse un plato"
+              value={maxRepeats}
+              onChange={setMaxRepeats}
+              min={2}
+              max={7}
+            />
           ) : null}
         </View>
-
-        <Text style={[styles.label, { color: c.inkSoft, fontFamily: Fonts.sans }]}>ENTRE SEMANA</Text>
+      ),
+    },
+    {
+      key: 'semana',
+      pose: 'thinking',
+      label: 'ENTRE SEMANA',
+      says: 'De lunes a viernes suele haber menos tiempo. ¿Te tiro de recetas rápidas?',
+      body: (
         <Pressable
           onPress={() => setQuickWeekdays((q) => !q)}
           style={[
@@ -352,33 +406,98 @@ export default function EntrevistaScreen() {
           </View>
           {quickWeekdays ? <Ionicons name="checkmark-circle" size={18} color={c.terra} /> : null}
         </Pressable>
+      ),
+    },
+    {
+      key: 'libres',
+      pose: 'celebrate',
+      label: 'COMIDAS LIBRES',
+      says: 'Y lo último: las comidas que harás fuera del plan. Una cena con amigos, un capricho. Te dejo hueco en la semana contando con ellas.',
+      body: (
+        <View style={{ gap: 8 }}>
+          <Stepper label="Comidas libres por semana" value={freeMeals} onChange={setFreeMeals} min={0} max={3} />
+          {/* Que quede claro que la reserva es una estimación, no una promesa,
+              y que pasarse tampoco es grave: es el punto entero de la función. */}
+          {freeMeals > 0 ? (
+            <View style={[styles.noteBox, { borderColor: c.line, backgroundColor: c.surface }]}>
+              <Text style={{ fontSize: 12, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 18 }}>
+                Calculo unas 1.200 kcal por comida fuera y te reservo la diferencia con la que te saltas. Pero no es
+                lo mismo una pizza mediana que una familiar con pan de ajo: si te pasas bastante, el plan seguirá
+                siendo útil, solo que menos exacto. Y no pasa nada, que para eso están.
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      ),
+    },
+  ];
 
-        <Text style={[styles.label, { color: c.inkSoft, fontFamily: Fonts.sans }]}>COMIDAS LIBRES</Text>
-        <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 16 }}>
-          Comidas a la semana que harás fuera del plan (una cena con amigos, un capricho). Forman parte del plan, no
-          son un fallo. Al planificarte tiro un poco a la baja, y el día que salgas borra del cuadrante la comida que
-          te saltes: ese es el hueco de verdad.
-        </Text>
-        <Stepper label="Comidas libres por semana" value={freeMeals} onChange={setFreeMeals} min={0} max={3} />
+  const step = steps[stepIndex];
+  const isLast = stepIndex === steps.length - 1;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: c.ground, paddingTop: insets.top + 10 }}>
+      <View style={styles.header}>
+        <Pressable
+          onPress={() => (stepIndex === 0 ? router.back() : setStepIndex((s) => s - 1))}
+          style={[styles.iconBtn, { borderColor: c.line }]}
+          accessibilityRole="button"
+          accessibilityLabel={stepIndex === 0 ? 'Volver' : 'Paso anterior'}
+        >
+          <Ionicons name="arrow-back" size={17} color={c.inkSoft} />
+        </Pressable>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={{ fontSize: 19, fontWeight: '700', color: c.ink, fontFamily: Fonts.serif }}>La entrevista</Text>
+          <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans }}>
+            {step.label} · {stepIndex + 1} de {steps.length}
+          </Text>
+        </View>
+      </View>
+
+      <View style={[styles.progressTrack, { backgroundColor: c.line }]}>
+        <View
+          style={[styles.progressFill, { backgroundColor: c.terra, width: `${((stepIndex + 1) / steps.length) * 100}%` }]}
+        />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        <View style={styles.chefieRow}>
+          <ChefieMascot pose={step.pose} size={78} />
+          <View style={[styles.bubble, { borderColor: c.line, backgroundColor: c.surface }]}>
+            <Text style={{ fontSize: 13, color: c.ink, fontFamily: Fonts.sans, lineHeight: 19 }}>{step.says}</Text>
+          </View>
+        </View>
+
+        {step.body}
 
         {error ? <Text style={{ fontSize: 12.5, color: c.terra, fontFamily: Fonts.sans }}>{error}</Text> : null}
-
-        <Pressable
-          onPress={handleSave}
-          disabled={saving}
-          style={[styles.primaryBtn, { backgroundColor: c.terra }, saving && { opacity: 0.6 }]}
-          accessibilityRole="button"
-          accessibilityLabel="Guardar entrevista"
-        >
-          {saving ? (
-            <ActivityIndicator color="#FFF" />
-          ) : (
-            <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 14, fontFamily: Fonts.sans }}>
-              Guardar entrevista
-            </Text>
-          )}
-        </Pressable>
       </ScrollView>
+
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 12, borderTopColor: c.line }]}>
+        {stepIndex > 0 ? (
+          <Pressable
+            onPress={() => setStepIndex((s) => s - 1)}
+            style={[styles.navBtn, { borderWidth: 1.5, borderColor: c.line }]}
+            accessibilityRole="button"
+            accessibilityLabel="Atrás"
+          >
+            <Text style={{ fontSize: 13, fontWeight: '700', color: c.inkSoft, fontFamily: Fonts.sans }}>Atrás</Text>
+          </Pressable>
+        ) : null}
+        <View style={{ flex: 1 }} />
+        <Pressable
+          onPress={() => (isLast ? handleSave() : setStepIndex((s) => s + 1))}
+          disabled={saving}
+          style={[styles.navBtn, { backgroundColor: c.terra, flexDirection: 'row', gap: 6 }, saving && { opacity: 0.6 }]}
+          accessibilityRole="button"
+          accessibilityLabel={isLast ? 'Guardar la entrevista' : 'Siguiente'}
+        >
+          <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFF', fontFamily: Fonts.sans }}>
+            {isLast ? (saving ? 'Guardando…' : 'Guardar') : 'Siguiente'}
+          </Text>
+          <Ionicons name={isLast ? 'checkmark' : 'arrow-forward'} size={14} color="#FFF" />
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -419,5 +538,19 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   roundBtn: { width: 28, height: 28, borderWidth: 1.2, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  primaryBtn: { borderRadius: Radii.card, paddingVertical: 14, alignItems: 'center', marginTop: 10 },
+
+  progressTrack: { height: 3, marginHorizontal: 18, borderRadius: 2, overflow: 'hidden', marginBottom: 4 },
+  progressFill: { height: 3, borderRadius: 2 },
+  chefieRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 8, marginBottom: 4 },
+  bubble: { flex: 1, borderWidth: 1.5, borderRadius: Radii.card, paddingHorizontal: 12, paddingVertical: 11 },
+  noteBox: { borderWidth: 1.2, borderRadius: Radii.card, paddingHorizontal: 12, paddingVertical: 10 },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  navBtn: { borderRadius: Radii.card, paddingHorizontal: 18, paddingVertical: 11, alignItems: 'center', justifyContent: 'center' },
 });
