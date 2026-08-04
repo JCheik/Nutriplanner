@@ -205,7 +205,9 @@ export default function EntrevistaScreen() {
   const steps: { key: string; pose: ChefiePose; says: string; label: string; body: React.ReactNode }[] = [
     {
       key: 'dieta',
-      pose: 'explain',
+      // Chefie con la tablet del cuestionario: el objeto que lleva dice
+      // literalmente dónde estás.
+      pose: 'interview',
       label: 'TU DIETA',
       says: 'Empecemos por lo básico: ¿sigues alguna dieta en concreto? Si no, deja «Sin preferencia» y seguimos.',
       body: (

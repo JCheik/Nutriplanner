@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ChefieMascot } from '@/components/chefie-mascot';
 import { Fonts, Radii } from '@/constants/theme';
 import { useRecipes } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
@@ -201,6 +202,22 @@ export default function CocinaScreen() {
           </>
         ) : null}
 
+        {/* Al llegar al último paso no pasaba nada: el botón «Siguiente» se
+            apagaba y ya. Terminar de cocinar merece un cierre. */}
+        {steps.length > 0 && stepIndex === steps.length - 1 ? (
+          <View style={[styles.card, styles.doneCard, { borderColor: c.sage, backgroundColor: c.sageSoft }]}>
+            <ChefieMascot pose="cooking" size={96} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: c.ink, fontFamily: Fonts.serif }}>
+                ¡Y con esto ya está!
+              </Text>
+              <Text style={{ fontSize: 12.5, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 18 }}>
+                Que aproveche. Si te ha quedado buena, acuérdate de guardar la semana en tu historial.
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         {timerSeconds !== null ? (
           <View style={[styles.card, styles.timerCard, { borderColor: c.terra, backgroundColor: c.terraSoft }]}>
             <Text style={{ fontSize: 30, fontWeight: '800', color: c.ink, fontFamily: Fonts.serif }}>
@@ -256,6 +273,7 @@ const styles = StyleSheet.create({
   check: { width: 17, height: 17, borderWidth: 1.5, borderRadius: 5, alignItems: 'center', justifyContent: 'center' },
   timerBtn: { borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7 },
   timerCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  doneCard: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   navRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 18, paddingTop: 6 },
   navBtn: { flex: 1, borderRadius: Radii.card, paddingVertical: 13, alignItems: 'center' },
 });

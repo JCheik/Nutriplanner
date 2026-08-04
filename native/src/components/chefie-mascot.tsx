@@ -20,7 +20,14 @@ export type ChefiePose =
   | 'whisk'
   | 'thinking'
   | 'shrug'
-  | 'serve';
+  | 'serve'
+  // Añadidas el 2026-08-04. Estas tres llevan un objeto que dice de qué va la
+  // pantalla (tablet con el cuestionario, tabla de inventario, sartén), así que
+  // solo valen donde ese objeto encaja: puestas al azar, confunden.
+  | 'interview'
+  | 'inventory'
+  | 'cooking'
+  | 'rolling';
 
 /**
  * Cada sprite tiene su propia proporción (el que lleva bandeja es más ancho que
@@ -39,6 +46,10 @@ const SPRITES: Record<ChefiePose, { src: number; ratio: number }> = {
   whisk: { src: require('../../assets/images/chefie/chefie-whisk.png'), ratio: 332 / 420 },
   thinking: { src: require('../../assets/images/chefie/chefie-thinking.png'), ratio: 361 / 420 },
   serve: { src: require('../../assets/images/chefie/chefie-serve.png'), ratio: 436 / 420 },
+  interview: { src: require('../../assets/images/chefie/chefie-interview.png'), ratio: 314 / 420 },
+  inventory: { src: require('../../assets/images/chefie/chefie-inventory.png'), ratio: 322 / 420 },
+  rolling: { src: require('../../assets/images/chefie/chefie-rolling.png'), ratio: 322 / 420 },
+  cooking: { src: require('../../assets/images/chefie/chefie-cooking.png'), ratio: 367 / 420 },
 };
 
 export function ChefieMascot({ pose = 'idle', size = 96 }: { pose?: ChefiePose; size?: number }) {

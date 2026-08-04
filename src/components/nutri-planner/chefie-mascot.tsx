@@ -30,7 +30,14 @@ export type ChefiePose =
   | 'whisk'
   | 'thinking'
   | 'shrug'
-  | 'serve';
+  | 'serve'
+  // Añadidas el 2026-08-04. Estas llevan un objeto que dice de qué va la
+  // pantalla (tablet con el cuestionario, tabla de inventario, sartén), así que
+  // solo valen donde ese objeto encaja: puestas al azar, confunden.
+  | 'interview'
+  | 'inventory'
+  | 'cooking'
+  | 'rolling';
 
 /** Proporción real de cada sprite, para no deformarlos: el alto manda. */
 const SPRITES: Record<ChefiePose, { file: string; ratio: number }> = {
@@ -45,6 +52,10 @@ const SPRITES: Record<ChefiePose, { file: string; ratio: number }> = {
   whisk: { file: 'chefie-whisk.png', ratio: 332 / 420 },
   thinking: { file: 'chefie-thinking.png', ratio: 361 / 420 },
   serve: { file: 'chefie-serve.png', ratio: 436 / 420 },
+  interview: { file: 'chefie-interview.png', ratio: 314 / 420 },
+  inventory: { file: 'chefie-inventory.png', ratio: 322 / 420 },
+  rolling: { file: 'chefie-rolling.png', ratio: 322 / 420 },
+  cooking: { file: 'chefie-cooking.png', ratio: 367 / 420 },
 };
 
 export function ChefieMascot({

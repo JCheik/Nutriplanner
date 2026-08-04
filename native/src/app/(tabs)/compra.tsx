@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { ChefieMascot } from '@/components/chefie-mascot';
 import { ScreenScaffold } from '@/components/screen-scaffold';
 import { Fonts, Radii } from '@/constants/theme';
 import { useAuthUser } from '@/firebase/auth-context';
@@ -104,13 +105,19 @@ export default function CompraScreen() {
       {error ? <Text style={{ fontSize: 12.5, color: c.terra, fontFamily: Fonts.sans }}>{error}</Text> : null}
 
       {!loading && items.length === 0 ? (
-        <View style={[styles.sheet, { backgroundColor: c.note, borderColor: c.noteEdge }]}>
-          <Text style={[styles.hand, styles.sheetTitle, { color: c.notePencil }]}>Tu lista está vacía</Text>
-          <View style={[styles.rule, { backgroundColor: c.noteEdge }]} />
-          <Text style={[styles.hand, { color: c.notePencil, opacity: 0.75 }]}>
-            Genérala desde tu plan con el botón de arriba, o apunta algo a mano abajo.
-          </Text>
-        </View>
+        <>
+          <View style={[styles.sheet, { backgroundColor: c.note, borderColor: c.noteEdge }]}>
+            <Text style={[styles.hand, styles.sheetTitle, { color: c.notePencil }]}>Tu lista está vacía</Text>
+            <View style={[styles.rule, { backgroundColor: c.noteEdge }]} />
+            <Text style={[styles.hand, { color: c.notePencil, opacity: 0.75 }]}>
+              Genérala desde tu plan con el botón de arriba, o apunta algo a mano abajo.
+            </Text>
+          </View>
+          {/* Chefie con su tabla de inventario: es justo lo que falta aquí. */}
+          <View style={{ alignItems: 'center', marginTop: 4 }}>
+            <ChefieMascot pose="inventory" size={110} />
+          </View>
+        </>
       ) : (
         sections.map(([aisle, aisleItems], sheetIdx) => (
           <View
