@@ -28,6 +28,11 @@ const USER_SUBCOLLECTIONS = [
   'ingredients',
   'folders',
   'meal_plans',
+  // Contadores diarios de cuota (`lib/ai-rate-limit.ts`). No los veía nadie
+  // desde el cliente, pero son uso ligado a una persona y sobrevivían al
+  // borrado de su cuenta: justo lo que el derecho de supresión no permite.
+  'aiUsage',
+  'fetchUsage',
 ] as const;
 
 /** Máximo de operaciones por batch que acepta Firestore. */

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { consumeSocialFetchQuota } from '@/lib/ai-rate-limit';
 import { fetchImageAsDataUrl, fetchSocialMetadata, SocialUrlError } from '@/lib/social-url';
 import { verifyAuth } from '@/lib/verify-auth';
 
@@ -10,7 +11,15 @@ import { verifyAuth } from '@/lib/verify-auth';
  */
 export async function POST(req: NextRequest) {
   try {
-    await verifyAuth(req);
+    const uid = await verifyAuth(req);
+
+    // Con auth pero sin tope, esto era un proxy web para cualquiera que se
+    // registrara. Se cuenta ANTES de salir a la red, para que el límite valga
+    // aunque la página tarde o falle.
+    const quota = await consumeSocialFetchQuota(uid);
+    if (!quota.allowed) {
+      return NextResponse.json({ success: false, error: quota.message }, { status: 429 });
+    }
 
     const { url } = (await req.json()) as { url: string };
     const meta = await fetchSocialMetadata(url);
