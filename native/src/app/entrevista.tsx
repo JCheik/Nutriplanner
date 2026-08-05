@@ -223,14 +223,17 @@ export default function EntrevistaScreen() {
    * cada cosa. Troceada, cada bloque viene con su explicación en la voz de
    * Chefie, que es donde se justifica solo.
    */
-  const steps: { key: string; pose: ChefiePose; says: string; label: string; body: React.ReactNode }[] = [
+  const blocks: { key: string; pose: ChefiePose; says: string; label: string; body: React.ReactNode }[] = [
     {
       key: 'dieta',
       // Chefie con la tablet del cuestionario: el objeto que lleva dice
       // literalmente dónde estás.
       pose: 'interview',
       label: 'TU DIETA',
-      says: 'Empecemos por lo básico: ¿sigues alguna dieta en concreto? Si no, deja «Sin preferencia» y seguimos.',
+      says:
+        dietTags.length === 0
+          ? 'Empecemos por lo básico: ¿sigues alguna dieta en concreto? Si no, deja «Sin preferencia» y seguimos.'
+          : `Vale: ${dietTags.map((d) => DIET_TAGS.find((t) => t.value === d)?.label ?? d).join(' y ')}. Lo tendré presente en todo lo que te proponga.`,
       body: (
         <View style={styles.chipRow}>
           <Pressable
@@ -268,7 +271,12 @@ export default function EntrevistaScreen() {
       key: 'encanta',
       pose: 'thumbsup',
       label: 'LO QUE TE ENCANTA',
-      says: 'Dime platos o alimentos que te encanten y los sacaré a menudo. Con unos pocos me vale.',
+      says:
+        favoriteFoods.length === 0
+          ? 'Dime platos o alimentos que te encanten y los sacaré a menudo. Con unos pocos me vale.'
+          : favoriteFoods.length < 3
+            ? `Bien, ${favoriteFoods.join(' y ')}. ¿Algo más que te alegre la semana?`
+            : 'Con esta lista ya me apaño de sobra. Los iré repartiendo.',
       body: (
         <ChipsField
           label="LO QUE TE ENCANTA"
@@ -282,7 +290,10 @@ export default function EntrevistaScreen() {
       key: 'evitar',
       pose: 'shrug',
       label: 'LO QUE PREFIERES EVITAR',
-      says: 'Y lo que no te apetece ver. Esto no es una alergia: si algún día me lo pides tú, te lo pongo igual.',
+      says:
+        avoidFoods.length === 0
+          ? 'Y lo que no te apetece ver. Esto no es una alergia: si algún día me lo pides tú, te lo pongo igual.'
+          : `Anotado, nada de ${avoidFoods.join(', ')}. Salvo que un día me lo pidas tú expresamente.`,
       body: (
         <ChipsField
           label="LO QUE PREFIERES EVITAR"
@@ -296,7 +307,10 @@ export default function EntrevistaScreen() {
       key: 'alergias',
       pose: 'point',
       label: 'ALERGIAS E INTOLERANCIAS',
-      says: 'Esto va en serio: lo que pongas aquí no aparecerá nunca en nada que te proponga. Ni rastro, ni por error.',
+      says:
+        allergies.length === 0
+          ? 'Esto va en serio: lo que pongas aquí no aparecerá nunca en nada que te proponga. Ni rastro, ni por error.'
+          : `Entendido: ${allergies.join(', ')}. No lo vas a ver en nada que te proponga, ni escondido en una salsa.`,
       body: (
         <ChipsField
           label="ALERGIAS E INTOLERANCIAS"
@@ -311,7 +325,10 @@ export default function EntrevistaScreen() {
       key: 'semanal',
       pose: 'whisk',
       label: 'CADA SEMANA QUIERO AL MENOS…',
-      says: '¿Quieres asegurarte un mínimo de algo cada semana? Déjalo a cero si te da igual y lo reparto yo.',
+      says:
+        legumbres + vegetariano + pescado === 0
+          ? '¿Quieres asegurarte un mínimo de algo cada semana? Déjalo a cero si te da igual y lo reparto yo.'
+          : 'Hecho, me lo apunto como mínimos de la semana. El resto lo relleno yo.',
       body: (
         <View style={{ gap: 6 }}>
           <Stepper label="Comidas de legumbres" value={legumbres} onChange={setLegumbres} min={0} max={7} />
@@ -324,7 +341,10 @@ export default function EntrevistaScreen() {
       key: 'recetas',
       pose: 'serve',
       label: 'CON QUÉ RECETAS TE PLANIFICO',
-      says: '¿Tiro solo de tus recetas, o también del recetario de Nutrilp? Con los dos hay bastante más variedad.',
+      says:
+        recipeSource === 'mias'
+          ? 'Solo las tuyas, entonces. Ojo con tener pocas guardadas, que me quedo sin con qué llenar la semana.'
+          : '¿Tiro solo de tus recetas, o también del recetario de Nutrilp? Con los dos hay bastante más variedad.',
       body: (
         <View style={{ gap: 6 }}>
           {(
@@ -365,7 +385,10 @@ export default function EntrevistaScreen() {
       key: 'fijos',
       pose: 'thumbsup',
       label: 'PLATOS FIJOS',
-      says: '¿Hay algún plato que quieras sí o sí cada semana? Búscalo y dime cuántas veces. Esos los coloco antes que nada.',
+      says:
+        favoriteRecipes.length === 0
+          ? '¿Hay algún plato que quieras sí o sí cada semana? Búscalo y dime cuántas veces. Esos los coloco antes que nada.'
+          : `${favoriteRecipes.reduce((n, f) => n + f.perWeek, 0)} comidas ya reservadas. Esas van fijas y el resto lo monto alrededor.`,
       body: (
         <View style={{ gap: 8 }}>
           <TextInput
@@ -458,7 +481,10 @@ export default function EntrevistaScreen() {
       key: 'variedad',
       pose: 'idle',
       label: 'VARIEDAD',
-      says: '¿Prefieres no repetir plato, o cocinas en tandas y te viene bien comer lo mismo un par de veces?',
+      says:
+        variety === 'repetir'
+          ? `Batch cooking, entonces. Repetiré un plato hasta ${maxRepeats} veces en la semana.`
+          : '¿Prefieres no repetir plato, o cocinas en tandas y te viene bien comer lo mismo un par de veces?',
       body: (
         <View style={{ gap: 6 }}>
           {(
@@ -503,7 +529,9 @@ export default function EntrevistaScreen() {
       key: 'semana',
       pose: 'thinking',
       label: 'ENTRE SEMANA',
-      says: 'De lunes a viernes suele haber menos tiempo. ¿Te tiro de recetas rápidas?',
+      says: quickWeekdays
+        ? 'Perfecto: de lunes a viernes, cosas de menos de veinte minutos.'
+        : 'De lunes a viernes suele haber menos tiempo. ¿Te tiro de recetas rápidas?',
       body: (
         <Pressable
           onPress={() => setQuickWeekdays((q) => !q)}
@@ -528,7 +556,10 @@ export default function EntrevistaScreen() {
       key: 'libres',
       pose: 'celebrate',
       label: 'COMIDAS LIBRES',
-      says: 'Y lo último: las comidas que harás fuera del plan. Una cena con amigos, un capricho. Te dejo hueco en la semana contando con ellas.',
+      says:
+        freeMeals === 0
+          ? 'Casi está: las comidas que harás fuera del plan. Una cena con amigos, un capricho. Te dejo hueco en la semana contando con ellas.'
+          : `${freeMeals} comida${freeMeals === 1 ? '' : 's'} fuera. Te dejo ese hueco en la semana para que no te descuadre.`,
       body: (
         <View style={{ gap: 8 }}>
           <Stepper label="Comidas libres por semana" value={freeMeals} onChange={setFreeMeals} min={0} max={3} />
@@ -543,6 +574,72 @@ export default function EntrevistaScreen() {
               </Text>
             </View>
           ) : null}
+        </View>
+      ),
+    },
+  ];
+
+  /**
+   * Lo que Chefie ha entendido, en cristiano. Es la respuesta honesta a "¿cómo
+   * sé que la IA se ha enterado?": en vez de un pre-análisis opaco, se lee de
+   * vuelta lo que se va a guardar. Si algo suena raro aquí, se arregla ahora.
+   */
+  const summary: { label: string; value: string }[] = [
+    {
+      label: 'Dieta',
+      value: dietTags.length
+        ? dietTags.map((d) => DIET_TAGS.find((t) => t.value === d)?.label ?? d).join(', ')
+        : 'sin preferencia',
+    },
+    ...(allergies.length ? [{ label: 'Nunca, por alergia', value: allergies.join(', ') }] : []),
+    ...(avoidFoods.length ? [{ label: 'Evitar', value: avoidFoods.join(', ') }] : []),
+    ...(favoriteFoods.length ? [{ label: 'Sacar a menudo', value: favoriteFoods.join(', ') }] : []),
+    ...(favoriteRecipes.length
+      ? [{ label: 'Platos fijos', value: favoriteRecipes.map((f) => `${f.name} ×${f.perWeek}`).join(', ') }]
+      : []),
+    ...(legumbres || vegetariano || pescado
+      ? [
+          {
+            label: 'Cada semana, al menos',
+            value: [
+              legumbres ? `${legumbres} de legumbres` : null,
+              vegetariano ? `${vegetariano} vegetarianas` : null,
+              pescado ? `${pescado} de pescado` : null,
+            ]
+              .filter(Boolean)
+              .join(', '),
+          },
+        ]
+      : []),
+    {
+      label: 'Recetas',
+      value: recipeSource === 'mias' ? 'solo las tuyas' : 'las tuyas y las de Nutrilp',
+    },
+    {
+      label: 'Variedad',
+      value: variety === 'variedad' ? 'sin repetir platos' : `repitiendo hasta ${maxRepeats} veces`,
+    },
+    ...(quickWeekdays ? [{ label: 'Entre semana', value: 'recetas de menos de 20 minutos' }] : []),
+    ...(freeMeals ? [{ label: 'Comidas libres', value: `${freeMeals} a la semana` }] : []),
+  ];
+
+  const steps = [
+    ...blocks,
+    {
+      key: 'resumen',
+      pose: 'explain' as ChefiePose,
+      label: 'LO QUE ME LLEVO',
+      says: 'Esto es lo que he entendido. Si algo no cuadra, vuelve atrás y lo cambiamos antes de guardar.',
+      body: (
+        <View style={[styles.noteBox, { borderColor: c.line, backgroundColor: c.surface, gap: 7 }]}>
+          {summary.map((s) => (
+            <View key={s.label} style={{ flexDirection: 'row', gap: 8 }}>
+              <Text style={{ width: 116, fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans }}>{s.label}</Text>
+              <Text style={{ flex: 1, fontSize: 12.5, color: c.ink, fontFamily: Fonts.sans, lineHeight: 18 }}>
+                {s.value}
+              </Text>
+            </View>
+          ))}
         </View>
       ),
     },
