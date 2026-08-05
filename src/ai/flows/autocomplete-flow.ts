@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { DIET_TAG_ENUM, type WeekPlan, type GoalMacros, type Recipe, type MealCategory, type DietTag } from '@/lib/types';
 import { suggestedServings, mealCalorieRatio } from '@/lib/serving-utils';
 import { NutriInterviewPromptSchema, type InterviewForPrompt } from '@/ai/prompt-fragments';
+import { expandAllergens, recipeHasAllergen } from '@/lib/allergens';
 
 const AutocompletePreferencesSchema = z.object({
   // 'max_twice' is the legacy value (fixed limit of 2); 'max_n' uses the
@@ -142,7 +143,34 @@ const autocompleteWeekFlow = ai.defineFlow(
     // early entries, producing near-identical plans run after run. The
     // deterministic placement pass below works off maps, so order only affects
     // which candidates the model "sees first".
-    const recipes = availableRecipes as Recipe[];
+    const allRecipes = availableRecipes as Recipe[];
+
+    /**
+     * Filtro de alergias DETERMINISTA, antes de que el modelo vea nada.
+     *
+     * Hasta ahora las alergias solo vivían en el prompt ("evita estos, juzga
+     * por el nombre de la receta"), y lo que se le enseña de cada receta es
+     * id/nombre/categoría/macros — SIN ingredientes. Por el nombre no hay forma
+     * de saber que una ensalada César lleva huevo y anchoas. Aquí sí se miran
+     * los ingredientes, que estaban disponibles todo el tiempo.
+     *
+     * Si esto vacía la lista, NO se cae atrás a incluirlas: se dejan huecos sin
+     * rellenar. Un plan incompleto se arregla; un alérgeno colado, no.
+     */
+    const allergenTerms = expandAllergens(preferences.interview?.allergies ?? []);
+    const blocked = new Map<string, string>(); // receta → término que la descarta
+    const recipes = allRecipes.filter(r => {
+      const hit = recipeHasAllergen(r, allergenTerms);
+      if (hit) blocked.set(r.name, hit);
+      return !hit;
+    });
+    if (blocked.size > 0) {
+      console.info(
+        `[autocomplete] ${blocked.size} receta(s) descartadas por alergia:`,
+        [...blocked.entries()].map(([n, t]) => `${n} (${t})`).join(', ')
+      );
+    }
+
     const simplifiedRecipes = recipes.map(r => ({
       id: r.id,
       name: r.name,

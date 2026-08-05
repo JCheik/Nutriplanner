@@ -10,6 +10,7 @@ import { useAuthUser } from '@/firebase/auth-context';
 import { saveNutriInterview } from '@/firebase/profile-operations';
 import { useProfile, useRecipes } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
+import { explainExpansion } from '@/lib/allergens';
 import { DIET_TAGS } from '@/lib/constants';
 import { normalizeText } from '@/lib/utils';
 import type { DietTag, NutriInterview } from '@/lib/types';
@@ -162,6 +163,17 @@ export default function EntrevistaScreen() {
   );
   const [dishQuery, setDishQuery] = useState('');
 
+  // Qué alimentos concretos cubre cada alergia escrita. Solo los términos que
+  // pertenecen a un grupo conocido; el resto se busca tal cual y no hay nada
+  // que explicar.
+  const allergyExpansions = useMemo(
+    () =>
+      allergies
+        .map((term) => ({ term, covers: explainExpansion(term) }))
+        .filter((e) => e.covers.length > 0),
+    [allergies]
+  );
+
   // El catálogo del que se eligen los platos fijos. Respeta lo que haya
   // marcado arriba: si planifica solo con las suyas, ofrecer las de Nutrilp
   // sería prometerle platos que luego no va a colocar.
@@ -312,13 +324,34 @@ export default function EntrevistaScreen() {
           ? 'Esto va en serio: lo que pongas aquí no aparecerá nunca en nada que te proponga. Ni rastro, ni por error.'
           : `Entendido: ${allergies.join(', ')}. No lo vas a ver en nada que te proponga, ni escondido en una salsa.`,
       body: (
-        <ChipsField
-          label="ALERGIAS E INTOLERANCIAS"
-          values={allergies}
-          onChange={setAllergies}
-          placeholder="ej. frutos secos, lactosa…"
-          tone="sage"
-        />
+        <View style={{ gap: 8 }}>
+          <ChipsField
+            label="ALERGIAS E INTOLERANCIAS"
+            values={allergies}
+            onChange={setAllergies}
+            placeholder="ej. frutos secos, lactosa…"
+            tone="sage"
+          />
+          {/* Se enseña qué alimentos concretos cubre cada término, porque es lo
+              que se compara contra los ingredientes de cada receta. Si falta
+              alguno, se añade como un término más. */}
+          {allergyExpansions.length > 0 ? (
+            <View style={[styles.noteBox, { borderColor: c.sage, backgroundColor: c.sageSoft, gap: 5 }]}>
+              <Text style={{ fontSize: 11.5, color: c.ink, fontFamily: Fonts.sans, fontWeight: '600' }}>
+                Para no fallar, descarto también estos:
+              </Text>
+              {allergyExpansions.map((e) => (
+                <Text key={e.term} style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 16 }}>
+                  <Text style={{ fontWeight: '700', color: c.ink }}>{e.term}: </Text>
+                  {e.covers.join(', ')}
+                </Text>
+              ))}
+              <Text style={{ fontSize: 11, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 15 }}>
+                ¿Falta alguno? Añádelo arriba como uno más.
+              </Text>
+            </View>
+          ) : null}
+        </View>
       ),
     },
     {
