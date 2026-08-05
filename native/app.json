@@ -3,7 +3,7 @@
     "name": "Nutrilp",
     "slug": "nutrilp",
     "owner": "cheik26",
-    "version": "0.4.0",
+    "version": "0.5.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "nutrilp",
@@ -62,7 +62,18 @@
       [
         "expo-share-intent",
         {
-          "androidIntentFilters": ["text/*", "image/*"]
+          "androidIntentFilters": [
+            "text/*",
+            "image/*"
+          ]
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#D9531F",
+          "defaultChannel": "recordatorios"
         }
       ]
     ],

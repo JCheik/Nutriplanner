@@ -217,6 +217,22 @@ export default function PerfilScreen() {
       </Pressable>
 
       <Pressable
+        onPress={() => router.push('/recordatorios')}
+        style={[styles.librito, { borderColor: c.line, backgroundColor: c.surface }]}
+        accessibilityRole="button"
+        accessibilityLabel="Abrir los recordatorios"
+      >
+        <Text style={{ fontSize: 15 }}>⏰</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 13.5, fontWeight: '700', color: c.ink, fontFamily: Fonts.sans }}>Recordatorios</Text>
+          <Text style={{ fontSize: 12, color: c.inkSoft, fontFamily: Fonts.sans }}>
+            Que Chefie te avise de lo que tú le digas, a la hora que quieras.
+          </Text>
+        </View>
+        <Text style={{ color: c.inkSoft, fontSize: 15 }}>›</Text>
+      </Pressable>
+
+      <Pressable
         onPress={() => router.push('/librito')}
         style={[styles.librito, { borderColor: c.line, backgroundColor: c.surface }]}
         accessibilityRole="button"

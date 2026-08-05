@@ -55,6 +55,7 @@ function Gate() {
         <Stack.Screen name="plan-anadir" options={{ presentation: 'modal' }} />
         <Stack.Screen name="receta-editar" options={{ presentation: 'modal' }} />
         <Stack.Screen name="feedback" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="recordatorios" />
       </Stack>
       {/* Dentro del gate: los trabajos son de IA y necesitan sesión. Va después
           del Stack para pintarse encima de cualquier pantalla. */}

@@ -265,6 +265,21 @@ export interface UserProfile {
   nutriInterview?: NutriInterview;
   // Per-feature onboarding state: key = guide id, value = true once dismissed forever.
   onboardingFlags?: Record<string, boolean>;
+  /**
+   * Recordatorios que el usuario ha escrito ("descongela el pollo"). Las
+   * notificaciones son LOCALES —solo existen en el móvil que las programó—, así
+   * que el texto se guarda aquí para poder reprogramarlas al reinstalar o al
+   * cambiar de teléfono. Solo las usa la app; la web las ignora.
+   */
+  reminders?: {
+    id: string;
+    text: string;
+    hour: number;
+    minute: number;
+    repeat: 'diario' | 'semanal';
+    weekday?: number;
+    enabled: boolean;
+  }[];
 }
 
 

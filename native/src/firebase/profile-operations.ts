@@ -1,7 +1,7 @@
 import { doc, setDoc } from 'firebase/firestore';
 
 import { firestore } from '@/firebase';
-import type { CalculationResult, GoalType, NutriInterview } from '@/lib/types';
+import type { CalculationResult, GoalType, NutriInterview, UserProfile } from '@/lib/types';
 
 /**
  * Escrituras del perfil, con el mismo contrato que la web
@@ -15,6 +15,15 @@ export function saveCalorieResult(userId: string, result: CalculationResult) {
 
 export function saveActiveGoal(userId: string, goal: GoalType) {
   return setDoc(doc(firestore, 'users', userId), { activeGoalPreference: goal }, { merge: true });
+}
+
+/**
+ * Guarda los recordatorios. Las notificaciones en sí las programa el móvil
+ * (`lib/reminders.ts`); esto es la copia que permite recuperarlas al
+ * reinstalar o al cambiar de teléfono.
+ */
+export function saveReminders(userId: string, reminders: UserProfile['reminders']) {
+  return setDoc(doc(firestore, 'users', userId), { reminders: reminders ?? [] }, { merge: true });
 }
 
 /**
