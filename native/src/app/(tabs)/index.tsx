@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -15,7 +16,6 @@ import {
   pasteDayInto,
   pasteRecipesIntoMeal,
   removeRecipeFromMeal,
-  updateServings,
 } from '@/firebase/plan-operations';
 import { useProfile, useWeekPlan } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
@@ -230,13 +230,10 @@ function HoyView({
 
   // Writes are fire-and-forget over the live subscription (like the web); a
   // failure just leaves the list as-is, so no local optimistic state needed.
-  const changeServings = (mealId: string, r: RecipeInstance, delta: number) => {
-    if (!user) return;
-    const next = Math.max(1, (r.servingsEaten ?? 1) + delta);
-    if (next !== (r.servingsEaten ?? 1)) {
-      updateServings(user.uid, day.day, mealId, r.instanceId, next).catch(() => {});
-    }
-  };
+  //
+  // Las raciones ya no se tocan desde aquí: viven en la pantalla del hueco
+  // (`/anadir`), que es donde se ve lo que hay puesto. En la tarjeta de Hoy
+  // solo estorbaban.
   const removeRecipe = (mealId: string, r: RecipeInstance) => {
     if (!user) return;
     removeRecipeFromMeal(user.uid, day.day, mealId, r.instanceId).catch(() => {});
@@ -337,14 +334,29 @@ function HoyView({
               {meal.title.toUpperCase()}
             </Text>
             {meal.recipes.length > 0 ? (
-              <Pressable
-                onPress={() => copyMeal(meal)}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel={`Copiar ${meal.title}`}
-              >
-                <Ionicons name="copy-outline" size={14} color={c.inkSoft} />
-              </Pressable>
+              <>
+                <Pressable
+                  onPress={() =>
+                    router.push({
+                      pathname: '/anadir',
+                      params: { day: day.day, mealId: meal.id, title: meal.title },
+                    })
+                  }
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Añadir otra cosa a ${meal.title}`}
+                >
+                  <Ionicons name="add" size={16} color={c.inkSoft} />
+                </Pressable>
+                <Pressable
+                  onPress={() => copyMeal(meal)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Copiar ${meal.title}`}
+                >
+                  <Ionicons name="copy-outline" size={14} color={c.inkSoft} />
+                </Pressable>
+              </>
             ) : null}
             {clipboard?.kind === 'meal' ? (
               <Pressable
@@ -366,72 +378,83 @@ function HoyView({
             return (
               <View
                 key={r.instanceId}
-                style={[styles.card, Shadows.card, { borderColor: c.line, backgroundColor: c.surface }]}
+                style={[styles.card, Shadows.card, styles.mealCard, { borderColor: c.line, backgroundColor: c.surface }]}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-                  <Text
-                    style={{ flex: 1, fontSize: 13.5, fontWeight: '600', color: c.ink, fontFamily: Fonts.sans }}
-                    numberOfLines={2}
-                  >
-                    {r.name}
-                  </Text>
-                  <Pressable
-                    onPress={() => removeRecipe(meal.id, r)}
-                    hitSlop={8}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Quitar ${r.name}`}
-                  >
-                    <Ionicons name="close" size={16} color={c.inkSoft} />
-                  </Pressable>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Pressable
-                    onPress={() => changeServings(meal.id, r, -1)}
-                    style={[styles.stepBtn, { borderColor: c.line }]}
-                    accessibilityRole="button"
-                    accessibilityLabel="Una ración menos"
-                  >
-                    <Ionicons name="remove" size={14} color={c.inkSoft} />
-                  </Pressable>
-                  <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans }}>
-                    {r.servingsEaten ?? 1} rac · {Math.round(mac.calories)} kcal · {Math.round(mac.protein)} P
-                  </Text>
-                  <Pressable
-                    onPress={() => changeServings(meal.id, r, 1)}
-                    style={[styles.stepBtn, { borderColor: c.line }]}
-                    accessibilityRole="button"
-                    accessibilityLabel="Una ración más"
-                  >
-                    <Ionicons name="add" size={14} color={c.inkSoft} />
-                  </Pressable>
-                  <View style={{ flex: 1 }} />
-                  {/* Los macros de la receta son del LOTE entero: aquí se ve de
-                      cuántas raciones sale, que es lo que se está escalando. */}
-                  {batch ? (
-                    <Text style={{ fontSize: 10, color: c.inkSoft, fontFamily: Fonts.sans }} numberOfLines={1}>
-                      lote de {batch}
+                {/* Toda la zona de la foto y el texto abre la receta. Los botones
+                    van FUERA de ese Pressable, no dentro: anidados, el toque
+                    caía en los dos. */}
+                <Pressable
+                  onPress={() => router.push({ pathname: '/receta/[id]', params: { id: r.id } })}
+                  style={styles.mealCardMain}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ver ${r.name}`}
+                >
+                  {r.imageUrl ? (
+                    <Image source={{ uri: r.imageUrl }} style={styles.thumb} contentFit="cover" transition={150} />
+                  ) : (
+                    <View style={[styles.thumb, styles.thumbEmpty, { backgroundColor: c.terraSoft }]}>
+                      <Ionicons name="restaurant-outline" size={17} color={c.terra} />
+                    </View>
+                  )}
+                  <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                    <Text
+                      style={{ fontSize: 13.5, fontWeight: '600', color: c.ink, fontFamily: Fonts.sans }}
+                      numberOfLines={2}
+                    >
+                      {r.name}
                     </Text>
-                  ) : null}
-                </View>
+                    <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans }}>
+                      {r.servingsEaten ?? 1} rac · {Math.round(mac.calories)} kcal · {Math.round(mac.protein)} P
+                      {batch ? ` · lote de ${batch}` : ''}
+                    </Text>
+                  </View>
+                </Pressable>
+
+                {/* Atajo directo a cocinar: era lo que más costaba alcanzar, y
+                    es lo que de verdad haces con la comida de hoy. */}
+                {r.instructions ? (
+                  <Pressable
+                    onPress={() => router.push({ pathname: '/cocina/[id]', params: { id: r.id } })}
+                    hitSlop={6}
+                    style={[styles.cookBtn, { borderColor: c.terra, backgroundColor: c.terraSoft }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Cocinar ${r.name}`}
+                  >
+                    <Ionicons name="flame-outline" size={16} color={c.terra} />
+                  </Pressable>
+                ) : null}
+                <Pressable
+                  onPress={() => removeRecipe(meal.id, r)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Quitar ${r.name}`}
+                >
+                  <Ionicons name="close" size={16} color={c.inkSoft} />
+                </Pressable>
               </View>
             );
           })}
-          <Pressable
-            onPress={() =>
-              router.push({
-                pathname: '/anadir',
-                params: { day: day.day, mealId: meal.id, title: meal.title },
-              })
-            }
-            style={[styles.card, styles.emptySlot, { borderColor: c.line }]}
-            accessibilityRole="button"
-            accessibilityLabel={`Añadir ${meal.title}`}
-          >
-            <Ionicons name="add" size={14} color={c.inkSoft} />
-            <Text style={{ fontSize: 12, color: c.inkSoft, fontFamily: Fonts.sans }}>
-              Añadir {meal.title.toLowerCase()}
-            </Text>
-          </Pressable>
+          {/* El "Añadir…" grande solo cuando el hueco está VACÍO: repetido bajo
+              cada comida ya puesta era ruido. Con algo dentro, el + discreto de
+              la cabecera hace el mismo trabajo. */}
+          {meal.recipes.length === 0 ? (
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: '/anadir',
+                  params: { day: day.day, mealId: meal.id, title: meal.title },
+                })
+              }
+              style={[styles.card, styles.emptySlot, { borderColor: c.line }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Añadir ${meal.title}`}
+            >
+              <Ionicons name="add" size={14} color={c.inkSoft} />
+              <Text style={{ fontSize: 12, color: c.inkSoft, fontFamily: Fonts.sans }}>
+                Añadir {meal.title.toLowerCase()}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       ))}
     </>
@@ -991,6 +1014,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 5,
     paddingVertical: 9,
+  },
+  mealCard: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  mealCardMain: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  thumb: { width: 46, height: 46, borderRadius: 10 },
+  thumbEmpty: { alignItems: 'center', justifyContent: 'center' },
+  cookBtn: {
+    width: 32,
+    height: 32,
+    borderWidth: 1.5,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   stepBtn: {
     width: 24,

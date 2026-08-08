@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -7,12 +8,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { applyRecipeFilters, EMPTY_FILTERS, RecipeFilters, type RecipeFilterState } from '@/components/recipe-filters';
 import { Fonts, Radii } from '@/constants/theme';
 import { useAuthUser } from '@/firebase/auth-context';
-import { addRecipeToMeal } from '@/firebase/plan-operations';
-import { useRecipes } from '@/hooks/use-nutrilp-data';
+import { addRecipeToMeal, removeRecipeFromMeal, updateServings } from '@/firebase/plan-operations';
+import { useRecipes, useWeekPlan } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
 import { perServingMacros } from '@/lib/serving-utils';
 import { normalizeText } from '@/lib/utils';
-import type { MealCategory, Recipe } from '@/lib/types';
+import type { MealCategory, Recipe, RecipeInstance } from '@/lib/types';
 
 /**
  * "Añadir comida" (boceto 3): hoja modal que sabe a qué día y franja añade.
@@ -25,6 +26,7 @@ export default function AnadirScreen() {
   const { user } = useAuthUser();
   const { day, mealId, title } = useLocalSearchParams<{ day: string; mealId: string; title?: string }>();
   const { userRecipes, globalRecipes, loading } = useRecipes();
+  const { weekPlan } = useWeekPlan();
   const [search, setSearch] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +51,27 @@ export default function AnadirScreen() {
       : all;
     return applyRecipeFilters(searched, filters);
   }, [userRecipes, globalRecipes, search, filters]);
+
+  // Lo que ya está puesto en esta franja, leído del plan en vivo.
+  const current = useMemo(() => {
+    const dayPlan = weekPlan.find((d) => d.day === day);
+    return dayPlan?.meals.find((m) => m.id === mealId)?.recipes ?? [];
+  }, [weekPlan, day, mealId]);
+
+  const bumpServings = (r: RecipeInstance, delta: number) => {
+    if (!user || !day || !mealId) return;
+    const next = Math.max(1, (r.servingsEaten ?? 1) + delta);
+    updateServings(user.uid, day, mealId, r.instanceId, next).catch(() =>
+      setError('No se pudo cambiar las raciones.')
+    );
+  };
+
+  const dropRecipe = (r: RecipeInstance) => {
+    if (!user || !day || !mealId) return;
+    removeRecipeFromMeal(user.uid, day, mealId, r.instanceId).catch(() =>
+      setError('No se pudo quitar.')
+    );
+  };
 
   const handleAdd = async (recipe: Recipe) => {
     if (!user || !day || !mealId || busyId) return;
@@ -97,6 +120,57 @@ export default function AnadirScreen() {
           <Text style={{ fontSize: 12.5, color: c.terra, fontFamily: Fonts.sans }}>{error}</Text>
         ) : null}
       </View>
+
+      {/* Lo que YA hay en este hueco. Faltaba: al tocar una casilla ocupada del
+          cuadrante se llegaba aquí y solo se podía añadir MÁS, sin ver ni tocar
+          lo que estaba puesto. Y es también donde se ajustan las raciones, que
+          en la tarjeta de Hoy estorbaban. */}
+      {current.length > 0 ? (
+        <View style={styles.currentBox}>
+          <Text style={[styles.currentLabel, { color: c.inkSoft, fontFamily: Fonts.sans }]}>YA EN ESTE HUECO</Text>
+          {current.map((r) => (
+            <View key={r.instanceId} style={[styles.row, { borderColor: c.terra, backgroundColor: c.terraSoft }]}>
+              <Pressable
+                onPress={() => router.push({ pathname: '/receta/[id]', params: { id: r.id } })}
+                style={{ flex: 1, minWidth: 0 }}
+                accessibilityRole="button"
+                accessibilityLabel={`Ver ${r.name}`}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '600', color: c.ink, fontFamily: Fonts.sans }} numberOfLines={2}>
+                  {r.name}
+                </Text>
+                <Text style={{ fontSize: 11, color: c.inkSoft, fontFamily: Fonts.sans }}>
+                  {r.servingsEaten ?? 1} ración{(r.servingsEaten ?? 1) === 1 ? '' : 'es'} · toca para verla
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => bumpServings(r, -1)}
+                style={[styles.stepBtn, { borderColor: c.line }]}
+                accessibilityRole="button"
+                accessibilityLabel={`Una ración menos de ${r.name}`}
+              >
+                <Ionicons name="remove" size={14} color={c.inkSoft} />
+              </Pressable>
+              <Pressable
+                onPress={() => bumpServings(r, 1)}
+                style={[styles.stepBtn, { borderColor: c.line }]}
+                accessibilityRole="button"
+                accessibilityLabel={`Una ración más de ${r.name}`}
+              >
+                <Ionicons name="add" size={14} color={c.inkSoft} />
+              </Pressable>
+              <Pressable
+                onPress={() => dropRecipe(r)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={`Quitar ${r.name}`}
+              >
+                <Ionicons name="close" size={16} color={c.inkSoft} />
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -167,5 +241,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   thumb: { width: 40, height: 40, borderRadius: 9 },
+  currentBox: { paddingHorizontal: 18, paddingBottom: 8, gap: 6 },
+  currentLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.7 },
+  stepBtn: { width: 28, height: 28, borderWidth: 1.2, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   addBtn: { width: 32, height: 32, borderWidth: 1.5, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
 });
