@@ -17,17 +17,21 @@ import type { GoalMacros, Macros } from '@/lib/types';
  * Verde en objetivo, ámbar cerca, terracota lejos. Mismos cortes que la app
  * (`fitColor` en la vista de Semana) para que un plan no se vea "bien" en un
  * sitio y "mal" en el otro.
+ *
+ * Con la semana a medias (`complete === false`) va en neutro: comparar cuatro
+ * días con el objetivo de siete no significa nada, y en terracota parecía una
+ * alarma cuando lo único que pasa es que queda plan por hacer.
  */
-function fitClass(value: number, goal?: number): string {
-  if (!goal || goal <= 0) return 'text-muted-foreground';
+function fitClass(value: number, goal: number, complete: boolean): string {
+  if (!complete || goal <= 0) return 'text-muted-foreground';
   const ratio = value / goal;
   if (ratio >= 0.9 && ratio <= 1.1) return 'text-accent';
   if ((ratio >= 0.75 && ratio < 0.9) || (ratio > 1.1 && ratio <= 1.25)) return 'text-amber-500';
   return 'text-primary';
 }
 
-function barClass(value: number, goal?: number): string {
-  if (!goal || goal <= 0) return 'bg-muted-foreground';
+function barClass(value: number, goal: number, complete: boolean): string {
+  if (!complete || goal <= 0) return 'bg-muted-foreground';
   const ratio = value / goal;
   if (ratio >= 0.9 && ratio <= 1.1) return 'bg-accent';
   if ((ratio >= 0.75 && ratio < 0.9) || (ratio > 1.1 && ratio <= 1.25)) return 'bg-amber-500';
@@ -51,6 +55,7 @@ export function WeekCaloriesSummary({
   const daysWithPlan = dailyTotals.filter(d => d.totals.calories > 0).length;
   const weekGoal = activeGoal ? activeGoal.calories * 7 : 0;
   const weekMargin = weekGoal - weekPlanned;
+  const weekComplete = daysWithPlan === 7;
   // Se recorta al 100% para que la barra no se salga al pasarse del objetivo;
   // el color ya avisa de que se ha ido.
   const pct = weekGoal > 0 ? Math.min(100, (weekPlanned / weekGoal) * 100) : 0;
@@ -86,13 +91,13 @@ export function WeekCaloriesSummary({
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <p className="text-[10px] font-bold tracking-wider text-muted-foreground">TODA LA SEMANA</p>
               <p className="text-xs text-muted-foreground">
-                <span className={cn('font-bold', fitClass(weekPlanned, weekGoal))}>{nf(weekPlanned)}</span>
+                <span className={cn('font-bold', fitClass(weekPlanned, weekGoal, weekComplete))}>{nf(weekPlanned)}</span>
                 {` de ${nf(weekGoal)} kcal`}
               </p>
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
               <div
-                className={cn('h-full rounded-full transition-all', barClass(weekPlanned, weekGoal))}
+                className={cn('h-full rounded-full transition-all', barClass(weekPlanned, weekGoal, weekComplete))}
                 style={{ width: `${pct}%` }}
               />
             </div>

@@ -73,6 +73,16 @@ function fitColor(c: ThemeColors, value: number, goal?: number): string {
   return c.terra;
 }
 
+/**
+ * Color del TOTAL de la semana. Mientras falten días por planificar, en neutro:
+ * comparar media semana con el objetivo de siete días no significa nada, y
+ * pintarlo en terracota hacía que una semana a medias se leyese como una alarma
+ * cuando lo único que pasa es que queda plan por hacer.
+ */
+function weekFitColor(c: ThemeColors, value: number, weekGoal: number, daysWithPlan: number): string {
+  return daysWithPlan < 7 ? c.inkSoft : fitColor(c, value, weekGoal);
+}
+
 const DAY_LETTERS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 const DAY_NAMES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 // Cuadrante: comidas en FILAS (columna fija) y días en COLUMNAS, como la web.
@@ -606,13 +616,17 @@ function SemanaView({
               TODA LA SEMANA
             </Text>
             <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans }}>
-              <Text style={{ fontWeight: '700', color: fitColor(c, weekPlanned, goal.calories * 7) }}>
+              <Text style={{ fontWeight: '700', color: weekFitColor(c, weekPlanned, goal.calories * 7, daysWithPlan) }}>
                 {Math.round(weekPlanned).toLocaleString('es-ES')}
               </Text>
               {` de ${Math.round(goal.calories * 7).toLocaleString('es-ES')} kcal`}
             </Text>
           </View>
-          <Bar value={weekPlanned} goal={goal.calories * 7} color={fitColor(c, weekPlanned, goal.calories * 7)} />
+          <Bar
+            value={weekPlanned}
+            goal={goal.calories * 7}
+            color={weekFitColor(c, weekPlanned, goal.calories * 7, daysWithPlan)}
+          />
           {/* El margen solo significa "hueco para comidas libres" si la semana
               está entera: con días vacíos, lo que sobra es plan por hacer. */}
           <Text style={{ fontSize: 11, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 16, marginTop: 6 }}>
