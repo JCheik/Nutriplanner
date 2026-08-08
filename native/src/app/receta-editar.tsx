@@ -21,7 +21,7 @@ import { Fonts, Radii, Shadows } from '@/constants/theme';
 import { firestore } from '@/firebase';
 import { useAuthUser } from '@/firebase/auth-context';
 import { useCollection } from '@/firebase/firestore-hooks';
-import { saveUserRecipe } from '@/firebase/recipe-operations';
+import { saveGlobalRecipe, saveUserRecipe } from '@/firebase/recipe-operations';
 import { useRecipes } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
 import { DIET_TAGS, MEAL_CATEGORIES } from '@/lib/constants';
@@ -43,10 +43,15 @@ export default function RecetaEditarScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuthUser();
-  const { recipeId } = useLocalSearchParams<{ recipeId?: string }>();
-  const { userRecipes } = useRecipes();
+  const { recipeId, global } = useLocalSearchParams<{ recipeId?: string; global?: string }>();
+  const { userRecipes, globalRecipes } = useRecipes();
+  // Editando una del recetario de Nutrilp: se guarda ahí, no en las tuyas.
+  const isGlobal = global === '1';
 
-  const existing = useMemo(() => userRecipes.find((r) => r.id === recipeId), [userRecipes, recipeId]);
+  const existing = useMemo(
+    () => (isGlobal ? globalRecipes : userRecipes).find((r) => r.id === recipeId),
+    [isGlobal, globalRecipes, userRecipes, recipeId]
+  );
 
   const [name, setName] = useState(existing?.name ?? '');
   const [description, setDescription] = useState(existing?.description ?? '');
@@ -106,7 +111,7 @@ export default function RecetaEditarScreen() {
     setBusy(true);
     setError(null);
     try {
-      await saveUserRecipe(user.uid, {
+      const payload = {
         name: name.trim(),
         description: description.trim(),
         instructions: instructions.trim(),
@@ -119,7 +124,12 @@ export default function RecetaEditarScreen() {
         servings: perServing,
         ...(categories.length ? { category: categories } : {}),
         ...(diets.length ? { dietTags: diets } : {}),
-      });
+      };
+      // Con `recipeId` se ACTUALIZA; sin él se crea. Antes no se pasaba nunca y
+      // editar acababa dejando una receta duplicada.
+      await (isGlobal
+        ? saveGlobalRecipe(payload, recipeId)
+        : saveUserRecipe(user.uid, payload, recipeId));
       router.replace('/recetas');
     } catch {
       setError('No se pudo guardar. Revisa tu conexión e inténtalo de nuevo.');

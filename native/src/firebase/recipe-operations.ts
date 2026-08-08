@@ -12,23 +12,51 @@ function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
  * Guarda una receta en la colección del usuario (`users/{uid}/recipes`), con el
  * id del documento dentro del propio doc — misma convención que la web
  * (`saveRecipeClient`). Sin imagen: subir fotos desde la app llega más adelante.
+ *
+ * Con `recipeId` ACTUALIZA esa receta. Sin él, crea una nueva. Faltaba el
+ * parámetro: el editor cargaba la receta existente, la dejabas editada… y al
+ * guardar salía un documento nuevo, así que acababas con dos.
  */
-export async function saveUserRecipe(userId: string, recipe: Omit<Recipe, 'id'>): Promise<string> {
-  const ref = doc(collection(firestore, 'users', userId, 'recipes'));
+export async function saveUserRecipe(
+  userId: string,
+  recipe: Omit<Recipe, 'id'>,
+  recipeId?: string
+): Promise<string> {
+  const ref = recipeId
+    ? doc(firestore, 'users', userId, 'recipes', recipeId)
+    : doc(collection(firestore, 'users', userId, 'recipes'));
   await setDoc(ref, stripUndefined({ ...recipe, id: ref.id }), { merge: true });
   return ref.id;
 }
 
 /**
- * Borra una receta PROPIA (`users/{uid}/recipes/{id}`). Las del recetario de
- * Nutrilp no se tocan desde la app: son globales y solo las gestiona el admin
- * desde la web (así lo imponen también las reglas de Firestore).
+ * Guarda una receta del recetario de Nutrilp (`nutriplanner_recipes`). Solo la
+ * dejan escribir las rules a un admin; la app enseña el botón según el claim
+ * del token, pero quien decide de verdad es Firestore.
+ *
+ * Con `recipeId` actualiza esa receta; sin él, crea una nueva.
+ */
+export async function saveGlobalRecipe(recipe: Omit<Recipe, 'id'>, recipeId?: string): Promise<string> {
+  const ref = recipeId
+    ? doc(firestore, 'nutriplanner_recipes', recipeId)
+    : doc(collection(firestore, 'nutriplanner_recipes'));
+  await setDoc(ref, stripUndefined({ ...recipe, id: ref.id }), { merge: true });
+  return ref.id;
+}
+
+/**
+ * Borra una receta PROPIA (`users/{uid}/recipes/{id}`).
  *
  * Lo que ya esté puesto en el plan NO se toca: el plan guarda una copia de la
  * receta en cada hueco, así que la semana que tenías montada sigue en pie.
  */
 export function deleteUserRecipe(userId: string, recipeId: string) {
   return deleteDoc(doc(firestore, 'users', userId, 'recipes', recipeId));
+}
+
+/** Borra una receta del recetario de Nutrilp. Solo admins (lo imponen las rules). */
+export function deleteGlobalRecipe(recipeId: string) {
+  return deleteDoc(doc(firestore, 'nutriplanner_recipes', recipeId));
 }
 
 /**

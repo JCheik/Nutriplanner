@@ -8,7 +8,7 @@ import { useState } from 'react';
 
 import { Fonts, Radii, Shadows } from '@/constants/theme';
 import { useAuthUser } from '@/firebase/auth-context';
-import { deleteUserRecipe } from '@/firebase/recipe-operations';
+import { deleteGlobalRecipe, deleteUserRecipe } from '@/firebase/recipe-operations';
 import { useRecipes } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
 import { perServingMacros } from '@/lib/serving-utils';
@@ -19,7 +19,7 @@ export default function RecetaDetailScreen() {
   const c = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user } = useAuthUser();
+  const { user, isAdmin } = useAuthUser();
   const { id, global } = useLocalSearchParams<{ id: string; global?: string }>();
   const { userRecipes, globalRecipes } = useRecipes();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -30,16 +30,18 @@ export default function RecetaDetailScreen() {
     (global === '1' ? globalRecipes : userRecipes).find((r) => r.id === id) ??
     [...userRecipes, ...globalRecipes].find((r) => r.id === id);
 
-  // Editar y borrar solo en las propias: las del recetario de Nutrilp son
-  // globales y las gestiona el admin desde la web (lo imponen las rules).
+  // Las propias siempre; las del recetario de Nutrilp solo si administras, que
+  // es lo que dicen las rules. Antes había que entrar por la web para tocarlas.
   const isOwn = !!recipe && userRecipes.some((r) => r.id === recipe.id);
+  const isGlobal = !!recipe && !isOwn;
+  const canEdit = isOwn || (isGlobal && isAdmin);
 
   const handleDelete = async () => {
     if (!user || !recipe || deleting) return;
     setDeleting(true);
     setError(null);
     try {
-      await deleteUserRecipe(user.uid, recipe.id);
+      await (isGlobal ? deleteGlobalRecipe(recipe.id) : deleteUserRecipe(user.uid, recipe.id));
       router.replace('/recetas');
     } catch {
       setError('No se pudo borrar. Revisa tu conexión e inténtalo de nuevo.');
@@ -161,8 +163,8 @@ export default function RecetaDetailScreen() {
           </>
         ) : null}
 
-        {/* Editar y borrar, solo si la receta es tuya. */}
-        {isOwn ? (
+        {/* Editar y borrar: las tuyas siempre, las de Nutrilp si administras. */}
+        {canEdit ? (
           confirmDelete ? (
             <View style={[styles.confirmBox, { borderColor: c.terra, backgroundColor: c.terraSoft }]}>
               <Text style={{ fontSize: 13, color: c.ink, fontFamily: Fonts.sans, lineHeight: 19 }}>
@@ -197,7 +199,12 @@ export default function RecetaDetailScreen() {
           ) : (
             <View style={styles.ownActions}>
               <Pressable
-                onPress={() => router.push({ pathname: '/receta-editar', params: { recipeId: recipe.id } })}
+                onPress={() =>
+                  router.push({
+                    pathname: '/receta-editar',
+                    params: { recipeId: recipe.id, global: isGlobal ? '1' : '0' },
+                  })
+                }
                 style={[styles.smallBtn, styles.ownBtn, { borderWidth: 1.5, borderColor: c.line }]}
                 accessibilityRole="button"
                 accessibilityLabel="Editar receta"

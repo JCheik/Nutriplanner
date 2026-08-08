@@ -203,12 +203,30 @@ const autocompleteWeekFlow = ai.defineFlow(
     // If that set is empty, fall back to the whole diet pool so the slot still fills.
     // Slots that include 'otro' (or have no types) accept any recipe in the pool.
     const eligibleIdsFor = (mealTypes: MealCategory[]): string[] => {
-      if (mealTypes.length === 0 || mealTypes.includes('otro')) return dietPool.map(r => r.id);
-      const matching = dietPool.filter(r => {
+      // En una comida PRINCIPAL solo entra lo que esté etiquetado como comida
+      // principal (o lo que no tenga categoría, que es comodín). El usuario se
+      // encontró dos tartas puestas de almuerzo: su receta no casaba con
+      // ninguna categoría, el respaldo metía TODA la lista y las categorías
+      // dejaban de contar. Se descartan ANTES del respaldo, no después.
+      //
+      // Se mira que TENGA una principal, no que "no sea postre": un brownie
+      // etiquetado postre+merienda es una merienda estupenda y un almuerzo
+      // pésimo, y con la regla en negativo se colaba igual.
+      const MAIN: MealCategory[] = ['desayuno', 'almuerzo', 'cena'];
+      const isMainMeal = mealTypes.some(t => MAIN.includes(t));
+      const pool = isMainMeal
+        ? dietPool.filter(r => {
+            const cats = r.category ?? [];
+            return cats.length === 0 || cats.some(c => MAIN.includes(c));
+          })
+        : dietPool;
+
+      if (mealTypes.length === 0 || mealTypes.includes('otro')) return pool.map(r => r.id);
+      const matching = pool.filter(r => {
         const cats = r.category ?? [];
         return cats.length === 0 || cats.some(c => mealTypes.includes(c));
       });
-      return (matching.length > 0 ? matching : dietPool).map(r => r.id);
+      return (matching.length > 0 ? matching : pool).map(r => r.id);
     };
 
     // Extract empty slots with per-slot calorie/protein targets derived from the daily goal

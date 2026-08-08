@@ -30,6 +30,13 @@ const UnifiedIngredientSchema = z.object({
 });
 
 const UnifiedRecipeSchema = z.object({
+  /**
+   * Salida de emergencia: sin esto el esquema obliga a devolver una receta, y
+   * ante un texto que no va de cocina el modelo se la inventa. Opcional para
+   * no romper respuestas viejas; se trata como `true` si falta.
+   */
+  esReceta: z.boolean().optional(),
+  motivoNoReceta: z.string().optional(),
   name: z.string(),
   description: z.string(),
   instructions: z.string(),
@@ -58,6 +65,12 @@ ${contextLines || 'Analiza el contenido multimedia adjunto.'}
 ${existingIngredientsInstruction(existingIngredients)}
 
 INSTRUCCIONES:
+0. ANTES DE NADA: decide si este texto describe un plato y cómo prepararlo. Pon
+   esReceta=false si no lo hace — una noticia, un texto de humor, una rutina de
+   gimnasio, una descripción de un sitio, o comida solo mencionada de pasada sin
+   ingredientes ni preparación. Rellena motivoNoReceta con una frase corta de
+   qué es y DEJA EL RESTO VACÍO: no inventes ingredientes ni pasos. Ante la
+   duda, false.
 1. Usa ÚNICAMENTE los ingredientes mencionados. NO añadas ingredientes que no estén en el texto.
 2. Si las cantidades no están especificadas, usa estimaciones razonables para ese plato.
 3. Para cada ingrediente, estima sus valores nutricionales POR 100g/100ml (no por la cantidad usada en la receta).
@@ -97,6 +110,7 @@ Devuelve:
 - ingredients: array. Cada uno:
   · id: "ing-1", "ing-2"...
   · name: en español, siguiendo la REGLA DE NOMBRES DE INGREDIENTES de arriba
+- esReceta: false si esto no era una receta, y entonces motivoNoReceta con el porqué
   · quantity: cantidad en la receta en gramos/ml (ya corregida si era errónea)
   · ${UNIT_RULE}
   · calories, protein, carbs, fat, fiber: POR 100g

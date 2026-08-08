@@ -27,7 +27,13 @@ export type ChefiePose =
   | 'interview'
   | 'inventory'
   | 'cooking'
-  | 'rolling';
+  | 'rolling'
+  // Añadidas el 2026-08-08. Estas tres son de CARA, no de objeto, así que valen
+  // en cualquier sitio: dudando con los cachivaches, escéptico de brazos
+  // cruzados (para avisos) y riéndose.
+  | 'utensils'
+  | 'skeptical'
+  | 'laugh';
 
 /**
  * Cada sprite tiene su propia proporción (el que lleva bandeja es más ancho que
@@ -52,9 +58,26 @@ const SPRITES: Record<ChefiePose, { src: number; ratio: number }> = {
   inventory: { src: require('../../assets/images/chefie/chefie-inventory.png'), ratio: 322 / 420 },
   rolling: { src: require('../../assets/images/chefie/chefie-rolling.png'), ratio: 322 / 420 },
   cooking: { src: require('../../assets/images/chefie/chefie-cooking.png'), ratio: 367 / 420 },
+  utensils: { src: require('../../assets/images/chefie/chefie-utensils.png'), ratio: 473 / 420 },
+  skeptical: { src: require('../../assets/images/chefie/chefie-skeptical.png'), ratio: 371 / 420 },
+  laugh: { src: require('../../assets/images/chefie/chefie-laugh.png'), ratio: 371 / 420 },
 };
 
-export function ChefieMascot({ pose = 'idle', size = 96 }: { pose?: ChefiePose; size?: number }) {
+/**
+ * `flip` refleja el sprite en horizontal. Sirve sobre todo para `point`: el
+ * brazo señala siempre al mismo lado, y puesto a la izquierda de un texto
+ * acababa señalando hacia fuera. Voltear sale gratis y vale para todas las
+ * poses, así que no hace falta un sprite espejo por cada una.
+ */
+export function ChefieMascot({
+  pose = 'idle',
+  size = 96,
+  flip = false,
+}: {
+  pose?: ChefiePose;
+  size?: number;
+  flip?: boolean;
+}) {
   const sprite = SPRITES[pose] ?? SPRITES.idle;
   // `size` se venía interpretando como ancho y el alto salía 1,25×. Se conserva
   // esa relación para que las pantallas que ya la usaban no encojan.
@@ -63,7 +86,11 @@ export function ChefieMascot({ pose = 'idle', size = 96 }: { pose?: ChefiePose; 
   return (
     <Image
       source={sprite.src}
-      style={{ height, width: Math.round(height * sprite.ratio) }}
+      style={{
+        height,
+        width: Math.round(height * sprite.ratio),
+        ...(flip ? { transform: [{ scaleX: -1 as const }] } : {}),
+      }}
       contentFit="contain"
       transition={120}
       accessibilityLabel="Chefie, la mascota de Nutrilp"

@@ -37,7 +37,13 @@ export type ChefiePose =
   | 'interview'
   | 'inventory'
   | 'cooking'
-  | 'rolling';
+  | 'rolling'
+  // Añadidas el 2026-08-08. Estas tres son de CARA, no de objeto, así que valen
+  // en cualquier sitio: dudando con los cachivaches, escéptico de brazos
+  // cruzados (para avisos) y riéndose.
+  | 'utensils'
+  | 'skeptical'
+  | 'laugh';
 
 /** Proporción real de cada sprite, para no deformarlos: el alto manda. */
 const SPRITES: Record<ChefiePose, { file: string; ratio: number }> = {
@@ -58,6 +64,9 @@ const SPRITES: Record<ChefiePose, { file: string; ratio: number }> = {
   inventory: { file: 'chefie-inventory.png', ratio: 322 / 420 },
   rolling: { file: 'chefie-rolling.png', ratio: 322 / 420 },
   cooking: { file: 'chefie-cooking.png', ratio: 367 / 420 },
+  utensils: { file: 'chefie-utensils.png', ratio: 473 / 420 },
+  skeptical: { file: 'chefie-skeptical.png', ratio: 371 / 420 },
+  laugh: { file: 'chefie-laugh.png', ratio: 371 / 420 },
 };
 
 export function ChefieMascot({

@@ -17,6 +17,13 @@ const MODEL = 'gemini-2.5-flash';
 export const RECIPE_SCHEMA = {
   type: 'object',
   properties: {
+    /**
+     * Salida de emergencia. Sin esto el esquema OBLIGA a devolver una receta,
+     * así que ante un vídeo que no va de cocina el modelo no puede hacer otra
+     * cosa que inventársela — le pasó al usuario con un reel cualquiera.
+     */
+    esReceta: { type: 'boolean' },
+    motivoNoReceta: { type: 'string' },
     name: { type: 'string' },
     description: { type: 'string' },
     instructions: { type: 'string' },
@@ -55,6 +62,13 @@ const PROMPT = (caption: string, existingIngredients?: string[]) => `Eres un che
 ${caption ? `Texto adicional del post:\n${caption}\n\n` : ''}${existingIngredientsInstruction(existingIngredients)}
 
 INSTRUCCIONES:
+0. ANTES DE NADA: decide si esto es cocina. Pon esReceta=false si el contenido
+   no enseña ni describe cómo preparar un plato — un vídeo de humor, de viajes,
+   de gimnasio, un baile, una noticia, alguien comiendo sin explicar la receta,
+   o comida que solo sale de fondo. En ese caso rellena motivoNoReceta con una
+   frase corta de qué es (ej: "es un vídeo de gimnasio") y DEJA EL RESTO VACÍO:
+   no inventes ingredientes ni pasos. Solo pon esReceta=true si de verdad puedes
+   sacar los ingredientes y la preparación. Ante la duda, false.
 1. Prioriza lo que ves y oyes en el vídeo. Usa el texto solo como complemento.
 2. Extrae TODOS los ingredientes mencionados o mostrados, con cantidades exactas si se indican.
 3. Para cada ingrediente, estima sus valores nutricionales POR 100g/100ml.
@@ -72,6 +86,7 @@ REFERENCIAS (por 100g):
 - Frutas: 30–80 kcal | Verduras: 15–50 kcal (patata: ~80 kcal)
 
 Devuelve:
+- esReceta (boolean) y, si es false, motivoNoReceta con una frase corta
 - name, description (1-2 frases), instructions (pasos con \\n), servings, imageHint (2-3 palabras inglés)
 - calories, protein, carbs, fat: totales de la receta completa
 - ingredients: cada uno con id ("ing-1"...), name (español, siguiendo la REGLA DE NOMBRES DE
