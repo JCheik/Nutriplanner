@@ -3,6 +3,7 @@
 import { useDashboard } from '@/hooks/use-dashboard';
 import { RecipeLibrary } from '@/components/nutri-planner/recipe-library';
 import { MealPlanner } from '@/components/nutri-planner/meal-planner';
+import { WeekCaloriesSummary } from '@/components/nutri-planner/week-calories-summary';
 import { RecipeDialog } from '@/components/nutri-planner/recipe-dialog';
 import { ShoppingListSheet } from '@/components/nutri-planner/shopping-list';
 import { RecipeSelectionDialog } from '@/components/nutri-planner/recipe-selection-dialog';
@@ -61,6 +62,15 @@ export default function DashboardPage() {
             onAutocomplete={handleAutocompleteWeek}
             isAutocompleting={isAutocompleting}
             onUpdateServingsEaten={handleUpdateServingsEaten}
+          />
+        </div>
+        {/* Entre el cuadrante y la biblioteca: el cuadrante enseña los totales
+            día a día, y aquí se ve la semana entera de un vistazo. */}
+        <div className="w-full" data-tour="week-calories">
+          <WeekCaloriesSummary
+            dailyTotals={dailyTotals}
+            activeGoal={activeGoalMacros || null}
+            freeMealsPerWeek={nutriInterview?.freeMealsPerWeek ?? 0}
           />
         </div>
         <div className="grid grid-cols-1 gap-6" data-tour="recipe-library">
