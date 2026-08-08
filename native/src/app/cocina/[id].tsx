@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
@@ -5,12 +6,20 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ChefieMascot } from '@/components/chefie-mascot';
+import { ChefieMascot, type ChefiePose } from '@/components/chefie-mascot';
 import { Fonts, Radii } from '@/constants/theme';
 import { useRecipes } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
 import { parseStepDurations, splitInstructionSteps } from '@/lib/recipe-steps';
 import { pluralizeUnit } from '@/lib/utils';
+
+/**
+ * Se rotan por paso para que Chefie no se quede congelado en la misma postura.
+ * Todas valen en cualquier paso: son gestos de cocinar o de cara, sin objetos
+ * que aten la pose a un contenido concreto (por eso no entran `interview`,
+ * `inventory` ni `cooking`).
+ */
+const STEP_POSES: ChefiePose[] = ['point', 'whisk', 'rolling', 'explain', 'thinking'];
 
 function formatClock(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
@@ -41,6 +50,10 @@ export default function CocinaScreen() {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [stepIndex, setStepIndex] = useState(0);
   const [timerSeconds, setTimerSeconds] = useState<number | null>(null);
+  /** Antes de empezar se ven los ingredientes; al arrancar, se pliegan. */
+  const [started, setStarted] = useState(false);
+  const [ingredientsOpen, setIngredientsOpen] = useState(true);
+  const checkedCount = Object.values(checked).filter(Boolean).length;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Arranca en lo que rinde la receta (coherente con los pasos), una vez
@@ -77,6 +90,7 @@ export default function CocinaScreen() {
   }
 
   const currentStep = steps[stepIndex] ?? '';
+  const stepPose = STEP_POSES[stepIndex % STEP_POSES.length];
 
   return (
     <View style={{ flex: 1, backgroundColor: c.ground, paddingTop: insets.top + 10 }}>
@@ -140,10 +154,23 @@ export default function CocinaScreen() {
           </Text>
         ) : null}
 
-        <Text style={[styles.label, { color: c.inkSoft, fontFamily: Fonts.sans }]}>
-          INGREDIENTES · PARA {servings}
-        </Text>
-        {recipe.ingredients.map((ing) => {
+        {/* Plegable. Antes la lista estaba siempre desplegada y con una receta
+            larga los pasos quedaban tan abajo que había que buscarlos, cuando
+            son lo único que miras mientras cocinas. */}
+        <Pressable
+          onPress={() => setIngredientsOpen((o) => !o)}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: ingredientsOpen }}
+          accessibilityLabel={ingredientsOpen ? 'Ocultar los ingredientes' : 'Ver los ingredientes'}
+        >
+          <Text style={[styles.label, { flex: 1, color: c.inkSoft, fontFamily: Fonts.sans }]}>
+            INGREDIENTES · PARA {servings}
+            {!ingredientsOpen && checkedCount > 0 ? ` · ${checkedCount} listos` : ''}
+          </Text>
+          <Ionicons name={ingredientsOpen ? 'chevron-up' : 'chevron-down'} size={16} color={c.inkSoft} />
+        </Pressable>
+        {ingredientsOpen && recipe.ingredients.map((ing) => {
           const isWeight = ['g', 'ml', ''].includes((ing.unit || '').toLowerCase());
           const qty = ing.quantity * scale;
           const qtyLabel = isWeight
@@ -176,27 +203,45 @@ export default function CocinaScreen() {
           );
         })}
 
-        {steps.length > 0 ? (
+        {/* Antes de empezar: Chefie con los cachivaches, invitando a repasar la
+            lista. Es la pantalla que pidió el usuario como primera. */}
+        {!started ? (
+          <View style={styles.intro}>
+            <ChefieMascot pose="utensils" size={92} />
+            <Text style={{ flex: 1, fontSize: 13, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 19 }}>
+              Repasa que tengas todo y ve marcándolo. Cuando quieras, empezamos con los pasos.
+            </Text>
+          </View>
+        ) : null}
+
+        {started && steps.length > 0 ? (
           <>
             <Text style={[styles.label, { color: c.inkSoft, fontFamily: Fonts.sans, marginTop: 6 }]}>
               PASO {stepIndex + 1} DE {steps.length}
             </Text>
-            <View style={[styles.card, { borderColor: c.line, backgroundColor: c.surface }]}>
-              <Text style={{ fontSize: 15, color: c.ink, fontFamily: Fonts.sans, lineHeight: 23 }}>{currentStep}</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-                {durations.map((d) => (
-                  <Pressable
-                    key={d.label}
-                    onPress={() => setTimerSeconds(d.seconds)}
-                    style={[styles.timerBtn, { borderColor: c.terra }]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Temporizador de ${d.label}`}
-                  >
-                    <Text style={{ color: c.terra, fontSize: 12, fontWeight: '700', fontFamily: Fonts.sans }}>
-                      ⏱ {d.label}
-                    </Text>
-                  </Pressable>
-                ))}
+            <View style={[styles.card, styles.stepCard, { borderColor: c.line, backgroundColor: c.surface }]}>
+              {/* Chefie acompaña cada paso, no solo el final. `point` se voltea
+                  porque el brazo señala a la izquierda y aquí Chefie está a la
+                  izquierda del texto: sin voltear señalaría hacia fuera. Las
+                  demás poses no tienen dirección, así que se dejan como son. */}
+              <ChefieMascot pose={stepPose} size={52} flip={stepPose === 'point'} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ fontSize: 15, color: c.ink, fontFamily: Fonts.sans, lineHeight: 23 }}>{currentStep}</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+                  {durations.map((d) => (
+                    <Pressable
+                      key={d.label}
+                      onPress={() => setTimerSeconds(d.seconds)}
+                      style={[styles.timerBtn, { borderColor: c.terra }]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Temporizador de ${d.label}`}
+                    >
+                      <Text style={{ color: c.terra, fontSize: 12, fontWeight: '700', fontFamily: Fonts.sans }}>
+                        ⏱ {d.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
             </View>
           </>
@@ -204,7 +249,7 @@ export default function CocinaScreen() {
 
         {/* Al llegar al último paso no pasaba nada: el botón «Siguiente» se
             apagaba y ya. Terminar de cocinar merece un cierre. */}
-        {steps.length > 0 && stepIndex === steps.length - 1 ? (
+        {started && steps.length > 0 && stepIndex === steps.length - 1 ? (
           <View style={[styles.card, styles.doneCard, { borderColor: c.sage, backgroundColor: c.sageSoft }]}>
             <ChefieMascot pose="cooking" size={96} />
             <View style={{ flex: 1, minWidth: 0 }}>
@@ -232,22 +277,50 @@ export default function CocinaScreen() {
 
       {steps.length > 0 ? (
         <View style={[styles.navRow, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-          <Pressable
-            onPress={() => setStepIndex((i) => Math.max(0, i - 1))}
-            disabled={stepIndex === 0}
-            style={[styles.navBtn, { borderWidth: 1.5, borderColor: c.line }, stepIndex === 0 && { opacity: 0.4 }]}
-            accessibilityRole="button"
-          >
-            <Text style={{ color: c.inkSoft, fontWeight: '700', fontSize: 13.5, fontFamily: Fonts.sans }}>← Anterior</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setStepIndex((i) => Math.min(steps.length - 1, i + 1))}
-            disabled={stepIndex >= steps.length - 1}
-            style={[styles.navBtn, { backgroundColor: c.terra }, stepIndex >= steps.length - 1 && { opacity: 0.4 }]}
-            accessibilityRole="button"
-          >
-            <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13.5, fontFamily: Fonts.sans }}>Siguiente →</Text>
-          </Pressable>
+          {!started ? (
+            // Un solo botón antes de arrancar: al pulsarlo se pliegan los
+            // ingredientes y aparece el paso 1, que es lo que se pidió.
+            <Pressable
+              onPress={() => {
+                setStarted(true);
+                setIngredientsOpen(false);
+              }}
+              style={[styles.navBtn, { flex: 1, backgroundColor: c.terra }]}
+              accessibilityRole="button"
+              accessibilityLabel="Empezar con los pasos"
+            >
+              <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13.5, fontFamily: Fonts.sans }}>
+                Empezar a cocinar →
+              </Text>
+            </Pressable>
+          ) : (
+            <>
+              <Pressable
+                onPress={() => {
+                  // Desde el paso 1 hacia atrás se vuelve a los ingredientes.
+                  if (stepIndex === 0) {
+                    setStarted(false);
+                    setIngredientsOpen(true);
+                  } else setStepIndex((i) => i - 1);
+                }}
+                style={[styles.navBtn, { borderWidth: 1.5, borderColor: c.line }]}
+                accessibilityRole="button"
+                accessibilityLabel={stepIndex === 0 ? 'Volver a los ingredientes' : 'Paso anterior'}
+              >
+                <Text style={{ color: c.inkSoft, fontWeight: '700', fontSize: 13.5, fontFamily: Fonts.sans }}>
+                  ← {stepIndex === 0 ? 'Ingredientes' : 'Anterior'}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setStepIndex((i) => Math.min(steps.length - 1, i + 1))}
+                disabled={stepIndex >= steps.length - 1}
+                style={[styles.navBtn, { backgroundColor: c.terra }, stepIndex >= steps.length - 1 && { opacity: 0.4 }]}
+                accessibilityRole="button"
+              >
+                <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13.5, fontFamily: Fonts.sans }}>Siguiente →</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       ) : null}
     </View>
@@ -274,6 +347,8 @@ const styles = StyleSheet.create({
   timerBtn: { borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7 },
   timerCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   doneCard: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  stepCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  intro: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 },
   navRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 18, paddingTop: 6 },
   navBtn: { flex: 1, borderRadius: Radii.card, paddingVertical: 13, alignItems: 'center' },
 });

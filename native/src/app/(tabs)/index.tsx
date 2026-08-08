@@ -420,7 +420,9 @@ function HoyView({
                     accessibilityRole="button"
                     accessibilityLabel={`Cocinar ${r.name}`}
                   >
-                    <Ionicons name="flame-outline" size={16} color={c.terra} />
+                    {/* Un "play": el modo cocina es una guía que se arranca y se
+                        va pasando. El fuego sugería calor, no arrancar nada. */}
+                    <Ionicons name="play" size={15} color={c.terra} />
                   </Pressable>
                 ) : null}
                 <Pressable
