@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import { collection } from 'firebase/firestore';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,21 +9,26 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PaperTexture } from '@/components/paper-texture';
 import { ScreenTitle } from '@/components/screen-scaffold';
 import { Fonts, Radii, Shadows, type ThemeColors } from '@/constants/theme';
+import { firestore } from '@/firebase';
 import { useAuthUser } from '@/firebase/auth-context';
+import { useCollection } from '@/firebase/firestore-hooks';
 import {
   clearDay,
   clearMeal,
   clearWeek,
+  deleteWeekSnapshot,
   pasteDayInto,
   pasteRecipesIntoMeal,
   removeRecipeFromMeal,
+  restoreWeek,
+  saveWeekSnapshot,
 } from '@/firebase/plan-operations';
 import { useProfile, useWeekPlan } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
 import { setPlanClipboard, usePlanClipboard } from '@/lib/plan-clipboard';
 import { formatServings } from '@/lib/serving-utils';
 import { shareWeekPdf } from '@/lib/week-pdf';
-import type { DayPlan, GoalMacros, Macros, RecipeInstance } from '@/lib/types';
+import type { DayPlan, GoalMacros, Macros, RecipeInstance, WeekHistoryEntry } from '@/lib/types';
 
 /** Macros a RecipeInstance contributes to the day: batch totals × raciones/lote. */
 function instanceMacros(r: RecipeInstance) {
@@ -494,6 +500,22 @@ function SemanaView({
   const [editing, setEditing] = useState(false);
   const [confirmClearWeek, setConfirmClearWeek] = useState(false);
 
+  /**
+   * Historial de semanas. Vivía en Perfil, pero guardar y recuperar una semana
+   * es algo que se hace MIRANDO el cuadrante, no entrando en los ajustes.
+   */
+  const historyRef = useMemo(
+    () => (user ? collection(firestore, 'users', user.uid, 'weekHistory') : null),
+    [user]
+  );
+  const { data: history } = useCollection<WeekHistoryEntry>(historyRef);
+  const [histBusy, setHistBusy] = useState(false);
+  const [histNotice, setHistNotice] = useState<string | null>(null);
+  const sortedHistory = useMemo(
+    () => [...(history ?? [])].sort((a, b) => b.savedAt - a.savedAt),
+    [history]
+  );
+
   const emptyMeal = (day: string, mealId: string) => {
     if (!user) return;
     clearMeal(user.uid, day, mealId).catch(() => {});
@@ -510,10 +532,31 @@ function SemanaView({
   };
 
   const mealTitles = weekPlan[0]?.meals.map((m) => m.title) ?? [];
+  const weekHasContent = weekPlan.some((d) => d.meals.some((m) => m.recipes.length > 0));
   const perDay = useMemo(() => weekPlan.map(dayTotals), [weekPlan]);
   const weekPlanned = perDay.reduce((sum, d) => sum + d.calories, 0);
   const daysWithPlan = perDay.filter((d) => d.calories > 0).length;
   const weekMargin = goal ? goal.calories * 7 - weekPlanned : 0;
+
+  const runHist = async (fn: () => Promise<unknown>, okMsg: string) => {
+    if (histBusy || !user) return;
+    setHistBusy(true);
+    setHistNotice(null);
+    try {
+      await fn();
+      setHistNotice(okMsg);
+    } catch {
+      setHistNotice('No se pudo completar. Revisa tu conexión.');
+    } finally {
+      setHistBusy(false);
+    }
+  };
+
+  const handleSaveWeek = () =>
+    runHist(async () => {
+      const label = `Semana del ${new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}`;
+      await saveWeekSnapshot(user!.uid, label, weekPlan);
+    }, 'Semana guardada. La tienes abajo, en el historial.');
 
   const handleDownload = async () => {
     if (pdfBusy) return;
@@ -592,6 +635,24 @@ function SemanaView({
             ? 'Toca la ✕ de una casilla para vaciarla, o "vaciar" bajo un día'
             : 'Desliza para ver la semana · toca una casilla para editarla'}
         </Text>
+        {/* Guardar la semana, al lado de Editar: es donde se piensa en la
+            semana entera, no en los ajustes de la cuenta. Se esconde al editar
+            porque ahí se está vaciando, no archivando, y porque el aviso del
+            modo edición es largo y los tres juntos no caben en 375. */}
+        {!editing ? (
+          <Pressable
+            onPress={handleSaveWeek}
+            disabled={histBusy || !user || !weekHasContent}
+            style={[styles.chip, { borderColor: c.line }, (!weekHasContent || histBusy) && { opacity: 0.45 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Guardar esta semana en el historial"
+          >
+            <Ionicons name="bookmark-outline" size={13} color={c.inkSoft} />
+            <Text style={{ fontSize: 11.5, fontWeight: '700', color: c.inkSoft, fontFamily: Fonts.sans }}>
+              Guardar
+            </Text>
+          </Pressable>
+        ) : null}
         <Pressable
           onPress={() => {
             setEditing((e) => !e);
@@ -857,6 +918,63 @@ function SemanaView({
         )
       ) : null}
 
+      {/* El historial solo aparece cuando hay algo guardado: en blanco sería
+          una caja vacía explicando un botón que está tres dedos más arriba. */}
+      {histNotice ? (
+        <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans, textAlign: 'center' }}>
+          {histNotice}
+        </Text>
+      ) : null}
+      {sortedHistory.length > 0 ? (
+        <View style={[styles.card, Shadows.card, { borderColor: c.line, backgroundColor: c.surface }]}>
+          <Text style={[styles.miniLabel, { color: c.inkSoft, fontFamily: Fonts.sans, marginBottom: 2 }]}>
+            SEMANAS GUARDADAS
+          </Text>
+          {sortedHistory.map((entry) => (
+            <View key={entry.id} style={[styles.historyRow, { borderColor: c.line }]}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text
+                  style={{ fontSize: 12.5, fontWeight: '600', color: c.ink, fontFamily: Fonts.sans }}
+                  numberOfLines={1}
+                >
+                  {entry.label}
+                </Text>
+                <Text style={{ fontSize: 10.5, color: c.inkSoft, fontFamily: Fonts.sans }}>
+                  {new Date(entry.savedAt).toLocaleDateString('es-ES')}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() =>
+                  runHist(() => restoreWeek(user!.uid, entry.days), 'Semana restaurada en el cuadrante.')
+                }
+                disabled={histBusy}
+                hitSlop={6}
+                accessibilityRole="button"
+                accessibilityLabel={`Restaurar ${entry.label}`}
+              >
+                <Text style={{ color: c.sage, fontSize: 12, fontWeight: '700', fontFamily: Fonts.sans }}>
+                  Restaurar
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() =>
+                  runHist(() => deleteWeekSnapshot(user!.uid, entry.id), 'Semana borrada del historial.')
+                }
+                disabled={histBusy}
+                hitSlop={6}
+                accessibilityRole="button"
+                accessibilityLabel={`Borrar ${entry.label}`}
+              >
+                <Text style={{ color: c.inkSoft, fontSize: 12, fontFamily: Fonts.sans }}>Borrar</Text>
+              </Pressable>
+            </View>
+          ))}
+          <Text style={{ fontSize: 10.5, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 15, marginTop: 6 }}>
+            Restaurar reescribe los siete días del cuadrante con los de esa semana.
+          </Text>
+        </View>
+      ) : null}
+
       <Pressable
         onPress={handleDownload}
         disabled={pdfBusy}
@@ -1011,6 +1129,14 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   miniLabel: { fontSize: 9, fontWeight: '700', letterSpacing: 0.6, marginBottom: 1 },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderTopWidth: 1,
+    paddingTop: 8,
+    marginTop: 8,
+  },
   emptySlot: {
     borderStyle: 'dashed',
     flexDirection: 'row',

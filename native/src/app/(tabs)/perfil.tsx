@@ -1,21 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { collection } from 'firebase/firestore';
-import { useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card, CardText, ScreenScaffold } from '@/components/screen-scaffold';
 import { Fonts, Radii, Shadows } from '@/constants/theme';
-import { firestore } from '@/firebase';
 import { logOut, useAuthUser } from '@/firebase/auth-context';
-import { useCollection } from '@/firebase/firestore-hooks';
-import { deleteWeekSnapshot, restoreWeek, saveWeekSnapshot } from '@/firebase/plan-operations';
-import { useProfile, useWeekPlan } from '@/hooks/use-nutrilp-data';
+import { useProfile } from '@/hooks/use-nutrilp-data';
 import { useOnboardingFlag } from '@/hooks/use-onboarding-flag';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemePreference, type ThemePreference } from '@/hooks/use-theme-preference';
 import { DIET_TAG_LABELS } from '@/lib/constants';
-import type { WeekHistoryEntry } from '@/lib/types';
 
 /** La web es donde viven las páginas legales (una sola copia, no duplicarlas). */
 const WEB_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://nutrilp.com').replace(/\/$/, '');
@@ -37,9 +31,11 @@ const THEME_OPTIONS: { key: ThemePreference; label: string; icon: React.Componen
 function IconBadge({
   name,
   tone = 'neutral',
+  big = false,
 }: {
   name: React.ComponentProps<typeof Ionicons>['name'];
   tone?: 'neutral' | 'terra' | 'sage';
+  big?: boolean;
 }) {
   const c = useTheme();
   const { bg, fg } =
@@ -48,9 +44,10 @@ function IconBadge({
       : tone === 'sage'
         ? { bg: c.sageSoft, fg: c.sage }
         : { bg: c.chip, fg: c.inkSoft };
+  const size = big ? 38 : 30;
   return (
-    <View style={[styles.badge, { backgroundColor: bg }]}>
-      <Ionicons name={name} size={16} color={fg} />
+    <View style={[styles.badge, { width: size, height: size, borderRadius: size / 2, backgroundColor: bg }]}>
+      <Ionicons name={name} size={big ? 19 : 16} color={fg} />
     </View>
   );
 }
@@ -60,33 +57,26 @@ function IconBadge({
  * (registro diario), ver PLAN-app-nativa.md norte §3. Objetivo y entrevista se
  * resumen aquí y se editan en sus propias pantallas (`/objetivos`, `/entrevista`).
  *
- * Distribución rehecha el 2026-08-08 a partir del boceto del usuario: el
- * objetivo diario manda como tarjeta grande (es el dato que se viene a mirar),
- * las cuatro herramientas bajan a una rejilla de dos columnas para que quepan
- * sin cuatro filas de scroll, y cada tarjeta lleva su insignia de icono.
+ * Distribución rehecha el 2026-08-08 a partir del boceto del usuario, y
+ * ordenada POR USO: el objetivo diario manda como tarjeta grande (es el dato
+ * que se viene a mirar), después la entrevista, después las dos herramientas
+ * que se tocan de verdad (Librito y recordatorios) y al final, en pequeño y
+ * juntas, las tres de una sola vez: aspecto, tour y avisar de un fallo.
+ *
+ * El historial de semanas ya NO está aquí: guardar y recuperar una semana se
+ * hace mirando el cuadrante, así que vive en la pestaña Plan, vista Semana.
  */
 export default function PerfilScreen() {
   const c = useTheme();
   const router = useRouter();
   const { user } = useAuthUser();
   const { profile, activeGoalMacros } = useProfile();
-  const { weekPlan } = useWeekPlan();
   const { preference, setPreference } = useThemePreference();
   // Mismo flag que consume `GuidedTour`: al reactivarlo, el tour reaparece solo.
   const { showAgain: showTourAgain } = useOnboardingFlag('native-tour');
-  const historyRef = useMemo(
-    () => (user ? collection(firestore, 'users', user.uid, 'weekHistory') : null),
-    [user]
-  );
-  const { data: history } = useCollection<WeekHistoryEntry>(historyRef);
-  const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const interview = profile?.nutriInterview;
   const diet = (profile?.dietPreference ?? []).map((t) => DIET_TAG_LABELS[t] ?? t).join(', ');
-
-  const planHasContent = weekPlan.some((d) => d.meals.some((m) => m.recipes.length > 0));
-  const sortedHistory = [...(history ?? [])].sort((a, b) => b.savedAt - a.savedAt);
 
   // El nombre sale del perfil; si aún no lo hay, de la parte del correo antes
   // de la arroba, que es mejor saludo que el correo entero.
@@ -101,66 +91,34 @@ export default function PerfilScreen() {
       .join('')
       .toUpperCase() || '·';
 
-  const run = async (fn: () => Promise<unknown>, okMsg: string) => {
-    if (busy) return;
-    setBusy(true);
-    setNotice(null);
-    try {
-      await fn();
-      setNotice(okMsg);
-    } catch {
-      setNotice('No se pudo completar. Revisa tu conexión.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleSaveWeek = () =>
-    run(async () => {
-      const label = `Semana del ${new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}`;
-      await saveWeekSnapshot(user!.uid, label, weekPlan);
-    }, 'Semana guardada en el historial.');
-
-  /** Las cuatro herramientas de la rejilla. Mismo trato para las cuatro. */
-  const tools: {
+  /**
+   * Las dos que se usan de verdad, a tamaño completo. El Librito se lee y los
+   * recordatorios se tocan cada semana; lo demás (el tour, avisar de un fallo,
+   * el aspecto) se toca una vez y no se vuelve, así que baja al bloque de abajo.
+   */
+  const mainTools: {
     key: string;
     icon: React.ComponentProps<typeof Ionicons>['name'];
-    tone: 'neutral' | 'terra' | 'sage';
+    tone: 'terra' | 'sage';
     title: string;
     hint: string;
     onPress: () => void;
   }[] = [
     {
-      key: 'feedback',
-      icon: 'chatbubble-ellipses-outline',
+      key: 'librito',
+      icon: 'book-outline',
       tone: 'terra',
-      title: 'Contar un problema',
-      hint: 'Estamos en pruebas: si algo falla, cuéntamelo.',
-      onPress: () => router.push('/feedback'),
-    },
-    {
-      key: 'tour',
-      icon: 'compass-outline',
-      tone: 'sage',
-      title: 'Ver el tour otra vez',
-      hint: 'Chefie te vuelve a explicar las pestañas.',
-      onPress: () => showTourAgain(),
+      title: 'El Librito',
+      hint: 'Tutoriales, precisión de macros y buena relación con la comida.',
+      onPress: () => router.push('/librito'),
     },
     {
       key: 'recordatorios',
       icon: 'alarm-outline',
-      tone: 'neutral',
+      tone: 'sage',
       title: 'Recordatorios',
-      hint: 'Que Chefie te avise de lo que tú le digas.',
+      hint: 'Que Chefie te avise de lo que tú le digas, a la hora que quieras.',
       onPress: () => router.push('/recordatorios'),
-    },
-    {
-      key: 'librito',
-      icon: 'book-outline',
-      tone: 'neutral',
-      title: 'El Librito',
-      hint: 'Tutoriales, macros y buena relación con la comida.',
-      onPress: () => router.push('/librito'),
     },
   ];
 
@@ -256,96 +214,40 @@ export default function PerfilScreen() {
         </View>
       </Pressable>
 
-      {/* Historial de semanas */}
-      <Card>
-        <View style={styles.panelHead}>
-          <IconBadge name="bar-chart-outline" />
-          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-            <CardText bold>Historial de semanas</CardText>
-            <CardText>{notice ?? 'Guarda la semana para poder recuperarla más adelante.'}</CardText>
-          </View>
-        </View>
+      {/* Las dos herramientas de uso real, a ancho completo. */}
+      {mainTools.map((t) => (
         <Pressable
-          onPress={handleSaveWeek}
-          disabled={busy || !user || !planHasContent}
-          style={[styles.historyBtn, { borderColor: c.terra }, (!planHasContent || busy) && { opacity: 0.5 }]}
+          key={t.key}
+          onPress={t.onPress}
+          style={[styles.panel, Shadows.card, { borderColor: c.line, backgroundColor: c.surface }]}
           accessibilityRole="button"
-          accessibilityLabel="Guardar semana actual"
+          accessibilityLabel={t.title}
         >
-          <Ionicons name="bookmark-outline" size={14} color={c.terra} />
-          <Text style={{ color: c.terra, fontWeight: '700', fontSize: 12.5, fontFamily: Fonts.sans }}>
-            Guardar semana actual
-          </Text>
-        </Pressable>
-        {sortedHistory.length === 0 ? (
-          <CardText>Aún no has guardado ninguna semana.</CardText>
-        ) : (
-          sortedHistory.map((entry) => (
-            <View key={entry.id} style={[styles.historyRow, { borderColor: c.line }]}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={{ fontSize: 12.5, fontWeight: '600', color: c.ink, fontFamily: Fonts.sans }} numberOfLines={1}>
-                  {entry.label}
-                </Text>
-                <Text style={{ fontSize: 10.5, color: c.inkSoft, fontFamily: Fonts.sans }}>
-                  {new Date(entry.savedAt).toLocaleDateString('es-ES')}
-                </Text>
-              </View>
-              <Pressable
-                onPress={() => run(() => restoreWeek(user!.uid, entry.days), 'Semana restaurada en el plan.')}
-                disabled={busy}
-                hitSlop={6}
-                accessibilityRole="button"
-                accessibilityLabel={`Restaurar ${entry.label}`}
-              >
-                <Text style={{ color: c.sage, fontSize: 12, fontWeight: '700', fontFamily: Fonts.sans }}>
-                  Restaurar
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => run(() => deleteWeekSnapshot(user!.uid, entry.id), 'Semana borrada del historial.')}
-                disabled={busy}
-                hitSlop={6}
-                accessibilityRole="button"
-                accessibilityLabel={`Borrar ${entry.label}`}
-              >
-                <Text style={{ color: c.inkSoft, fontSize: 12, fontFamily: Fonts.sans }}>Borrar</Text>
-              </Pressable>
+          <View style={styles.panelHead}>
+            <IconBadge name={t.icon} tone={t.tone} big />
+            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+              <Text style={{ fontSize: 14.5, fontWeight: '700', color: c.ink, fontFamily: Fonts.sans }}>
+                {t.title}
+              </Text>
+              <Text style={{ fontSize: 12, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 17 }}>
+                {t.hint}
+              </Text>
             </View>
-          ))
-        )}
-      </Card>
-
-      {/* Las cuatro herramientas, en dos columnas: en una sola fila cada una
-          ocupaban cuatro pantallazos de scroll para cuatro enlaces. */}
-      <View style={styles.grid}>
-        {tools.map((t) => (
-          <Pressable
-            key={t.key}
-            onPress={t.onPress}
-            style={[styles.gridCard, Shadows.card, { borderColor: c.line, backgroundColor: c.surface }]}
-            accessibilityRole="button"
-            accessibilityLabel={t.title}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <IconBadge name={t.icon} tone={t.tone} />
-              <Ionicons name="chevron-forward" size={14} color={c.inkSoft} style={{ marginLeft: 'auto' }} />
-            </View>
-            <Text style={{ fontSize: 13, fontWeight: '700', color: c.ink, fontFamily: Fonts.sans }}>{t.title}</Text>
-            <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 16 }}>{t.hint}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      {/* Aspecto. El segmentado va debajo y no al lado del texto como en el
-          boceto: tres opciones con icono y etiqueta no caben en media pantalla
-          de 375 sin quedar ilegibles. */}
-      <Card>
-        <View style={styles.panelHead}>
-          <IconBadge name="color-palette-outline" />
-          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-            <CardText bold>Aspecto</CardText>
-            <CardText>Nutrilp va en claro, como la web. Si prefieres el oscuro, aquí lo cambias.</CardText>
+            <Ionicons name="chevron-forward" size={17} color={c.inkSoft} />
           </View>
+        </Pressable>
+      ))}
+
+      {/* Lo de una sola vez, junto y en pequeño: el tour, avisar de un fallo y
+          el aspecto. Antes ocupaban lo mismo que el Librito y no lo merecen.
+          El segmentado va debajo de su fila y no al lado como en el boceto:
+          tres opciones con icono y etiqueta no caben en media pantalla de 375. */}
+      <Card>
+        <Text style={[styles.minorLabel, { color: c.inkSoft, fontFamily: Fonts.sans }]}>AJUSTES Y AYUDA</Text>
+
+        <View style={styles.minorRow}>
+          <Ionicons name="color-palette-outline" size={15} color={c.inkSoft} />
+          <Text style={{ flex: 1, fontSize: 13, color: c.ink, fontFamily: Fonts.sans }}>Aspecto</Text>
         </View>
         <View style={[styles.themeSegment, { borderColor: c.line }]}>
           {THEME_OPTIONS.map(({ key, label, icon }) => {
@@ -374,6 +276,28 @@ export default function PerfilScreen() {
             );
           })}
         </View>
+
+        <Pressable
+          onPress={() => showTourAgain()}
+          style={[styles.minorRow, styles.minorLink, { borderColor: c.line }]}
+          accessibilityRole="button"
+          accessibilityLabel="Ver el tour otra vez"
+        >
+          <Ionicons name="compass-outline" size={15} color={c.inkSoft} />
+          <Text style={{ flex: 1, fontSize: 13, color: c.ink, fontFamily: Fonts.sans }}>Ver el tour otra vez</Text>
+          <Ionicons name="chevron-forward" size={15} color={c.inkSoft} />
+        </Pressable>
+
+        <Pressable
+          onPress={() => router.push('/feedback')}
+          style={[styles.minorRow, styles.minorLink, { borderColor: c.line }]}
+          accessibilityRole="button"
+          accessibilityLabel="Contar un problema"
+        >
+          <Ionicons name="chatbubble-ellipses-outline" size={15} color={c.inkSoft} />
+          <Text style={{ flex: 1, fontSize: 13, color: c.ink, fontFamily: Fonts.sans }}>Contar un problema</Text>
+          <Ionicons name="chevron-forward" size={15} color={c.inkSoft} />
+        </Pressable>
       </Card>
 
       <Pressable
@@ -426,7 +350,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badge: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  badge: { alignItems: 'center', justifyContent: 'center' },
+  minorLabel: { fontSize: 9.5, fontWeight: '700', letterSpacing: 1.1, marginBottom: 4 },
+  minorRow: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 7 },
+  minorLink: { borderTopWidth: 1, marginTop: 4 },
 
   hero: { borderRadius: Radii.panel, paddingHorizontal: 14, paddingVertical: 13, gap: 12 },
   heroTop: { flexDirection: 'row', alignItems: 'center', gap: 9 },
@@ -458,16 +385,6 @@ const styles = StyleSheet.create({
   panelHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   panelFoot: { borderTopWidth: 1, marginTop: 10, paddingTop: 9 },
 
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  gridCard: {
-    width: '48%',
-    borderWidth: 1.5,
-    borderRadius: Radii.card,
-    paddingHorizontal: 11,
-    paddingVertical: 11,
-    gap: 5,
-  },
-
   logout: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -476,16 +393,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderRadius: Radii.card,
     paddingVertical: 12,
-    marginTop: 8,
-  },
-  historyBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    borderWidth: 1.5,
-    borderRadius: 10,
-    paddingVertical: 9,
     marginTop: 8,
   },
   legalRow: {
@@ -511,13 +418,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 5,
     paddingVertical: 9,
-  },
-  historyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderTopWidth: 1,
-    paddingTop: 8,
-    marginTop: 8,
   },
 });
