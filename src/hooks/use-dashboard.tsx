@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import type { Recipe, DialogState, ActiveDropTarget, Meal, PanelType, AiIngredientEstimate } from '@/lib/types';
+import type { Recipe, DialogState, ActiveDropTarget, Meal, PanelType, AiIngredientEstimate, WeekPlan } from '@/lib/types';
+import { findInPlan, splitToRemove } from '@/lib/plan-search';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 import { useRecipeState } from '@/hooks/use-recipe-state';
@@ -179,7 +180,16 @@ export function useDashboard() {
     });
   };
 
-  const handleRunAutocomplete = async (preferences: AutocompletePreferences) => {
+  const handleRunAutocomplete = async (
+    preferences: AutocompletePreferences,
+    /**
+     * `planOverride` sirve para encadenarlo justo después de quitar comidas:
+     * `currentWeekPlan` todavía trae las viejas hasta que Firestore devuelve el
+     * cambio. `excludeRecipeIds` evita que el relleno reponga lo que se acaba
+     * de quitar.
+     */
+    opts?: { planOverride?: WeekPlan; excludeRecipeIds?: string[] }
+  ) => {
     const quota = await checkAiQuota();
     if (!quota.allowed) {
       toast({ title: 'Límite de IA', description: quota.message ?? 'Has alcanzado el límite de peticiones de IA por hoy.' });
@@ -199,7 +209,7 @@ export function useDashboard() {
         )
       )];
       const { placements, unfilled } = await autocompleteWeek({
-        weekPlan: currentWeekPlan,
+        weekPlan: opts?.planOverride ?? currentWeekPlan,
         availableRecipes,
         activeGoal: activeGoalMacros || null,
         preferences: {
@@ -217,6 +227,7 @@ export function useDashboard() {
             },
           } : {}),
           ...(recentRecipeNames.length > 0 ? { recentRecipeNames } : {}),
+          ...(opts?.excludeRecipeIds?.length ? { excludeRecipeIds: opts.excludeRecipeIds } : {}),
         },
       });
       placements.forEach(p => {
@@ -237,6 +248,38 @@ export function useDashboard() {
     } finally {
       setIsAutocompleting(false);
     }
+  };
+
+  /**
+   * "No quiero tanto atún": quita del plan las comidas que lo lleven y rellena
+   * los huecos con otra cosa, de una. Devuelve los números para que el
+   * asistente pueda contarlo sin volver a buscar.
+   */
+  const handleSwapOutOfPlan = (query: string, keepAtMost: number) => {
+    const matches = findInPlan(currentWeekPlan, query);
+    const { remove } = splitToRemove(matches, keepAtMost);
+    if (remove.length === 0) return { matched: matches.length, removed: 0 };
+
+    remove.forEach(m => handleRemoveRecipeFromMeal(m.day, m.mealId, m.instanceId));
+
+    const removedIds = new Set(remove.map(m => m.instanceId));
+    const trimmed: WeekPlan = currentWeekPlan.map(d => ({
+      ...d,
+      meals: d.meals.map(m => ({ ...m, recipes: m.recipes.filter(r => !removedIds.has(r.instanceId)) })),
+    }));
+
+    void handleRunAutocomplete(
+      {
+        allowRepetition: nutriInterview?.varietyPreference === 'variedad' ? 'no_repeat' : 'max_n',
+        maxRepetitions: nutriInterview?.maxRepeatsPerRecipe ?? 3,
+        priority: 'goal',
+        dietaryRestrictions: '',
+        goalMarginPercent: 15,
+        recipeSource: 'all',
+      },
+      { planOverride: trimmed, excludeRecipeIds: [...new Set(remove.map(m => m.recipeId))] }
+    );
+    return { matched: matches.length, removed: remove.length };
   };
 
   const dailyTotals = useMemo(() => {
@@ -281,5 +324,6 @@ export function useDashboard() {
     handleMealSlotClick, handleRecipeSelectionSave,
     handlePanelOpen, handlePanelChange,
     handleAiRecipeGenerated, handleRecipeImported, handleAutocompleteWeek, handleRunAutocomplete,
+    handleSwapOutOfPlan,
   };
 }

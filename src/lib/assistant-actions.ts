@@ -45,6 +45,30 @@ export const ASSISTANT_ACTIONS = {
     destructive: false,
     schema: z.object({}),
   },
+  /**
+   * "No quiero tanto atún". Antes no había forma de decir esto: lo más parecido
+   * era vaciar una comida concreta de un día, así que el asistente acababa
+   * preguntando hueco por hueco cuál sustituir. Esto lo resuelve de una.
+   */
+  swap_out_of_plan: {
+    description:
+      'Quita del plan las comidas que lleven algo que el usuario ya no quiere (un ingrediente o un plato) y vuelve a rellenar esos huecos con otra cosa. Úsalo cuando diga que hay demasiado de algo, que no quiere tanto de algo, o que le quites algo de la semana. NO preguntes cuáles quitar: elígelos tú.',
+    destructive: false,
+    schema: z.object({
+      query: z
+        .string()
+        .describe('Qué no quiere, en una o dos palabras: "atún", "pollo", "tortitas de arroz".'),
+      keepAtMost: z
+        .number()
+        .int()
+        .min(0)
+        .max(7)
+        .optional()
+        .describe(
+          'Cuántas comidas con eso puede dejar. "no quiero TANTO atún" → 1 o 2; "quítame el atún" → 0. Si no lo dice, 0.'
+        ),
+    }),
+  },
   set_goal: {
     description: 'Cambia el objetivo nutricional activo del usuario.',
     destructive: false,

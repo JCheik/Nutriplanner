@@ -74,6 +74,8 @@ interface AssistantDialogProps {
   onClearWeek: () => void;
   onAutocomplete: () => void;
   onSetGoal: (goal: GoalType) => void;
+  /** Quita del plan lo que el usuario no quiere y rellena esos huecos. */
+  onSwapOut: (query: string, keepAtMost: number) => { matched: number; removed: number };
   /**
    * Hands a freshly generated recipe to the host so it can open the review
    * dialog. `aiIngredients` carries the per-100g estimates for the recipe's
@@ -110,6 +112,7 @@ export function AssistantDialog({
   onClearWeek,
   onAutocomplete,
   onSetGoal,
+  onSwapOut,
   onCreateRecipe,
 }: AssistantDialogProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -200,6 +203,7 @@ export function AssistantDialog({
     onClearWeek,
     onAutocomplete,
     onSetGoal,
+    onSwapOut,
   });
 
   useEffect(() => {

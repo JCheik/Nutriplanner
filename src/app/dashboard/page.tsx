@@ -34,7 +34,7 @@ export default function DashboardPage() {
     handleInternalSaveRecipe, handleInternalDeleteRecipe,
     handleMealSlotClick, handleRecipeSelectionSave,
     handlePanelOpen, handlePanelChange,
-    handleAiRecipeGenerated, handleRecipeImported, handleAutocompleteWeek,
+    handleAiRecipeGenerated, handleRecipeImported, handleAutocompleteWeek, handleSwapOutOfPlan,
   } = useDashboard();
 
   return (
@@ -107,6 +107,7 @@ export default function DashboardPage() {
         onClearWeek={handleClearWeek}
         onAutocomplete={handleAutocompleteWeek}
         onSetGoal={handleActiveGoalChange}
+        onSwapOut={handleSwapOutOfPlan}
         onCreateRecipe={handleAiRecipeGenerated}
       />
 

@@ -26,6 +26,8 @@ interface AssistantContext {
   onClearWeek: () => void;
   onAutocomplete: () => void;
   onSetGoal: (goal: GoalType) => void;
+  /** Quita del plan lo que el usuario no quiere y rellena esos huecos. */
+  onSwapOut: (query: string, keepAtMost: number) => { matched: number; removed: number };
 }
 
 const GOAL_LABEL: Record<GoalType, string> = {
@@ -116,6 +118,22 @@ export function useAssistantActions(ctx: AssistantContext) {
       case 'autocomplete_week': {
         ctx.onAutocomplete();
         return { ok: true, message: 'Te abro las opciones para montarte la semana.' };
+      }
+      case 'swap_out_of_plan': {
+        const { query, keepAtMost } = parsed.data as { query: string; keepAtMost?: number };
+        const q = query.trim();
+        if (q.length < 2) return { ok: false, message: '¿Qué te quito exactamente?' };
+        const keep = Math.max(0, Math.trunc(keepAtMost ?? 0));
+        const { matched, removed } = ctx.onSwapOut(q, keep);
+        if (matched === 0) return { ok: false, message: `Pues no veo nada con "${q}" en tu semana. ¿Lo llamas de otra forma?` };
+        if (removed === 0) return { ok: true, message: `Ya tienes solo ${matched} con ${q}, así que lo dejo como está.` };
+        const quitadas = `${removed} comida${removed === 1 ? '' : 's'} con ${q}`;
+        return {
+          ok: true,
+          message: keep > 0
+            ? `Hecho: te dejo ${keep} y cambio ${quitadas}.`
+            : `Hecho: fuera ${quitadas}. Relleno esos huecos ahora mismo.`,
+        };
       }
       case 'set_goal': {
         const goal = args.goal as GoalType;

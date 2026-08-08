@@ -23,6 +23,12 @@ const AutocompletePreferencesSchema = z.object({
   // Recipe names used in recently saved weeks, so consecutive plans don't come
   // out identical ("siempre me da el mismo plan").
   recentRecipeNames: z.array(z.string()).optional(),
+  /**
+   * Recetas que NO se pueden colocar en esta pasada. Lo usa el asistente al
+   * rellenar los huecos que acaba de vaciar por un "no quiero tanto atún": sin
+   * esto, el autocompletado volvería a poner justo lo que se acaba de quitar.
+   */
+  excludeRecipeIds: z.array(z.string()).optional(),
 });
 
 const AutocompleteInputSchema = z.object({
@@ -172,7 +178,11 @@ const autocompleteWeekFlow = ai.defineFlow(
      */
     const allergenTerms = expandAllergens(preferences.interview?.allergies ?? []);
     const blocked = new Map<string, string>(); // receta → término que la descarta
+    // Vetadas para esta pasada (el "no quiero tanto atún" del asistente). Igual
+    // que las alergias: fuera antes de que el modelo las vea, no en el prompt.
+    const excluded = new Set(preferences.excludeRecipeIds ?? []);
     const recipes = allRecipes.filter(r => {
+      if (excluded.has(r.id)) return false;
       const hit = recipeHasAllergen(r, allergenTerms);
       if (hit) blocked.set(r.name, hit);
       return !hit;
@@ -559,6 +569,7 @@ export async function autocompleteWeek(input: {
     diet?: DietTag[];
     interview?: InterviewForPrompt;
     recentRecipeNames?: string[];
+    excludeRecipeIds?: string[];
   };
 }): Promise<AutocompleteResult> {
   return autocompleteWeekFlow(input);

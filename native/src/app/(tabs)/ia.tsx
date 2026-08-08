@@ -22,7 +22,7 @@ import { firestore } from '@/firebase';
 import { askAssistant, autocompleteWeek, generateRecipe, interviewForAi } from '@/firebase/ai-client';
 import { useAuthUser } from '@/firebase/auth-context';
 import { useCollection } from '@/firebase/firestore-hooks';
-import { addRecipeToMeal, clearDay, clearMeal, clearWeek } from '@/firebase/plan-operations';
+import { addRecipeToMeal, clearDay, clearMeal, clearWeek, removeRecipeFromMeal } from '@/firebase/plan-operations';
 import { useProfile, useRecipes, useWeekPlan } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
 import { setPendingRecipe } from '@/lib/generated-recipe-store';
@@ -36,6 +36,7 @@ import {
   resolveRecipe,
 } from '@/lib/assistant';
 import { failJob, finishJob, isJobRunning, startJob } from '@/lib/background-job';
+import { findInPlan, splitToRemove } from '@/lib/plan-search';
 import { mealCalorieRatio, suggestedServings } from '@/lib/serving-utils';
 
 interface ChatMessage {
@@ -80,7 +81,17 @@ export default function IaScreen() {
     requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
   };
 
-  const runAutocomplete = async (): Promise<string> => {
+  /**
+   * Rellenar huecos. `opts.plan` sirve para encadenarlo justo después de haber
+   * quitado comidas: el `weekPlan` del hook aún trae las viejas (Firestore no
+   * ha devuelto el cambio todavía), así que se le pasa el plan ya recortado.
+   */
+  const runAutocomplete = async (opts?: {
+    plan?: typeof weekPlan;
+    excludeRecipeIds?: string[];
+    reply?: string;
+    jobLabel?: string;
+  }): Promise<string> => {
     if (!user) return 'Inicia sesión para esto.';
     if (!interview) {
       // La entrevista se rellena DENTRO de la app desde 2026-07-25: se abre en
@@ -103,11 +114,11 @@ export default function IaScreen() {
     // Montar la semana entera tarda, así que se manda al fondo y se responde ya:
     // el usuario puede irse a Recetas o a la Compra mientras tanto, y `ChefieBubble`
     // le avisa. Sin await a propósito — esta función devuelve el mensaje del chat.
-    startJob('Montando tu semana…');
+    startJob(opts?.jobLabel ?? 'Montando tu semana…');
     void (async () => {
       try {
         const { placements, unfilled } = await autocompleteWeek({
-          weekPlan,
+          weekPlan: opts?.plan ?? weekPlan,
           availableRecipes,
           activeGoal: activeGoalMacros,
           preferences: {
@@ -117,6 +128,7 @@ export default function IaScreen() {
             dietaryRestrictions: '',
             goalMarginPercent: 15,
             interview,
+            ...(opts?.excludeRecipeIds?.length ? { excludeRecipeIds: opts.excludeRecipeIds } : {}),
           },
         });
         await Promise.all(
@@ -140,7 +152,7 @@ export default function IaScreen() {
       }
     })();
 
-    return 'Voy con ello. Sigue a lo tuyo, que te aviso desde la esquina en cuanto la tenga.';
+    return opts?.reply ?? 'Voy con ello. Sigue a lo tuyo, que te aviso desde la esquina en cuanto la tenga.';
   };
 
   // Applies a validated action against Firestore, returning the reply to show.
@@ -178,6 +190,48 @@ export default function IaScreen() {
       }
       case 'autocomplete_week':
         return runAutocomplete();
+      /**
+       * "No quiero tanto atún": quita las comidas que lo lleven y rellena los
+       * huecos de una, sin preguntar cuál cambiar. Es lo que el usuario
+       * esperaba y lo que antes acababa en un interrogatorio hueco por hueco.
+       */
+      case 'swap_out_of_plan': {
+        const query = String(args.query ?? '').trim();
+        if (query.length < 2) return '¿Qué te quito exactamente?';
+        const matches = findInPlan(weekPlan, query);
+        if (matches.length === 0) return `Pues no veo nada con "${query}" en tu semana. ¿Lo llamas de otra forma?`;
+
+        const keepAtMost = Math.max(0, Math.trunc(Number(args.keepAtMost ?? 0)) || 0);
+        const { remove } = splitToRemove(matches, keepAtMost);
+        if (remove.length === 0) {
+          return `Ya tienes solo ${matches.length} con ${query}, así que lo dejo como está.`;
+        }
+
+        await Promise.all(
+          remove.map((m) => removeRecipeFromMeal(user.uid, m.day, m.mealId, m.instanceId))
+        );
+
+        // Plan ya sin ellas, para no esperar a que Firestore lo devuelva.
+        const removedIds = new Set(remove.map((m) => m.instanceId));
+        const trimmed = weekPlan.map((d) => ({
+          ...d,
+          meals: d.meals.map((m) => ({ ...m, recipes: m.recipes.filter((r) => !removedIds.has(r.instanceId)) })),
+        }));
+
+        const n = remove.length;
+        const quitadas = `${n} comida${n === 1 ? '' : 's'} con ${query}`;
+        return runAutocomplete({
+          plan: trimmed,
+          // Se vetan las recetas quitadas para que el relleno no vuelva a
+          // ponerlas: sin esto, el autocompletado repone justo lo que sobraba.
+          excludeRecipeIds: [...new Set(remove.map((m) => m.recipeId))],
+          jobLabel: `Cambiando ${quitadas}…`,
+          reply:
+            keepAtMost > 0
+              ? `Hecho: te dejo ${keepAtMost} y cambio ${quitadas}. Te aviso cuando esté.`
+              : `Hecho: fuera ${quitadas}. Relleno esos huecos y te aviso.`,
+        });
+      }
       case 'set_goal':
         // La calculadora vive en la app desde 2026-07-25. No se toca el objetivo
         // por mi cuenta: la fórmula necesita peso, altura, edad y actividad, así
