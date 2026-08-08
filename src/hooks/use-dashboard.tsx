@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Recipe, DialogState, ActiveDropTarget, Meal, PanelType, AiIngredientEstimate, WeekPlan } from '@/lib/types';
 import { findInPlan, splitToRemove } from '@/lib/plan-search';
@@ -79,6 +79,8 @@ export function useDashboard() {
   const [isRecipeSelectorOpen, setIsRecipeSelectorOpen] = useState(false);
   const [selectedMealForAddition, setSelectedMealForAddition] = useState<Meal | null>(null);
   const [isAutocompleting, setIsAutocompleting] = useState(false);
+  /** Cerrojo síncrono de `handleRunAutocomplete`. Ver el comentario de allí. */
+  const autocompleteLock = useRef(false);
 
   // Handlers
   const handleRecipeAction = useCallback((action: 'view' | 'create' | 'edit', recipe?: Recipe, isNutriPlannerRecipe = false) => {
@@ -190,12 +192,17 @@ export function useDashboard() {
      */
     opts?: { planOverride?: WeekPlan; excludeRecipeIds?: string[] }
   ) => {
-    const quota = await checkAiQuota();
-    if (!quota.allowed) {
-      toast({ title: 'Límite de IA', description: quota.message ?? 'Has alcanzado el límite de peticiones de IA por hoy.' });
-      return;
-    }
+    // Cerrojo SÍNCRONO. `isAutocompleting` es estado: dos clics seguidos en el
+    // mismo tick lo ven a false los dos y se lanzaban dos veces (le pasó al
+    // usuario). Además el `disabled` del botón no llega a repintarse a tiempo.
+    if (autocompleteLock.current) return;
+    autocompleteLock.current = true;
     try {
+      const quota = await checkAiQuota();
+      if (!quota.allowed) {
+        toast({ title: 'Límite de IA', description: quota.message ?? 'Has alcanzado el límite de peticiones de IA por hoy.' });
+        return;
+      }
       setIsAutocompleting(true);
       const { recipeSource, ...flowPreferences } = preferences;
       const availableRecipes = recipeSource === 'mine'
@@ -246,6 +253,7 @@ export function useDashboard() {
       console.error(e);
       toast({ variant: 'destructive', title: 'Error al autocompletar', description: getAiErrorMessage(e, 'No se pudo generar el plan semanal completo.') });
     } finally {
+      autocompleteLock.current = false;
       setIsAutocompleting(false);
     }
   };

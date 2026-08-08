@@ -35,7 +35,7 @@ import {
   resolveMeal,
   resolveRecipe,
 } from '@/lib/assistant';
-import { failJob, finishJob, isJobRunning, startJob } from '@/lib/background-job';
+import { failJob, finishJob, isJobRunning, startJob, useBackgroundJob } from '@/lib/background-job';
 import { findInPlan, splitToRemove } from '@/lib/plan-search';
 import { mealCalorieRatio, suggestedServings } from '@/lib/serving-utils';
 
@@ -74,6 +74,16 @@ export default function IaScreen() {
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<Pending | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+  /** Cerrojo síncrono de `send`. Ver el comentario de allí. */
+  const busyRef = useRef(false);
+  /**
+   * Montar la semana sigue en marcha DESPUÉS de que `send` termine (corre en
+   * segundo plano). Mientras dure, el atajo se queda apagado: si no, vuelve a
+   * habilitarse a los dos segundos y el usuario lo pulsa otra vez pensando que
+   * no había pasado nada.
+   */
+  const job = useBackgroundJob();
+  const jobWorking = job?.status === 'working';
 
   const interview = interviewForAi(profile?.nutriInterview);
   const append = (m: ChatMessage) => {
@@ -271,7 +281,12 @@ export default function IaScreen() {
 
   const send = async (raw: string) => {
     const text = raw.trim();
-    if (!text || busy) return;
+    // El cerrojo es la REF, no el estado: `busy` viene de la clausura del
+    // render, así que dos toques rápidos en el mismo tick lo ven a false los
+    // dos y salían dos peticiones a la IA. Le pasó al usuario autocompletando
+    // la semana: se le lanzó dos veces.
+    if (!text || busyRef.current) return;
+    busyRef.current = true;
     setInput('');
     setPending(null);
     append({ role: 'user', text });
@@ -295,6 +310,7 @@ export default function IaScreen() {
     } catch (e) {
       append({ role: 'assistant', text: e instanceof Error ? e.message : 'La IA no responde. Inténtalo de nuevo.' });
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   };
@@ -385,18 +401,25 @@ export default function IaScreen() {
       <View style={styles.quickRow}>
         <Pressable
           onPress={() => send('autocompleta la semana')}
-          disabled={busy}
-          style={[styles.quickChip, { borderColor: c.sage, backgroundColor: c.sageSoft }]}
+          disabled={busy || jobWorking}
+          style={[
+            styles.quickChip,
+            { borderColor: c.sage, backgroundColor: c.sageSoft },
+            // Apagado a la vista, no solo inerte: antes seguía pareciendo
+            // pulsable y se tocaba otra vez.
+            (busy || jobWorking) && { opacity: 0.45 },
+          ]}
           accessibilityRole="button"
+          accessibilityState={{ disabled: busy || jobWorking }}
         >
           <Text style={{ color: c.ink, fontSize: 12, fontWeight: '600', fontFamily: Fonts.sans }}>
-            ✦ Autocompletar semana
+            {jobWorking ? '✦ Montando la semana…' : '✦ Autocompletar semana'}
           </Text>
         </Pressable>
         <Pressable
           onPress={() => router.push('/nevera')}
           disabled={busy}
-          style={[styles.quickChip, { borderColor: c.line, backgroundColor: c.surface }]}
+          style={[styles.quickChip, { borderColor: c.line, backgroundColor: c.surface }, busy && { opacity: 0.45 }]}
           accessibilityRole="button"
         >
           <Text style={{ color: c.ink, fontSize: 12, fontWeight: '600', fontFamily: Fonts.sans }}>
