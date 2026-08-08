@@ -129,30 +129,10 @@ export default function RecetasScreen() {
           open={filtersOpen}
           onToggleOpen={() => setFiltersOpen((o) => !o)}
         />
-        {/* Entradas secundarias: importar de un enlace, escribir la receta a
-            mano y buscar un producto del súper. Ninguna compite con "Nueva
-            receta", que es la de la IA. */}
+        {/* Solo queda el producto del súper: importar de un enlace y escribirla
+            a mano ya son dos de los tres caminos de "Nueva receta", y repetirlos
+            aquí en letra pequeña era justo lo que hacía que no se vieran. */}
         <View style={styles.secondaryRow}>
-          <Pressable
-            onPress={() => router.push('/importar')}
-            style={styles.productLink}
-            accessibilityRole="button"
-            accessibilityLabel="Importar una receta de un enlace"
-          >
-            <Ionicons name="link-outline" size={13} color={c.inkSoft} />
-            <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans }}>Importar de un enlace</Text>
-          </Pressable>
-          <Text style={{ color: c.inkSoft, fontSize: 11 }}>·</Text>
-          <Pressable
-            onPress={() => router.push('/receta-editar')}
-            style={styles.productLink}
-            accessibilityRole="button"
-            accessibilityLabel="Escribir una receta a mano"
-          >
-            <Ionicons name="create-outline" size={13} color={c.inkSoft} />
-            <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans }}>Escribirla a mano</Text>
-          </Pressable>
-          <Text style={{ color: c.inkSoft, fontSize: 11 }}>·</Text>
           <Pressable
             onPress={() => router.push('/productos')}
             style={styles.productLink}

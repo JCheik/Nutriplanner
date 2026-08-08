@@ -45,24 +45,35 @@ export function ingredientGrams(ing: Ingredient, base?: BaseIngredient): number 
 }
 
 /**
+ * Lo que aporta UNA línea al total. Ceros si el alimento no está en el
+ * catálogo, que es justo el caso que hay que enseñar en la UI: la línea existe
+ * pero no suma nada.
+ */
+export function ingredientMacros(ing: Ingredient, index: IngredientIndex): Macros {
+  const base = lookupIngredient(index, ing.name, ing.brand);
+  if (!base) return { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  const factor = ingredientGrams(ing, base) / 100;
+  return {
+    calories: (base.calories || 0) * factor,
+    protein: (base.protein || 0) * factor,
+    carbs: (base.carbs || 0) * factor,
+    fat: (base.fat || 0) * factor,
+  };
+}
+
+/**
  * Totales del LOTE entero (no por ración): es lo que se guarda en el documento
  * de receta, y `perServingMacros` divide después entre `servings`.
  * Los ingredientes que no estén en el catálogo suman 0 — se avisa en la UI.
  */
 export function computeRecipeTotals(ingredients: Ingredient[], index: IngredientIndex): Macros {
-  return ingredients.reduce(
-    (total, ing) => {
-      const base = lookupIngredient(index, ing.name, ing.brand);
-      if (!base) return total;
-      const grams = ingredientGrams(ing, base);
-      const factor = grams / 100;
-      return {
-        calories: total.calories + (base.calories || 0) * factor,
-        protein: total.protein + (base.protein || 0) * factor,
-        carbs: total.carbs + (base.carbs || 0) * factor,
-        fat: total.fat + (base.fat || 0) * factor,
-      };
-    },
-    { calories: 0, protein: 0, carbs: 0, fat: 0 }
-  );
+  return ingredients.reduce((total, ing) => {
+    const m = ingredientMacros(ing, index);
+    return {
+      calories: total.calories + m.calories,
+      protein: total.protein + m.protein,
+      carbs: total.carbs + m.carbs,
+      fat: total.fat + m.fat,
+    };
+  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
 }

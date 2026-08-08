@@ -21,13 +21,21 @@ import { Fonts, Radii, Shadows } from '@/constants/theme';
 import { firestore } from '@/firebase';
 import { useAuthUser } from '@/firebase/auth-context';
 import { useCollection } from '@/firebase/firestore-hooks';
-import { saveGlobalRecipe, saveUserRecipe } from '@/firebase/recipe-operations';
+import { createBaseIngredients, saveGlobalRecipe, saveUserRecipe } from '@/firebase/recipe-operations';
 import { useRecipes } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
 import { DIET_TAGS, MEAL_CATEGORIES } from '@/lib/constants';
-import { buildIngredientIndex, computeRecipeTotals, lookupIngredient } from '@/lib/recipe-macros';
+import { buildIngredientIndex, computeRecipeTotals, ingredientMacros, lookupIngredient } from '@/lib/recipe-macros';
 import { normalizeText, pluralizeUnit } from '@/lib/utils';
 import type { BaseIngredient, DietTag, Ingredient, MealCategory } from '@/lib/types';
+
+/** Las cuatro casillas del alimento nuevo, en el orden de una etiqueta. */
+const NEW_FOOD_FIELDS = [
+  { key: 'calories', label: 'KCAL' },
+  { key: 'protein', label: 'PROT' },
+  { key: 'carbs', label: 'CARB' },
+  { key: 'fat', label: 'GRASA' },
+] as const;
 
 /**
  * Editor manual de recetas. Hasta ahora, crear una receta a mano era lo único
@@ -63,6 +71,8 @@ export default function RecetaEditarScreen() {
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Macros por 100 g del alimento que se está creando sobre la marcha. */
+  const [newFood, setNewFood] = useState({ calories: '', protein: '', carbs: '', fat: '' });
 
   const ingredientsRef = useMemo(() => collection(firestore, 'ingredients'), []);
   const { data: catalog } = useCollection<BaseIngredient>(ingredientsRef);
@@ -94,6 +104,51 @@ export default function RecetaEditarScreen() {
       },
     ]);
     setSearch('');
+  };
+
+  /**
+   * Crea el alimento en el catálogo compartido y lo mete en la receta. El
+   * catálogo es común (las rules dejan crear a cualquiera con `createdBy`), así
+   * que lo que añada uno le sirve al siguiente.
+   */
+  const handleCreateFood = async () => {
+    const name = search.trim();
+    const num = (s: string) => Number(s.replace(',', '.')) || 0;
+    if (!user || !name || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await createBaseIngredients(user.uid, [
+        {
+          name,
+          calories: num(newFood.calories),
+          protein: num(newFood.protein),
+          carbs: num(newFood.carbs),
+          fat: num(newFood.fat),
+          // La fibra no entra en los totales de la receta y pedir una quinta
+          // casilla por algo que casi nadie va a rellenar no compensa. Queda
+          // editable después desde el catálogo.
+          fiber: 0,
+        },
+      ]);
+      // Se mete ya en la receta con los macros tecleados: el catálogo en vivo
+      // tarda un instante en traerlo de vuelta y la línea saldría en rojo.
+      setIngredients((prev) => [
+        ...prev,
+        {
+          id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+          name,
+          quantity: 100,
+          unit: 'g',
+        },
+      ]);
+      setNewFood({ calories: '', protein: '', carbs: '', fat: '' });
+      setSearch('');
+    } catch {
+      setError('No se pudo crear el alimento. Revisa tu conexión e inténtalo de nuevo.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const setQuantity = (id: string, quantity: number) =>
@@ -199,9 +254,42 @@ export default function RecetaEditarScreen() {
         </View>
 
         <Text style={[styles.miniLabel, { color: c.inkSoft, fontFamily: Fonts.sans }]}>INGREDIENTES</Text>
+
+        {/* Los totales van ARRIBA de la lista, no al final: la gracia de
+            montarla a mano es ver subir el número mientras añades, y al final
+            de una lista de doce líneas no se ve sin hacer scroll. */}
+        <View style={[styles.totals, Shadows.card, { borderColor: c.terra, backgroundColor: c.terraSoft }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+            <Text style={{ fontSize: 22, color: c.ink, fontFamily: Fonts.serif }}>
+              {Math.round(totals.calories / perServing)}
+            </Text>
+            <Text style={{ fontSize: 12, color: c.inkSoft, fontFamily: Fonts.sans }}>
+              kcal por ración
+              {perServing > 1 ? ` · ${Math.round(totals.calories)} el lote entero` : ''}
+            </Text>
+          </View>
+          <Text style={{ fontSize: 12.5, color: c.inkSoft, fontFamily: Fonts.sans }}>
+            {Math.round(totals.protein / perServing)} P · {Math.round(totals.carbs / perServing)} C ·{' '}
+            {Math.round(totals.fat / perServing)} G
+          </Text>
+          {ingredients.length === 0 ? (
+            <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 16 }}>
+              Busca alimentos abajo y ve añadiéndolos: esto se va actualizando solo.
+            </Text>
+          ) : null}
+          {missing.length > 0 ? (
+            <Text style={{ fontSize: 11, color: c.terra, fontFamily: Fonts.sans, lineHeight: 16 }}>
+              {missing.length} ingrediente{missing.length === 1 ? '' : 's'} sin datos: el total se queda corto.
+            </Text>
+          ) : null}
+        </View>
+
         {ingredients.map((ing) => {
           const base = lookupIngredient(index, ing.name, ing.brand);
           const isWeight = ['g', 'ml', ''].includes((ing.unit || '').toLowerCase());
+          // Lo que aporta ESTA línea: es la pregunta real al montar una receta
+          // («¿cuánto me está costando el aceite?»).
+          const mine = ingredientMacros(ing, index);
           return (
             <View key={ing.id} style={[styles.ingRow, { borderColor: base ? c.line : c.terra, backgroundColor: c.surface }]}>
               <View style={{ flex: 1, minWidth: 0 }}>
@@ -209,11 +297,16 @@ export default function RecetaEditarScreen() {
                   {ing.name}
                   {ing.brand ? <Text style={{ color: c.inkSoft }}> · {ing.brand}</Text> : null}
                 </Text>
-                {!base ? (
+                {base ? (
+                  <Text style={{ fontSize: 10.5, color: c.inkSoft, fontFamily: Fonts.sans }}>
+                    +{Math.round(mine.calories)} kcal · {Math.round(mine.protein)} P ·{' '}
+                    {Math.round(mine.carbs)} C · {Math.round(mine.fat)} G
+                  </Text>
+                ) : (
                   <Text style={{ fontSize: 10.5, color: c.terra, fontFamily: Fonts.sans }}>
                     No está en el catálogo: suma 0 kcal
                   </Text>
-                ) : null}
+                )}
               </View>
               <TextInput
                 style={[styles.qtyInput, { borderColor: c.line, color: c.ink, fontFamily: Fonts.sans }]}
@@ -259,29 +352,50 @@ export default function RecetaEditarScreen() {
             </Text>
           </Pressable>
         ))}
+        {/* Si no está en el catálogo se crea aquí mismo. Antes esto decía
+            "créalo desde la web", que en el móvil es un callejón sin salida:
+            te quedas a mitad de receta y tienes que ir a por un ordenador. */}
         {search.trim().length >= 2 && results.length === 0 ? (
-          <Text style={{ fontSize: 12, color: c.inkSoft, fontFamily: Fonts.sans }}>
-            Ese alimento no está en el catálogo. Créalo primero desde la web, o busca otro nombre.
-          </Text>
+          <View style={[styles.newFood, { borderColor: c.sage, backgroundColor: c.sageSoft }]}>
+            <Text style={{ fontSize: 12.5, color: c.ink, fontFamily: Fonts.sans, lineHeight: 17 }}>
+              «{search.trim()}» no está en el catálogo. Créalo con sus macros{' '}
+              <Text style={{ color: c.inkSoft }}>por cada 100 g</Text> y lo añado:
+            </Text>
+            <View style={styles.newFoodRow}>
+              {NEW_FOOD_FIELDS.map((f) => (
+                <View key={f.key} style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 9.5, color: c.inkSoft, fontFamily: Fonts.sans, marginBottom: 2 }}>
+                    {f.label}
+                  </Text>
+                  <TextInput
+                    style={[styles.newFoodInput, { borderColor: c.line, backgroundColor: c.surface, color: c.ink, fontFamily: Fonts.sans }]}
+                    keyboardType="decimal-pad"
+                    value={newFood[f.key]}
+                    onChangeText={(t) => setNewFood((prev) => ({ ...prev, [f.key]: t.replace(/[^\d.,]/g, '') }))}
+                    editable={!busy}
+                    accessibilityLabel={`${f.label} por 100 g de ${search.trim()}`}
+                  />
+                </View>
+              ))}
+            </View>
+            <Pressable
+              onPress={handleCreateFood}
+              disabled={busy || !newFood.calories.trim()}
+              style={[styles.newFoodBtn, { backgroundColor: c.sage }, (busy || !newFood.calories.trim()) && { opacity: 0.5 }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Crear ${search.trim()} y añadirlo a la receta`}
+            >
+              <Ionicons name="add" size={15} color="#FFF" />
+              <Text style={{ color: '#FFF', fontSize: 12.5, fontWeight: '700', fontFamily: Fonts.sans }}>
+                Crear y añadir
+              </Text>
+            </Pressable>
+            <Text style={{ fontSize: 10.5, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 15 }}>
+              Míralo en la etiqueta del producto. Queda guardado en el catálogo, así que la próxima vez ya te sale al
+              buscarlo.
+            </Text>
+          </View>
         ) : null}
-
-        {/* Totales en vivo: se calculan del catálogo, no se teclean. */}
-        <View style={[styles.totals, Shadows.card, { borderColor: c.terra, backgroundColor: c.terraSoft }]}>
-          <Text style={[styles.miniLabel, { color: c.inkSoft, fontFamily: Fonts.sans }]}>POR RACIÓN</Text>
-          <Text style={{ fontSize: 15, color: c.ink, fontFamily: Fonts.serif }}>
-            {Math.round(totals.calories / perServing)} kcal
-            <Text style={{ fontSize: 12, color: c.inkSoft, fontFamily: Fonts.sans }}>
-              {'  ·  '}
-              {Math.round(totals.protein / perServing)} P · {Math.round(totals.carbs / perServing)} C ·{' '}
-              {Math.round(totals.fat / perServing)} G
-            </Text>
-          </Text>
-          {missing.length > 0 ? (
-            <Text style={{ fontSize: 11, color: c.terra, fontFamily: Fonts.sans }}>
-              {missing.length} ingrediente{missing.length === 1 ? '' : 's'} sin datos: el total se queda corto.
-            </Text>
-          ) : null}
-        </View>
 
         <Text style={[styles.miniLabel, { color: c.inkSoft, fontFamily: Fonts.sans }]}>PREPARACIÓN</Text>
         <TextInput
@@ -397,7 +511,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 9,
   },
-  totals: { borderWidth: 1.5, borderRadius: Radii.card, paddingHorizontal: 12, paddingVertical: 10, gap: 2, marginTop: 6 },
+  totals: { borderWidth: 1.5, borderRadius: Radii.card, paddingHorizontal: 12, paddingVertical: 11, gap: 3 },
+  newFood: { borderWidth: 1.5, borderRadius: Radii.card, paddingHorizontal: 12, paddingVertical: 11, gap: 8 },
+  newFoodRow: { flexDirection: 'row', gap: 6 },
+  newFoodInput: {
+    borderWidth: 1.2,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  newFoodBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    borderRadius: 10,
+    paddingVertical: 10,
+  },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { borderWidth: 1.2, borderRadius: Radii.pill, paddingHorizontal: 11, paddingVertical: 6 },
   footer: { paddingHorizontal: 18, paddingTop: 6 },

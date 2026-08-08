@@ -34,8 +34,20 @@ const CHAPTERS: Chapter[] = [
     title: 'Importar recetas de una web, Instagram, TikTok o YouTube',
     subtitle: 'Cómo funciona y qué revisar siempre',
     intro:
-      'Pega el enlace y saco nombre, ingredientes y pasos. Si es una web de recetas suele traerla ya estructurada y sale clavada; si es un vídeo, me lo miro entero. Antes de guardarla, revisa esto:',
+      'Saco nombre, ingredientes y pasos de cualquier enlace. Si es una web de recetas suele traerla ya estructurada y sale clavada; si es un vídeo, me lo miro entero. Hay dos formas de pasármelo:',
     bullets: [
+      {
+        lead: 'Sin salir de donde estés: compartir.',
+        text: 'Es la cómoda, y la que casi nadie descubre sola. Estás viendo la receta en Instagram, TikTok, YouTube o el navegador, le das al botón de compartir de ESA app, buscas Nutrilp en la lista de «Compartir en» y la tocas. No hace falta ni abrir Nutrilp: me pongo con ella y te aviso cuando esté. Si no ves Nutrilp en la lista, desliza hasta el final y toca «Más».',
+      },
+      {
+        lead: 'O pegando el enlace.',
+        text: 'En Recetas → Nueva receta → «De un enlace o compartida». Copias la dirección, la pegas ahí y listo. Vale también si tienes la receta copiada como texto en vez de como enlace.',
+      },
+      {
+        lead: 'Venga como venga, la revisas tú.',
+        text: 'Nunca guardo nada sin que lo confirmes: cuando termino te enseño la receta montada y decides. Cuatro cosas que conviene mirar antes de darle a guardar:',
+      },
       {
         lead: 'Las raciones, lo primero.',
         text: 'Si la receta era para ocho y se guarda como una, todos los macros salen ocho veces más altos. En la pantalla de revisión puedes corregirlo, o pasarla a una sola ración.',

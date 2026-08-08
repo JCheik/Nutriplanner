@@ -1,85 +1,69 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { collection } from 'firebase/firestore';
-import { useMemo, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChefieMascot } from '@/components/chefie-mascot';
+import { PaperTexture } from '@/components/paper-texture';
 import { Fonts, Radii, Shadows } from '@/constants/theme';
-import { firestore } from '@/firebase';
-import { generateRecipe, interviewForAi } from '@/firebase/ai-client';
-import { useCollection } from '@/firebase/firestore-hooks';
-import { useProfile } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
-import { setPendingRecipe } from '@/lib/generated-recipe-store';
-import type { BaseIngredient } from '@/lib/types';
-
-const EJEMPLOS = [
-  'Algo con pollo y arroz para llevar al trabajo',
-  'Una cena rápida de menos de 500 kcal',
-  'Desayuno alto en proteína sin lácteos',
-  'Comida de aprovechamiento con lo que tengo: calabacín, huevos y queso',
-];
 
 /**
- * "Nueva receta": describe lo que quieres y la IA la monta. Hasta ahora la
- * única forma de crear una receta en la app era pedírsela al asistente en el
- * chat, y el usuario no encontraba por dónde — esto le da su propia entrada
- * desde la biblioteca. Reusa el mismo endpoint y la misma pantalla de revisión
- * (`/receta-nueva`) que el asistente.
+ * "Nueva receta": elegir CÓMO.
+ *
+ * Antes este botón llevaba directo a la IA, y los otros dos caminos vivían en
+ * una fila de enlaces diminutos debajo del buscador. Resultado: la gente no
+ * sabía que se podía pegar una URL, ni que se podía compartir desde Instagram,
+ * ni que se podía escribir la receta a mano buscando alimentos del catálogo.
+ * Los tres caminos existían; lo que faltaba era verlos.
  */
 export default function RecetaCrearScreen() {
   const c = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { profile, activeGoalMacros } = useProfile();
-  const [description, setDescription] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  // Nombres del catálogo para que reutilice alimentos existentes en vez de
-  // inventar variantes (mismo criterio que el asistente).
-  const ingredientsRef = useMemo(() => collection(firestore, 'ingredients'), []);
-  const { data: catalog } = useCollection<BaseIngredient>(ingredientsRef);
-  const catalogNames = useMemo(() => (catalog ?? []).map((i) => i.name), [catalog]);
-
-  const handleGenerate = async () => {
-    const text = description.trim();
-    if (!text || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const generated = await generateRecipe({
-        description: text,
-        nutritionalGoal: activeGoalMacros,
-        diet: profile?.dietPreference,
-        existingIngredients: catalogNames,
-        interview: interviewForAi(profile?.nutriInterview),
-      });
-      if (!generated) {
-        setError('No he conseguido montar esa receta. Prueba a describirla de otra forma.');
-        return;
-      }
-      setPendingRecipe(generated);
-      router.replace('/receta-nueva');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Algo ha fallado. Inténtalo de nuevo.');
-    } finally {
-      setBusy(false);
-    }
-  };
+  const options: {
+    key: string;
+    icon: React.ComponentProps<typeof Ionicons>['name'];
+    tone: 'terra' | 'sage';
+    title: string;
+    hint: string;
+    onPress: () => void;
+  }[] = [
+    {
+      key: 'ia',
+      icon: 'sparkles',
+      tone: 'terra',
+      title: 'Que la monte Chefie',
+      hint: 'Descríbela con tus palabras («cena rápida de menos de 500 kcal») y te la monto con sus macros.',
+      onPress: () => router.replace('/receta-ia'),
+    },
+    {
+      key: 'enlace',
+      icon: 'link',
+      tone: 'sage',
+      title: 'De un enlace o compartida',
+      hint: 'Pega la URL de cualquier web de recetas, un reel, un TikTok o un YouTube. También puedes compartirla desde esa app: Compartir → Nutrilp.',
+      onPress: () => router.replace('/importar'),
+    },
+    {
+      key: 'mano',
+      icon: 'create',
+      tone: 'sage',
+      title: 'A mano, ingrediente a ingrediente',
+      hint: 'Busca los alimentos en el catálogo y ve viendo cómo suben las calorías y los macros según los añades.',
+      onPress: () => router.replace('/receta-editar'),
+    },
+  ];
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{ flex: 1, backgroundColor: c.ground, paddingTop: insets.top + 10 }}
-    >
+    <View style={{ flex: 1, backgroundColor: c.ground, paddingTop: insets.top + 10 }}>
+      <PaperTexture />
       <View style={styles.header}>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={{ fontSize: 25, color: c.ink, fontFamily: Fonts.serif }}>Nueva receta</Text>
-          <Text style={{ fontSize: 12, color: c.inkSoft, fontFamily: Fonts.sans }}>
-            Descríbela y te la monto con sus macros
+          <Text style={{ fontSize: 12.5, color: c.inkSoft, fontFamily: Fonts.sans }}>
+            Tres formas. Elige la que te venga bien.
           </Text>
         </View>
         <Pressable
@@ -92,106 +76,75 @@ export default function RecetaCrearScreen() {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-        <TextInput
-          style={[
-            styles.input,
-            Shadows.card,
-            { borderColor: c.line, backgroundColor: c.surface, color: c.ink, fontFamily: Fonts.sans },
-          ]}
-          placeholder="Ej.: pollo al horno con verduras, para dos raciones…"
-          placeholderTextColor={c.inkSoft}
-          value={description}
-          onChangeText={setDescription}
-          multiline
-          numberOfLines={4}
-          textAlignVertical="top"
-          editable={!busy}
-        />
+      <ScrollView contentContainerStyle={styles.body}>
+        {options.map((o) => {
+          const fg = o.tone === 'terra' ? c.terra : c.sage;
+          const bg = o.tone === 'terra' ? c.terraSoft : c.sageSoft;
+          return (
+            <Pressable
+              key={o.key}
+              onPress={o.onPress}
+              style={[styles.card, Shadows.card, { borderColor: c.line, backgroundColor: c.surface }]}
+              accessibilityRole="button"
+              accessibilityLabel={o.title}
+            >
+              <View style={[styles.badge, { backgroundColor: bg }]}>
+                <Ionicons name={o.icon} size={20} color={fg} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: c.ink, fontFamily: Fonts.sans }}>
+                  {o.title}
+                </Text>
+                <Text style={{ fontSize: 12, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 17.5 }}>
+                  {o.hint}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={c.inkSoft} />
+            </Pressable>
+          );
+        })}
 
-        <Text style={[styles.miniLabel, { color: c.inkSoft, fontFamily: Fonts.sans }]}>O PRUEBA CON…</Text>
-        {EJEMPLOS.map((e) => (
-          <Pressable
-            key={e}
-            onPress={() => setDescription(e)}
-            disabled={busy}
-            style={[styles.example, { borderColor: c.line, backgroundColor: c.surface }]}
-            accessibilityRole="button"
-            accessibilityLabel={e}
-          >
-            <Ionicons name="sparkles-outline" size={13} color={c.sage} />
-            <Text style={{ flex: 1, fontSize: 12.5, color: c.inkSoft, fontFamily: Fonts.sans }}>{e}</Text>
-          </Pressable>
-        ))}
-
-        <Text style={{ fontSize: 11, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 17, marginTop: 4 }}>
-          Tendrá en cuenta tu objetivo y tu entrevista (gustos, alergias y dieta). Antes de guardarla la revisas: nada
-          se añade a tus recetas sin que lo confirmes.
-        </Text>
-
-        {error ? <Text style={{ fontSize: 12.5, color: c.terra, fontFamily: Fonts.sans }}>{error}</Text> : null}
-
-        {/* Chefie pensando mientras la IA monta la receta: da algo que mirar en
-            la espera, que aquí es de varios segundos. */}
-        {busy ? (
-          <View style={{ alignItems: 'center', gap: 4, paddingTop: 6 }}>
-            <ChefieMascot pose="thinking" size={76} />
-            <Text style={{ fontSize: 12.5, color: c.inkSoft, fontFamily: Fonts.sans }}>Montando la receta…</Text>
+        {/* El «Compartir → Nutrilp» es lo que menos se descubre solo: no está en
+            ninguna pantalla de la app, está en el menú de OTRA app. */}
+        <View style={[styles.tip, { borderColor: c.line, backgroundColor: c.chip }]}>
+          <ChefieMascot pose="point" size={62} flip />
+          <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+            <Text style={{ fontSize: 12.5, fontWeight: '700', color: c.ink, fontFamily: Fonts.sans }}>
+              Ni hace falta abrir Nutrilp
+            </Text>
+            <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 17 }}>
+              Cuando veas una receta en Instagram, TikTok o el navegador, dale al botón de compartir de esa app,
+              busca Nutrilp en la lista y ya está: me pongo con ella y te aviso cuando la tenga.
+            </Text>
           </View>
-        ) : null}
+        </View>
       </ScrollView>
-
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-        <Pressable
-          onPress={handleGenerate}
-          disabled={busy || !description.trim()}
-          style={[
-            styles.cta,
-            Shadows.card,
-            { backgroundColor: c.terra },
-            (busy || !description.trim()) && { opacity: 0.55 },
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="Crear receta"
-        >
-          {busy ? (
-            <ActivityIndicator color="#FFF" />
-          ) : (
-            <>
-              <Ionicons name="restaurant-outline" size={16} color="#FFF" />
-              <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 14, fontFamily: Fonts.sans }}>
-                Crear receta
-              </Text>
-            </>
-          )}
-        </Pressable>
-      </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingHorizontal: 18, paddingBottom: 12 },
   closeBtn: { width: 32, height: 32, borderWidth: 1.5, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  body: { paddingHorizontal: 18, paddingBottom: 20, gap: 8 },
-  input: {
+  body: { paddingHorizontal: 18, paddingBottom: 24, gap: 10 },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     borderWidth: 1.5,
+    borderRadius: Radii.panel,
+    paddingHorizontal: 13,
+    paddingVertical: 13,
+  },
+  badge: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  tip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1.2,
     borderRadius: Radii.card,
     paddingHorizontal: 12,
     paddingVertical: 11,
-    fontSize: 14,
-    minHeight: 96,
+    marginTop: 4,
   },
-  miniLabel: { fontSize: 9, fontWeight: '700', letterSpacing: 0.6, marginTop: 8 },
-  example: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1.2,
-    borderRadius: 10,
-    paddingHorizontal: 11,
-    paddingVertical: 9,
-  },
-  footer: { paddingHorizontal: 18, paddingTop: 6 },
-  cta: { flexDirection: 'row', gap: 7, borderRadius: Radii.card, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
 });

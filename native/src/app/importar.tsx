@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChefieMascot } from '@/components/chefie-mascot';
@@ -79,13 +79,17 @@ export default function ImportarScreen() {
         <Text style={{ color: c.inkSoft, fontSize: 15 }}>✕</Text>
       </Pressable>
 
-      <View style={styles.body}>
-        <ChefieMascot pose="explain" size={104} />
+      <ScrollView
+        contentContainerStyle={styles.body}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <ChefieMascot pose="explain" size={92} />
 
-        <Text style={[styles.title, { color: c.ink, fontFamily: Fonts.serif }]}>Importar de un enlace</Text>
+        <Text style={[styles.title, { color: c.ink, fontFamily: Fonts.serif }]}>De un enlace o compartida</Text>
         <Text style={[styles.lede, { color: c.inkSoft, fontFamily: Fonts.sans }]}>
-          Pega el enlace de una web de recetas, un reel, un TikTok o un vídeo de YouTube. Si trae vídeo, lo veo entero
-          para sacar los pasos.
+          Pega abajo el enlace de CUALQUIER web de recetas, un reel, un TikTok o un vídeo de YouTube. Si trae vídeo, lo
+          veo entero para sacar los pasos.
         </Text>
 
         <TextInput
@@ -124,13 +128,56 @@ export default function ImportarScreen() {
         <Text style={[styles.hint, { color: c.inkSoft, fontFamily: Fonts.sans }]}>
           Sigo yo con ello mientras tú haces otra cosa: te aviso desde la esquina en cuanto esté lista.
         </Text>
-      </View>
+
+        {/* El otro camino, el que nadie descubre solo porque no está en esta
+            app sino en el menú de OTRA. Se explica con los tres toques
+            exactos, que es como lo pidió el usuario. */}
+        <View style={[styles.shareBox, { borderColor: c.line, backgroundColor: c.surface }]}>
+          <Text style={[styles.shareTitle, { color: c.ink, fontFamily: Fonts.sans }]}>
+            O sin pasar por aquí
+          </Text>
+          <Text style={{ fontSize: 12, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 17 }}>
+            Cuando estés viendo la receta en Instagram, TikTok, YouTube o el navegador:
+          </Text>
+          {[
+            { n: '1', t: 'Dale al botón de compartir de esa app.' },
+            { n: '2', t: 'En la lista de «Compartir en», busca Nutrilp.' },
+            { n: '3', t: 'Ya está. Me pongo con ella y te aviso.' },
+          ].map((s) => (
+            <View key={s.n} style={styles.stepRow}>
+              <View style={[styles.stepNum, { backgroundColor: c.terraSoft }]}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: c.terra, fontFamily: Fonts.sans }}>{s.n}</Text>
+              </View>
+              <Text style={{ flex: 1, fontSize: 12, color: c.ink, fontFamily: Fonts.sans, lineHeight: 17 }}>
+                {s.t}
+              </Text>
+            </View>
+          ))}
+          <Text style={{ fontSize: 11, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 16 }}>
+            Si no ves Nutrilp en la lista, desliza hasta el final y toca «Más».
+          </Text>
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  body: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30, gap: 8 },
+  // `flexGrow` en vez de `flex`: centra mientras quepa y deja hacer scroll
+  // cuando el teclado y el bloque de compartir ya no dejan sitio.
+  body: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 24, gap: 8 },
+  shareBox: {
+    alignSelf: 'stretch',
+    borderWidth: 1.5,
+    borderRadius: Radii.card,
+    paddingHorizontal: 13,
+    paddingVertical: 12,
+    gap: 7,
+    marginTop: 18,
+  },
+  shareTitle: { fontSize: 13.5, fontWeight: '700' },
+  stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 9 },
+  stepNum: { width: 19, height: 19, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   close: {
     position: 'absolute',
     zIndex: 2,

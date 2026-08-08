@@ -44,6 +44,7 @@ function Gate() {
       <Stack.Screen name="anadir" options={{ presentation: 'modal' }} />
       <Stack.Screen name="cocina/[id]" options={{ presentation: 'fullScreenModal' }} />
       <Stack.Screen name="receta-crear" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="receta-ia" options={{ presentation: 'modal' }} />
       <Stack.Screen name="receta-nueva" options={{ presentation: 'modal' }} />
       <Stack.Screen name="nevera" options={{ presentation: 'modal' }} />
       <Stack.Screen name="objetivos" />
