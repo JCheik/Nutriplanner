@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { collection } from 'firebase/firestore';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -52,7 +52,7 @@ export default function RecetaEditarScreen() {
   const router = useRouter();
   const { user } = useAuthUser();
   const { recipeId, global } = useLocalSearchParams<{ recipeId?: string; global?: string }>();
-  const { userRecipes, globalRecipes } = useRecipes();
+  const { userRecipes, globalRecipes, loading: recipesLoading } = useRecipes();
   // Editando una del recetario de Nutrilp: se guarda ahí, no en las tuyas.
   const isGlobal = global === '1';
 
@@ -74,13 +74,49 @@ export default function RecetaEditarScreen() {
   /** Macros por 100 g del alimento que se está creando sobre la marcha. */
   const [newFood, setNewFood] = useState({ calories: '', protein: '', carbs: '', fat: '' });
 
+  /**
+   * Relleno del formulario cuando llega la receta.
+   *
+   * `useRecipes` es ASÍNCRONO: en el primer render `existing` es `undefined`, y
+   * `useState(existing?.name)` se queda con el valor vacío PARA SIEMPRE, porque
+   * el inicial de `useState` solo se usa una vez. Por eso al editar salía todo
+   * en blanco, con 0 kcal y el botón de guardar apagado. Se rellena una sola
+   * vez, con la bandera, para no pisar lo que ya esté escribiendo el usuario.
+   */
+  const hydrated = useRef(false);
+  useEffect(() => {
+    if (hydrated.current || !existing) return;
+    hydrated.current = true;
+    setName(existing.name ?? '');
+    setDescription(existing.description ?? '');
+    setInstructions(existing.instructions ?? '');
+    setServings(existing.servings ?? 1);
+    setIngredients(existing.ingredients ?? []);
+    setCategories((existing.category as MealCategory[]) ?? []);
+    setDiets((existing.dietTags as DietTag[]) ?? []);
+  }, [existing]);
+
   const ingredientsRef = useMemo(() => collection(firestore, 'ingredients'), []);
   const { data: catalog } = useCollection<BaseIngredient>(ingredientsRef);
   const index = useMemo(() => buildIngredientIndex(catalog), [catalog]);
 
-  const totals = useMemo(() => computeRecipeTotals(ingredients, index), [ingredients, index]);
+  const computed = useMemo(() => computeRecipeTotals(ingredients, index), [ingredients, index]);
   const perServing = servings > 0 ? servings : 1;
   const missing = ingredients.filter((i) => !lookupIngredient(index, i.name, i.brand));
+
+  /**
+   * Los macros solo se recalculan del catálogo cuando TODOS los ingredientes
+   * resuelven contra él. Si no, se conservan los que ya tenía la receta.
+   *
+   * Sin esto, abrir una receta importada (cuyos ingredientes son texto libre
+   * que no está en el catálogo) y darle a guardar la dejaba en 0 kcal: se
+   * perdían los macros buenos por entrar a cambiarle la categoría.
+   */
+  const fromCatalog = ingredients.length > 0 && missing.length === 0;
+  const totals =
+    fromCatalog || !existing
+      ? computed
+      : { calories: existing.calories, protein: existing.protein, carbs: existing.carbs, fat: existing.fat };
 
   const results = useMemo(() => {
     const q = normalizeText(search.trim());
@@ -159,7 +195,14 @@ export default function RecetaEditarScreen() {
   const toggle = <T,>(list: T[], value: T, set: (next: T[]) => void) =>
     set(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
 
-  const canSave = name.trim().length > 1 && ingredients.length > 0 && !busy;
+  // Se pidió editar una receta concreta y todavía no ha llegado: sin esto se
+  // pinta el formulario vacío y parece que la receta no tiene nada.
+  const waitingForRecipe = !!recipeId && !existing && recipesLoading;
+
+  // Editando algo que ya existe NO se exigen ingredientes: los "productos del
+  // súper" se guardan sin ninguno, y con la regla vieja no había forma de
+  // cambiarles la categoría desde el móvil — el botón salía siempre apagado.
+  const canSave = name.trim().length > 1 && (ingredients.length > 0 || !!existing) && !busy;
 
   const handleSave = async () => {
     if (!canSave || !user) return;
@@ -212,6 +255,11 @@ export default function RecetaEditarScreen() {
         </Pressable>
       </View>
 
+      {waitingForRecipe ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={c.terra} />
+        </View>
+      ) : (
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <TextInput
           style={[styles.input, { borderColor: c.line, backgroundColor: c.surface, color: c.ink, fontFamily: Fonts.sans }]}
@@ -272,12 +320,21 @@ export default function RecetaEditarScreen() {
             {Math.round(totals.protein / perServing)} P · {Math.round(totals.carbs / perServing)} C ·{' '}
             {Math.round(totals.fat / perServing)} G
           </Text>
-          {ingredients.length === 0 ? (
+          {ingredients.length === 0 && !existing ? (
             <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 16 }}>
               Busca alimentos abajo y ve añadiéndolos: esto se va actualizando solo.
             </Text>
           ) : null}
-          {missing.length > 0 ? (
+          {/* Decir de dónde salen los números importa: si vienen de la receta,
+              tocar los ingredientes a medias no los va a mejorar. */}
+          {!fromCatalog && existing ? (
+            <Text style={{ fontSize: 11, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 16 }}>
+              {ingredients.length === 0
+                ? 'Son los macros guardados de la receta. Se conservan tal cual al guardar.'
+                : `Son los macros guardados de la receta: ${missing.length} de sus ingredientes ${missing.length === 1 ? 'no está' : 'no están'} en el catálogo, así que no puedo recalcularlos. Se conservan tal cual.`}
+            </Text>
+          ) : null}
+          {!existing && missing.length > 0 ? (
             <Text style={{ fontSize: 11, color: c.terra, fontFamily: Fonts.sans, lineHeight: 16 }}>
               {missing.length} ingrediente{missing.length === 1 ? '' : 's'} sin datos: el total se queda corto.
             </Text>
@@ -453,6 +510,7 @@ export default function RecetaEditarScreen() {
 
         {error ? <Text style={{ fontSize: 12.5, color: c.terra, fontFamily: Fonts.sans }}>{error}</Text> : null}
       </ScrollView>
+      )}
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
         <Pressable

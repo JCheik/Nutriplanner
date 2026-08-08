@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { CircleUserRound, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -9,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUser } from '@/firebase';
 import { useUserProfileState } from '@/hooks/use-user-profile-state';
+import { useRecipeState } from '@/hooks/use-recipe-state';
 import { GoalsContent } from '@/components/nutri-planner/floating-goals';
 import { NutriInterviewCard } from '@/components/nutri-planner/nutri-interview';
 
@@ -30,6 +32,13 @@ export default function DashboardPerfilPage() {
   const initialTab: PerfilTab = requestedTab && VALID_TABS.includes(requestedTab) ? requestedTab : 'objetivos';
 
   const profileState = useUserProfileState();
+  // Para el paso de "platos fijos": se buscan entre las tuyas y las de Nutrilp,
+  // igual que en el móvil.
+  const { currentUserRecipes, nutriplannerRecipes } = useRecipeState();
+  const pickableRecipes = useMemo(
+    () => [...currentUserRecipes, ...nutriplannerRecipes].map(r => ({ id: r.id, name: r.name })),
+    [currentUserRecipes, nutriplannerRecipes]
+  );
 
   return (
     <div className="flex-1 p-4 sm:p-6 lg:p-8">
@@ -82,6 +91,7 @@ export default function DashboardPerfilPage() {
             <NutriInterviewCard
               interview={profileState.nutriInterview}
               onSave={profileState.handleNutriInterviewSave}
+              recipes={pickableRecipes}
             />
           </TabsContent>
         </Tabs>

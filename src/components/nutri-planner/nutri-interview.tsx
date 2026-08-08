@@ -11,15 +11,21 @@ import { X, Plus, Minus, Stethoscope, Pencil, Check } from 'lucide-react';
 
 /**
  * "La entrevista": nutritionist-style questionnaire living in Mi Laboratorio.
- * Desktop-first by decision — mobile reuses the DATA (all AI flows read it from
- * the profile) but gets no dedicated UI for now.
+ *
+ * El móvil YA tiene su propia pantalla (`native/src/app/entrevista.tsx`), con
+ * Chefie llevándola paso a paso. Las dos escriben el MISMO documento de perfil,
+ * así que las preguntas tienen que coincidir: si una pregunta algo que la otra
+ * no, el plan te sale distinto según dónde hayas respondido.
  */
 
 const FAVORITE_SUGGESTIONS = ['Pollo', 'Pasta', 'Arroz', 'Pescado', 'Huevos', 'Aguacate', 'Queso', 'Legumbres', 'Chocolate'];
 const AVOID_SUGGESTIONS = ['Cebolla', 'Champiñones', 'Pepino', 'Picante', 'Coliflor', 'Atún', 'Tofu'];
 const ALLERGY_SUGGESTIONS = ['Frutos secos', 'Marisco', 'Lactosa', 'Gluten', 'Huevo', 'Pescado', 'Soja'];
 
-const TOTAL_STEPS = 8;
+// 8 → 10 el 2026-08-08: la entrevista del móvil preguntaba dos cosas más (con
+// qué recetas planificar y los platos fijos) y en la web no estaban, así que
+// según dónde la respondieras te montaba planes distintos.
+const TOTAL_STEPS = 10;
 
 /** Free-text chip list with one-tap suggestions. */
 function ChipsField({ value, onChange, suggestions, placeholder }: {
@@ -159,14 +165,27 @@ function emptyDraft(): NutriInterview {
   };
 }
 
-export function NutriInterviewCard({ interview, onSave }: {
+export function NutriInterviewCard({ interview, onSave, recipes = [] }: {
   interview: NutriInterview | null;
   onSave: (interview: NutriInterview) => Promise<void> | void;
+  /** Para elegir platos fijos. Sin ellas ese paso sale, pero sin sugerencias. */
+  recipes?: { id: string; name: string }[];
 }) {
   const [mode, setMode] = useState<'view' | 'wizard'>('view');
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<NutriInterview>(emptyDraft);
   const [isSaving, setIsSaving] = useState(false);
+  const [dishQuery, setDishQuery] = useState('');
+
+  const pinned = draft.favoriteRecipes ?? [];
+  const dishMatches = (() => {
+    const q = dishQuery.trim().toLowerCase();
+    if (!q) return [];
+    const chosen = new Set(pinned.map(p => p.recipeId));
+    return recipes.filter(r => !chosen.has(r.id) && r.name.toLowerCase().includes(q)).slice(0, 6);
+  })();
+  const setPinned = (next: NonNullable<NutriInterview['favoriteRecipes']>) =>
+    setDraft(d => ({ ...d, favoriteRecipes: next }));
 
   const startWizard = () => {
     setDraft(interview ? { ...interview, weeklyWishes: { ...interview.weeklyWishes } } : emptyDraft());
@@ -219,6 +238,13 @@ export function NutriInterviewCard({ interview, onSave }: {
       { label: 'Alergias', content: interview.allergies.join(', ') || 'Ninguna' },
       { label: 'Cada semana', content: wishLabels.join(' · ') || 'Sin peticiones fijas' },
       { label: 'Variedad', content: interview.varietyPreference === 'variedad' ? 'Máxima variedad' : `No me importa repetir, hasta ${interview.maxRepeatsPerRecipe ?? 3}×` },
+      { label: 'Recetas', content: interview.recipeSource === 'mias' ? 'Solo las tuyas' : 'Las tuyas y las de Nutrilp' },
+      {
+        label: 'Platos fijos',
+        content: interview.favoriteRecipes?.length
+          ? interview.favoriteRecipes.map(f => `${f.name} ×${f.perWeek}`).join(', ')
+          : 'Ninguno',
+      },
       { label: 'Entre semana', content: interview.quickWeekdays ? 'Platos rápidos (<20 min)' : 'El tiempo no es problema' },
       { label: 'Flexibilidad', content: (interview.freeMealsPerWeek ?? 0) > 0 ? `${interview.freeMealsPerWeek} comida(s) libre(s) por semana` : 'Plan completo, sin comidas libres' },
     ];
@@ -359,6 +385,65 @@ export function NutriInterviewCard({ interview, onSave }: {
             { id: 'normal', title: 'El tiempo no es problema', description: 'Puedo cocinar recetas elaboradas cualquier día.' },
           ]}
         />
+      ),
+    },
+    {
+      title: '¿Con qué recetas te planifico?',
+      hint: 'Si eliges solo las tuyas y tienes pocas guardadas, me quedaré sin con qué llenar la semana.',
+      body: (
+        <OptionCards
+          value={draft.recipeSource ?? 'todas'}
+          onChange={v => setDraft(d => ({ ...d, recipeSource: v as 'mias' | 'todas' }))}
+          options={[
+            { id: 'todas', title: 'Las mías y las de Nutrilp', description: 'Bastante más variedad para llenar la semana.' },
+            { id: 'mias', title: 'Solo las mías', description: 'Únicamente las recetas que tú has guardado.' },
+          ]}
+        />
+      ),
+    },
+    {
+      title: '¿Algún plato fijo cada semana?',
+      hint: 'Búscalo y dime cuántas veces lo quieres. Esos se colocan antes que nada.',
+      body: (
+        <div className="space-y-3">
+          <Input
+            value={dishQuery}
+            onChange={e => setDishQuery(e.target.value)}
+            placeholder="Busca una receta por su nombre…"
+            aria-label="Buscar un plato fijo"
+          />
+          {dishMatches.map(r => (
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => {
+                setPinned([...pinned, { recipeId: r.id, name: r.name, perWeek: 1 }]);
+                setDishQuery('');
+              }}
+              className="flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-sm hover:bg-muted"
+            >
+              <Plus className="h-4 w-4 text-primary shrink-0" />
+              <span className="truncate">{r.name}</span>
+            </button>
+          ))}
+          {pinned.map(f => (
+            <WishStepper
+              key={f.recipeId}
+              label={f.name}
+              hint="Veces por semana · 0 lo quita"
+              value={f.perWeek}
+              max={7}
+              onChange={n =>
+                setPinned(n === 0 ? pinned.filter(p => p.recipeId !== f.recipeId) : pinned.map(p => (p.recipeId === f.recipeId ? { ...p, perWeek: n } : p)))
+              }
+            />
+          ))}
+          {pinned.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Si no fijas ninguno, monto la semana libremente con tus gustos.
+            </p>
+          )}
+        </div>
       ),
     },
     {

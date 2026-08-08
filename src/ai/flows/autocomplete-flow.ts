@@ -108,23 +108,36 @@ function bestFitWithinMargin(
   // With "comidas libres" planned, going over target is worse than going
   // under by the same amount: under-target picks leave weekly slack for the
   // off-plan meals. Overshoot deviations get a 1.5× penalty.
-  preferUnder = false
+  preferUnder = false,
+  /**
+   * Veces que cada receta lleva ya colocadas en la semana. Se mira ANTES que el
+   * ajuste calórico a propósito: aquí dentro solo se comparan combinaciones que
+   * YA caen dentro del margen, así que todas valen y entre dos que valen es
+   * mejor la que aún no has comido. Sin esto, la que mejor encajaba se llevaba
+   * lunes, martes y miércoles seguidos hasta agotar el tope.
+   */
+  usageOf: (id: string) => number = () => 0
 ): { recipeId: string; servings: number } | null {
   const lo = targetCalories * (1 - marginPercent / 100);
   const hi = targetCalories * (1 + marginPercent / 100);
-  let best: { recipeId: string; servings: number; deviation: number; preferred: boolean } | null = null;
+  let best: { recipeId: string; servings: number; deviation: number; preferred: boolean; uses: number } | null = null;
 
   for (const id of eligibleIds) {
     const r = simplifiedById.get(id);
     if (!r || r.caloriesPerServing <= 0) continue;
+    const uses = usageOf(id);
     for (let servings = 1; servings <= maxServings; servings++) {
       const cals = r.caloriesPerServing * servings;
       if (cals < lo || cals > hi) continue;
       const rawDeviation = cals - targetCalories;
       const deviation = preferUnder && rawDeviation > 0 ? rawDeviation * 1.5 : Math.abs(rawDeviation);
       const preferred = id === preferredRecipeId;
-      const better = !best || (preferred && !best.preferred) || (preferred === best.preferred && deviation < best.deviation);
-      if (better) best = { recipeId: id, servings, deviation, preferred };
+      const better =
+        !best ||
+        uses < best.uses ||
+        (uses === best.uses &&
+          ((preferred && !best.preferred) || (preferred === best.preferred && deviation < best.deviation)));
+      if (better) best = { recipeId: id, servings, deviation, preferred, uses };
     }
   }
   return best ? { recipeId: best.recipeId, servings: best.servings } : null;
@@ -422,32 +435,105 @@ Return ONLY a JSON array. Each element: { "day": string, "mealId": string, "reci
     // margin, or a recipe closer to that slot's calorie target).
     const placements: { day: string; mealId: string; recipeId: string; servings: number }[] = [];
 
+    /**
+     * Tope de repeticiones, IMPUESTO aquí y no solo pedido en el prompt.
+     *
+     * El prompt lleva la regla desde siempre, pero el modelo se la salta: con
+     * "prioriza el objetivo" hay una receta que es la que mejor encaja en una
+     * franja, y la elegía para las siete. El usuario acabó con el mismo plato
+     * seis veces y repetido de lunes a sábado. Es el mismo fallo que tenían las
+     * alergias: decírselo al modelo no es imponerlo.
+     */
+    const cap =
+      preferences.allowRepetition === 'free'
+        ? Number.POSITIVE_INFINITY
+        : preferences.allowRepetition === 'no_repeat'
+        ? 1
+        : maxReps;
+
+    // Lo que YA está puesto en la semana cuenta para el tope: si el lunes hay
+    // lentejas puestas a mano, el autocompletado no debe llenar con lentejas
+    // hasta el tope otra vez.
+    const usage = new Map<string, number>();
+    (weekPlan as WeekPlan).forEach(dayPlan =>
+      dayPlan.meals.forEach(meal =>
+        meal.recipes.forEach(r => usage.set(r.id, (usage.get(r.id) ?? 0) + 1))
+      )
+    );
+    const underCap = (id: string) => (usage.get(id) ?? 0) < cap;
+    const countUse = (id: string) => usage.set(id, (usage.get(id) ?? 0) + 1);
+
+    /**
+     * Platos fijos, colocados ANTES que nada y sin pasar por el modelo.
+     *
+     * Eran otra regla del prompt, con el mismo final: el usuario dice "tortitas
+     * dos veces por semana" y el plan sale sin tortitas. Se colocan aquí, y se
+     * saltan el tope de repeticiones a propósito: elegir un plato concreto N
+     * veces es más explícito que la preferencia general de variedad.
+     */
+    const takenSlots = new Set<string>();
+    for (const fav of interview?.favoriteRecipes ?? []) {
+      let placed = 0;
+      const daysUsed = new Set<string>();
+      // Primera pasada, un día distinto cada vez; si aún faltan, se repite día.
+      for (const spreadOnly of [true, false]) {
+        for (const slot of emptySlots) {
+          if (placed >= fav.perWeek) break;
+          const key = `${slot.day}|${slot.mealId}`;
+          if (takenSlots.has(key)) continue;
+          if (spreadOnly && daysUsed.has(slot.day)) continue;
+          if (!slot.eligibleRecipeIds.includes(fav.recipeId)) continue;
+          const recipe = recipeById.get(fav.recipeId);
+          const servings = recipe ? suggestedServings(recipe, slot.targetCalories) : 1;
+          placements.push({ day: slot.day, mealId: slot.mealId, recipeId: fav.recipeId, servings });
+          takenSlots.add(key);
+          daysUsed.add(slot.day);
+          countUse(fav.recipeId);
+          placed++;
+        }
+      }
+    }
+
     for (const slot of emptySlots) {
       const key = `${slot.day}|${slot.mealId}`;
+      if (takenSlots.has(key)) continue; // ya lo ocupa un plato fijo
       const modelPick = assignmentBySlotKey.get(key)?.recipeId;
+
+      // Solo se consideran las que aún no han llegado al tope. Si no queda
+      // ninguna, el hueco se deja vacío y se avisa: repetir por séptima vez lo
+      // que el usuario dijo que no quería repetir es peor que dejarlo a medias.
+      const available = slot.eligibleRecipeIds.filter(underCap);
+      if (available.length === 0) continue;
 
       // Closest-to-target eligible recipe — used when the model's pick is missing
       // or outside the eligible set, and as the margin search's preferred seed.
-      const fallbackId = slot.eligibleRecipeIds
+      const fallbackId = available
         .map(id => simplifiedById.get(id))
         .filter((r): r is NonNullable<typeof r> => !!r)
         .sort((x, y) => {
+          // Menos usada primero, y a igualdad la que más se acerque al objetivo.
+          const byUse = (usage.get(x.id) ?? 0) - (usage.get(y.id) ?? 0);
+          if (byUse !== 0) return byUse;
           if (slot.targetCalories == null) return 0;
           return Math.abs(x.caloriesPerServing - slot.targetCalories) - Math.abs(y.caloriesPerServing - slot.targetCalories);
-        })[0]?.id ?? slot.eligibleRecipeIds[0];
+        })[0]?.id ?? available[0];
 
-      const candidateId = modelPick && slot.eligibleRecipeIds.includes(modelPick) ? modelPick : fallbackId;
+      const candidateId = modelPick && available.includes(modelPick) ? modelPick : fallbackId;
       if (!candidateId) continue; // no eligible recipe at all for this slot
 
       if (useGoalMargin && slot.targetCalories != null) {
         const preferUnder = (interview?.freeMealsPerWeek ?? 0) > 0;
-        const fit = bestFitWithinMargin(slot.eligibleRecipeIds, simplifiedById, slot.targetCalories, margin, candidateId, MAX_SERVINGS_PER_SLOT, preferUnder);
-        if (fit) placements.push({ day: slot.day, mealId: slot.mealId, recipeId: fit.recipeId, servings: fit.servings });
+        const fit = bestFitWithinMargin(available, simplifiedById, slot.targetCalories, margin, candidateId, MAX_SERVINGS_PER_SLOT, preferUnder, id => usage.get(id) ?? 0);
+        if (fit) {
+          placements.push({ day: slot.day, mealId: slot.mealId, recipeId: fit.recipeId, servings: fit.servings });
+          countUse(fit.recipeId);
+        }
         // else: leave the slot empty rather than force an unrealistic serving amount.
       } else {
         const recipe = recipeById.get(candidateId);
         const servings = recipe ? suggestedServings(recipe, slot.targetCalories) : 1;
         placements.push({ day: slot.day, mealId: slot.mealId, recipeId: candidateId, servings });
+        countUse(candidateId);
       }
     }
 
