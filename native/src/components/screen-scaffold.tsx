@@ -1,3 +1,4 @@
+import type React from 'react';
 import type { PropsWithChildren } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,16 +15,21 @@ export function ScreenScaffold({
   title,
   subtitle,
   eyebrow,
+  headerRight,
   children,
-}: PropsWithChildren<{ title: string; subtitle?: string; eyebrow?: string }>) {
+}: PropsWithChildren<{ title: string; subtitle?: string; eyebrow?: string; headerRight?: React.ReactNode }>) {
   const c = useTheme();
   const insets = useSafeAreaInsets();
 
   return (
     <View style={[styles.root, { backgroundColor: c.ground, paddingTop: insets.top + 10 }]}>
       <PaperTexture />
-      <View style={styles.header}>
-        <ScreenTitle title={title} subtitle={subtitle} eyebrow={eyebrow} />
+      <View style={[styles.header, headerRight ? styles.headerWithSide : null]}>
+        {/* `flex: 1` para que el título se recorte antes de empujar lo de al lado. */}
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <ScreenTitle title={title} subtitle={subtitle} eyebrow={eyebrow} />
+        </View>
+        {headerRight}
       </View>
       <ScrollView contentContainerStyle={styles.body}>{children}</ScrollView>
     </View>
@@ -101,6 +107,7 @@ export function CardText({ bold, children }: PropsWithChildren<{ bold?: boolean 
 const styles = StyleSheet.create({
   root: { flex: 1 },
   header: { paddingHorizontal: 18, paddingBottom: 12 },
+  headerWithSide: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   eyebrow: { fontSize: 9.5, fontWeight: '700', letterSpacing: 1.4, marginBottom: 1 },
   title: { fontSize: 30, letterSpacing: -0.3 },
   titleCompact: { fontSize: 25 },

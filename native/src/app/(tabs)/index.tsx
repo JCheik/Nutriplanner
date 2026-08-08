@@ -20,6 +20,7 @@ import {
 import { useProfile, useWeekPlan } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
 import { setPlanClipboard, usePlanClipboard } from '@/lib/plan-clipboard';
+import { formatServings } from '@/lib/serving-utils';
 import { shareWeekPdf } from '@/lib/week-pdf';
 import type { DayPlan, GoalMacros, Macros, RecipeInstance } from '@/lib/types';
 
@@ -404,7 +405,8 @@ function HoyView({
                       {r.name}
                     </Text>
                     <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans }}>
-                      {r.servingsEaten ?? 1} rac · {Math.round(mac.calories)} kcal · {Math.round(mac.protein)} P
+                      {formatServings(r.servingsEaten ?? 1)} rac · {Math.round(mac.calories)} kcal ·{' '}
+                      {Math.round(mac.protein)} P
                       {batch ? ` · lote de ${batch}` : ''}
                     </Text>
                   </View>

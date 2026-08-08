@@ -39,6 +39,16 @@ export function formatTime(hour: number, minute: number): string {
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
+/**
+ * Suma minutos llevándose la hora, como un reloj de verdad: 12:50 +15 son las
+ * 13:05, no las 12:05. Antes los minutos daban la vuelta solos y la hora se
+ * quedaba quieta, que solo se notaba al pasar de :45.
+ */
+export function addMinutes(hour: number, minute: number, delta: number): { hour: number; minute: number } {
+  const total = (((hour * 60 + minute + delta) % 1440) + 1440) % 1440;
+  return { hour: Math.floor(total / 60), minute: total % 60 };
+}
+
 export function describeReminder(r: Reminder): string {
   const when = formatTime(r.hour, r.minute);
   return r.repeat === 'diario'

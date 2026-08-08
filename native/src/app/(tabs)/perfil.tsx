@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card, CardText, ScreenScaffold } from '@/components/screen-scaffold';
-import { Fonts, Radii } from '@/constants/theme';
+import { Fonts, Radii, Shadows } from '@/constants/theme';
 import { firestore } from '@/firebase';
 import { logOut, useAuthUser } from '@/firebase/auth-context';
 import { useCollection } from '@/firebase/firestore-hooks';
@@ -27,9 +27,43 @@ const THEME_OPTIONS: { key: ThemePreference; label: string; icon: React.Componen
 ];
 
 /**
+ * Insignia redonda de icono. Es lo que da ritmo a la columna: cada tarjeta se
+ * reconoce por su icono de un vistazo, sin tener que leer el título.
+ *
+ * A propósito NO hay un color por tarjeta. La paleta de la app son terracota y
+ * sage (ver `constants/theme.ts`), y meter cinco pasteles distintos aquí haría
+ * que Perfil no se pareciese al resto de la app. Distingue el icono, no el tono.
+ */
+function IconBadge({
+  name,
+  tone = 'neutral',
+}: {
+  name: React.ComponentProps<typeof Ionicons>['name'];
+  tone?: 'neutral' | 'terra' | 'sage';
+}) {
+  const c = useTheme();
+  const { bg, fg } =
+    tone === 'terra'
+      ? { bg: c.terraSoft, fg: c.terra }
+      : tone === 'sage'
+        ? { bg: c.sageSoft, fg: c.sage }
+        : { bg: c.chip, fg: c.inkSoft };
+  return (
+    <View style={[styles.badge, { backgroundColor: bg }]}>
+      <Ionicons name={name} size={16} color={fg} />
+    </View>
+  );
+}
+
+/**
  * Perfil — pestaña 5. Difiere del boceto 9 a propósito: sin pestaña "Progreso"
  * (registro diario), ver PLAN-app-nativa.md norte §3. Objetivo y entrevista se
  * resumen aquí y se editan en sus propias pantallas (`/objetivos`, `/entrevista`).
+ *
+ * Distribución rehecha el 2026-08-08 a partir del boceto del usuario: el
+ * objetivo diario manda como tarjeta grande (es el dato que se viene a mirar),
+ * las cuatro herramientas bajan a una rejilla de dos columnas para que quepan
+ * sin cuatro filas de scroll, y cada tarjeta lleva su insignia de icono.
  */
 export default function PerfilScreen() {
   const c = useTheme();
@@ -54,6 +88,19 @@ export default function PerfilScreen() {
   const planHasContent = weekPlan.some((d) => d.meals.some((m) => m.recipes.length > 0));
   const sortedHistory = [...(history ?? [])].sort((a, b) => b.savedAt - a.savedAt);
 
+  // El nombre sale del perfil; si aún no lo hay, de la parte del correo antes
+  // de la arroba, que es mejor saludo que el correo entero.
+  const displayName = profile?.name?.trim() || user?.email?.split('@')[0] || '';
+  const firstName = displayName.split(/\s+/)[0] ?? '';
+  const initials =
+    displayName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0])
+      .join('')
+      .toUpperCase() || '·';
+
   const run = async (fn: () => Promise<unknown>, okMsg: string) => {
     if (busy) return;
     setBusy(true);
@@ -74,62 +121,150 @@ export default function PerfilScreen() {
       await saveWeekSnapshot(user!.uid, label, weekPlan);
     }, 'Semana guardada en el historial.');
 
+  /** Las cuatro herramientas de la rejilla. Mismo trato para las cuatro. */
+  const tools: {
+    key: string;
+    icon: React.ComponentProps<typeof Ionicons>['name'];
+    tone: 'neutral' | 'terra' | 'sage';
+    title: string;
+    hint: string;
+    onPress: () => void;
+  }[] = [
+    {
+      key: 'feedback',
+      icon: 'chatbubble-ellipses-outline',
+      tone: 'terra',
+      title: 'Contar un problema',
+      hint: 'Estamos en pruebas: si algo falla, cuéntamelo.',
+      onPress: () => router.push('/feedback'),
+    },
+    {
+      key: 'tour',
+      icon: 'compass-outline',
+      tone: 'sage',
+      title: 'Ver el tour otra vez',
+      hint: 'Chefie te vuelve a explicar las pestañas.',
+      onPress: () => showTourAgain(),
+    },
+    {
+      key: 'recordatorios',
+      icon: 'alarm-outline',
+      tone: 'neutral',
+      title: 'Recordatorios',
+      hint: 'Que Chefie te avise de lo que tú le digas.',
+      onPress: () => router.push('/recordatorios'),
+    },
+    {
+      key: 'librito',
+      icon: 'book-outline',
+      tone: 'neutral',
+      title: 'El Librito',
+      hint: 'Tutoriales, macros y buena relación con la comida.',
+      onPress: () => router.push('/librito'),
+    },
+  ];
+
   return (
-    <ScreenScaffold eyebrow="Tu cuenta" title="Perfil" subtitle={profile?.name || user?.email || ''}>
+    <ScreenScaffold
+      eyebrow={firstName ? `Hola, ${firstName} 👋` : 'Tu cuenta'}
+      title="Perfil"
+      subtitle="Aquí tienes tu objetivo, tus respuestas y los ajustes."
+      headerRight={
+        <View style={[styles.avatar, { borderColor: c.line, backgroundColor: c.terraSoft }]}>
+          <Text style={{ fontSize: 20, color: c.terra, fontFamily: Fonts.serif }}>{initials}</Text>
+        </View>
+      }
+    >
+      {/* Objetivo diario: la tarjeta grande. Es el dato que se viene a mirar,
+          así que va rellena y con las cuatro cifras a la vista, sin entrar. */}
       <Pressable
         onPress={() => router.push('/objetivos')}
-        style={[
-          styles.linkCard,
-          activeGoalMacros
-            ? { borderColor: c.terra, backgroundColor: c.terraSoft }
-            : { borderColor: c.line, backgroundColor: c.surface },
-        ]}
+        style={[styles.hero, Shadows.card, { backgroundColor: c.terra }]}
         accessibilityRole="button"
         accessibilityLabel="Editar objetivo diario"
       >
-        <View style={{ flex: 1, gap: 3 }}>
-          <CardText bold>Objetivo diario</CardText>
-          {activeGoalMacros ? (
-            <CardText>
-              {Math.round(activeGoalMacros.calories)} kcal · {Math.round(activeGoalMacros.protein)} P ·{' '}
-              {Math.round(activeGoalMacros.carbs)} C · {Math.round(activeGoalMacros.fat)} G
-            </CardText>
-          ) : (
-            <CardText>Sin objetivo configurado todavía.</CardText>
-          )}
-          <CardText>Toca para abrir la calculadora.</CardText>
+        <View style={styles.heroTop}>
+          <View style={styles.heroBadge}>
+            <Ionicons name="flag-outline" size={15} color="#FFF" />
+          </View>
+          <Text style={[styles.heroTitle, { fontFamily: Fonts.serif }]}>Objetivo diario</Text>
+          <Ionicons name="chevron-forward" size={17} color="rgba(255,255,255,0.75)" />
         </View>
-        <Ionicons name="chevron-forward" size={17} color={c.inkSoft} />
+
+        {activeGoalMacros ? (
+          <View style={styles.heroStats}>
+            {[
+              { value: Math.round(activeGoalMacros.calories), label: 'kcal' },
+              { value: Math.round(activeGoalMacros.protein), label: 'g proteína' },
+              { value: Math.round(activeGoalMacros.carbs), label: 'g carbo' },
+              { value: Math.round(activeGoalMacros.fat), label: 'g grasa' },
+            ].map((s) => (
+              <View key={s.label} style={{ flex: 1, minWidth: 0 }}>
+                <Text style={[styles.heroValue, { fontFamily: Fonts.serif }]}>{s.value}</Text>
+                <Text style={[styles.heroLabel, { fontFamily: Fonts.sans }]} numberOfLines={1}>
+                  {s.label}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text style={[styles.heroEmpty, { fontFamily: Fonts.sans }]}>
+            Sin objetivo configurado todavía.
+          </Text>
+        )}
+
+        <View style={styles.heroFooter}>
+          <Ionicons name="calculator-outline" size={13} color="rgba(255,255,255,0.9)" />
+          <Text style={[styles.heroFooterText, { fontFamily: Fonts.sans }]}>
+            {activeGoalMacros ? 'Toca para abrir la calculadora' : 'Toca para calcularlo'}
+          </Text>
+        </View>
       </Pressable>
 
+      {/* La entrevista */}
       <Pressable
         onPress={() => router.push('/entrevista')}
-        style={[styles.linkCard, { borderColor: c.line, backgroundColor: c.surface }]}
+        style={[styles.panel, Shadows.card, { borderColor: c.line, backgroundColor: c.surface }]}
         accessibilityRole="button"
         accessibilityLabel="Editar la entrevista"
       >
-        <View style={{ flex: 1, gap: 3 }}>
-          <CardText bold>La entrevista</CardText>
-          {interview ? (
-            <CardText>
-              {diet ? `Dieta: ${diet}. ` : 'Sin preferencia de dieta. '}
-              {interview.favoriteFoods.length} favoritos · {interview.avoidFoods.length} a evitar ·{' '}
-              {interview.allergies.length} alergias
-              {typeof interview.freeMealsPerWeek === 'number'
-                ? ` · ${interview.freeMealsPerWeek} comidas libres/sem`
-                : ''}
-            </CardText>
-          ) : (
-            <CardText>Aún sin hacer — la IA te conocerá mucho mejor si la completas.</CardText>
-          )}
-          <CardText>Toca para responderla o cambiarla.</CardText>
+        <View style={styles.panelHead}>
+          <IconBadge name="chatbubbles-outline" tone="sage" />
+          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+            <CardText bold>La entrevista</CardText>
+            {interview ? (
+              <>
+                <CardText>{diet ? `Dieta: ${diet}` : 'Sin preferencia de dieta'}</CardText>
+                <CardText>
+                  {interview.favoriteFoods.length} favoritos · {interview.avoidFoods.length} a evitar ·{' '}
+                  {interview.allergies.length} alergias
+                </CardText>
+                {typeof interview.freeMealsPerWeek === 'number' ? (
+                  <CardText>{interview.freeMealsPerWeek} comidas libres/sem</CardText>
+                ) : null}
+              </>
+            ) : (
+              <CardText>Aún sin hacer — la IA te conocerá mucho mejor si la completas.</CardText>
+            )}
+          </View>
+          <Ionicons name="chevron-forward" size={17} color={c.inkSoft} />
         </View>
-        <Ionicons name="chevron-forward" size={17} color={c.inkSoft} />
+        <View style={[styles.panelFoot, { borderColor: c.line }]}>
+          <Text style={{ fontSize: 12, color: c.sage, fontWeight: '600', fontFamily: Fonts.sans }}>
+            Toca para responderla o cambiarla
+          </Text>
+        </View>
       </Pressable>
 
+      {/* Historial de semanas */}
       <Card>
-        <CardText bold>Historial de semanas</CardText>
-        {notice ? <CardText>{notice}</CardText> : null}
+        <View style={styles.panelHead}>
+          <IconBadge name="bar-chart-outline" />
+          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+            <CardText bold>Historial de semanas</CardText>
+            <CardText>{notice ?? 'Guarda la semana para poder recuperarla más adelante.'}</CardText>
+          </View>
+        </View>
         <Pressable
           onPress={handleSaveWeek}
           disabled={busy || !user || !planHasContent}
@@ -137,6 +272,7 @@ export default function PerfilScreen() {
           accessibilityRole="button"
           accessibilityLabel="Guardar semana actual"
         >
+          <Ionicons name="bookmark-outline" size={14} color={c.terra} />
           <Text style={{ color: c.terra, fontWeight: '700', fontSize: 12.5, fontFamily: Fonts.sans }}>
             Guardar semana actual
           </Text>
@@ -179,78 +315,38 @@ export default function PerfilScreen() {
         )}
       </Card>
 
-      {/* Canal de los testers durante el alfa: va al panel, no al correo. */}
-      <Pressable
-        onPress={() => router.push('/feedback')}
-        style={[styles.librito, { borderColor: c.terra, backgroundColor: c.terraSoft }]}
-        accessibilityRole="button"
-        accessibilityLabel="Contar un problema"
-      >
-        <Ionicons name="chatbubble-ellipses-outline" size={17} color={c.terra} />
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 13.5, fontWeight: '700', color: c.ink, fontFamily: Fonts.sans }}>
-            Contar un problema
-          </Text>
-          <Text style={{ fontSize: 12, color: c.inkSoft, fontFamily: Fonts.sans }}>
-            Estamos en pruebas: si algo falla, cuéntamelo.
-          </Text>
-        </View>
-        <Text style={{ color: c.inkSoft, fontSize: 15 }}>›</Text>
-      </Pressable>
+      {/* Las cuatro herramientas, en dos columnas: en una sola fila cada una
+          ocupaban cuatro pantallazos de scroll para cuatro enlaces. */}
+      <View style={styles.grid}>
+        {tools.map((t) => (
+          <Pressable
+            key={t.key}
+            onPress={t.onPress}
+            style={[styles.gridCard, Shadows.card, { borderColor: c.line, backgroundColor: c.surface }]}
+            accessibilityRole="button"
+            accessibilityLabel={t.title}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <IconBadge name={t.icon} tone={t.tone} />
+              <Ionicons name="chevron-forward" size={14} color={c.inkSoft} style={{ marginLeft: 'auto' }} />
+            </View>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: c.ink, fontFamily: Fonts.sans }}>{t.title}</Text>
+            <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 16 }}>{t.hint}</Text>
+          </Pressable>
+        ))}
+      </View>
 
-      <Pressable
-        onPress={() => showTourAgain()}
-        style={[styles.librito, { borderColor: c.line, backgroundColor: c.surface }]}
-        accessibilityRole="button"
-        accessibilityLabel="Ver el tour otra vez"
-      >
-        <Ionicons name="compass-outline" size={17} color={c.sage} />
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 13.5, fontWeight: '700', color: c.ink, fontFamily: Fonts.sans }}>
-            Ver el tour otra vez
-          </Text>
-          <Text style={{ fontSize: 12, color: c.inkSoft, fontFamily: Fonts.sans }}>
-            Chefie te vuelve a explicar las pestañas.
-          </Text>
-        </View>
-        <Text style={{ color: c.inkSoft, fontSize: 15 }}>›</Text>
-      </Pressable>
-
-      <Pressable
-        onPress={() => router.push('/recordatorios')}
-        style={[styles.librito, { borderColor: c.line, backgroundColor: c.surface }]}
-        accessibilityRole="button"
-        accessibilityLabel="Abrir los recordatorios"
-      >
-        <Text style={{ fontSize: 15 }}>⏰</Text>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 13.5, fontWeight: '700', color: c.ink, fontFamily: Fonts.sans }}>Recordatorios</Text>
-          <Text style={{ fontSize: 12, color: c.inkSoft, fontFamily: Fonts.sans }}>
-            Que Chefie te avise de lo que tú le digas, a la hora que quieras.
-          </Text>
-        </View>
-        <Text style={{ color: c.inkSoft, fontSize: 15 }}>›</Text>
-      </Pressable>
-
-      <Pressable
-        onPress={() => router.push('/librito')}
-        style={[styles.librito, { borderColor: c.line, backgroundColor: c.surface }]}
-        accessibilityRole="button"
-        accessibilityLabel="Abrir El Librito"
-      >
-        <Text style={{ fontSize: 15 }}>📖</Text>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 13.5, fontWeight: '700', color: c.ink, fontFamily: Fonts.sans }}>El Librito</Text>
-          <Text style={{ fontSize: 12, color: c.inkSoft, fontFamily: Fonts.sans }}>
-            Tutoriales, precisión de macros y buena relación con la comida.
-          </Text>
-        </View>
-        <Text style={{ color: c.inkSoft, fontSize: 15 }}>›</Text>
-      </Pressable>
-
+      {/* Aspecto. El segmentado va debajo y no al lado del texto como en el
+          boceto: tres opciones con icono y etiqueta no caben en media pantalla
+          de 375 sin quedar ilegibles. */}
       <Card>
-        <CardText bold>Aspecto</CardText>
-        <CardText>Nutrilp va en claro, como la web. Si prefieres el oscuro, aquí lo cambias.</CardText>
+        <View style={styles.panelHead}>
+          <IconBadge name="color-palette-outline" />
+          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+            <CardText bold>Aspecto</CardText>
+            <CardText>Nutrilp va en claro, como la web. Si prefieres el oscuro, aquí lo cambias.</CardText>
+          </View>
+        </View>
         <View style={[styles.themeSegment, { borderColor: c.line }]}>
           {THEME_OPTIONS.map(({ key, label, icon }) => {
             const active = preference === key;
@@ -286,6 +382,7 @@ export default function PerfilScreen() {
         accessibilityRole="button"
         accessibilityLabel="Cerrar sesión"
       >
+        <Ionicons name="log-out-outline" size={15} color={c.terra} />
         <Text style={{ color: c.terra, fontWeight: '700', fontSize: 13.5, fontFamily: Fonts.sans }}>
           Cerrar sesión
         </Text>
@@ -321,38 +418,75 @@ export default function PerfilScreen() {
 }
 
 const styles = StyleSheet.create({
+  avatar: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badge: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+
+  hero: { borderRadius: Radii.panel, paddingHorizontal: 14, paddingVertical: 13, gap: 12 },
+  heroTop: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  heroBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroTitle: { flex: 1, fontSize: 17, color: '#FFF' },
+  heroStats: { flexDirection: 'row', gap: 6 },
+  heroValue: { fontSize: 19, color: '#FFF' },
+  heroLabel: { fontSize: 10.5, color: 'rgba(255,255,255,0.82)', marginTop: 1 },
+  heroEmpty: { fontSize: 13, color: 'rgba(255,255,255,0.9)' },
+  heroFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderRadius: 10,
+    paddingVertical: 8,
+  },
+  heroFooterText: { fontSize: 12, fontWeight: '600', color: '#FFF' },
+
+  panel: { borderWidth: 1.5, borderRadius: Radii.card, paddingHorizontal: 14, paddingVertical: 12 },
+  panelHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  panelFoot: { borderTopWidth: 1, marginTop: 10, paddingTop: 9 },
+
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  gridCard: {
+    width: '48%',
+    borderWidth: 1.5,
+    borderRadius: Radii.card,
+    paddingHorizontal: 11,
+    paddingVertical: 11,
+    gap: 5,
+  },
+
   logout: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
     borderWidth: 1.5,
     borderRadius: Radii.card,
     paddingVertical: 12,
-    alignItems: 'center',
     marginTop: 8,
   },
   historyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
     borderWidth: 1.5,
     borderRadius: 10,
     paddingVertical: 9,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  linkCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderWidth: 1.5,
-    borderRadius: Radii.card,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-  },
-  librito: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderWidth: 1.5,
-    borderRadius: Radii.card,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-    marginTop: 4,
+    marginTop: 8,
   },
   legalRow: {
     flexDirection: 'row',
@@ -368,7 +502,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderRadius: Radii.card,
     overflow: 'hidden',
-    marginTop: 6,
+    marginTop: 10,
   },
   themeOption: {
     flex: 1,

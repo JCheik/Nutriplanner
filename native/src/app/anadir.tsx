@@ -6,12 +6,13 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, Vi
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { applyRecipeFilters, EMPTY_FILTERS, RecipeFilters, type RecipeFilterState } from '@/components/recipe-filters';
+import { ServingsInput } from '@/components/servings-input';
 import { Fonts, Radii } from '@/constants/theme';
 import { useAuthUser } from '@/firebase/auth-context';
 import { addRecipeToMeal, removeRecipeFromMeal, updateServings } from '@/firebase/plan-operations';
 import { useRecipes, useWeekPlan } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
-import { perServingMacros } from '@/lib/serving-utils';
+import { clampServings, perServingMacros, servingsLabel } from '@/lib/serving-utils';
 import { normalizeText } from '@/lib/utils';
 import type { MealCategory, Recipe, RecipeInstance } from '@/lib/types';
 
@@ -58,13 +59,14 @@ export default function AnadirScreen() {
     return dayPlan?.meals.find((m) => m.id === mealId)?.recipes ?? [];
   }, [weekPlan, day, mealId]);
 
-  const bumpServings = (r: RecipeInstance, delta: number) => {
+  const setServingsTo = (r: RecipeInstance, next: number) => {
     if (!user || !day || !mealId) return;
-    const next = Math.max(1, (r.servingsEaten ?? 1) + delta);
-    updateServings(user.uid, day, mealId, r.instanceId, next).catch(() =>
+    updateServings(user.uid, day, mealId, r.instanceId, clampServings(next)).catch(() =>
       setError('No se pudo cambiar las raciones.')
     );
   };
+
+  const bumpServings = (r: RecipeInstance, delta: number) => setServingsTo(r, (r.servingsEaten ?? 1) + delta);
 
   const dropRecipe = (r: RecipeInstance) => {
     if (!user || !day || !mealId) return;
@@ -140,7 +142,7 @@ export default function AnadirScreen() {
                   {r.name}
                 </Text>
                 <Text style={{ fontSize: 11, color: c.inkSoft, fontFamily: Fonts.sans }}>
-                  {r.servingsEaten ?? 1} ración{(r.servingsEaten ?? 1) === 1 ? '' : 'es'} · toca para verla
+                  {servingsLabel(r.servingsEaten ?? 1)} · toca para verla
                 </Text>
               </Pressable>
               <Pressable
@@ -151,6 +153,13 @@ export default function AnadirScreen() {
               >
                 <Ionicons name="remove" size={14} color={c.inkSoft} />
               </Pressable>
+              {/* Escribible para las fracciones: los ± van de uno en uno. */}
+              <ServingsInput
+                value={r.servingsEaten ?? 1}
+                onCommit={(n) => setServingsTo(r, n)}
+                style={{ fontSize: 14 }}
+                label={`Raciones de ${r.name}`}
+              />
               <Pressable
                 onPress={() => bumpServings(r, 1)}
                 style={[styles.stepBtn, { borderColor: c.line }]}

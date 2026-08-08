@@ -7,10 +7,12 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChefieMascot, type ChefiePose } from '@/components/chefie-mascot';
+import { ServingsInput } from '@/components/servings-input';
 import { Fonts, Radii } from '@/constants/theme';
 import { useRecipes } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
 import { parseStepDurations, splitInstructionSteps } from '@/lib/recipe-steps';
+import { clampServings, formatServings, servingsLabel } from '@/lib/serving-utils';
 import { pluralizeUnit } from '@/lib/utils';
 
 /**
@@ -127,18 +129,18 @@ export default function CocinaScreen() {
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <Pressable
-                onPress={() => setServings((s) => Math.max(1, s - 1))}
+                onPress={() => setServings((s) => clampServings(s - 1))}
                 style={[styles.roundBtn, { borderColor: c.terra }]}
                 accessibilityRole="button"
                 accessibilityLabel="Una ración menos"
               >
                 <Text style={{ color: c.terra, fontSize: 17, lineHeight: 19 }}>−</Text>
               </Pressable>
-              <Text style={{ fontSize: 17, fontWeight: '700', color: c.ink, fontFamily: Fonts.serif, minWidth: 20, textAlign: 'center' }}>
-                {servings}
-              </Text>
+              {/* Se puede escribir: media ración de un lote de cuatro es un caso
+                  normal, y a golpe de ± no se llega. */}
+              <ServingsInput value={servings} onCommit={setServings} label="Raciones a preparar" />
               <Pressable
-                onPress={() => setServings((s) => s + 1)}
+                onPress={() => setServings((s) => clampServings(s + 1))}
                 style={[styles.roundBtn, { borderColor: c.terra }]}
                 accessibilityRole="button"
                 accessibilityLabel="Una ración más"
@@ -150,7 +152,7 @@ export default function CocinaScreen() {
         </View>
         {servings !== batchServings ? (
           <Text style={{ fontSize: 11.5, color: c.sage, fontFamily: Fonts.sans }}>
-            Cantidades ajustadas a {servings} {servings === 1 ? 'ración' : 'raciones'} · los pasos describen la receta completa
+            Cantidades ajustadas a {servingsLabel(servings)} · los pasos describen la receta completa
           </Text>
         ) : null}
 
@@ -165,7 +167,7 @@ export default function CocinaScreen() {
           accessibilityLabel={ingredientsOpen ? 'Ocultar los ingredientes' : 'Ver los ingredientes'}
         >
           <Text style={[styles.label, { flex: 1, color: c.inkSoft, fontFamily: Fonts.sans }]}>
-            INGREDIENTES · PARA {servings}
+            INGREDIENTES · PARA {formatServings(servings)}
             {!ingredientsOpen && checkedCount > 0 ? ` · ${checkedCount} listos` : ''}
           </Text>
           <Ionicons name={ingredientsOpen ? 'chevron-up' : 'chevron-down'} size={16} color={c.inkSoft} />

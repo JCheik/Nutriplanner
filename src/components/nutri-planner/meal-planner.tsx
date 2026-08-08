@@ -4,7 +4,9 @@ import React, { useState, useRef, type DragEvent, type KeyboardEvent } from 'rea
 import html2canvas from 'html2canvas';
 import type { WeekPlan, Recipe, DailyTotal, Macros, GoalMacros, Meal, ActiveDropTarget, RecipeInstance, MealCategory } from '@/lib/types';
 import { MEAL_CATEGORIES } from '@/lib/constants';
-import { mealCalorieRatio, suggestedServings } from '@/lib/serving-utils';
+import { clampServings, mealCalorieRatio, suggestedServings } from '@/lib/serving-utils';
+
+import { ServingsField } from './servings-field';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RecipeCard } from './recipe-card';
 import { Button } from '@/components/ui/button';
@@ -157,14 +159,21 @@ function MealRecipeChip({ recipe, day, mealId, onRecipeClick, onRemove, onUpdate
         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             className="h-5 w-5 flex items-center justify-center rounded-full bg-muted hover:bg-muted-foreground/20 text-sm font-bold leading-none"
-            onClick={() => onUpdateServings(Math.max(1, servingsEaten - 1))}
+            onClick={() => onUpdateServings(clampServings(servingsEaten - 1))}
           >−</button>
-          <span className="text-[10px] text-muted-foreground font-medium whitespace-nowrap">
-            {servingsEaten} rac · {kcal} kcal
+          <span className="text-[10px] text-muted-foreground font-medium whitespace-nowrap flex items-center">
+            {/* Escribible para las fracciones; los ± siguen yendo de uno en uno. */}
+            <ServingsField
+              value={servingsEaten}
+              onCommit={onUpdateServings}
+              ariaLabel={`Raciones de ${recipe.name}`}
+              className="w-7 bg-transparent text-center font-medium outline-none rounded focus:ring-1 focus:ring-ring"
+            />
+            rac · {kcal} kcal
           </span>
           <button
             className="h-5 w-5 flex items-center justify-center rounded-full bg-muted hover:bg-muted-foreground/20 text-sm font-bold leading-none"
-            onClick={() => onUpdateServings(servingsEaten + 1)}
+            onClick={() => onUpdateServings(clampServings(servingsEaten + 1))}
           >+</button>
         </div>
       </div>

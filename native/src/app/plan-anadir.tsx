@@ -7,12 +7,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChefieMascot } from '@/components/chefie-mascot';
 import { PaperTexture } from '@/components/paper-texture';
 import { ScreenTitle } from '@/components/screen-scaffold';
+import { ServingsInput } from '@/components/servings-input';
 import { Fonts, Radii, Shadows } from '@/constants/theme';
 import { useAuthUser } from '@/firebase/auth-context';
 import { addRecipeToMeal } from '@/firebase/plan-operations';
 import { useRecipes, useWeekPlan } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
-import { perServingMacros } from '@/lib/serving-utils';
+import { clampServings, perServingMacros, servingsLabel } from '@/lib/serving-utils';
 
 const DAY_LETTERS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
@@ -93,7 +94,7 @@ export default function PlanAnadirScreen() {
           </Text>
           <Text style={{ fontSize: 13.5, color: c.inkSoft, fontFamily: Fonts.sans, textAlign: 'center', lineHeight: 20 }}>
             {recipe.name} · {done.day}, {done.meal.toLowerCase()}
-            {servings > 1 ? ` · ${servings} raciones` : ''}
+            {servings !== 1 ? ` · ${servingsLabel(servings)}` : ''}
           </Text>
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
             <Pressable
@@ -207,7 +208,7 @@ export default function PlanAnadirScreen() {
         <Text style={[styles.miniLabel, { color: c.inkSoft, fontFamily: Fonts.sans }]}>CUÁNTAS RACIONES</Text>
         <View style={[styles.servingsRow, { borderColor: c.line, backgroundColor: c.surface }]}>
           <Pressable
-            onPress={() => setServings((s) => Math.max(1, s - 1))}
+            onPress={() => setServings((s) => clampServings(s - 1))}
             style={[styles.stepBtn, { borderColor: c.line }]}
             accessibilityRole="button"
             accessibilityLabel="Una ración menos"
@@ -215,7 +216,13 @@ export default function PlanAnadirScreen() {
             <Ionicons name="remove" size={16} color={c.inkSoft} />
           </Pressable>
           <View style={{ flex: 1, alignItems: 'center' }}>
-            <Text style={{ fontSize: 19, color: c.ink, fontFamily: Fonts.serif }}>{servings}</Text>
+            {/* Escribible: media ración o ración y media son casos normales. */}
+            <ServingsInput
+              value={servings}
+              onCommit={setServings}
+              style={{ fontSize: 19, fontWeight: '400' }}
+              label="Cuántas raciones"
+            />
             {per ? (
               <Text style={{ fontSize: 11, color: c.inkSoft, fontFamily: Fonts.sans }}>
                 {Math.round(per.calories * servings)} kcal · {Math.round(per.protein * servings)} P
@@ -223,7 +230,7 @@ export default function PlanAnadirScreen() {
             ) : null}
           </View>
           <Pressable
-            onPress={() => setServings((s) => s + 1)}
+            onPress={() => setServings((s) => clampServings(s + 1))}
             style={[styles.stepBtn, { borderColor: c.line }]}
             accessibilityRole="button"
             accessibilityLabel="Una ración más"

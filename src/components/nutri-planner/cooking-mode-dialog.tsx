@@ -15,6 +15,8 @@ import { X, ChefHat, Video, Timer, Play, Pause, RotateCcw, BellRing, Minus, Plus
 import { cn, pluralizeUnit } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { splitInstructionSteps, parseStepDurations } from '@/lib/recipe-steps';
+import { clampServings, MIN_SERVINGS, servingsLabel } from '@/lib/serving-utils';
+import { ServingsField } from './servings-field';
 
 const MAX_SERVINGS = 30;
 
@@ -295,18 +297,25 @@ export function CookingModeDialog({ recipe, isOpen, onClose }: CookingModeDialog
                     <Button
                       variant="outline"
                       size="icon"
-                      onClick={() => setServingsToMake((s) => Math.max(1, s - 1))}
-                      disabled={servingsToMake <= 1}
+                      onClick={() => setServingsToMake((s) => clampServings(s - 1))}
+                      disabled={servingsToMake <= MIN_SERVINGS}
                       aria-label="Una ración menos"
                       className="h-9 w-9 sm:h-11 sm:w-11 rounded-full"
                     >
                       <Minus className="h-4 w-4 sm:h-5 sm:w-5" />
                     </Button>
-                    <span className="text-xl sm:text-2xl font-bold tabular-nums w-8 text-center">{servingsToMake}</span>
+                    {/* Escribible: media ración de un lote de cuatro es un caso
+                        normal, y a golpe de ± no se llega. */}
+                    <ServingsField
+                      value={servingsToMake}
+                      onCommit={(n) => setServingsToMake(Math.min(MAX_SERVINGS, n))}
+                      ariaLabel="Raciones a preparar"
+                      className="text-xl sm:text-2xl font-bold tabular-nums w-12 text-center bg-transparent outline-none rounded focus:ring-1 focus:ring-ring"
+                    />
                     <Button
                       variant="outline"
                       size="icon"
-                      onClick={() => setServingsToMake((s) => Math.min(MAX_SERVINGS, s + 1))}
+                      onClick={() => setServingsToMake((s) => Math.min(MAX_SERVINGS, clampServings(s + 1)))}
                       disabled={servingsToMake >= MAX_SERVINGS}
                       aria-label="Una ración más"
                       className="h-9 w-9 sm:h-11 sm:w-11 rounded-full"
@@ -318,7 +327,7 @@ export function CookingModeDialog({ recipe, isOpen, onClose }: CookingModeDialog
               </div>
               {servingsToMake !== recipeServings && (
                 <p className="text-sm text-muted-foreground -mt-3 mb-5">
-                  Cantidades ajustadas a {servingsToMake} {servingsToMake === 1 ? 'ración' : 'raciones'} · la receta rinde {recipeServings}.
+                  Cantidades ajustadas a {servingsLabel(servingsToMake)} · la receta rinde {recipeServings}.
                   Los pasos describen la receta completa.
                 </p>
               )}

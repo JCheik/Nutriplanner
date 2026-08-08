@@ -11,13 +11,58 @@ import { saveReminders } from '@/firebase/profile-operations';
 import { useProfile } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
 import {
+  addMinutes,
   describeReminder,
   ensurePermission,
-  formatTime,
   rescheduleAll,
   WEEKDAY_LABELS,
   type Reminder,
 } from '@/lib/reminders';
+
+/**
+ * Una casilla de dos dígitos de la hora. Lleva borrador propio porque, sin él,
+ * no se puede vaciar para escribir otra cosa: al borrar el «1» de las 12 el
+ * valor se recortaría a un número y volvería a pintarse al instante.
+ * Se confirma al salir del campo, así que Firestore recibe una escritura y no
+ * una por tecla.
+ */
+function TimeField({
+  value,
+  max,
+  label,
+  onCommit,
+}: {
+  value: number;
+  max: number;
+  label: string;
+  onCommit: (n: number) => void;
+}) {
+  const c = useTheme();
+  const [draft, setDraft] = useState<string | null>(null);
+
+  return (
+    <TextInput
+      value={draft ?? String(value).padStart(2, '0')}
+      onFocus={() => setDraft(String(value))}
+      onChangeText={(t) => {
+        const clean = t.replace(/[^0-9]/g, '').slice(0, 2);
+        setDraft(clean);
+        // Se confirma en cada tecla, no al salir del campo: si se teclea la
+        // hora y se sale de la pantalla de golpe, con el blur se perdería.
+        // Son dos dígitos, así que son dos escrituras como mucho.
+        const n = Number.parseInt(clean, 10);
+        if (Number.isFinite(n)) onCommit(Math.min(max, Math.max(0, n)));
+      }}
+      // El blur solo limpia el borrador para que se repinte «09» en vez de «9».
+      onBlur={() => setDraft(null)}
+      keyboardType="number-pad"
+      selectTextOnFocus
+      maxLength={2}
+      style={{ width: 30, textAlign: 'center', fontSize: 19, color: c.ink, fontFamily: Fonts.serif, padding: 0 }}
+      accessibilityLabel={label}
+    />
+  );
+}
 
 /**
  * Recordatorios que escribe el usuario. Vive en Perfil y no en la entrevista
@@ -93,9 +138,8 @@ export default function RecordatoriosScreen() {
 
   const remove = (id: string) => apply((prev) => prev.filter((r) => r.id !== id));
 
-  /** Sube o baja la hora dando la vuelta, que es lo que se espera de un reloj. */
-  const bumpHour = (r: Reminder, d: number) => patch(r.id, { hour: (r.hour + d + 24) % 24 });
-  const bumpMinute = (r: Reminder, d: number) => patch(r.id, { minute: (r.minute + d + 60) % 60 });
+  /** Empujoncito de 15 minutos, con acarreo a la hora. */
+  const bumpMinute = (r: Reminder, d: number) => patch(r.id, addMinutes(r.hour, r.minute, d));
 
   return (
     <View style={{ flex: 1, backgroundColor: c.ground, paddingTop: insets.top + 10 }}>
@@ -161,20 +205,21 @@ export default function RecordatoriosScreen() {
               />
             </View>
 
-            {/* Hora */}
+            {/* Hora. Se escribe directamente — antes solo se podía mover a
+                saltos y no había forma de poner las 12:10 exactas. Los ±15
+                quedan porque para un ajuste pequeño son más rápidos. */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={{ flex: 1, fontSize: 12, color: c.inkSoft, fontFamily: Fonts.sans }}>A las</Text>
-              <Pressable onPress={() => bumpHour(r, -1)} style={[styles.roundBtn, { borderColor: c.line }]} accessibilityRole="button" accessibilityLabel="Una hora menos">
+              <View style={[styles.timeBox, { borderColor: c.line }]}>
+                <TimeField value={r.hour} max={23} label="Hora" onCommit={(h) => patch(r.id, { hour: h })} />
+                <Text style={{ fontSize: 19, color: c.inkSoft, fontFamily: Fonts.serif }}>:</Text>
+                <TimeField value={r.minute} max={59} label="Minutos" onCommit={(m) => patch(r.id, { minute: m })} />
+              </View>
+              <Pressable onPress={() => bumpMinute(r, -15)} style={[styles.roundBtn, { borderColor: c.line }]} accessibilityRole="button" accessibilityLabel="Quince minutos menos">
                 <Ionicons name="remove" size={14} color={c.inkSoft} />
               </Pressable>
-              <Text style={{ minWidth: 54, textAlign: 'center', fontSize: 17, color: c.ink, fontFamily: Fonts.serif }}>
-                {formatTime(r.hour, r.minute)}
-              </Text>
-              <Pressable onPress={() => bumpHour(r, 1)} style={[styles.roundBtn, { borderColor: c.line }]} accessibilityRole="button" accessibilityLabel="Una hora más">
+              <Pressable onPress={() => bumpMinute(r, 15)} style={[styles.roundBtn, { borderColor: c.line }]} accessibilityRole="button" accessibilityLabel="Quince minutos más">
                 <Ionicons name="add" size={14} color={c.inkSoft} />
-              </Pressable>
-              <Pressable onPress={() => bumpMinute(r, 15)} style={[styles.minuteBtn, { borderColor: c.line }]} accessibilityRole="button" accessibilityLabel="Quince minutos más">
-                <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans }}>+15 min</Text>
               </Pressable>
             </View>
 
@@ -260,7 +305,15 @@ const styles = StyleSheet.create({
   note: { borderWidth: 1.5, borderRadius: Radii.card, paddingHorizontal: 12, paddingVertical: 10 },
   input: { borderWidth: 1.5, borderRadius: Radii.card, paddingHorizontal: 11, paddingVertical: 9, fontSize: 13.5 },
   roundBtn: { width: 28, height: 28, borderWidth: 1.2, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  minuteBtn: { borderWidth: 1.2, borderRadius: 10, paddingHorizontal: 9, paddingVertical: 6 },
+  timeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 1,
+    borderWidth: 1.2,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
   chip: { borderWidth: 1.2, borderRadius: Radii.pill, paddingHorizontal: 11, paddingVertical: 6 },
   dayRow: { flexDirection: 'row', gap: 5 },
   dayChip: { flex: 1, borderWidth: 1.2, borderRadius: 9, paddingVertical: 7, alignItems: 'center' },

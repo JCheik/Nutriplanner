@@ -20,6 +20,39 @@ export function perServingMacros(
   };
 }
 
+/**
+ * Por debajo de esto ya no es una ración. Se permite tan poco porque hay usos
+ * legítimos: un chorrito de aceite, un par de nueces de un lote de veinte.
+ */
+export const MIN_SERVINGS = 0.1;
+
+/** Recorta a un valor usable: nunca menos del mínimo y como mucho 2 decimales. */
+export function clampServings(n: number): number {
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(MIN_SERVINGS, Math.round(n * 100) / 100);
+}
+
+/**
+ * Con coma decimal y sin ceros de relleno: 1 → «1», 0,5 → «0,5», 1,25 → «1,25».
+ * A mano en vez de `toLocaleString`: no todas las versiones de Hermes traen
+ * Intl completo y aquí solo hace falta cambiar el punto por la coma.
+ */
+export function formatServings(n: number): string {
+  const v = Math.round((Number.isFinite(n) ? n : 1) * 100) / 100;
+  return String(v).replace('.', ',');
+}
+
+/** Lo que teclea el usuario, aceptando coma o punto. `null` si no hay número. */
+export function parseServings(text: string): number | null {
+  const n = Number.parseFloat(text.replace(',', '.'));
+  return Number.isFinite(n) ? clampServings(n) : null;
+}
+
+/** «1 ración», «0,5 raciones», «2 raciones». */
+export function servingsLabel(n: number): string {
+  return `${formatServings(n)} ${n === 1 ? 'ración' : 'raciones'}`;
+}
+
 // Share of the daily calorie goal that a meal type represents. A slot can hold
 // several meal types; size it by the most caloric one.
 function ratioForType(type: MealCategory): number {
