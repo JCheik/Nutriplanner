@@ -26,6 +26,7 @@ import {
 import { useProfile, useWeekPlan } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
 import { setPlanClipboard, usePlanClipboard } from '@/lib/plan-clipboard';
+import { describeEmptySlots, findEmptySlots } from '@/lib/plan-search';
 import { formatServings } from '@/lib/serving-utils';
 import { shareWeekPdf } from '@/lib/week-pdf';
 import type { DayPlan, GoalMacros, Macros, RecipeInstance, WeekHistoryEntry } from '@/lib/types';
@@ -543,6 +544,7 @@ function SemanaView({
 
   const mealTitles = weekPlan[0]?.meals.map((m) => m.title) ?? [];
   const weekHasContent = weekPlan.some((d) => d.meals.some((m) => m.recipes.length > 0));
+  const emptySlots = useMemo(() => findEmptySlots(weekPlan), [weekPlan]);
   const perDay = useMemo(() => weekPlan.map(dayTotals), [weekPlan]);
   const weekPlanned = perDay.reduce((sum, d) => sum + d.calories, 0);
   const daysWithPlan = perDay.filter((d) => d.calories > 0).length;
@@ -639,6 +641,23 @@ function SemanaView({
                       : ' '
                   }`.trim()
                 : `Te has pasado ${Math.round(-weekMargin).toLocaleString('es-ES')} kcal en el total de la semana. Un día flojo lo compensa.`}
+          </Text>
+        </View>
+      ) : null}
+
+      {/* Aviso PERSISTENTE de lo que falta: al autocompletar se decía en la
+          burbuja, que se va sola, y después no quedaba ni rastro de qué huecos
+          habían quedado. Vale igual para los que dejas tú a mano. */}
+      {emptySlots.length > 0 ? (
+        <View style={[styles.gapNotice, { borderColor: c.macroCarbs, backgroundColor: c.note }]}>
+          <Ionicons name="alert-circle-outline" size={15} color={c.macroCarbs} />
+          <Text style={{ flex: 1, fontSize: 11.5, color: c.ink, fontFamily: Fonts.sans, lineHeight: 16 }}>
+            <Text style={{ fontWeight: '700' }}>
+              {emptySlots.length === 1
+                ? 'Queda 1 comida sin planificar'
+                : `Quedan ${emptySlots.length} comidas sin planificar`}
+            </Text>
+            : {describeEmptySlots(emptySlots)}.
           </Text>
         </View>
       ) : null}
@@ -1150,6 +1169,15 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     paddingTop: 8,
     marginTop: 8,
+  },
+  gapNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    borderWidth: 1.2,
+    borderRadius: Radii.card,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
   },
   emptySlot: {
     borderStyle: 'dashed',

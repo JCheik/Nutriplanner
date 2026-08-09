@@ -1,8 +1,11 @@
 'use client';
 
+import { AlertTriangle } from 'lucide-react';
+
 import { Card, CardContent } from '@/components/ui/card';
+import { describeEmptySlots, findEmptySlots } from '@/lib/plan-search';
 import { cn } from '@/lib/utils';
-import type { GoalMacros, Macros } from '@/lib/types';
+import type { GoalMacros, Macros, WeekPlan } from '@/lib/types';
 
 /**
  * Resumen de calorías de la semana, entre el cuadrante y la biblioteca.
@@ -43,14 +46,18 @@ const nf = (n: number) => Math.round(n).toLocaleString('es-ES');
 export function WeekCaloriesSummary({
   dailyTotals,
   activeGoal,
+  weekPlan,
   freeMealsPerWeek = 0,
 }: {
   /** Tal cual los devuelve `useDashboard`: un día por entrada. */
   dailyTotals: { day: string; totals: Macros }[];
   activeGoal: GoalMacros | null;
+  /** Para avisar de las comidas que se han quedado sin nada. */
+  weekPlan: WeekPlan;
   /** De la entrevista: explica para qué es el margen que sobra. */
   freeMealsPerWeek?: number;
 }) {
+  const empty = findEmptySlots(weekPlan);
   const weekPlanned = dailyTotals.reduce((sum, d) => sum + d.totals.calories, 0);
   const daysWithPlan = dailyTotals.filter(d => d.totals.calories > 0).length;
   const weekGoal = activeGoal ? activeGoal.calories * 7 : 0;
@@ -121,6 +128,21 @@ export function WeekCaloriesSummary({
           <p className="border-t pt-4 text-xs text-muted-foreground">
             Define tu objetivo diario en Mi Laboratorio y aquí verás cuánto te queda cada semana.
           </p>
+        )}
+
+        {/* Aviso PERSISTENTE de lo que falta. El autocompletado ya lo decía al
+            terminar, pero en un toast que se va solo: si estabas mirando otra
+            cosa durante la espera, no te enterabas de que había dejado huecos. */}
+        {empty.length > 0 && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden />
+            <p className="text-xs leading-relaxed">
+              <span className="font-semibold">
+                {empty.length === 1 ? 'Queda 1 comida sin planificar' : `Quedan ${empty.length} comidas sin planificar`}
+              </span>
+              : {describeEmptySlots(empty)}.
+            </p>
+          </div>
         )}
       </CardContent>
     </Card>

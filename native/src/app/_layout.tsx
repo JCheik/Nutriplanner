@@ -10,6 +10,7 @@ import { LoginScreen } from '@/components/login-screen';
 import { ShareIntentHandler } from '@/components/share-intent-handler';
 import { UpdateBanner } from '@/components/update-banner';
 import { AuthProvider, useAuthUser } from '@/firebase/auth-context';
+import { recoverInterruptedJob } from '@/lib/background-job';
 import { useTheme } from '@/hooks/use-theme';
 import { ThemePreferenceProvider, useResolvedScheme } from '@/hooks/use-theme-preference';
 
@@ -82,6 +83,12 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded || fontError) SplashScreen.hideAsync();
   }, [fontsLoaded, fontError]);
+
+  // Si la app murió con algo a medias (bloqueo de pantalla, quedarse sin
+  // datos), se dice al volver en vez de dejar que se pierda sin más.
+  useEffect(() => {
+    void recoverInterruptedJob();
+  }, []);
 
   // Si las fuentes fallan (`fontError`) se sigue adelante: RN cae a la del
   // sistema y la app funciona igual, solo se ve menos bonita.

@@ -47,6 +47,29 @@ export function findInPlan(weekPlan: WeekPlan, query: string): PlanMatch[] {
 }
 
 /**
+ * Comidas del plan que están vacías, en orden de semana.
+ *
+ * El autocompletado ya devolvía las que no pudo llenar, pero eso solo se veía
+ * en un toast que se va solo: pasada la notificación no quedaba ni rastro de
+ * qué faltaba. Calculándolo del plan, el aviso puede estar siempre a la vista y
+ * además es correcto aunque los huecos los hayas dejado tú a mano.
+ */
+export function findEmptySlots(weekPlan: WeekPlan): { day: string; mealTitle: string }[] {
+  return weekPlan.flatMap((dayPlan) =>
+    (dayPlan.meals ?? [])
+      .filter((meal) => (meal.recipes ?? []).length === 0)
+      .map((meal) => ({ day: dayPlan.day, mealTitle: meal.title }))
+  );
+}
+
+/** «Cena del martes, Desayuno del jueves y 3 más». */
+export function describeEmptySlots(slots: { day: string; mealTitle: string }[], max = 3): string {
+  const names = slots.slice(0, max).map((s) => `${s.mealTitle} del ${s.day.toLowerCase()}`);
+  const rest = slots.length - names.length;
+  return names.join(', ') + (rest > 0 ? ` y ${rest} más` : '');
+}
+
+/**
  * Cuáles se quitan y cuáles se quedan. Se conservan las PRIMERAS de la semana
  * para no dejar al usuario con el plato repetido justo al final.
  */

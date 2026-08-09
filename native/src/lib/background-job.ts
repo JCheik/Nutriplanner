@@ -1,3 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import type { Href } from 'expo-router/build/typed-routes/types';
 import { useSyncExternalStore } from 'react';
 
@@ -10,9 +12,22 @@ import { useSyncExternalStore } from 'react';
  * aquí, fuera de cualquier componente, así que sobrevive a cambiar de pestaña
  * o cerrar el modal, y `ChefieBubble` la va contando en una esquina.
  *
- * **Límite honesto**: esto solo corre con la app abierta. Si Android la manda a
- * dormir, el trabajo se queda parado hasta que vuelvas. Un aviso de verdad
- * necesitaría expo-notifications, que es módulo nativo y pide APK nueva.
+ * **Límite honesto**: esto corre en la app, no en un servidor. Si el sistema la
+ * suspende del todo, la petición en vuelo se corta. Contra eso hay dos defensas
+ * aquí, y ninguna es magia:
+ *
+ * 1. Mientras dura el trabajo se impide que la pantalla se apague sola
+ *    (`expo-keep-awake`). El bloqueo por inactividad era la forma habitual de
+ *    perderlo: montar la semana tarda más que el tiempo de apagado de muchos
+ *    móviles. Si se pulsa el botón de bloqueo a mano, esto no lo evita.
+ *
+ * 2. El trabajo en curso se deja anotado en disco. Si la app vuelve y la marca
+ *    sigue ahí, es que se cortó a medias: se avisa y se ofrece reintentar, en
+ *    vez de que desaparezca sin decir nada, que es lo que pasaba.
+ *
+ * Lo único que lo haría a prueba de todo es mover el trabajo al servidor (una
+ * Cloud Function que escriba el resultado en Firestore); entonces daría igual
+ * lo que haga el móvil. Es un cambio de arquitectura, no un parche.
  *
  * Un solo trabajo a la vez a propósito: dos cosas de IA en paralelo no pasan
  * casi nunca (hay cuota diaria) y una sola burbuja se entiende sin explicarla.
@@ -37,29 +52,75 @@ function emit() {
   listeners.forEach((l) => l());
 }
 
+/**
+ * Marca en disco de "hay algo a medias". Se pone al empezar y se quita al
+ * acabar, pase lo que pase. Si al arrancar sigue ahí, el trabajo murió con la
+ * app: eso es justo lo que hay que contarle al usuario.
+ */
+const INFLIGHT_KEY = 'nutrilp.job.inflight';
+const KEEP_AWAKE_TAG = 'nutrilp-job';
+
 /** ¿Hay algo en marcha? Sirve para no lanzar dos a la vez. */
 export function isJobRunning(): boolean {
   return job?.status === 'working';
 }
 
+/** Se sueltan los dos recursos a la vez: la marca y el bloqueo de pantalla. */
+function releaseGuards() {
+  void AsyncStorage.removeItem(INFLIGHT_KEY).catch(() => {});
+  // `deactivateKeepAwake` peta si nunca se activó (p. ej. en web), y eso no
+  // debe tumbar el cierre de un trabajo que ha ido bien.
+  try {
+    void Promise.resolve(deactivateKeepAwake(KEEP_AWAKE_TAG)).catch(() => {});
+  } catch {
+    /* no pasa nada */
+  }
+}
+
 export function startJob(title: string) {
   job = { status: 'working', title };
+  void AsyncStorage.setItem(INFLIGHT_KEY, title).catch(() => {});
+  void activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => {});
   emit();
 }
 
 export function finishJob(title: string, cta: string, target: JobTarget) {
   job = { status: 'done', title, cta, target };
+  releaseGuards();
   emit();
 }
 
 export function failJob(title: string, message: string) {
   job = { status: 'error', title, message };
+  releaseGuards();
   emit();
 }
 
 export function clearJob() {
   job = null;
+  releaseGuards();
   emit();
+}
+
+/**
+ * Al arrancar: si quedó una marca de trabajo a medias, se enseña como error en
+ * vez de dejar que desaparezca en silencio. Que es lo que pasaba al bloquearse
+ * el móvil montando la semana: volvías y no había ni plan ni explicación.
+ */
+export async function recoverInterruptedJob(): Promise<void> {
+  try {
+    const pending = await AsyncStorage.getItem(INFLIGHT_KEY);
+    if (!pending || job) return;
+    await AsyncStorage.removeItem(INFLIGHT_KEY);
+    job = {
+      status: 'error',
+      title: 'Se quedó a medias',
+      message: `«${pending}» se cortó al cerrarse la app. No se ha guardado nada a medias: vuelve a lanzarlo cuando quieras.`,
+    };
+    emit();
+  } catch {
+    /* si el disco falla, mejor no molestar */
+  }
 }
 
 export function useBackgroundJob(): BackgroundJob | null {

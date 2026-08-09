@@ -70,6 +70,7 @@ export default function DashboardPage() {
           <WeekCaloriesSummary
             dailyTotals={dailyTotals}
             activeGoal={activeGoalMacros || null}
+            weekPlan={currentWeekPlan}
             freeMealsPerWeek={nutriInterview?.freeMealsPerWeek ?? 0}
           />
         </div>
