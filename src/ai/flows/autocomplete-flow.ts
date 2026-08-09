@@ -1,6 +1,6 @@
 'use server';
 
-import { ai, GEMINI_MODEL } from '@/ai/genkit';
+import { ai, GEMINI_MODEL_BULK } from '@/ai/genkit';
 import { z } from 'zod';
 import { DIET_TAG_ENUM, type WeekPlan, type GoalMacros, type Recipe, type MealCategory, type DietTag } from '@/lib/types';
 import { suggestedServings, mealCalorieRatio } from '@/lib/serving-utils';
@@ -425,7 +425,7 @@ Return ONLY a JSON array. Each element: { "day": string, "mealId": string, "reci
     `.trim();
 
     const response = await ai.generate({
-      model: GEMINI_MODEL,
+      model: GEMINI_MODEL_BULK,
       prompt,
       output: {
         schema: AutocompleteModelOutputSchema,
