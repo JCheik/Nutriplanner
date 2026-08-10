@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { NutritionalDisclaimer } from '@/components/nutritional-disclaimer';
 import { Fonts, Radii } from '@/constants/theme';
 import { useAuthUser } from '@/firebase/auth-context';
 import { saveActiveGoal, saveCalorieResult } from '@/firebase/profile-operations';
@@ -249,6 +250,11 @@ export default function ObjetivosScreen() {
             Pulsa &quot;Calcular&quot; para ver el resultado antes de guardarlo.
           </Text>
         ) : null}
+
+        {/* Siempre visible, haya resultado o no — igual que en la web, donde el
+            panel de objetivos lo lleva al pie pase lo que pase. Que aparezca
+            solo al calcular lo dejaría fuera justo de la primera visita. */}
+        <NutritionalDisclaimer style={{ marginTop: 4 }} />
       </ScrollView>
     </View>
   );

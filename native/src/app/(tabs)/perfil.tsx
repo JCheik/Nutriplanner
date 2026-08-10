@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { NutritionalDisclaimer } from '@/components/nutritional-disclaimer';
 import { Card, CardText, ScreenScaffold } from '@/components/screen-scaffold';
 import { Fonts, Radii, Shadows } from '@/constants/theme';
 import { logOut, useAuthUser } from '@/firebase/auth-context';
@@ -337,6 +338,10 @@ export default function PerfilScreen() {
           <Text style={[styles.legalLink, { color: c.terra, fontFamily: Fonts.sans }]}>Borrar mi cuenta</Text>
         </Pressable>
       </View>
+
+      {/* Debajo de los enlaces legales a propósito: es el sitio fijo donde se va
+          a buscar, y así no compite con "Borrar mi cuenta". */}
+      <NutritionalDisclaimer style={styles.disclaimer} />
     </ScreenScaffold>
   );
 }
@@ -404,6 +409,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   legalLink: { fontSize: 11.5, textDecorationLine: 'underline' },
+  disclaimer: { marginTop: 12, paddingHorizontal: 4 },
   themeSegment: {
     flexDirection: 'row',
     borderWidth: 1.5,
