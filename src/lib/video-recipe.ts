@@ -12,7 +12,20 @@ import { existingIngredientsInstruction, UNIT_RULE } from '@/ai/prompt-fragments
 
 const API_KEY = process.env.GEMINI_API_KEY!;
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com';
-const MODEL = 'gemini-2.5-flash';
+
+/**
+ * Mismo modelo que `GEMINI_MODEL` de `@/ai/genkit`, pero escrito a mano: aquí se
+ * habla con la REST API a pelo, que no entiende el prefijo `googleai/`, e
+ * importar el módulo de Genkit solo por leer una constante arrastraría todo su
+ * runtime a esta ruta.
+ *
+ * ⚠️ **Mantener en sincronía con `GEMINI_MODEL`.** La migración del 2026-08-09
+ * que sacó los flujos de `gemini-2.5-flash` se dejó este fichero atrás — y es el
+ * camino del vídeo, el más caro y el más visible. Google retira los 2.5 el
+ * **16 de octubre de 2026**, así que importar recetas de un vídeo habría dejado
+ * de funcionar en plena alfa.
+ */
+const MODEL = 'gemini-3.5-flash';
 
 export const RECIPE_SCHEMA = {
   type: 'object',
