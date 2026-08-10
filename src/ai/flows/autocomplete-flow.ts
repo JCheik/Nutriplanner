@@ -58,7 +58,24 @@ const AutocompleteOutputSchema = z.object({
   })),
   unfilled: z.array(z.object({
     day: z.string(),
+    /** Para poder marcar el hueco concreto en el cuadrante, no solo nombrarlo. */
+    mealId: z.string(),
     mealTitle: z.string(),
+    /**
+     * POR QUÉ se quedó vacío. Antes todos los huecos se explicaban con la misma
+     * frase ("no encontré una ración entera dentro de tu margen"), que solo era
+     * cierta en uno de los tres casos: si no tienes NINGUNA receta de cena, el
+     * consejo de "prueba con un margen más flexible" no arregla nada y manda al
+     * usuario a tocar donde no es.
+     *
+     * - `sin_recetas`: ninguna receta del recetario sirve para ese tipo de
+     *   comida (o la dieta/las alergias las descartaron todas).
+     * - `tope_repeticion`: sí hay recetas, pero todas han llegado ya al máximo
+     *   de veces por semana que el usuario permitió.
+     * - `margen_calorico`: hay recetas disponibles, pero ninguna cuadra con las
+     *   calorías del hueco en un número entero de raciones.
+     */
+    reason: z.enum(['sin_recetas', 'tope_repeticion', 'margen_calorico']),
   })),
 });
 
@@ -504,6 +521,14 @@ Return ONLY a JSON array. Each element: { "day": string, "mealId": string, "reci
       }
     }
 
+    /**
+     * Por qué se quedó vacío cada hueco. Se anota en el momento de descartarlo,
+     * que es el único sitio donde se sabe: al final ya solo queda "no está en
+     * placements", que no distingue entre no tener recetas y no cuadrar las
+     * calorías — y el consejo que hay que dar es distinto en cada caso.
+     */
+    const reasonByKey = new Map<string, 'sin_recetas' | 'tope_repeticion' | 'margen_calorico'>();
+
     for (const slot of emptySlots) {
       const key = `${slot.day}|${slot.mealId}`;
       if (takenSlots.has(key)) continue; // ya lo ocupa un plato fijo
@@ -513,7 +538,12 @@ Return ONLY a JSON array. Each element: { "day": string, "mealId": string, "reci
       // ninguna, el hueco se deja vacío y se avisa: repetir por séptima vez lo
       // que el usuario dijo que no quería repetir es peor que dejarlo a medias.
       const available = slot.eligibleRecipeIds.filter(underCap);
-      if (available.length === 0) continue;
+      if (available.length === 0) {
+        // Distinguir las dos causas: no haber recetas para ese tipo de comida no
+        // se arregla igual que haberlas gastado todas contra el tope.
+        reasonByKey.set(key, slot.eligibleRecipeIds.length === 0 ? 'sin_recetas' : 'tope_repeticion');
+        continue;
+      }
 
       // Closest-to-target eligible recipe — used when the model's pick is missing
       // or outside the eligible set, and as the margin search's preferred seed.
@@ -529,7 +559,10 @@ Return ONLY a JSON array. Each element: { "day": string, "mealId": string, "reci
         })[0]?.id ?? available[0];
 
       const candidateId = modelPick && available.includes(modelPick) ? modelPick : fallbackId;
-      if (!candidateId) continue; // no eligible recipe at all for this slot
+      if (!candidateId) {
+        reasonByKey.set(key, 'sin_recetas'); // no eligible recipe at all for this slot
+        continue;
+      }
 
       if (useGoalMargin && slot.targetCalories != null) {
         const preferUnder = (interview?.freeMealsPerWeek ?? 0) > 0;
@@ -537,8 +570,12 @@ Return ONLY a JSON array. Each element: { "day": string, "mealId": string, "reci
         if (fit) {
           placements.push({ day: slot.day, mealId: slot.mealId, recipeId: fit.recipeId, servings: fit.servings });
           countUse(fit.recipeId);
+        } else {
+          // Hay recetas disponibles; lo que no hay es un número entero de
+          // raciones que caiga dentro del margen. Éste sí se arregla ampliando
+          // el margen, y es el único caso en el que ese consejo sirve.
+          reasonByKey.set(key, 'margen_calorico');
         }
-        // else: leave the slot empty rather than force an unrealistic serving amount.
       } else {
         const recipe = recipeById.get(candidateId);
         const servings = recipe ? suggestedServings(recipe, slot.targetCalories) : 1;
@@ -550,7 +587,14 @@ Return ONLY a JSON array. Each element: { "day": string, "mealId": string, "reci
     const filledKeys = new Set(placements.map(p => `${p.day}|${p.mealId}`));
     const unfilled = emptySlots
       .filter(s => !filledKeys.has(`${s.day}|${s.mealId}`))
-      .map(s => ({ day: s.day, mealTitle: s.mealTitle }));
+      .map(s => ({
+        day: s.day,
+        mealId: s.mealId,
+        mealTitle: s.mealTitle,
+        // `sin_recetas` como respaldo: si un hueco acabó vacío sin pasar por
+        // ninguna de las ramas de arriba, es que no había con qué llenarlo.
+        reason: reasonByKey.get(`${s.day}|${s.mealId}`) ?? ('sin_recetas' as const),
+      }));
 
     return { placements, unfilled };
   }

@@ -5,12 +5,13 @@ import html2canvas from 'html2canvas';
 import type { WeekPlan, Recipe, DailyTotal, Macros, GoalMacros, Meal, ActiveDropTarget, RecipeInstance, MealCategory } from '@/lib/types';
 import { MEAL_CATEGORIES } from '@/lib/constants';
 import { clampServings, mealCalorieRatio, suggestedServings } from '@/lib/serving-utils';
+import { unfilledReasonLabel, type UnfilledReason, type UnfilledSlot } from '@/lib/autocomplete-summary';
 
 import { ServingsField } from './servings-field';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RecipeCard } from './recipe-card';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, X, Flame, Plus, Edit, Check, Download, Sparkles, Trash2 } from 'lucide-react';
+import { CalendarDays, X, Flame, Plus, Edit, Check, Download, Sparkles, Trash2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '../ui/input';
 import {
@@ -53,6 +54,8 @@ interface MealPlannerProps {
   onMealSlotClick?: (day: string, meal: Meal) => void;
   onAutocomplete?: () => void;
   isAutocompleting?: boolean;
+  /** Huecos que la última pasada de autocompletado dejó vacíos, con su motivo. */
+  unfilledSlots?: UnfilledSlot[];
   onUpdateServingsEaten?: (day: string, mealId: string, instanceId: string, servings: number) => void;
 }
 
@@ -76,7 +79,23 @@ interface MealSlotProps {
   isDragOverSlot?: boolean;
   onAutocomplete?: () => void;
   isAutocompleting?: boolean;
+  /** Motivo por el que el autocompletado dejó ESTE hueco vacío, si lo dejó. */
+  unfilledReason?: UnfilledReason;
   onUpdateServingsEaten?: (day: string, mealId: string, instanceId: string, servings: number) => void;
+}
+
+/**
+ * Tipo MIME propio que viaja SOLO cuando lo que se arrastra sale del plan (no de
+ * la biblioteca). El hueco de destino lo usa para dos cosas: conservar las
+ * raciones que el usuario ya había ajustado, en vez de recalcularlas del
+ * objetivo, e ignorar la caída si es el mismo hueco del que salió.
+ */
+const PLAN_DRAG_TYPE = 'application/x-nutrilp-plan-slot';
+
+interface PlanDragPayload {
+  day: string;
+  mealId: string;
+  servingsEaten: number;
 }
 
 const getMacroColorClass = (current: number, target: number | undefined): string => {
@@ -145,13 +164,41 @@ function MealRecipeChip({ recipe, day, mealId, onRecipeClick, onRemove, onUpdate
   const scale = servingsEaten / totalServings;
   const kcal = Math.round(recipe.calories * scale);
 
+  /**
+   * Arrastrar una receta YA PLANIFICADA a otro hueco la COPIA: sigue en el día
+   * de origen y aparece también en el destino. Es lo que se quiere la mayoría de
+   * las veces —"esto lo como martes y jueves"—, y mover se resuelve copiando y
+   * borrando el original con la X, que es un clic.
+   *
+   * Va con el mismo `application/json` que las tarjetas de la biblioteca, así
+   * que el hueco de destino no necesita saber de dónde viene: `handleDrop` de
+   * `use-week-plan-state` genera un `instanceId` nuevo en cada caída, de modo
+   * que la copia es una instancia independiente y no un alias de la original.
+   * El payload extra solo sirve para conservar las raciones y para ignorar la
+   * caída en el mismo hueco del que salió.
+   */
+  const handleChipDragStart = (e: DragEvent<HTMLDivElement>) => {
+    e.stopPropagation(); // si no, arrastra el hueco entero
+    e.dataTransfer.setData('application/json', JSON.stringify(recipe));
+    e.dataTransfer.setData(
+      PLAN_DRAG_TYPE,
+      JSON.stringify({ day, mealId, servingsEaten } satisfies PlanDragPayload)
+    );
+    e.dataTransfer.effectAllowed = 'copy';
+    dragStore.setDraggedRecipe(recipe);
+  };
+
   return (
     // Auto height + stacked (no flex-1 / min-height): each recipe grows to fit
     // its name and controls, so 2+ recipes in one slot never clip or hide a card.
     <div className="w-full relative group/item shrink-0">
       <div
-        className="w-full flex flex-col items-center justify-center p-1.5 rounded-md bg-secondary/50 hover:bg-secondary/70 transition-colors cursor-pointer gap-1"
+        draggable
+        onDragStart={handleChipDragStart}
+        onDragEnd={() => dragStore.setDraggedRecipe(null)}
+        className="w-full flex flex-col items-center justify-center p-1.5 rounded-md bg-secondary/50 hover:bg-secondary/70 transition-colors cursor-grab active:cursor-grabbing gap-1"
         onClick={(e) => { e.stopPropagation(); onRecipeClick(recipe); }}
+        title={`${recipe.name} — arrástrala a otro día para repetirla ahí`}
       >
         <span className="text-center font-semibold text-secondary-foreground text-xs leading-tight line-clamp-3">
           {recipe.name}
@@ -189,7 +236,7 @@ function MealRecipeChip({ recipe, day, mealId, onRecipeClick, onRemove, onUpdate
   );
 }
 
-function MealSlot({ day, meal, isEditing, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onUpdateMealTypes, onDeleteMeal, isActiveDropTarget, onSetDropTarget, onMealSlotClick, onDragEnterSlot, onDragLeaveSlot, isDragOverSlot, onUpdateServingsEaten }: MealSlotProps) {
+function MealSlot({ day, meal, isEditing, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onUpdateMealTypes, onDeleteMeal, isActiveDropTarget, onSetDropTarget, onMealSlotClick, onDragEnterSlot, onDragLeaveSlot, isDragOverSlot, unfilledReason, onUpdateServingsEaten }: MealSlotProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(meal.title);
 
@@ -229,13 +276,25 @@ function MealSlot({ day, meal, isEditing, activeGoal, onDrop, onClearMeal, onRec
     e.preventDefault();
     if (onDragLeaveSlot) onDragLeaveSlot();
     const recipeData = e.dataTransfer.getData('application/json');
-    if (recipeData) {
-      const recipe = JSON.parse(recipeData) as Recipe;
-      // Pre-fill the portion so it covers this slot's share of the user's goal.
-      const target = activeGoal ? activeGoal.calories * mealCalorieRatio(meal.mealTypes ?? []) : null;
-      const servings = suggestedServings(recipe, target);
-      onDrop(day, meal.id, recipe, servings);
+    if (!recipeData) return;
+    const recipe = JSON.parse(recipeData) as Recipe;
+
+    // ¿Viene de otro hueco del plan, o de la biblioteca?
+    const planData = e.dataTransfer.getData(PLAN_DRAG_TYPE);
+    if (planData) {
+      const from = JSON.parse(planData) as PlanDragPayload;
+      // Soltarla donde ya estaba no debe duplicarla: es lo que pasa al empezar a
+      // arrastrar y arrepentirse, y quedarse con dos copias sorprende.
+      if (from.day === day && from.mealId === meal.id) return;
+      // Copia con las raciones que el usuario ya había ajustado. Recalcularlas
+      // del objetivo tiraría justo el ajuste que acaba de hacer a mano.
+      onDrop(day, meal.id, recipe, from.servingsEaten);
+      return;
     }
+
+    // Pre-fill the portion so it covers this slot's share of the user's goal.
+    const target = activeGoal ? activeGoal.calories * mealCalorieRatio(meal.mealTypes ?? []) : null;
+    onDrop(day, meal.id, recipe, suggestedServings(recipe, target));
   };
 
   const handleSlotClick = () => {
@@ -362,7 +421,20 @@ function MealSlot({ day, meal, isEditing, activeGoal, onDrop, onClearMeal, onRec
                 ))}
             </div>
         ) : !isDragOverSlot && (
-          <p className="text-xs text-center text-muted-foreground px-2 pointer-events-none">Arrastra o haz clic para añadir recetas</p>
+          /* Si el autocompletado dejó ESTE hueco vacío, aquí va el motivo. El
+             aviso de "semana autocompletada con huecos" se va a los pocos
+             segundos y con él se iba la única pista de qué pasó y dónde. */
+          unfilledReason ? (
+            <div className="flex flex-col items-center gap-1 px-2 pointer-events-none" title={unfilledReasonLabel(unfilledReason)}>
+              <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
+              <p className="text-[11px] leading-tight text-center text-amber-700 dark:text-amber-500 font-medium">
+                {unfilledReasonLabel(unfilledReason)}
+              </p>
+              <p className="text-[10px] text-center text-muted-foreground">Arrastra o haz clic para añadirla tú</p>
+            </div>
+          ) : (
+            <p className="text-xs text-center text-muted-foreground px-2 pointer-events-none">Arrastra o haz clic para añadir recetas</p>
+          )
         )}
         
         {isDragOverSlot && dragStore.getDraggedRecipe() && (
@@ -391,7 +463,12 @@ function AddMealButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onClearDay, onClearWeek, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onUpdateMealTypes, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget, onMealSlotClick, onAutocomplete, isAutocompleting, onUpdateServingsEaten }: MealPlannerProps) {
+export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onClearDay, onClearWeek, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onUpdateMealTypes, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget, onMealSlotClick, onAutocomplete, isAutocompleting, unfilledSlots, onUpdateServingsEaten }: MealPlannerProps) {
+  // Índice día|comida → motivo, para no recorrer la lista en cada uno de los 28 huecos.
+  const unfilledByKey = React.useMemo(
+    () => new Map((unfilledSlots ?? []).map(u => [`${u.day}|${u.mealId}`, u.reason])),
+    [unfilledSlots]
+  );
   const [isEditing, setIsEditing] = useState(false);
   const [hoveredSlot, setHoveredSlot] = useState<{day: string, mealId: string} | null>(null);
   const plannerRef = useRef<HTMLDivElement>(null);
@@ -535,6 +612,7 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                        onDragEnterSlot={(d, m) => setHoveredSlot({day: d, mealId: m})}
                        onDragLeaveSlot={() => setHoveredSlot(null)}
                        isDragOverSlot={hoveredSlot?.day === dayPlan.day && hoveredSlot?.mealId === meal.id}
+                       unfilledReason={unfilledByKey.get(`${dayPlan.day}|${meal.id}`)}
                        onUpdateServingsEaten={onUpdateServingsEaten}
                      />
                      {isEditing && <AddMealButton onClick={() => onAddMeal(dayPlan.day, index + 1)} />}

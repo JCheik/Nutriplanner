@@ -88,7 +88,17 @@ export interface AutocompletePreferences {
 
 export interface AutocompleteResult {
   placements: { day: string; mealId: string; recipeId: string; servings: number }[];
-  unfilled: { day: string; mealTitle: string }[];
+  /**
+   * Huecos que el autocompletado dejó vacíos, cada uno con su motivo. La web los
+   * agrupa y da un consejo distinto para cada uno (`lib/autocomplete-summary`);
+   * aquí de momento solo se cuentan.
+   */
+  unfilled: {
+    day: string;
+    mealId: string;
+    mealTitle: string;
+    reason: 'sin_recetas' | 'tope_repeticion' | 'margen_calorico';
+  }[];
 }
 
 export function autocompleteWeek(input: {

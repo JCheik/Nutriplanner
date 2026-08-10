@@ -29,7 +29,7 @@ export default function DashboardPage() {
     // UI state
     dialogState, activePanel, activeDropTarget, setActiveDropTarget,
     isRecipeSelectorOpen, setIsRecipeSelectorOpen, selectedMealForAddition,
-    isAutocompleting,
+    isAutocompleting, unfilledSlots,
     // Handlers
     handleRecipeAction, handleDialogClose, handleAddToPlan,
     handleInternalSaveRecipe, handleInternalDeleteRecipe,
@@ -61,6 +61,7 @@ export default function DashboardPage() {
             onMealSlotClick={handleMealSlotClick}
             onAutocomplete={handleAutocompleteWeek}
             isAutocompleting={isAutocompleting}
+            unfilledSlots={unfilledSlots}
             onUpdateServingsEaten={handleUpdateServingsEaten}
           />
         </div>
@@ -153,7 +154,8 @@ export default function DashboardPage() {
           isOpen={isRecipeSelectorOpen}
           onClose={() => setIsRecipeSelectorOpen(false)}
           meal={selectedMealForAddition}
-          allRecipes={[...currentUserRecipes, ...nutriplannerRecipes]}
+          userRecipes={currentUserRecipes}
+          nutriplannerRecipes={nutriplannerRecipes}
           onSave={handleRecipeSelectionSave}
           dietPreference={currentDietPreference}
         />

@@ -12,7 +12,7 @@ import { useUserProfileState } from '@/hooks/use-user-profile-state';
 import { useWeekHistory } from '@/hooks/use-week-history';
 import { useUser } from '@/firebase';
 import { autocompleteWeek } from '@/ai/flows/autocomplete-flow';
-import { autocompleteToast } from '@/lib/autocomplete-summary';
+import { autocompleteToast, type UnfilledSlot } from '@/lib/autocomplete-summary';
 import { getAiErrorMessage } from '@/lib/ai-error';
 import { useAiQuota } from '@/hooks/use-ai-quota';
 import { mealCalorieRatio, suggestedServings } from '@/lib/serving-utils';
@@ -79,6 +79,12 @@ export function useDashboard() {
   const [isRecipeSelectorOpen, setIsRecipeSelectorOpen] = useState(false);
   const [selectedMealForAddition, setSelectedMealForAddition] = useState<Meal | null>(null);
   const [isAutocompleting, setIsAutocompleting] = useState(false);
+  /**
+   * Huecos que la última pasada de autocompletado dejó vacíos, con su motivo,
+   * para poder señalarlos EN el cuadrante. El aviso se va a los pocos segundos y
+   * con él se iba la única pista de qué había pasado y dónde.
+   */
+  const [unfilledSlots, setUnfilledSlots] = useState<UnfilledSlot[]>([]);
   /** Cerrojo síncrono de `handleRunAutocomplete`. Ver el comentario de allí. */
   const autocompleteLock = useRef(false);
 
@@ -241,6 +247,7 @@ export function useDashboard() {
         const recipe = availableRecipes.find(r => r.id === p.recipeId);
         if (recipe) handleDrop(p.day, p.mealId, recipe, p.servings);
       });
+      setUnfilledSlots(unfilled);
       const resultToast = autocompleteToast(placements.length, unfilled);
       // Flexibility reminder: the plan is a guide, not a contract. Swap the
       // planned recipe on free-meal days, guilt-free.
@@ -325,7 +332,7 @@ export function useDashboard() {
     // UI state
     dialogState, activePanel, activeDropTarget, setActiveDropTarget,
     isRecipeSelectorOpen, setIsRecipeSelectorOpen, selectedMealForAddition,
-    isAutocompleting,
+    isAutocompleting, unfilledSlots,
     // Handlers
     handleRecipeAction, handleDialogClose, handleAddToPlan,
     handleInternalSaveRecipe, handleInternalDeleteRecipe,

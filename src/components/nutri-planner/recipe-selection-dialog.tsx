@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Search } from 'lucide-react';
 import type { Meal, Recipe, DietTag, SortCriteria } from '@/lib/types';
-import { DIET_TAG_LABELS } from '@/lib/constants';
+import { DIET_TAGS, DIET_TAG_LABELS } from '@/lib/constants';
 import { RECIPE_SORT_OPTIONS, compareRecipes } from '@/lib/recipe-sort';
 import { normalizeText, cn } from '@/lib/utils';
 import { RecipeCard } from './recipe-card';
@@ -30,33 +30,57 @@ interface RecipeSelectionDialogProps {
   isOpen: boolean;
   onClose: () => void;
   meal: Meal;
-  allRecipes: Recipe[];
+  /**
+   * Recetas separadas por origen (antes llegaban ya mezcladas en `allRecipes`).
+   * Hacía falta distinguirlas para poder ofrecer "Mis recetas": sin ese filtro,
+   * la única forma de planificar una receta propia era cerrar este diálogo, ir a
+   * la biblioteca y usar "Añadir al plan" — cuatro pasos para algo que ya estaba
+   * aquí, solo que perdido entre las 130 del recetario.
+   */
+  userRecipes: Recipe[];
+  nutriplannerRecipes: Recipe[];
   onSave: (selectedRecipes: Recipe[]) => void;
   /** The user's saved diet preference; drives the optional diet filter. */
   dietPreference?: DietTag[];
 }
 
-export function RecipeSelectionDialog({ isOpen, onClose, meal, allRecipes, onSave, dietPreference = [] }: RecipeSelectionDialogProps) {
+/** Origen de las recetas que se listan. */
+type RecipeSource = 'all' | 'mine' | 'nutrilp';
+
+/**
+ * Valor del filtro de dieta: cualquiera, la dieta guardada del perfil, o una
+ * etiqueta concreta elegida a mano.
+ */
+type DietFilter = 'any' | 'preference' | DietTag;
+
+export function RecipeSelectionDialog({ isOpen, onClose, meal, userRecipes, nutriplannerRecipes, onSave, dietPreference = [] }: RecipeSelectionDialogProps) {
   const [selectedRecipeIds, setSelectedRecipeIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   // 'all' shows every category grouped; a specific category narrows the list so
   // the user doesn't have to scroll past 100 recipes to reach e.g. "Cenas".
   const [activeCategory, setActiveCategory] = useState<SmartCategory | 'all'>('all');
-  // Default to filtering by the user's saved diet (when they have one); they can
-  // toggle it off to see every recipe.
-  const [dietFilterOn, setDietFilterOn] = useState(dietPreference.length > 0);
+  const [source, setSource] = useState<RecipeSource>('all');
+  // Arranca en la dieta guardada (si la hay), pero ahora se puede elegir
+  // cualquier otra: antes esto era un sí/no atado a la preferencia del perfil,
+  // así que quien no tuviera dieta guardada no tenía forma de buscar, por
+  // ejemplo, algo vegetariano suelto.
+  const [dietFilter, setDietFilter] = useState<DietFilter>(dietPreference.length > 0 ? 'preference' : 'any');
   // Same options as the recipe library (macros are per serving).
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>('name-asc');
 
   const hasDietPref = dietPreference.length > 0;
   const dietLabel = dietPreference.map((d) => DIET_TAG_LABELS[d] ?? d).join(', ');
 
+  const allRecipes = useMemo(() => [...userRecipes, ...nutriplannerRecipes], [userRecipes, nutriplannerRecipes]);
+  const mineIds = useMemo(() => new Set(userRecipes.map((r) => r.id)), [userRecipes]);
+
   useEffect(() => {
     if (isOpen) {
       setSelectedRecipeIds(new Set());
       setSearchQuery('');
       setActiveCategory('all');
-      setDietFilterOn(hasDietPref);
+      setSource('all');
+      setDietFilter(hasDietPref ? 'preference' : 'any');
       setSortCriteria('name-asc');
     }
   }, [isOpen, meal, hasDietPref]);
@@ -95,15 +119,25 @@ export function RecipeSelectionDialog({ isOpen, onClose, meal, allRecipes, onSav
     return Array.from(uniqueRecipesMap.values()).filter(recipe => {
       if (existingRecipeIdsInMeal.has(recipe.id)) return false; // already in the meal
       if (!normalizeText(recipe.name).includes(normalizedQuery)) return false;
-      if (dietFilterOn && hasDietPref) {
+
+      if (source === 'mine' && !mineIds.has(recipe.id)) return false;
+      if (source === 'nutrilp' && mineIds.has(recipe.id)) return false;
+
+      const tags = recipe.dietTags ?? [];
+      if (dietFilter === 'preference' && hasDietPref) {
         // Same semantics as the library: untagged recipes are wildcards;
         // otherwise the recipe must share at least one tag with the diet.
-        const tags = recipe.dietTags ?? [];
         if (tags.length > 0 && !dietPreference.some(d => tags.includes(d))) return false;
+      } else if (dietFilter !== 'preference' && dietFilter !== 'any') {
+        // Dieta elegida a mano: aquí SÍ se exige la etiqueta, sin comodines. Con
+        // la regla de "sin etiquetar vale para todo" el filtro no filtraría
+        // nada —la mayoría del recetario no lleva etiqueta—, que es justo lo
+        // contrario de lo que se pide al buscar "vegetariana".
+        if (!tags.includes(dietFilter)) return false;
       }
       return true;
     }).sort(compareRecipes(sortCriteria));
-  }, [searchQuery, allRecipes, meal.recipes, dietFilterOn, hasDietPref, dietPreference, sortCriteria]);
+  }, [searchQuery, allRecipes, meal.recipes, dietFilter, hasDietPref, dietPreference, sortCriteria, source, mineIds]);
 
   // Group the filtered recipes by smart category, keeping only non-empty buckets
   // in their canonical order.
@@ -143,10 +177,24 @@ export function RecipeSelectionDialog({ isOpen, onClose, meal, allRecipes, onSav
             />
         </div>
 
-        {/* Compact controls: category / diet filter / sort as dropdowns instead
-            of two rows of chips (the old inline sort menu also misbehaved inside
-            this dialog — Select is the pattern that works in dialogs). */}
-        <div className={cn('grid gap-2', hasDietPref ? 'grid-cols-3' : 'grid-cols-2')}>
+        {/* Compact controls: origen / categoría / dieta / orden as dropdowns
+            instead of rows of chips (the old inline sort menu also misbehaved
+            inside this dialog — Select is the pattern that works in dialogs).
+            Dos filas de dos: cuatro en una sola dejaban los textos ilegibles. */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Recetario</p>
+            <Select value={source} onValueChange={(v) => setSource(v as RecipeSource)}>
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-glass">
+                <SelectItem value="all">Todas ({allRecipes.length})</SelectItem>
+                <SelectItem value="mine">Mis recetas ({userRecipes.length})</SelectItem>
+                <SelectItem value="nutrilp">Recetario Nutrilp ({nutriplannerRecipes.length})</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Categoría</p>
             <Select value={effectiveCategory} onValueChange={(v) => setActiveCategory(v as SmartCategory | 'all')}>
@@ -163,20 +211,21 @@ export function RecipeSelectionDialog({ isOpen, onClose, meal, allRecipes, onSav
               </SelectContent>
             </Select>
           </div>
-          {hasDietPref && (
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Filtro</p>
-              <Select value={dietFilterOn ? 'mine' : 'all'} onValueChange={(v) => setDietFilterOn(v === 'mine')}>
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-glass">
-                  <SelectItem value="mine">Solo mi dieta ({dietLabel})</SelectItem>
-                  <SelectItem value="all">Todas las dietas</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Dieta</p>
+            <Select value={dietFilter} onValueChange={(v) => setDietFilter(v as DietFilter)}>
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-glass">
+                <SelectItem value="any">Cualquier dieta</SelectItem>
+                {hasDietPref && <SelectItem value="preference">La mía ({dietLabel})</SelectItem>}
+                {DIET_TAGS.map((d) => (
+                  <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Ordenar por</p>
             <Select value={sortCriteria} onValueChange={(v) => setSortCriteria(v as SortCriteria)}>
@@ -199,7 +248,8 @@ export function RecipeSelectionDialog({ isOpen, onClose, meal, allRecipes, onSav
                 {visibleGroups.length === 0 ? (
                     <div className="flex flex-col items-center justify-center text-center text-muted-foreground py-10">
                         <Search className="h-8 w-8 mb-2 text-muted-foreground/50" />
-                        <p className="text-sm">No se encontraron recetas.</p>
+                        <p className="text-sm">No hay recetas con estos filtros.</p>
+                        <p className="text-xs mt-1">Prueba a poner el recetario en &quot;Todas&quot; o la dieta en &quot;Cualquier dieta&quot;.</p>
                     </div>
                 ) : (
                     visibleGroups.map(group => (
