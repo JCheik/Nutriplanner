@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Shield, BookOpen, Users, Wheat, ArrowLeft, Inbox, Upload } from 'lucide-react';
+import { Shield, BookOpen, Users, Wheat, ArrowLeft, Inbox } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
@@ -31,19 +31,6 @@ export default function AdminPage() {
                                 </CardTitle>
                                 <CardDescription>
                                     Ver, eliminar y cambiar roles de los usuarios de la plataforma.
-                                </CardDescription>
-                            </CardHeader>
-                        </Card>
-                    </Link>
-                    <Link href="/admin/importar-recetas" className="hover:shadow-lg transition-shadow rounded-lg">
-                        <Card className="h-full cursor-pointer">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Upload className="h-5 w-5" />
-                                    Importar tanda de recetas
-                                </CardTitle>
-                                <CardDescription>
-                                    Cargar de golpe la tanda de recetas preparadas en tu recetario, para revisarlas.
                                 </CardDescription>
                             </CardHeader>
                         </Card>
