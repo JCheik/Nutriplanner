@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { applyRecipeFilters, EMPTY_FILTERS, RecipeFilters, type RecipeFilterState } from '@/components/recipe-filters';
+import { applyRecipeFilters, EMPTY_FILTERS, isRecentRecipe, RecipeFilters, type RecipeFilterState } from '@/components/recipe-filters';
 import { ChefieMascot } from '@/components/chefie-mascot';
 import { PaperTexture } from '@/components/paper-texture';
 import { ScreenTitle } from '@/components/screen-scaffold';
@@ -62,6 +62,17 @@ export default function RecetasScreen() {
             {item.name}
             {item.brand ? <Text style={{ fontWeight: '400', color: c.inkSoft }}> · {item.brand}</Text> : null}
           </Text>
+          {/* Cartel de recién llegada. Es lo que resuelve "he importado algo y no
+              sé cuál de las 130 es": el aviso del móvil te da el nombre, y aquí
+              se ve de un vistazo sin tener que recordarlo. */}
+          {isRecentRecipe(item) && (
+            <View style={[styles.nuevaBadge, { backgroundColor: c.terraSoft, borderColor: c.terra }]}>
+              <Ionicons name="sparkles" size={9} color={c.terra} />
+              <Text style={{ fontSize: 9, fontWeight: '700', letterSpacing: 0.6, color: c.terra, fontFamily: Fonts.sans }}>
+                NUEVA
+              </Text>
+            </View>
+          )}
           <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans }}>
             {Math.round(per.calories)} kcal · {Math.round(per.protein)} P/rac
             {item.servings && item.servings > 1 ? ` · rinde ${item.servings}` : ''}
@@ -176,6 +187,17 @@ export default function RecetasScreen() {
 }
 
 const styles = StyleSheet.create({
+  nuevaBadge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    borderWidth: 1,
+    borderRadius: Radii.pill,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    marginTop: 1,
+  },
   header: { paddingHorizontal: 18, paddingBottom: 10, gap: 10 },
   newRecipeBtn: {
     flexDirection: 'row',

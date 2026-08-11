@@ -77,6 +77,15 @@ export const RecipeSchema = MacrosSchema.extend({
   category: z.array(z.enum(MEAL_CATEGORY_ENUM)).optional(),
   // Diet tags this recipe satisfies. Empty/undefined = no dietary restriction.
   dietTags: z.array(z.enum(DIET_TAG_ENUM)).optional(),
+  /**
+   * Cuándo se creó, en ISO. Se pone SOLO al crear, nunca al editar: sirve para
+   * encontrar "la que acabo de importar" entre las demás, y una receta que
+   * retocas no vuelve a ser nueva.
+   *
+   * Opcional porque las recetas anteriores a esto no lo tienen. Ordenar por
+   * recientes las manda al final, que es justo donde deben ir.
+   */
+  createdAt: z.string().optional(),
 });
 export type Recipe = z.infer<typeof RecipeSchema>;
 
@@ -164,6 +173,7 @@ export type DialogState =
   | { open: true; mode: 'view' | 'edit'; recipe: Recipe; isNutriPlannerRecipe?: boolean };
 
 export type SortCriteria = 
+  | 'createdAt-desc'
   | 'name-asc' | 'name-desc'
   | 'calories-asc' | 'calories-desc'
   | 'protein-asc' | 'protein-desc'

@@ -69,6 +69,9 @@ export async function saveRecipeClient(
     ...recipeData,
     ...(imageUrl !== undefined ? { imageUrl } : {}),
     id: docRef.id,
+    // Solo al CREAR. Al editar se respeta el que ya tuviera: si se resellara,
+    // cualquier retoque haría que la receta volviera a salir como nueva.
+    ...(existingId ? {} : { createdAt: recipeData.createdAt ?? new Date().toISOString() }),
   });
 
   await setDoc(docRef, recipeToSave, { merge: true });

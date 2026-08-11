@@ -8,6 +8,11 @@ const MACRO_SORT_KEYS = ['calories', 'protein', 'carbs', 'fat'] as const;
 type MacroSortKey = typeof MACRO_SORT_KEYS[number];
 
 export const RECIPE_SORT_OPTIONS: { value: SortCriteria; label: string }[] = [
+  // La primera a propósito: "¿cuál acabo de añadir?" es la pregunta más
+  // frecuente en un recetario de 130, y sin esto no había forma de responderla.
+  // Las recetas sin `createdAt` (las de antes del campo) caen al final solas,
+  // porque `compareRecipes` manda los undefined al fondo.
+  { value: 'createdAt-desc', label: 'Añadidas recientemente' },
   { value: 'name-asc', label: 'Nombre (A-Z)' },
   { value: 'name-desc', label: 'Nombre (Z-A)' },
   { value: 'calories-asc', label: 'Calorías (Bajas a Altas)' },
@@ -19,6 +24,23 @@ export const RECIPE_SORT_OPTIONS: { value: SortCriteria; label: string }[] = [
   { value: 'fat-asc', label: 'Grasa (Baja a Alta)' },
   { value: 'fat-desc', label: 'Grasa (Alta a Baja)' },
 ];
+
+/**
+ * Cuánto dura el cartel de "Nueva": una semana. Lo justo para volver al día
+ * siguiente y reconocer lo que importaste, sin llenar el recetario de etiquetas.
+ */
+const NUEVA_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * ¿Se añadió hace poco? Las recetas anteriores al campo `createdAt` nunca lo
+ * son, que es lo correcto: son justamente el montón entre el que hay que
+ * distinguir la recién llegada.
+ */
+export function isRecentRecipe(recipe: Recipe, now = Date.now()): boolean {
+  if (!recipe.createdAt) return false;
+  const t = Date.parse(recipe.createdAt);
+  return Number.isFinite(t) && now - t < NUEVA_MS;
+}
 
 function sortableValue(recipe: Recipe, key: keyof Recipe): string | number | undefined {
   if ((MACRO_SORT_KEYS as readonly string[]).includes(key as string)) {

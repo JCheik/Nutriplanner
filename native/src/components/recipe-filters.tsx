@@ -7,13 +7,31 @@ import { DIET_TAGS, MEAL_CATEGORIES } from '@/lib/constants';
 import type { DietTag, MealCategory, Recipe } from '@/lib/types';
 import { perServingMacros } from '@/lib/serving-utils';
 
-export type SortKey = 'nombre' | 'calorias' | 'proteina';
+export type SortKey = 'nuevas' | 'nombre' | 'calorias' | 'proteina';
 
 export const SORT_LABELS: Record<SortKey, string> = {
+  nuevas: 'Nuevas primero',
   nombre: 'Nombre',
   calorias: 'Menos calorías',
   proteina: 'Más proteína',
 };
+
+/**
+ * Cuánto dura el cartel de "NUEVA". Una semana: lo justo para volver a la app
+ * al día siguiente y reconocer lo que importaste, sin que el recetario acabe
+ * lleno de etiquetas.
+ */
+const NUEVA_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * ¿Se añadió hace poco? Las recetas anteriores al campo `createdAt` no lo son,
+ * que es lo correcto: son justamente las 130 entre las que hay que distinguir.
+ */
+export function isRecentRecipe(r: Recipe, now = Date.now()): boolean {
+  if (!r.createdAt) return false;
+  const t = Date.parse(r.createdAt);
+  return Number.isFinite(t) && now - t < NUEVA_MS;
+}
 
 export interface RecipeFilterState {
   categories: MealCategory[];
@@ -38,6 +56,14 @@ export function applyRecipeFilters(recipes: Recipe[], f: RecipeFilterState): Rec
   });
 
   return [...filtered].sort((a, b) => {
+    if (f.sort === 'nuevas') {
+      // Sin fecha van al final (no delante): son las viejas, y el sentido de
+      // este orden es sacar arriba lo que acabas de importar.
+      const ta = a.createdAt ? Date.parse(a.createdAt) : -Infinity;
+      const tb = b.createdAt ? Date.parse(b.createdAt) : -Infinity;
+      if (ta !== tb) return tb - ta;
+      return a.name.localeCompare(b.name, 'es');
+    }
     if (f.sort === 'calorias') return perServingMacros(a).calories - perServingMacros(b).calories;
     if (f.sort === 'proteina') return perServingMacros(b).protein - perServingMacros(a).protein;
     return a.name.localeCompare(b.name, 'es');

@@ -4,10 +4,11 @@ import { useState, type DragEvent } from 'react';
 import type { Recipe } from '@/lib/types';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { GripVertical, Flame, EggFried, Wheat, Droplets, UtensilsCrossed, Users } from 'lucide-react';
+import { GripVertical, Flame, EggFried, Wheat, Droplets, UtensilsCrossed, Users, Sparkles } from 'lucide-react';
 import Image from 'next/image';
 import { dragStore } from '@/lib/drag-store';
 import { perServingMacros } from '@/lib/serving-utils';
+import { isRecentRecipe } from '@/lib/recipe-sort';
 
 interface RecipeCardProps {
   recipe: Recipe;
@@ -84,6 +85,12 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
             <h3 className="font-bold text-sm line-clamp-1 font-headline">
               {recipe.name}
               {recipe.brand && <span className="ml-1.5 font-normal text-xs text-muted-foreground">{recipe.brand}</span>}
+              {/* Recién añadida: resuelve "he importado algo y no sé cuál es". */}
+              {isRecentRecipe(recipe) && (
+                <span className="ml-1.5 align-middle inline-flex items-center gap-0.5 rounded-full border border-primary/50 bg-primary/10 px-1.5 py-0 text-[9px] font-bold uppercase tracking-wide text-primary">
+                  <Sparkles className="h-2.5 w-2.5" /> Nueva
+                </span>
+              )}
             </h3>
             <p className="text-xs text-muted-foreground line-clamp-1 mb-2">{recipe.description}</p>
             <div className="flex flex-wrap gap-x-3 gap-y-1 items-center text-muted-foreground">

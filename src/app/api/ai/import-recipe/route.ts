@@ -25,12 +25,19 @@ interface ImportInput {
  * como el esquema exige una receta, se inventaba una: le pasó al usuario con un
  * reel que no tenía nada que ver con comida.
  */
-function assertIsRecipe(result: { esReceta?: boolean; motivoNoReceta?: string; name?: string }) {
+function assertIsRecipe(
+  result: { esReceta?: boolean; motivoNoReceta?: string; name?: string },
+  /** Si antes de esto ya se había mirado el vídeo y tampoco salió receta. */
+  alsoCheckedVideo = false
+) {
   // Ausente = respuesta anterior al campo; se da por buena.
   if (result?.esReceta === false) {
     const motivo = result.motivoNoReceta?.trim();
+    // Decir que se miraron las dos fuentes evita la duda razonable de "¿habrá
+    // leído el pie, donde estaba la receta?".
+    const alcance = alsoCheckedVideo ? 'Ni en el vídeo ni en el texto encuentro una receta' : 'Eso no parece una receta';
     throw new AiEndpointError(
-      `Eso no parece una receta${motivo ? `: ${motivo}` : ''}. Pásame algo donde se vea qué lleva y cómo se hace.`
+      `${alcance}${motivo ? `: ${motivo}` : ''}. Pásame algo donde se vea qué lleva y cómo se hace.`
     );
   }
   return result;
@@ -45,10 +52,16 @@ function assertIsRecipe(result: { esReceta?: boolean; motivoNoReceta?: string; n
  * móvil no debe encadenar llamadas ni conocer el proceso.
  *
  * Orden de preferencia, el mismo que la web:
- *   1. Si el post trae vídeo → se analiza el vídeo (es donde está la receta de
+ *   1. Si la página publica la receta estructurada (JSON-LD) → eso.
+ *   2. Si el post trae vídeo → se analiza el vídeo (es donde está la receta de
  *      verdad en Instagram y TikTok; el pie de foto suele ser marketing).
- *   2. Si no hay vídeo, o su análisis falla → título + descripción del post.
- *   3. Si lo compartido era texto suelto → ese texto.
+ *   3. Si no hay vídeo, su análisis falla, **o el vídeo resulta no ser una
+ *      receta** → título + descripción del post. Ese último caso es real: hay
+ *      publicaciones donde el clip es solo el plato terminado y los
+ *      ingredientes y pasos van escritos debajo.
+ *   4. Si lo compartido era texto suelto → ese texto.
+ *
+ * Solo se rechaza cuando NINGUNA de las fuentes disponibles trae una receta.
  */
 export function POST(req: Request) {
   return runAiEndpoint<ImportInput>(
@@ -65,6 +78,7 @@ export function POST(req: Request) {
       }
 
       // ── Enlace de redes ───────────────────────────────────────────────
+      let videoDescartado = false;
       let meta;
       try {
         meta = await fetchSocialMetadata(url);
@@ -89,10 +103,25 @@ export function POST(req: Request) {
       if (meta.videoUrl) {
         try {
           const recipe = await analyzeVideoFromUrl(meta.videoUrl, caption, existingIngredients);
-          // Si el vídeo no era de cocina, se corta aquí: NO se cae al pie de
-          // foto, que es justo de donde salía la receta inventada.
-          if (recipe?.esReceta === false) assertIsRecipe(recipe);
-          return { recipe, imageUrl: meta.imageUrl, source: 'video' };
+          if (recipe?.esReceta === false) {
+            /**
+             * El vídeo no enseñaba una receta. Antes esto cortaba en seco, sin
+             * mirar el pie de foto — y hay publicaciones en las que la receta
+             * está justo ahí: el vídeo es el plato terminado o alguien
+             * comiendo, y los ingredientes y los pasos van escritos debajo. Al
+             * usuario le pasó con un reel de Instagram.
+             *
+             * El corte se puso cuando el esquema OBLIGABA a devolver receta y el
+             * modelo se la inventaba. Ese agujero ya no existe: el camino del
+             * texto tiene su propio `esReceta`, así que si el pie tampoco es una
+             * receta, se rechaza igual, solo que después de haberlo mirado.
+             */
+            if (!caption) assertIsRecipe(recipe);
+            videoDescartado = true;
+            console.info('[import-recipe] el vídeo no era receta; se prueba el pie de foto');
+          } else {
+            return { recipe, imageUrl: meta.imageUrl, source: 'video' };
+          }
         } catch (e) {
           if (e instanceof AiEndpointError) throw e;
           // Las URLs de vídeo de Instagram/TikTok caducan y a menudo Gemini no
@@ -107,8 +136,8 @@ export function POST(req: Request) {
         );
       }
 
-      const recipe = assertIsRecipe(await importRecipe({ url, caption, existingIngredients }));
-      return { recipe, imageUrl: meta.imageUrl, source: 'texto' };
+      const recipe = assertIsRecipe(await importRecipe({ url, caption, existingIngredients }), videoDescartado);
+      return { recipe, imageUrl: meta.imageUrl, source: videoDescartado ? 'texto (el vídeo no era receta)' : 'texto' };
     },
     'No se pudo importar la receta.'
   );

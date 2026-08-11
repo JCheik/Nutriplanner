@@ -25,7 +25,10 @@ export async function saveUserRecipe(
   const ref = recipeId
     ? doc(firestore, 'users', userId, 'recipes', recipeId)
     : doc(collection(firestore, 'users', userId, 'recipes'));
-  await setDoc(ref, stripUndefined({ ...recipe, id: ref.id }), { merge: true });
+  // Sello de creación, solo al crear (ver `createdAt` en types.ts). Sin esto,
+  // encontrar la receta que acabas de importar entre 130 es imposible.
+  const sello = recipeId ? {} : { createdAt: recipe.createdAt ?? new Date().toISOString() };
+  await setDoc(ref, stripUndefined({ ...recipe, id: ref.id, ...sello }), { merge: true });
   return ref.id;
 }
 
@@ -40,7 +43,10 @@ export async function saveGlobalRecipe(recipe: Omit<Recipe, 'id'>, recipeId?: st
   const ref = recipeId
     ? doc(firestore, 'nutriplanner_recipes', recipeId)
     : doc(collection(firestore, 'nutriplanner_recipes'));
-  await setDoc(ref, stripUndefined({ ...recipe, id: ref.id }), { merge: true });
+  // Sello de creación, solo al crear (ver `createdAt` en types.ts). Sin esto,
+  // encontrar la receta que acabas de importar entre 130 es imposible.
+  const sello = recipeId ? {} : { createdAt: recipe.createdAt ?? new Date().toISOString() };
+  await setDoc(ref, stripUndefined({ ...recipe, id: ref.id, ...sello }), { merge: true });
   return ref.id;
 }
 

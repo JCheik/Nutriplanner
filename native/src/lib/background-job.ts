@@ -3,6 +3,8 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import type { Href } from 'expo-router/build/typed-routes/types';
 import { useSyncExternalStore } from 'react';
 
+import { notifyJobEnded, primeJobNotifications } from '@/lib/job-notification';
+
 /**
  * Trabajos que siguen corriendo mientras navegas.
  *
@@ -81,18 +83,27 @@ export function startJob(title: string) {
   job = { status: 'working', title };
   void AsyncStorage.setItem(INFLIGHT_KEY, title).catch(() => {});
   void activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => {});
+  // Se pide el permiso AHORA para poder avisar al final: cuando el trabajo
+  // termine, el usuario puede llevar rato en otra app.
+  void primeJobNotifications();
   emit();
 }
 
 export function finishJob(title: string, cta: string, target: JobTarget) {
   job = { status: 'done', title, cta, target };
   releaseGuards();
+  // `title` ya trae el nombre de la receta entre comillas — que es justamente
+  // el dato que hace falta para encontrarla después.
+  void notifyJobEnded(title, cta);
   emit();
 }
 
 export function failJob(title: string, message: string) {
   job = { status: 'error', title, message };
   releaseGuards();
+  // También cuando falla: enterarse de que NO hay receta importa tanto como lo
+  // contrario, y si no se avisa el usuario la da por guardada.
+  void notifyJobEnded(title, message);
   emit();
 }
 
