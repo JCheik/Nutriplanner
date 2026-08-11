@@ -96,16 +96,30 @@ export function useDashboard() {
   const handleDialogClose = useCallback(() => setDialogState({ open: false }), []);
 
   const handleAddToPlan = (recipe: Recipe) => {
-    if (activeDropTarget) {
-      handleDrop(activeDropTarget.day, activeDropTarget.mealId, recipe);
-      setActiveDropTarget(null);
-    } else {
+    if (!activeDropTarget) {
       toast({
         variant: 'destructive',
         title: 'Selecciona un destino',
         description: 'Toca una casilla de comida en el planificador antes de añadir una receta.',
       });
+      return;
     }
+
+    const { day, mealId } = activeDropTarget;
+    const meal = currentWeekPlan.find(d => d.day === day)?.meals.find(m => m.id === mealId);
+    // Mismas raciones que por el diálogo: la porción cubre la parte del objetivo
+    // que le toca a esa comida. Antes este camino metía siempre 1 ración, así que
+    // la misma receta entraba distinta según por dónde la añadieras.
+    const target = activeGoalMacros ? activeGoalMacros.calories * mealCalorieRatio(meal?.mealTypes ?? []) : null;
+    handleDrop(day, mealId, recipe, suggestedServings(recipe, target));
+
+    // La casilla SIGUE elegida: lo normal es meter dos o tres cosas seguidas en
+    // la misma comida, y deseleccionar obligaba a volver al cuadrante entre una
+    // y otra. No es estado escondido — la casilla se queda resaltada.
+    toast({
+      title: 'Añadida al plan',
+      description: `${recipe.name} → ${meal?.title ?? 'comida'} del ${day}. La casilla sigue elegida por si quieres añadir más.`,
+    });
   };
 
   const handleInternalSaveRecipe = async (recipeData: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {
@@ -128,6 +142,24 @@ export function useDashboard() {
       )
     );
     handleDialogClose();
+  };
+
+  /**
+   * Clic en la casilla: **solo la elige como destino**, sin abrir nada.
+   *
+   * Antes el clic hacía los dos trabajos a la vez —elegir destino Y abrir el
+   * buscador—, así que para usar "Añadir al plan" desde la biblioteca había que
+   * tocar la casilla, cerrar con la X el diálogo que saltaba solo, y entonces ir
+   * a la receta. El paso del medio no servía para nada y era el que molestaba.
+   * Ahora abrir el buscador es cosa del botón "Añadir" de la propia casilla.
+   *
+   * Volver a tocar la casilla ya elegida la deselecciona: sin eso no habría
+   * forma de deshacer la elección salvo eligiendo otra.
+   */
+  const handleSelectSlot = (day: string, meal: Meal) => {
+    setActiveDropTarget(prev =>
+      prev && prev.day === day && prev.mealId === meal.id ? null : { day, mealId: meal.id }
+    );
   };
 
   const handleMealSlotClick = (day: string, meal: Meal) => {
@@ -336,7 +368,7 @@ export function useDashboard() {
     // Handlers
     handleRecipeAction, handleDialogClose, handleAddToPlan,
     handleInternalSaveRecipe, handleInternalDeleteRecipe,
-    handleMealSlotClick, handleRecipeSelectionSave,
+    handleMealSlotClick, handleSelectSlot, handleRecipeSelectionSave,
     handlePanelOpen, handlePanelChange,
     handleAiRecipeGenerated, handleRecipeImported, handleAutocompleteWeek, handleRunAutocomplete,
     handleSwapOutOfPlan,

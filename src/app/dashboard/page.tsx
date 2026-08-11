@@ -33,7 +33,7 @@ export default function DashboardPage() {
     // Handlers
     handleRecipeAction, handleDialogClose, handleAddToPlan,
     handleInternalSaveRecipe, handleInternalDeleteRecipe,
-    handleMealSlotClick, handleRecipeSelectionSave,
+    handleMealSlotClick, handleSelectSlot, handleRecipeSelectionSave,
     handlePanelOpen, handlePanelChange,
     handleAiRecipeGenerated, handleRecipeImported, handleAutocompleteWeek, handleSwapOutOfPlan,
   } = useDashboard();
@@ -59,6 +59,7 @@ export default function DashboardPage() {
             activeDropTarget={activeDropTarget}
             onSetDropTarget={setActiveDropTarget}
             onMealSlotClick={handleMealSlotClick}
+            onSelectSlot={handleSelectSlot}
             onAutocomplete={handleAutocompleteWeek}
             isAutocompleting={isAutocompleting}
             unfilledSlots={unfilledSlots}

@@ -51,7 +51,10 @@ interface MealPlannerProps {
   onDeleteMeal: (day: string, mealId: string) => void;
   activeDropTarget: ActiveDropTarget | null;
   onSetDropTarget: (target: ActiveDropTarget | null) => void;
+  /** Abre el buscador de recetas (botón "Añadir" de la casilla). */
   onMealSlotClick?: (day: string, meal: Meal) => void;
+  /** Elige la casilla como destino, sin abrir nada (clic en la casilla). */
+  onSelectSlot?: (day: string, meal: Meal) => void;
   onAutocomplete?: () => void;
   isAutocompleting?: boolean;
   /** Huecos que la última pasada de autocompletado dejó vacíos, con su motivo. */
@@ -73,7 +76,10 @@ interface MealSlotProps {
   onDeleteMeal: (day: string, mealId: string) => void;
   isActiveDropTarget: boolean;
   onSetDropTarget: (target: ActiveDropTarget | null) => void;
+  /** Abre el buscador de recetas (botón "Añadir" de la casilla). */
   onMealSlotClick?: (day: string, meal: Meal) => void;
+  /** Elige la casilla como destino, sin abrir nada (clic en la casilla). */
+  onSelectSlot?: (day: string, meal: Meal) => void;
   onDragEnterSlot?: (day: string, mealId: string) => void;
   onDragLeaveSlot?: () => void;
   isDragOverSlot?: boolean;
@@ -236,7 +242,7 @@ function MealRecipeChip({ recipe, day, mealId, onRecipeClick, onRemove, onUpdate
   );
 }
 
-function MealSlot({ day, meal, isEditing, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onUpdateMealTypes, onDeleteMeal, isActiveDropTarget, onSetDropTarget, onMealSlotClick, onDragEnterSlot, onDragLeaveSlot, isDragOverSlot, unfilledReason, onUpdateServingsEaten }: MealSlotProps) {
+function MealSlot({ day, meal, isEditing, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onUpdateMealTypes, onDeleteMeal, isActiveDropTarget, onSetDropTarget, onMealSlotClick, onSelectSlot, onDragEnterSlot, onDragLeaveSlot, isDragOverSlot, unfilledReason, onUpdateServingsEaten }: MealSlotProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(meal.title);
 
@@ -297,12 +303,23 @@ function MealSlot({ day, meal, isEditing, activeGoal, onDrop, onClearMeal, onRec
     onDrop(day, meal.id, recipe, suggestedServings(recipe, target));
   };
 
+  /**
+   * El clic en la casilla SOLO la elige como destino. Abrir el buscador es cosa
+   * del botón "Añadir" de abajo. Antes el clic hacía las dos cosas, y para usar
+   * "Añadir al plan" desde la biblioteca había que abrir el diálogo sin querer y
+   * cerrarlo con la X para dejar la casilla elegida.
+   */
   const handleSlotClick = () => {
-    if (onMealSlotClick) {
-        onMealSlotClick(day, meal);
+    if (onSelectSlot) {
+      onSelectSlot(day, meal);
     } else {
-        onSetDropTarget({ day, mealId: meal.id });
+      onSetDropTarget({ day, mealId: meal.id });
     }
+  };
+
+  const openPicker = (e: React.MouseEvent) => {
+    e.stopPropagation(); // si no, el clic del botón también (de)selecciona la casilla
+    onMealSlotClick?.(day, meal);
   };
 
   const hasRecipes = meal.recipes.length > 0;
@@ -419,22 +436,47 @@ function MealSlot({ day, meal, isEditing, activeGoal, onDrop, onClearMeal, onRec
                       onUpdateServings={(s) => onUpdateServingsEaten?.(day, meal.id, recipe.instanceId, s)}
                     />
                 ))}
+                {/* Una comida puede llevar varias recetas, así que la casilla llena
+                    también necesita por dónde añadir. Discreto para no competir
+                    con las recetas, que son lo que se viene a leer. */}
+                {onMealSlotClick && (
+                  <button
+                    onClick={openPicker}
+                    className="w-full flex items-center justify-center gap-1 py-1 rounded-md border border-dashed border-border/70 text-[11px] text-muted-foreground hover:bg-secondary/60 hover:text-foreground transition-colors"
+                    aria-label={`Añadir otra receta a ${meal.title} del ${day}`}
+                  >
+                    <Plus className="h-3 w-3" /> Añadir
+                  </button>
+                )}
             </div>
         ) : !isDragOverSlot && (
-          /* Si el autocompletado dejó ESTE hueco vacío, aquí va el motivo. El
-             aviso de "semana autocompletada con huecos" se va a los pocos
-             segundos y con él se iba la única pista de qué pasó y dónde. */
-          unfilledReason ? (
-            <div className="flex flex-col items-center gap-1 px-2 pointer-events-none" title={unfilledReasonLabel(unfilledReason)}>
-              <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
-              <p className="text-[11px] leading-tight text-center text-amber-700 dark:text-amber-500 font-medium">
-                {unfilledReasonLabel(unfilledReason)}
-              </p>
-              <p className="text-[10px] text-center text-muted-foreground">Arrastra o haz clic para añadirla tú</p>
-            </div>
-          ) : (
-            <p className="text-xs text-center text-muted-foreground px-2 pointer-events-none">Arrastra o haz clic para añadir recetas</p>
-          )
+          <div className="flex flex-col items-center gap-1.5 px-2 w-full">
+            {/* Si el autocompletado dejó ESTE hueco vacío, aquí va el motivo. El
+                aviso de "semana autocompletada con huecos" se va a los pocos
+                segundos y con él se iba la única pista de qué pasó y dónde. */}
+            {unfilledReason && (
+              <div className="flex flex-col items-center gap-0.5 pointer-events-none" title={unfilledReasonLabel(unfilledReason)}>
+                <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
+                <p className="text-[11px] leading-tight text-center text-amber-700 dark:text-amber-500 font-medium">
+                  {unfilledReasonLabel(unfilledReason)}
+                </p>
+              </div>
+            )}
+            {onMealSlotClick && (
+              <button
+                onClick={openPicker}
+                className="flex items-center justify-center gap-1 px-2.5 py-1 rounded-md border border-primary/40 bg-background/70 text-xs font-medium text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+                aria-label={`Añadir receta a ${meal.title} del ${day}`}
+              >
+                <Plus className="h-3.5 w-3.5" /> Añadir
+              </button>
+            )}
+            {/* La otra mitad del cambio: tocar la casilla ya no abre nada, solo la
+                elige. Sin decirlo aquí, nadie descubre para qué sirve el clic. */}
+            <p className="text-[10px] leading-tight text-center text-muted-foreground pointer-events-none">
+              {isActiveDropTarget ? 'Elegida como destino' : 'o arrastra, o toca para elegirla'}
+            </p>
+          </div>
         )}
         
         {isDragOverSlot && dragStore.getDraggedRecipe() && (
@@ -463,7 +505,7 @@ function AddMealButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onClearDay, onClearWeek, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onUpdateMealTypes, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget, onMealSlotClick, onAutocomplete, isAutocompleting, unfilledSlots, onUpdateServingsEaten }: MealPlannerProps) {
+export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onClearDay, onClearWeek, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onUpdateMealTypes, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget, onMealSlotClick, onSelectSlot, onAutocomplete, isAutocompleting, unfilledSlots, onUpdateServingsEaten }: MealPlannerProps) {
   // Índice día|comida → motivo, para no recorrer la lista en cada uno de los 28 huecos.
   const unfilledByKey = React.useMemo(
     () => new Map((unfilledSlots ?? []).map(u => [`${u.day}|${u.mealId}`, u.reason])),
@@ -609,6 +651,7 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                        isActiveDropTarget={activeDropTarget?.day === dayPlan.day && activeDropTarget?.mealId === meal.id}
                        onSetDropTarget={onSetDropTarget}
                        onMealSlotClick={onMealSlotClick}
+                       onSelectSlot={onSelectSlot}
                        onDragEnterSlot={(d, m) => setHoveredSlot({day: d, mealId: m})}
                        onDragLeaveSlot={() => setHoveredSlot(null)}
                        isDragOverSlot={hoveredSlot?.day === dayPlan.day && hoveredSlot?.mealId === meal.id}
