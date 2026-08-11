@@ -63,6 +63,26 @@ service cloud.firestore {
     }
 
     /**
+     * @description Constancia de las importaciones de recetas. La ESCRIBE solo
+     * el servidor (Admin SDK, que se salta estas reglas); el cliente únicamente
+     * la lee para saber en qué quedó lo que lanzó, y puede borrar las suyas para
+     * no acumular.
+     *
+     * Es lo que hace que compartir un reel sobreviva a que Android mate la app:
+     * el resultado ya no vive en la respuesta HTTP, vive aquí.
+     *
+     * `write: if false` a propósito — si el cliente pudiera escribir, podría
+     * marcarse trabajos como terminados y la app se creería recetas que no
+     * existen.
+     * @path /users/{userId}/importJobs/{jobId}
+     */
+    match /users/{userId}/importJobs/{jobId} {
+      allow read, list: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow delete: if isSignedIn() && isOwner(userId);
+      allow create, update: if false;
+    }
+
+    /**
      * @description Ingredients owned by a specific user. Admins have full access.
      * @path /users/{userId}/ingredients/{ingredientId}
      */

@@ -38,6 +38,7 @@ function Gate() {
 
   return (
     <>
+      <RecoverJobOnce />
       <ShareIntentHandler />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.ground } }}>
       <Stack.Screen name="(tabs)" />
@@ -66,6 +67,19 @@ function Gate() {
   );
 }
 
+/**
+ * Si la app murió con algo a medias, se cuenta al volver en vez de dejar que se
+ * pierda sin más. Va DENTRO del gate de sesión a propósito: ahora la respuesta
+ * se busca en Firestore (`users/{uid}/importJobs`), y sin usuario no hay dónde
+ * mirar — antes esto corría en el layout raíz y habría contestado a ciegas.
+ */
+function RecoverJobOnce() {
+  useEffect(() => {
+    void recoverInterruptedJob();
+  }, []);
+  return null;
+}
+
 export default function RootLayout() {
   // Playfair (títulos) y Kalam (la compra) son las mismas de la web. Se cargan
   // en runtime para que lleguen por `eas update` sin recompilar el binario.
@@ -83,12 +97,6 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded || fontError) SplashScreen.hideAsync();
   }, [fontsLoaded, fontError]);
-
-  // Si la app murió con algo a medias (bloqueo de pantalla, quedarse sin
-  // datos), se dice al volver en vez de dejar que se pierda sin más.
-  useEffect(() => {
-    void recoverInterruptedJob();
-  }, []);
 
   // Si las fuentes fallan (`fontError`) se sigue adelante: RN cae a la del
   // sistema y la app funciona igual, solo se ve menos bonita.

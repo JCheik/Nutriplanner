@@ -3,6 +3,7 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import type { Href } from 'expo-router/build/typed-routes/types';
 import { useSyncExternalStore } from 'react';
 
+import { forgetJob, lastJobId, readJob } from '@/lib/import-watch';
 import { notifyJobEnded, primeJobNotifications } from '@/lib/job-notification';
 
 /**
@@ -114,15 +115,54 @@ export function clearJob() {
 }
 
 /**
- * Al arrancar: si quedó una marca de trabajo a medias, se enseña como error en
- * vez de dejar que desaparezca en silencio. Que es lo que pasaba al bloquearse
- * el móvil montando la semana: volvías y no había ni plan ni explicación.
+ * Al arrancar: si quedó una marca de trabajo a medias, se cuenta en qué quedó.
+ *
+ * **Primero se le pregunta al servidor.** Desde que la importación se guarda
+ * ahí (`users/{uid}/importJobs/{jobId}`), que la app se muriera ya no significa
+ * que el trabajo se perdiera: lo más probable es que terminara sin ella. Dar
+ * por muerto algo que sí se guardó sería peor que no decir nada — mandaría al
+ * usuario a importar dos veces la misma receta.
+ *
+ * Solo si no hay constancia de nada se cae al mensaje de "se cortó", que sigue
+ * siendo el caso del autocompletado (ese sí vive dentro de la app).
  */
 export async function recoverInterruptedJob(): Promise<void> {
   try {
     const pending = await AsyncStorage.getItem(INFLIGHT_KEY);
     if (!pending || job) return;
     await AsyncStorage.removeItem(INFLIGHT_KEY);
+
+    const jobId = await lastJobId();
+    if (jobId) {
+      const remoto = await readJob(jobId);
+      if (remoto?.status === 'done' && remoto.recipeName) {
+        await forgetJob();
+        job = {
+          status: 'done',
+          title: `Guardada como «${remoto.recipeName}»`,
+          cta: 'Toca para verla en tus recetas.',
+          target: { pathname: '/recetas' },
+        };
+        emit();
+        return;
+      }
+      if (remoto?.status === 'error') {
+        await forgetJob();
+        job = { status: 'error', title: 'No ha podido ser', message: remoto.message ?? 'No se pudo importar la receta.' };
+        emit();
+        return;
+      }
+      if (remoto?.status === 'working') {
+        // Se deja la marca puesta: al volver a abrir se preguntará otra vez.
+        job = {
+          status: 'working',
+          title: `${remoto.label} (sigue en el servidor)`,
+        };
+        emit();
+        return;
+      }
+    }
+
     job = {
       status: 'error',
       title: 'Se quedó a medias',

@@ -151,8 +151,21 @@ export function importRecipeFromUrl(input: {
   /** Texto pegado, cuando lo compartido no era un enlace. */
   text?: string;
   existingIngredients?: string[];
+  /**
+   * Con `jobId`, el servidor GUARDA la receta y deja constancia en
+   * `users/{uid}/importJobs/{jobId}`. Es lo que hace que la importación
+   * sobreviva a que Android mate la app: el resultado deja de vivir en esta
+   * respuesta.
+   */
+  jobId?: string;
 }) {
-  return postAi<{ recipe: GeneratedRecipe; imageUrl: string | null; source?: string }>('import-recipe', input);
+  return postAi<{
+    recipe: GeneratedRecipe;
+    imageUrl: string | null;
+    source?: string;
+    /** Presente solo si se mandó `jobId`: la receta ya está guardada. */
+    saved?: { recipeId: string; recipeName: string };
+  }>('import-recipe', input);
 }
 
 export function generateRecipe(input: {

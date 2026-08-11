@@ -65,8 +65,16 @@ export async function notifyJobEnded(title: string, body: string): Promise<void>
     if (!perms.granted) return;
     await ensureChannel();
     await Notifications.scheduleNotificationAsync({
-      content: { title, body, ...(Platform.OS === 'android' ? { channelId: CHANNEL } : {}) },
-      trigger: null, // ya
+      // El icono monocromo y su color los pone el plugin en app.json.
+      content: { title, body, color: '#D9531F' },
+      /**
+       * `null` = ahora mismo. En Android el canal NO va en `content` —ahí se
+       * ignora y el aviso cae en el canal por defecto, perdiendo la vibración
+       * propia y la posibilidad de silenciarlo aparte—: va en el trigger, que
+       * para eso existe `ChannelAwareTriggerInput` (entrega inmediata + canal).
+       * Comprobado en los docs de Expo SDK 57.
+       */
+      trigger: Platform.OS === 'android' ? { channelId: CHANNEL } : null,
     });
   } catch {
     /* que un aviso falle no puede tumbar el trabajo, que sí ha terminado */
