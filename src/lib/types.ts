@@ -73,6 +73,26 @@ export const RecipeSchema = MacrosSchema.extend({
   // auto-filled on URL import and editable by hand. Shown as a link in the recipe view.
   sourceUrl: z.string().url().optional(),
   servings: z.number().min(1).optional(),
+  /**
+   * Parte de los macros del lote que NO crece al redimensionar el plato: el
+   * aceite, la sal y las especias (ver `portion-scaling.ts`). Se calcula al
+   * guardar y se guarda para no tener que resolver el catálogo de ingredientes
+   * en cada pantalla que enseña un número.
+   *
+   * Opcional: las recetas anteriores al rediseño de raciones no lo tienen y
+   * escalan linealmente, que es lo que hacían antes.
+   */
+  fixedMacros: MacrosSchema.optional(),
+  /**
+   * De dónde sale la receta. `'nutrilp'` = recetario del catálogo, escrito para
+   * la persona de referencia (`REFERENCE_DAILY_KCAL`) y por tanto redimensionable
+   * al tamaño de quien la mira. Ausente = del usuario (propia o importada), y
+   * esas ya SON sus porciones: redimensionarlas sería cambiar lo que escribió.
+   *
+   * Se marca al leer la colección global, y viaja al plan porque la instancia
+   * planificada es una copia sin más rastro de su procedencia.
+   */
+  origin: z.literal('nutrilp').optional(),
   // Meal categories this recipe fits. Empty/undefined = "comodín" (any meal).
   category: z.array(z.enum(MEAL_CATEGORY_ENUM)).optional(),
   // Diet tags this recipe satisfies. Empty/undefined = no dietary restriction.
@@ -90,9 +110,33 @@ export const RecipeSchema = MacrosSchema.extend({
 export type Recipe = z.infer<typeof RecipeSchema>;
 
 
+/**
+ * Una receta colocada en un hueco del plan. Copia de la receta más DOS números,
+ * y cada uno hace un trabajo distinto — antes había uno solo (`servingsEaten`)
+ * haciendo los dos a la vez, y por eso no hacía bien ninguno:
+ *
+ * - `plates`: cuántos platos comes. Entero. Es lo único que toca el usuario, y
+ *   equivale a poner el mismo plato dos veces.
+ * - `portion`: cómo de grande es UN plato para ti. Continuo, automático, sale
+ *   del objetivo (`portionFactorFromGoal`). El usuario no lo teclea.
+ *
+ *     macros = (totales / servings) × portion × plates
+ *
+ * Los dos son opcionales por compatibilidad: las instancias guardadas antes del
+ * rediseño solo tienen `servingsEaten`, y se leen como `plates = 1` +
+ * `portion = servingsEaten`, que da exactamente el mismo número que antes.
+ * Usa siempre `instancePlates`/`instancePortion` (`serving-utils.ts`) para
+ * leerlos, nunca los campos a pelo.
+ */
 export interface RecipeInstance extends Recipe {
   instanceId: string;
-  servingsEaten: number;
+  plates?: number;
+  portion?: number;
+  /**
+   * @deprecated Anterior al rediseño de raciones. Se sigue LEYENDO para no
+   * cambiarle el plan a nadie, pero no se escribe en instancias nuevas.
+   */
+  servingsEaten?: number;
 }
 
 // Per-100g nutritional estimate the AI attaches to a recipe ingredient that may
@@ -273,6 +317,14 @@ export interface UserProfile {
   shoppingList?: ShoppingListItem[];
   dietPreference?: DietTag[];
   nutriInterview?: NutriInterview;
+  /**
+   * Tamaño de plato del usuario, como multiplicador sobre el recetario de
+   * Nutrilp (escrito para `REFERENCE_DAILY_KCAL`). Solo está presente si el
+   * usuario lo ha ajustado a mano; lo normal es que falte y se calcule del
+   * objetivo con `portionFactorFromGoal`, para que no haya dos verdades cuando
+   * cambie de objetivo.
+   */
+  portionFactor?: number;
   // Per-feature onboarding state: key = guide id, value = true once dismissed forever.
   onboardingFlags?: Record<string, boolean>;
   /**

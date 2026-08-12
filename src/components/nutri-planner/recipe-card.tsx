@@ -7,7 +7,8 @@ import { cn } from '@/lib/utils';
 import { GripVertical, Flame, EggFried, Wheat, Droplets, UtensilsCrossed, Users, Sparkles } from 'lucide-react';
 import Image from 'next/image';
 import { dragStore } from '@/lib/drag-store';
-import { perServingMacros } from '@/lib/serving-utils';
+import { batchServings, plateMacros } from '@/lib/serving-utils';
+import { usePortionFactor } from '@/hooks/use-portion-factor';
 import { isRecentRecipe } from '@/lib/recipe-sort';
 
 interface RecipeCardProps {
@@ -45,10 +46,15 @@ const MacroItem = ({ icon: Icon, value, unit, colorClass }: { icon: React.Elemen
 export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isListView = false, isMobile = false, onClick, className }: RecipeCardProps) {
   const [isDragging, setIsDragging] = useState(false);
 
-  // Cards always show PER-SERVING values: a 4-serving recipe used to display the
-  // calories of the whole batch, which made plans impossible to reason about.
-  const perServing = perServingMacros(recipe);
-  const isMultiServing = perServing.servings > 1;
+  // Las tarjetas enseñan siempre UN PLATO, no el lote: una receta de 4 raciones
+  // mostraba las calorías de la olla entera y no había forma de razonar el plan.
+  // Y ese plato va al tamaño de quien mira, para que el número de la tarjeta sea
+  // el mismo que va a caer en el cuadrante (solo afecta a las de Nutrilp).
+  const portionFactor = usePortionFactor();
+  const perServing = plateMacros(recipe, portionFactor);
+  const servings = batchServings(recipe);
+  const isMultiServing = servings > 1;
+  const isResized = recipe.origin === 'nutrilp' && portionFactor !== 1;
 
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
     if (!isDraggable) return;
@@ -101,7 +107,7 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
                 {isMultiServing && (
                   <span className="flex items-center gap-1 text-[10px]">
                     <Users className="h-3 w-3" />
-                    por ración · rinde {perServing.servings}
+                    por plato{isResized ? ' · a tu tamaño' : ''} · rinde {servings}
                   </span>
                 )}
             </div>
@@ -176,7 +182,7 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
                         </div>
                     </div>
                     {isMultiServing && (
-                        <p className="text-center text-[10px] text-muted-foreground">por ración · rinde {perServing.servings}</p>
+                        <p className="text-center text-[10px] text-muted-foreground">por plato{isResized ? ' · a tu tamaño' : ''} · rinde {servings}</p>
                     )}
                 </div>
             ) : (
@@ -200,7 +206,7 @@ export function RecipeCard({ recipe, isDraggable = false, isCompact = false, isL
                     </div>
                 </div>
                 {isMultiServing && (
-                    <p className="text-center text-[9px] text-muted-foreground mt-0.5">por ración · rinde {perServing.servings}</p>
+                    <p className="text-center text-[9px] text-muted-foreground mt-0.5">por plato{isResized ? ' · a tu tamaño' : ''} · rinde {servings}</p>
                 )}
                 </>
             )}

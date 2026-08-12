@@ -12,6 +12,7 @@ import { useUser } from '@/firebase';
 import { useUserProfileState } from '@/hooks/use-user-profile-state';
 import { useRecipeState } from '@/hooks/use-recipe-state';
 import { GoalsContent } from '@/components/nutri-planner/floating-goals';
+import { PortionSizeCard } from '@/components/nutri-planner/portion-size-card';
 import { NutriInterviewCard } from '@/components/nutri-planner/nutri-interview';
 
 type PerfilTab = 'objetivos' | 'entrevista';
@@ -82,6 +83,11 @@ export default function DashboardPerfilPage() {
                   onSaveCustomGoal={profileState.handleSaveCustomGoal}
                   dietPreference={profileState.currentDietPreference}
                   onDietPreferenceChange={profileState.handleDietPreferenceChange}
+                />
+                <PortionSizeCard
+                  factor={profileState.portionFactor}
+                  isManual={profileState.isPortionFactorManual}
+                  onChange={profileState.handlePortionFactorChange}
                 />
               </CardContent>
             </Card>

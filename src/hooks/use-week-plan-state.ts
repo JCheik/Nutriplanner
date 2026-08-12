@@ -6,6 +6,7 @@ import { collection, doc } from 'firebase/firestore';
 import { updateDayPlanTransaction } from '@/firebase/firestore-operations';
 import { INITIAL_WEEK_PLAN, DAY_ORDER } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
+import { clampPlates, instancePortion } from '@/lib/serving-utils';
 import type { Recipe, Meal, DayPlan, RecipeInstance, MealCategory } from '@/lib/types';
 
 // Infer a meal's category from its title for legacy slots saved before mealType
@@ -87,9 +88,15 @@ export function useWeekPlanState() {
   }, [user, firestore, notifyWriteError]);
 
   // --- Handlers ---
-  const handleDrop = useCallback((day: string, mealId: string, droppedRecipe: Recipe, servingsEaten: number = 1) => {
+  /**
+   * Coloca una receta en un hueco. `plates` es lo que el usuario ve y toca
+   * (entero); `portion` es el tamaño de plato con el que se colocó, y se guarda
+   * EN LA INSTANCIA a propósito: si se recalculase al pintar, cambiar de
+   * objetivo reescribiría en silencio lo que ya habías planificado.
+   */
+  const handleDrop = useCallback((day: string, mealId: string, droppedRecipe: Recipe, plates: number = 1, portion: number = 1) => {
     updateDayPlanInFirestore(day, (currentDayPlan) => {
-      const newRecipeInstance: RecipeInstance = { ...droppedRecipe, instanceId: self.crypto.randomUUID(), servingsEaten };
+      const newRecipeInstance: RecipeInstance = { ...droppedRecipe, instanceId: self.crypto.randomUUID(), plates, portion };
       return {
         ...currentDayPlan,
         meals: currentDayPlan.meals.map(meal =>
@@ -153,16 +160,24 @@ export function useWeekPlanState() {
     }));
   }, [updateDayPlanInFirestore]);
 
-  const handleUpdateServingsEaten = useCallback((day: string, mealId: string, instanceId: string, servings: number) => {
+  /**
+   * Cambia cuántos platos hay de una receta en un hueco. Al escribir se fija
+   * también el `portion` heredado (el que tuviera, o el repartido de un
+   * `servingsEaten` viejo) y se borra el campo antiguo: así la instancia queda
+   * ya en el modelo nuevo sin cambiar de calorías por el camino.
+   */
+  const handleUpdatePlates = useCallback((day: string, mealId: string, instanceId: string, plates: number) => {
     updateDayPlanInFirestore(day, (currentDayPlan) => ({
       ...currentDayPlan,
       meals: currentDayPlan.meals.map(meal => {
         if (meal.id !== mealId) return meal;
         return {
           ...meal,
-          recipes: meal.recipes.map(recipe =>
-            recipe.instanceId === instanceId ? { ...recipe, servingsEaten: servings } : recipe
-          )
+          recipes: meal.recipes.map(recipe => {
+            if (recipe.instanceId !== instanceId) return recipe;
+            const { servingsEaten: _legacy, ...rest } = recipe;
+            return { ...rest, plates: clampPlates(plates), portion: instancePortion(recipe) };
+          })
         };
       })
     }));
@@ -209,6 +224,6 @@ export function useWeekPlanState() {
     handleUpdateMealTypes,
     handleAddMeal,
     handleDeleteMeal,
-    handleUpdateServingsEaten,
+    handleUpdatePlates,
   };
 }

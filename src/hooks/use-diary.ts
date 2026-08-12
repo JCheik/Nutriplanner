@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { useUser, useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where, orderBy, setDoc, deleteField } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { formatServings } from '@/lib/serving-utils';
+import { effectiveMacros, instancePlates, platesLabel } from '@/lib/serving-utils';
 import type { DiaryDay, DiaryEntry, Macros, RecipeInstance } from '@/lib/types';
 
 /** Local calendar date as YYYY-MM-DD (never UTC — meals belong to local days). */
@@ -233,16 +233,16 @@ export function useWeekDiary() {
 
   const logPlanRecipe = useCallback(
     (dateKey: string, recipe: RecipeInstance) => {
-      const servingsEaten = recipe.servingsEaten ?? 1;
-      const scale = servingsEaten / (recipe.servings ?? 1);
+      const macros = effectiveMacros(recipe);
+      const plates = instancePlates(recipe);
       const entry: DiaryEntry = {
         id: self.crypto.randomUUID(),
         name: recipe.name,
-        calories: recipe.calories * scale,
-        protein: recipe.protein * scale,
-        carbs: recipe.carbs * scale,
-        fat: recipe.fat * scale,
-        quantityLabel: `${formatServings(servingsEaten)} rac`,
+        calories: macros.calories,
+        protein: macros.protein,
+        carbs: macros.carbs,
+        fat: macros.fat,
+        quantityLabel: platesLabel(plates),
         source: 'plan',
         planInstanceId: recipe.instanceId,
         loggedAt: Date.now(),

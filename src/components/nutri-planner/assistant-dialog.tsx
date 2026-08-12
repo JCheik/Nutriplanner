@@ -65,6 +65,8 @@ interface AssistantDialogProps {
   userRecipes: Recipe[];
   nutriplannerRecipes: Recipe[];
   activeGoalMacros: GoalMacros | null;
+  /** Tamaño de plato del usuario; se pasa tal cual a las acciones. */
+  portionFactor: number;
   dietPreference?: DietTag[];
   /** Saved "entrevista nutricional" — personalises replies and generated recipes. */
   nutriInterview?: NutriInterview | null;
@@ -104,6 +106,7 @@ export function AssistantDialog({
   userRecipes,
   nutriplannerRecipes,
   activeGoalMacros,
+  portionFactor,
   dietPreference,
   nutriInterview,
   onDrop,
@@ -197,6 +200,7 @@ export function AssistantDialog({
     userRecipes,
     nutriplannerRecipes,
     activeGoalMacros,
+    portionFactor,
     onDrop,
     onClearMeal,
     onClearDay,

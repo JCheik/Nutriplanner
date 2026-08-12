@@ -37,7 +37,7 @@ import {
 } from '@/lib/assistant';
 import { failJob, finishJob, isJobRunning, startJob, useBackgroundJob } from '@/lib/background-job';
 import { findInPlan, splitToRemove } from '@/lib/plan-search';
-import { mealCalorieRatio, suggestedServings } from '@/lib/serving-utils';
+import { placementFor } from '@/lib/serving-utils';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -61,7 +61,7 @@ export default function IaScreen() {
   const { user } = useAuthUser();
   const { weekPlan } = useWeekPlan();
   const { userRecipes, globalRecipes } = useRecipes();
-  const { profile, activeGoalMacros } = useProfile();
+  const { profile, activeGoalMacros, portionFactor } = useProfile();
 
   // Solo se suscribe al catálogo para poder pasarle los nombres al generador
   // de recetas (evita que invente duplicados del mismo alimento).
@@ -176,8 +176,8 @@ export default function IaScreen() {
         if (!meal) return `No encuentro "${args.meal}" en ${dayPlan.day}.`;
         const recipe = resolveRecipe(userRecipes, globalRecipes, String(args.recipe));
         if (!recipe) return `No tengo ninguna receta que se llame "${args.recipe}".`;
-        const target = activeGoalMacros ? activeGoalMacros.calories * mealCalorieRatio(meal.mealTypes ?? []) : null;
-        await addRecipeToMeal(user.uid, dayPlan.day, meal.id, recipe, suggestedServings(recipe, target));
+        const { plates, portion } = placementFor(recipe, meal.mealTypes, activeGoalMacros, portionFactor);
+        await addRecipeToMeal(user.uid, dayPlan.day, meal.id, recipe, plates, portion);
         return `¡Hecho! ${recipe.name} para ${meal.title} del ${dayPlan.day}.`;
       }
       case 'clear_meal': {

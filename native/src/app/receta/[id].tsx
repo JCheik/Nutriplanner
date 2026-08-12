@@ -9,9 +9,10 @@ import { useState } from 'react';
 import { Fonts, Radii, Shadows } from '@/constants/theme';
 import { useAuthUser } from '@/firebase/auth-context';
 import { deleteGlobalRecipe, deleteUserRecipe } from '@/firebase/recipe-operations';
-import { useRecipes } from '@/hooks/use-nutrilp-data';
+import { useProfile, useRecipes } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
-import { perServingMacros } from '@/lib/serving-utils';
+import { batchServings, formatPortionFactor, plateMacros, portionFor } from '@/lib/serving-utils';
+import { scaleIngredientQuantity } from '@/lib/portion-scaling';
 import { pluralizeUnit } from '@/lib/utils';
 
 /** Vista de receta: macros por ración, ingredientes, pasos y acciones. */
@@ -22,6 +23,7 @@ export default function RecetaDetailScreen() {
   const { user, isAdmin } = useAuthUser();
   const { id, global } = useLocalSearchParams<{ id: string; global?: string }>();
   const { userRecipes, globalRecipes } = useRecipes();
+  const { portionFactor } = useProfile();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +61,11 @@ export default function RecetaDetailScreen() {
     );
   }
 
-  const per = perServingMacros(recipe);
+  // Al tamano de quien mira, cantidades incluidas: si la ficha dijera una cosa
+  // y el cuadrante contara otra, los dos numeros se contradirian.
+  const per = plateMacros(recipe, portionFactor);
+  const resize = portionFor(recipe, portionFactor);
+  const yields = batchServings(recipe);
 
   return (
     <View style={{ flex: 1, backgroundColor: c.ground }}>
@@ -107,14 +113,15 @@ export default function RecetaDetailScreen() {
           ))}
         </View>
         <Text style={{ fontSize: 11, color: c.inkSoft, fontFamily: Fonts.sans, marginTop: -6 }}>
-          Por ración{per.servings > 1 ? ` · la receta rinde ${per.servings}` : ''}
+          Por plato{resize !== 1 ? ` · a tu tamaño (${formatPortionFactor(resize)})` : ''}{yields > 1 ? ` · rinde ${yields}` : ''}
         </Text>
 
         <Text style={[styles.sectionLabel, { color: c.inkSoft, fontFamily: Fonts.sans }]}>INGREDIENTES</Text>
         <View style={{ gap: 6 }}>
           {recipe.ingredients.map((ing) => {
             const isWeight = ['g', 'ml', ''].includes((ing.unit || '').toLowerCase());
-            const qty = isWeight ? `${ing.quantity} ${ing.unit || 'g'}` : `${ing.quantity} ${pluralizeUnit(ing.unit, ing.quantity)}`;
+            const q = scaleIngredientQuantity(ing, resize);
+            const qty = isWeight ? `${q} ${ing.unit || 'g'}` : `${q} ${pluralizeUnit(ing.unit, q)}`;
             return (
               <View key={ing.id} style={[styles.ingredientRow, { borderColor: c.line, backgroundColor: c.surface }]}>
                 <Text style={{ flex: 1, fontSize: 13, color: c.ink, fontFamily: Fonts.sans }} numberOfLines={2}>

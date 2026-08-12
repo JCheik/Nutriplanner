@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { Recipe } from '@/lib/types';
+import type { Recipe, RecipeInstance } from '@/lib/types';
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,9 @@ import { X, ChefHat, Video, Timer, Play, Pause, RotateCcw, BellRing, Minus, Plus
 import { cn, pluralizeUnit } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { splitInstructionSteps, parseStepDurations } from '@/lib/recipe-steps';
-import { clampServings, MIN_SERVINGS, servingsLabel } from '@/lib/serving-utils';
+import { batchServings, clampServings, instancePlates, MIN_SERVINGS, portionFor, servingsLabel } from '@/lib/serving-utils';
+import { scaleIngredientQuantity } from '@/lib/portion-scaling';
+import { usePortionFactor } from '@/hooks/use-portion-factor';
 import { ServingsField } from './servings-field';
 
 const MAX_SERVINGS = 30;
@@ -156,10 +158,17 @@ interface CookingModeDialogProps {
 export function CookingModeDialog({ recipe, isOpen, onClose }: CookingModeDialogProps) {
   const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(new Set());
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
-  // How many servings the user is actually cooking now. Defaults to 1 (the
-  // common case: cook a single portion of a batch recipe); the note under the
-  // stepper reminds that the written steps describe the full recipe.
+  // Raciones que se van a preparar ahora. Se siembra al abrir (ver el efecto de
+  // más abajo); la nota bajo el stepper recuerda que los pasos escritos
+  // describen la receta entera.
   const [servingsToMake, setServingsToMake] = useState(1);
+  const portionFactor = usePortionFactor();
+
+  // La receta, leída sin meterla en las dependencias del efecto de apertura:
+  // ahí dentro solo se necesita su valor en el instante de abrir, y ponerla como
+  // dependencia rearmaría la lista de la compra cada vez que cambie el objeto.
+  const recipeRef = useRef(recipe);
+  recipeRef.current = recipe;
 
   // Keep the screen-wake lock in a ref so requesting/releasing it never feeds back
   // into React state. (Storing it in state made the effect below depend on a value
@@ -196,9 +205,13 @@ export function CookingModeDialog({ recipe, isOpen, onClose }: CookingModeDialog
     requestWakeLock();
     setCheckedIngredients(new Set());
     setCompletedSteps(new Set());
-    // Default to ONE serving — batch recipes (bagels for 8) shouldn't show the
-    // whole batch when you just want your portion. Bump it up if cooking more.
-    setServingsToMake(1);
+    // Se parte de lo que dice el PLAN si la receta viene de un hueco: quien
+    // abre el modo cocina desde el cuadrante va a cocinar lo que tiene puesto,
+    // y arrancar siempre en 1 le obligaba a volver a marcarlo cada vez. Desde
+    // la biblioteca no hay plan, y entonces 1 sigue siendo lo razonable: de un
+    // lote de ocho bagels normalmente quieres el tuyo.
+    const fromPlan = recipeRef.current as RecipeInstance | null;
+    setServingsToMake(fromPlan ? instancePlates(fromPlan) : 1);
 
     // Re-acquire the lock when the tab becomes visible again.
     const handleVisibilityChange = () => {
@@ -217,8 +230,18 @@ export function CookingModeDialog({ recipe, isOpen, onClose }: CookingModeDialog
   // instructions (AI recipes don't always use line breaks).
   const steps = splitInstructionSteps(recipe.instructions);
 
-  const recipeServings = recipe.servings && recipe.servings > 0 ? recipe.servings : 1;
-  const scaleFactor = servingsToMake / recipeServings;
+  const recipeServings = batchServings(recipe);
+  /**
+   * Dos escalados distintos, y el orden importa:
+   *
+   * 1. **Redimensionar la receta** al tamaño del usuario. Cocinar para alguien
+   *    más grande lleva más arroz pero NO más pimienta, así que aquí los
+   *    condimentos se quedan quietos (`scaleIngredientQuantity`).
+   * 2. **Repartir el lote** entre las raciones que se van a preparar. Esto sí es
+   *    lineal: coger 1 de 4 raciones te da un cuarto de TODO, aceite incluido.
+   */
+  const resizeFactor = portionFor(recipe, portionFactor);
+  const shareOfBatch = servingsToMake / recipeServings;
 
   const toggleIngredient = (id: string) => {
     setCheckedIngredients((prev) => {
@@ -334,7 +357,8 @@ export function CookingModeDialog({ recipe, isOpen, onClose }: CookingModeDialog
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {recipe.ingredients.map((ing) => {
                   const isPiece = ing.unit && !['g', 'ml'].includes(ing.unit.toLowerCase());
-                  const scaledQty = formatScaledQuantity(ing.quantity, scaleFactor);
+                  const resized = scaleIngredientQuantity(ing, resizeFactor);
+                  const scaledQty = formatScaledQuantity(resized, shareOfBatch);
                   return (
                     <div
                       key={ing.id}

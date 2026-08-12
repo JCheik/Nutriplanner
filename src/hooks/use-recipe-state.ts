@@ -25,7 +25,15 @@ export function useRecipeState() {
 
   // --- Memoized Data Sources ---
   const currentUserRecipes = useMemo(() => userRecipes || [], [userRecipes]);
-  const nutriplannerRecipes = useMemo(() => globalRecipes || [], [globalRecipes]);
+  // El catálogo se marca con su procedencia al leerlo. Es lo único que
+  // distingue una receta de Nutrilp de una del usuario —el documento no lleva
+  // nada—, y hace falta para dos cosas: redimensionarla al tamaño de quien la
+  // mira, y que siga sabiéndose una vez copiada dentro del plan, donde ya no
+  // queda rastro de en qué colección estaba.
+  const nutriplannerRecipes = useMemo(
+    () => (globalRecipes || []).map(r => ({ ...r, origin: 'nutrilp' as const })),
+    [globalRecipes]
+  );
 
   // --- Handlers ---
   const handleSaveRecipe = async (recipeData: Omit<Recipe, 'id'>, imageFile: File | null, isGlobal: boolean, existingId?: string) => {

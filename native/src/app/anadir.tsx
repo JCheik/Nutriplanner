@@ -6,19 +6,22 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, Vi
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { applyRecipeFilters, EMPTY_FILTERS, RecipeFilters, type RecipeFilterState } from '@/components/recipe-filters';
-import { ServingsInput } from '@/components/servings-input';
+import { PlatesStepper } from '@/components/plates-stepper';
 import { Fonts, Radii } from '@/constants/theme';
 import { useAuthUser } from '@/firebase/auth-context';
-import { addRecipeToMeal, removeRecipeFromMeal, updateServings } from '@/firebase/plan-operations';
-import { useRecipes, useWeekPlan } from '@/hooks/use-nutrilp-data';
+import { addRecipeToMeal, removeRecipeFromMeal, updatePlates } from '@/firebase/plan-operations';
+import { useProfile, useRecipes, useWeekPlan } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
-import { clampServings, perServingMacros, servingsLabel } from '@/lib/serving-utils';
+import { instancePlates, placementFor, plateMacros, platesLabel } from '@/lib/serving-utils';
 import { normalizeText } from '@/lib/utils';
 import type { MealCategory, Recipe, RecipeInstance } from '@/lib/types';
 
 /**
  * "Añadir comida" (boceto 3): hoja modal que sabe a qué día y franja añade.
- * Busca en propias + Nutrilp; tocar «＋» añade 1 ración y vuelve al plan.
+ * Busca en propias + Nutrilp; tocar «＋» la coloca y vuelve al plan. Cuánto
+ * entra lo decide `placementFor`, el mismo cálculo que la web: antes esta
+ * pantalla metía siempre 1 plato y la web medía contra el objetivo, así que la
+ * misma receta entraba distinta según por dónde la añadieras.
  */
 export default function AnadirScreen() {
   const c = useTheme();
@@ -28,6 +31,7 @@ export default function AnadirScreen() {
   const { day, mealId, title } = useLocalSearchParams<{ day: string; mealId: string; title?: string }>();
   const { userRecipes, globalRecipes, loading } = useRecipes();
   const { weekPlan } = useWeekPlan();
+  const { activeGoalMacros, portionFactor } = useProfile();
   const [search, setSearch] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -59,14 +63,12 @@ export default function AnadirScreen() {
     return dayPlan?.meals.find((m) => m.id === mealId)?.recipes ?? [];
   }, [weekPlan, day, mealId]);
 
-  const setServingsTo = (r: RecipeInstance, next: number) => {
+  const setPlatesTo = (r: RecipeInstance, next: number) => {
     if (!user || !day || !mealId) return;
-    updateServings(user.uid, day, mealId, r.instanceId, clampServings(next)).catch(() =>
-      setError('No se pudo cambiar las raciones.')
+    updatePlates(user.uid, day, mealId, r.instanceId, next).catch(() =>
+      setError('No se pudo cambiar los platos.')
     );
   };
-
-  const bumpServings = (r: RecipeInstance, delta: number) => setServingsTo(r, (r.servingsEaten ?? 1) + delta);
 
   const dropRecipe = (r: RecipeInstance) => {
     if (!user || !day || !mealId) return;
@@ -80,7 +82,11 @@ export default function AnadirScreen() {
     setBusyId(recipe.id);
     setError(null);
     try {
-      await addRecipeToMeal(user.uid, day, mealId, recipe, 1);
+      // Mismo calculo que en la web: `placementFor` es el unico sitio donde se
+      // decide cuanto entra.
+      const meal = weekPlan.find((d) => d.day === day)?.meals.find((m) => m.id === mealId);
+      const { plates, portion } = placementFor(recipe, meal?.mealTypes, activeGoalMacros, portionFactor);
+      await addRecipeToMeal(user.uid, day, mealId, recipe, plates, portion);
       router.back();
     } catch {
       setError('No se pudo añadir. Revisa tu conexión e inténtalo de nuevo.');
@@ -142,32 +148,14 @@ export default function AnadirScreen() {
                   {r.name}
                 </Text>
                 <Text style={{ fontSize: 11, color: c.inkSoft, fontFamily: Fonts.sans }}>
-                  {servingsLabel(r.servingsEaten ?? 1)} · toca para verla
+                  {platesLabel(instancePlates(r))} · toca para verla
                 </Text>
               </Pressable>
-              <Pressable
-                onPress={() => bumpServings(r, -1)}
-                style={[styles.stepBtn, { borderColor: c.line }]}
-                accessibilityRole="button"
-                accessibilityLabel={`Una ración menos de ${r.name}`}
-              >
-                <Ionicons name="remove" size={14} color={c.inkSoft} />
-              </Pressable>
-              {/* Escribible para las fracciones: los ± van de uno en uno. */}
-              <ServingsInput
-                value={r.servingsEaten ?? 1}
-                onCommit={(n) => setServingsTo(r, n)}
-                style={{ fontSize: 14 }}
-                label={`Raciones de ${r.name}`}
+              <PlatesStepper
+                value={instancePlates(r)}
+                onChange={(n) => setPlatesTo(r, n)}
+                label={r.name}
               />
-              <Pressable
-                onPress={() => bumpServings(r, 1)}
-                style={[styles.stepBtn, { borderColor: c.line }]}
-                accessibilityRole="button"
-                accessibilityLabel={`Una ración más de ${r.name}`}
-              >
-                <Ionicons name="add" size={14} color={c.inkSoft} />
-              </Pressable>
               <Pressable
                 onPress={() => dropRecipe(r)}
                 hitSlop={8}
@@ -191,7 +179,9 @@ export default function AnadirScreen() {
           keyExtractor={(r) => r.id}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => {
-            const per = perServingMacros(item);
+            // Un plato al tamano del usuario: el numero de la lista tiene que
+            // ser el que caiga en el hueco al pulsar el mas.
+            const per = plateMacros(item, portionFactor);
             return (
               <View style={[styles.row, { borderColor: c.line, backgroundColor: c.surface }]}>
                 {item.imageUrl ? (
@@ -204,7 +194,7 @@ export default function AnadirScreen() {
                     {item.name}
                   </Text>
                   <Text style={{ fontSize: 11, color: c.inkSoft, fontFamily: Fonts.sans }}>
-                    {Math.round(per.calories)} kcal · {Math.round(per.protein)} P/rac
+                    {Math.round(per.calories)} kcal · {Math.round(per.protein)} P/plato
                   </Text>
                 </View>
                 <Pressable

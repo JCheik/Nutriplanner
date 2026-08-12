@@ -4,40 +4,15 @@ import { useMemo, useState } from 'react';
 import { collection, doc, updateDoc } from 'firebase/firestore';
 import { useUser, useFirestore, useMemoFirebase } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import type { Recipe, BaseIngredient, Ingredient } from '@/lib/types';
-import { ingredientKey, normalizeText } from '@/lib/utils';
+import type { Recipe, BaseIngredient, Macros } from '@/lib/types';
+import { buildIngredientIndex, ingredientGrams, lookupIngredient } from '@/lib/recipe-macros';
+import { computeFixedMacros } from '@/lib/portion-scaling';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
-// Same lookup/scaling logic as recipe-dialog.tsx's live preview, so the
-// recomputed totals here match exactly what the editor would show.
-function buildIngredientDBMap(ingredientDB: BaseIngredient[] | null | undefined) {
-  const map = new Map<string, BaseIngredient>();
-  (ingredientDB ?? []).forEach(ing => {
-    map.set(ingredientKey(ing.name, ing.brand), ing);
-    const nameOnly = normalizeText(ing.name);
-    if (!map.has(nameOnly)) map.set(nameOnly, ing);
-  });
-  return map;
-}
-
-function lookupBaseIngredient(map: Map<string, BaseIngredient>, name: string, brand?: string) {
-  return map.get(ingredientKey(name, brand)) ?? map.get(normalizeText(name));
-}
-
-function ingredientGrams(ing: Ingredient, baseIng?: BaseIngredient): number {
-  const unit = (ing.unit || '').toLowerCase();
-  if (unit === 'g' || unit === 'ml' || unit === '') return ing.quantity;
-  const weight =
-    ing.unitWeight ??
-    (baseIng?.unitName && normalizeText(baseIng.unitName) === normalizeText(ing.unit)
-      ? baseIng.unitWeight
-      : undefined);
-  return weight ? ing.quantity * weight : ing.quantity;
-}
-
-interface Macros { calories: number; protein: number; carbs: number; fat: number }
-
+// Los helpers de macros viven en `lib/recipe-macros.ts`, compartidos con el
+// editor y espejados en la app: si aquí se recalculara distinto, esta página
+// marcaría como «desfasadas» recetas que en realidad están bien.
 interface Row {
   id: string;
   name: string;
@@ -45,6 +20,8 @@ interface Row {
   recomputed: Macros;
   missingIngredients: string[];
   diffPct: number;
+  /** Macros que no escalan, recalculadas. `null` si la receta ya las tiene. */
+  fixedMacros: Macros | null;
 }
 
 /**
@@ -68,14 +45,14 @@ export default function VerificarRecetasTempPage() {
   const { data: recipes, isLoading: recipesLoading } = useCollection<Recipe>(recipesRef);
   const { data: ingredientDB, isLoading: ingLoading } = useCollection<BaseIngredient>(ingredientsRef);
 
-  const dbMap = useMemo(() => buildIngredientDBMap(ingredientDB), [ingredientDB]);
+  const dbMap = useMemo(() => buildIngredientIndex(ingredientDB), [ingredientDB]);
 
   const rows: Row[] = useMemo(() => {
     if (!recipes) return [];
     return recipes.map(r => {
       const missing: string[] = [];
       const recomputed = r.ingredients.reduce<Macros>((acc, ing) => {
-        const baseIng = lookupBaseIngredient(dbMap, ing.name, ing.brand);
+        const baseIng = lookupIngredient(dbMap, ing.name, ing.brand);
         if (!baseIng) {
           missing.push(ing.brand ? `${ing.name} (${ing.brand})` : ing.name);
           return acc;
@@ -98,12 +75,23 @@ export default function VerificarRecetasTempPage() {
         ? Math.abs(recomputed.calories - stored.calories) / stored.calories * 100
         : (recomputed.calories > 0 ? 100 : 0);
 
-      return { id: r.id, name: r.name, stored, recomputed, missingIngredients: missing, diffPct };
+      return {
+        id: r.id,
+        name: r.name,
+        stored,
+        recomputed,
+        missingIngredients: missing,
+        diffPct,
+        // Las recetas escritas antes del rediseño de raciones no saben qué parte
+        // de sus macros son condimento, así que escalan enteras. Se calcula aquí
+        // y se rellena con el botón, que es donde ya está el catálogo cargado.
+        fixedMacros: r.fixedMacros ? null : computeFixedMacros(r.ingredients, ingredientDB),
+      };
     });
-  }, [recipes, dbMap]);
+  }, [recipes, dbMap, ingredientDB]);
 
   const flagged = rows
-    .filter(r => (r.diffPct > 3 || r.missingIngredients.length > 0) && !fixedIds.has(r.id))
+    .filter(r => (r.diffPct > 3 || r.missingIngredients.length > 0 || r.fixedMacros) && !fixedIds.has(r.id))
     .sort((a, b) => b.diffPct - a.diffPct);
 
   const handleFix = async (row: Row) => {
@@ -115,6 +103,7 @@ export default function VerificarRecetasTempPage() {
         protein: Math.round(row.recomputed.protein),
         carbs: Math.round(row.recomputed.carbs),
         fat: Math.round(row.recomputed.fat),
+        ...(row.fixedMacros ? { fixedMacros: row.fixedMacros } : {}),
       });
       setFixedIds(prev => new Set(prev).add(row.id));
       toast({ title: 'Receta actualizada', description: row.name });
@@ -138,8 +127,8 @@ export default function VerificarRecetasTempPage() {
         <h1 className="text-xl font-bold">Verificación de totales — recetas globales</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Compara los macros totales guardados en cada receta global contra lo que saldría de recalcularlos ahora
-          (ingredientes × catálogo actual). Solo se listan las que difieren más de un 3% en calorías o tienen algún
-          ingrediente sin match en el catálogo. {rows.length} recetas revisadas.
+          (ingredientes × catálogo actual). Solo se listan las que difieren más de un 3% en calorías, tienen algún
+          ingrediente sin match en el catálogo, o les falta el reparto de condimentos. {rows.length} recetas revisadas.
         </p>
       </div>
 
@@ -173,6 +162,13 @@ export default function VerificarRecetasTempPage() {
                   <p>{Math.round(row.recomputed.calories)} kcal · {Math.round(row.recomputed.protein)}p · {Math.round(row.recomputed.carbs)}c · {Math.round(row.recomputed.fat)}g</p>
                 </div>
               </div>
+              {row.fixedMacros && (
+                <p className="text-xs text-muted-foreground">
+                  Le falta el reparto de condimentos — al guardar se le añaden{' '}
+                  <span className="font-medium">{Math.round(row.fixedMacros.calories)} kcal</span> que no escalan
+                  (aceite, sal, especias). Sin esto, la receta se redimensiona entera.
+                </p>
+              )}
               {row.missingIngredients.length > 0 && (
                 <p className="text-xs text-destructive">
                   Sin match en el catálogo (arregla esto antes de poder recalcular): {row.missingIngredients.join(', ')}

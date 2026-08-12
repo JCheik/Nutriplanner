@@ -6,6 +6,8 @@ import { useUser } from '@/firebase';
 import { Logo } from '@/components/icons/logo';
 import { PageHeader } from '@/components/layout/page-header';
 import { prefersDesktop } from '@/lib/mobile-redirect';
+import { PortionFactorProvider } from '@/hooks/use-portion-factor';
+import { useUserProfileState } from '@/hooks/use-user-profile-state';
 
 // Explicit opaque bg-background: without it, the fixed kitchen-bg photo on
 // <body> (background-attachment: fixed, see globals.css) shows through this
@@ -54,6 +56,12 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/** Lee el factor del perfil una vez y lo pone a disposición del árbol. */
+function PortionFactorScope({ children }: { children: React.ReactNode }) {
+  const { portionFactor } = useUserProfileState();
+  return <PortionFactorProvider value={portionFactor}>{children}</PortionFactorProvider>;
+}
+
 export default function DashboardLayout({
   children,
 }: {
@@ -64,7 +72,12 @@ export default function DashboardLayout({
         <PageHeader />
         <Suspense fallback={<DashboardLoader />}>
             <AuthGuard>
-                {children}
+                {/* El tamaño de plato se lee en media docena de sitios (tarjeta
+                    de receta, ficha, modo cocina, cuadrante). Se reparte desde
+                    aquí para no atravesarlos todos con una prop. */}
+                <PortionFactorScope>
+                    {children}
+                </PortionFactorScope>
             </AuthGuard>
         </Suspense>
     </div>

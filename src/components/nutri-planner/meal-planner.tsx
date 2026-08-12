@@ -3,11 +3,11 @@
 import React, { useState, useRef, type DragEvent, type KeyboardEvent } from 'react';
 import html2canvas from 'html2canvas';
 import type { WeekPlan, Recipe, DailyTotal, Macros, GoalMacros, Meal, ActiveDropTarget, RecipeInstance, MealCategory } from '@/lib/types';
-import { MEAL_CATEGORIES } from '@/lib/constants';
-import { clampServings, mealCalorieRatio, suggestedServings } from '@/lib/serving-utils';
+import { MAX_PLATES_PER_SLOT, MEAL_CATEGORIES } from '@/lib/constants';
+import { effectiveMacros, instancePlates, instancePortion, placementFor, platesLabel } from '@/lib/serving-utils';
 import { unfilledReasonLabel, type UnfilledReason, type UnfilledSlot } from '@/lib/autocomplete-summary';
+import { usePortionFactor } from '@/hooks/use-portion-factor';
 
-import { ServingsField } from './servings-field';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RecipeCard } from './recipe-card';
 import { Button } from '@/components/ui/button';
@@ -39,7 +39,7 @@ interface MealPlannerProps {
   weekPlan: WeekPlan;
   dailyTotals: DailyTotal[];
   activeGoal: GoalMacros | null;
-  onDrop: (day: string, mealId: string, recipe: Recipe, servings?: number) => void;
+  onDrop: (day: string, mealId: string, recipe: Recipe, plates?: number, portion?: number) => void;
   onClearMeal: (day: string, mealId: string) => void;
   onClearDay: (day: string) => void;
   onClearWeek: () => void;
@@ -59,7 +59,7 @@ interface MealPlannerProps {
   isAutocompleting?: boolean;
   /** Huecos que la última pasada de autocompletado dejó vacíos, con su motivo. */
   unfilledSlots?: UnfilledSlot[];
-  onUpdateServingsEaten?: (day: string, mealId: string, instanceId: string, servings: number) => void;
+  onUpdatePlates?: (day: string, mealId: string, instanceId: string, plates: number) => void;
 }
 
 interface MealSlotProps {
@@ -67,7 +67,7 @@ interface MealSlotProps {
   meal: Meal;
   isEditing: boolean;
   activeGoal: GoalMacros | null;
-  onDrop: (day: string, mealId: string, recipe: Recipe, servings?: number) => void;
+  onDrop: (day: string, mealId: string, recipe: Recipe, plates?: number, portion?: number) => void;
   onClearMeal: (day: string, mealId: string) => void;
   onRecipeClick: (recipe: Recipe) => void;
   onRemoveRecipeFromMeal: (day: string, mealId: string, recipeInstanceId: string) => void;
@@ -87,7 +87,7 @@ interface MealSlotProps {
   isAutocompleting?: boolean;
   /** Motivo por el que el autocompletado dejó ESTE hueco vacío, si lo dejó. */
   unfilledReason?: UnfilledReason;
-  onUpdateServingsEaten?: (day: string, mealId: string, instanceId: string, servings: number) => void;
+  onUpdatePlates?: (day: string, mealId: string, instanceId: string, plates: number) => void;
 }
 
 /**
@@ -101,7 +101,8 @@ const PLAN_DRAG_TYPE = 'application/x-nutrilp-plan-slot';
 interface PlanDragPayload {
   day: string;
   mealId: string;
-  servingsEaten: number;
+  plates: number;
+  portion: number;
 }
 
 const getMacroColorClass = (current: number, target: number | undefined): string => {
@@ -157,18 +158,16 @@ const DailyTotalsRow = ({ totals, previewTotals, goal, className }: { totals: Ma
 )};
 
 
-function MealRecipeChip({ recipe, day, mealId, onRecipeClick, onRemove, onUpdateServings }: {
+function MealRecipeChip({ recipe, day, mealId, onRecipeClick, onRemove, onUpdatePlates }: {
   recipe: RecipeInstance;
   day: string;
   mealId: string;
   onRecipeClick: (r: Recipe) => void;
   onRemove: () => void;
-  onUpdateServings: (s: number) => void;
+  onUpdatePlates: (n: number) => void;
 }) {
-  const servingsEaten = recipe.servingsEaten ?? 1;
-  const totalServings = recipe.servings ?? 1;
-  const scale = servingsEaten / totalServings;
-  const kcal = Math.round(recipe.calories * scale);
+  const plates = instancePlates(recipe);
+  const kcal = Math.round(effectiveMacros(recipe).calories);
 
   /**
    * Arrastrar una receta YA PLANIFICADA a otro hueco la COPIA: sigue en el día
@@ -180,15 +179,15 @@ function MealRecipeChip({ recipe, day, mealId, onRecipeClick, onRemove, onUpdate
    * que el hueco de destino no necesita saber de dónde viene: `handleDrop` de
    * `use-week-plan-state` genera un `instanceId` nuevo en cada caída, de modo
    * que la copia es una instancia independiente y no un alias de la original.
-   * El payload extra solo sirve para conservar las raciones y para ignorar la
-   * caída en el mismo hueco del que salió.
+   * El payload extra solo sirve para conservar los platos y su tamaño, y para
+   * ignorar la caída en el mismo hueco del que salió.
    */
   const handleChipDragStart = (e: DragEvent<HTMLDivElement>) => {
     e.stopPropagation(); // si no, arrastra el hueco entero
     e.dataTransfer.setData('application/json', JSON.stringify(recipe));
     e.dataTransfer.setData(
       PLAN_DRAG_TYPE,
-      JSON.stringify({ day, mealId, servingsEaten } satisfies PlanDragPayload)
+      JSON.stringify({ day, mealId, plates, portion: instancePortion(recipe) } satisfies PlanDragPayload)
     );
     e.dataTransfer.effectAllowed = 'copy';
     dragStore.setDraggedRecipe(recipe);
@@ -209,24 +208,27 @@ function MealRecipeChip({ recipe, day, mealId, onRecipeClick, onRemove, onUpdate
         <span className="text-center font-semibold text-secondary-foreground text-xs leading-tight line-clamp-3">
           {recipe.name}
         </span>
+        {/* Platos, en entero. El tamaño de cada plato ya lo pone el factor de
+            ración del perfil, así que aquí no hay nada que teclear: esto solo
+            cuenta cuántos te comes, que es lo mismo que poner el plato dos
+            veces. El − se apaga en 1 —quitar es la X, no bajar a cero— y el +
+            se apaga en el tope. */}
         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
           <button
-            className="h-5 w-5 flex items-center justify-center rounded-full bg-muted hover:bg-muted-foreground/20 text-sm font-bold leading-none"
-            onClick={() => onUpdateServings(clampServings(servingsEaten - 1))}
+            className="h-5 w-5 flex items-center justify-center rounded-full bg-muted hover:bg-muted-foreground/20 text-sm font-bold leading-none disabled:opacity-30 disabled:hover:bg-muted"
+            onClick={() => onUpdatePlates(plates - 1)}
+            disabled={plates <= 1}
+            aria-label={`Un plato menos de ${recipe.name}`}
           >−</button>
-          <span className="text-[10px] text-muted-foreground font-medium whitespace-nowrap flex items-center">
-            {/* Escribible para las fracciones; los ± siguen yendo de uno en uno. */}
-            <ServingsField
-              value={servingsEaten}
-              onCommit={onUpdateServings}
-              ariaLabel={`Raciones de ${recipe.name}`}
-              className="w-7 bg-transparent text-center font-medium outline-none rounded focus:ring-1 focus:ring-ring"
-            />
-            rac · {kcal} kcal
+          <span className="text-[10px] text-muted-foreground font-medium whitespace-nowrap">
+            {plates > 1 && <span className="font-bold text-secondary-foreground">×{plates} </span>}
+            {kcal} kcal
           </span>
           <button
-            className="h-5 w-5 flex items-center justify-center rounded-full bg-muted hover:bg-muted-foreground/20 text-sm font-bold leading-none"
-            onClick={() => onUpdateServings(clampServings(servingsEaten + 1))}
+            className="h-5 w-5 flex items-center justify-center rounded-full bg-muted hover:bg-muted-foreground/20 text-sm font-bold leading-none disabled:opacity-30 disabled:hover:bg-muted"
+            onClick={() => onUpdatePlates(plates + 1)}
+            disabled={plates >= MAX_PLATES_PER_SLOT}
+            aria-label={`Un plato más de ${recipe.name}`}
           >+</button>
         </div>
       </div>
@@ -242,9 +244,10 @@ function MealRecipeChip({ recipe, day, mealId, onRecipeClick, onRemove, onUpdate
   );
 }
 
-function MealSlot({ day, meal, isEditing, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onUpdateMealTypes, onDeleteMeal, isActiveDropTarget, onSetDropTarget, onMealSlotClick, onSelectSlot, onDragEnterSlot, onDragLeaveSlot, isDragOverSlot, unfilledReason, onUpdateServingsEaten }: MealSlotProps) {
+function MealSlot({ day, meal, isEditing, activeGoal, onDrop, onClearMeal, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onUpdateMealTypes, onDeleteMeal, isActiveDropTarget, onSetDropTarget, onMealSlotClick, onSelectSlot, onDragEnterSlot, onDragLeaveSlot, isDragOverSlot, unfilledReason, onUpdatePlates }: MealSlotProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(meal.title);
+  const portionFactor = usePortionFactor();
 
   const handleTitleSave = () => {
     if (tempTitle.trim() && tempTitle !== meal.title) {
@@ -292,15 +295,15 @@ function MealSlot({ day, meal, isEditing, activeGoal, onDrop, onClearMeal, onRec
       // Soltarla donde ya estaba no debe duplicarla: es lo que pasa al empezar a
       // arrastrar y arrepentirse, y quedarse con dos copias sorprende.
       if (from.day === day && from.mealId === meal.id) return;
-      // Copia con las raciones que el usuario ya había ajustado. Recalcularlas
-      // del objetivo tiraría justo el ajuste que acaba de hacer a mano.
-      onDrop(day, meal.id, recipe, from.servingsEaten);
+      // Copia con los platos y el tamaño que el usuario ya había ajustado.
+      // Recalcularlos tiraría justo el ajuste que acaba de hacer a mano.
+      onDrop(day, meal.id, recipe, from.plates, from.portion);
       return;
     }
 
-    // Pre-fill the portion so it covers this slot's share of the user's goal.
-    const target = activeGoal ? activeGoal.calories * mealCalorieRatio(meal.mealTypes ?? []) : null;
-    onDrop(day, meal.id, recipe, suggestedServings(recipe, target));
+    // De la biblioteca: mismo cálculo que todos los demás caminos.
+    const { plates, portion } = placementFor(recipe, meal.mealTypes, activeGoal, portionFactor);
+    onDrop(day, meal.id, recipe, plates, portion);
   };
 
   /**
@@ -433,7 +436,7 @@ function MealSlot({ day, meal, isEditing, activeGoal, onDrop, onClearMeal, onRec
                       mealId={meal.id}
                       onRecipeClick={(r) => { onRecipeClick(r); }}
                       onRemove={() => onRemoveRecipeFromMeal(day, meal.id, recipe.instanceId)}
-                      onUpdateServings={(s) => onUpdateServingsEaten?.(day, meal.id, recipe.instanceId, s)}
+                      onUpdatePlates={(n) => onUpdatePlates?.(day, meal.id, recipe.instanceId, n)}
                     />
                 ))}
                 {/* Una comida puede llevar varias recetas, así que la casilla llena
@@ -505,7 +508,7 @@ function AddMealButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onClearDay, onClearWeek, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onUpdateMealTypes, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget, onMealSlotClick, onSelectSlot, onAutocomplete, isAutocompleting, unfilledSlots, onUpdateServingsEaten }: MealPlannerProps) {
+export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClearMeal, onClearDay, onClearWeek, onRecipeClick, onRemoveRecipeFromMeal, onUpdateMealTitle, onUpdateMealTypes, onAddMeal, onDeleteMeal, activeDropTarget, onSetDropTarget, onMealSlotClick, onSelectSlot, onAutocomplete, isAutocompleting, unfilledSlots, onUpdatePlates }: MealPlannerProps) {
   // Índice día|comida → motivo, para no recorrer la lista en cada uno de los 28 huecos.
   const unfilledByKey = React.useMemo(
     () => new Map((unfilledSlots ?? []).map(u => [`${u.day}|${u.mealId}`, u.reason])),
@@ -656,7 +659,7 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                        onDragLeaveSlot={() => setHoveredSlot(null)}
                        isDragOverSlot={hoveredSlot?.day === dayPlan.day && hoveredSlot?.mealId === meal.id}
                        unfilledReason={unfilledByKey.get(`${dayPlan.day}|${meal.id}`)}
-                       onUpdateServingsEaten={onUpdateServingsEaten}
+                       onUpdatePlates={onUpdatePlates}
                      />
                      {isEditing && <AddMealButton onClick={() => onAddMeal(dayPlan.day, index + 1)} />}
                   </React.Fragment>
@@ -716,8 +719,8 @@ export function MealPlanner({ weekPlan, dailyTotals, activeGoal, onDrop, onClear
                     {meal.recipes.length > 0 ? meal.recipes.map((recipe) => (
                       <div key={recipe.instanceId} style={{ fontSize: 14.5, lineHeight: 1.3, marginBottom: 3, overflowWrap: 'break-word' }}>
                         {recipe.name}
-                        {(recipe.servingsEaten ?? 1) !== 1 && (
-                          <span style={{ color: '#8A6A4A', fontSize: 12.5 }}> ×{recipe.servingsEaten}</span>
+                        {instancePlates(recipe) > 1 && (
+                          <span style={{ color: '#8A6A4A', fontSize: 12.5 }}> ×{instancePlates(recipe)}</span>
                         )}
                       </div>
                     )) : (

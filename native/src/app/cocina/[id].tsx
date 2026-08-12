@@ -9,10 +9,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChefieMascot, type ChefiePose } from '@/components/chefie-mascot';
 import { ServingsInput } from '@/components/servings-input';
 import { Fonts, Radii } from '@/constants/theme';
-import { useRecipes } from '@/hooks/use-nutrilp-data';
+import { useProfile, useRecipes } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
 import { parseStepDurations, splitInstructionSteps } from '@/lib/recipe-steps';
-import { clampServings, formatServings, servingsLabel } from '@/lib/serving-utils';
+import { clampServings, formatServings, portionFor, servingsLabel } from '@/lib/serving-utils';
+import { scaleIngredientQuantity } from '@/lib/portion-scaling';
 import { pluralizeUnit } from '@/lib/utils';
 
 /**
@@ -40,6 +41,7 @@ export default function CocinaScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { userRecipes, globalRecipes } = useRecipes();
+  const { portionFactor } = useProfile();
   useKeepAwake(); // cocinando con las manos ocupadas: que no se apague
 
   const recipe = useMemo(
@@ -48,7 +50,15 @@ export default function CocinaScreen() {
   );
 
   const batchServings = recipe?.servings && recipe.servings > 0 ? recipe.servings : 1;
-  const [servings, setServings] = useState(batchServings);
+  /**
+   * Raciones a preparar. Arranca en 1 como en la web: de un lote de ocho bagels
+   * lo normal es querer el tuyo. Antes arrancaba con el lote entero y, encima,
+   * el valor inicial se calculaba antes de que la receta hubiera cargado — con
+   * lo que se quedaba en 1 igualmente, pero por accidente. Se resiembra al
+   * cambiar de receta, no en cada render, para no pisar lo que el usuario toque.
+   */
+  const [servings, setServings] = useState(1);
+  useEffect(() => setServings(1), [id]);
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [stepIndex, setStepIndex] = useState(0);
   const [timerSeconds, setTimerSeconds] = useState<number | null>(null);
@@ -81,6 +91,14 @@ export default function CocinaScreen() {
 
   const steps = useMemo(() => splitInstructionSteps(recipe?.instructions ?? ''), [recipe]);
   const durations = useMemo(() => parseStepDurations(steps[stepIndex] ?? ''), [steps, stepIndex]);
+  /**
+   * Dos escalados distintos, y el orden importa (igual que en la web):
+   * 1. Redimensionar la receta al tamano del usuario — los condimentos NO
+   *    escalan: cocinar para uno mas no lleva mas pimienta.
+   * 2. Repartir el lote entre las raciones a preparar — esto si es lineal:
+   *    coger 1 de 4 raciones da un cuarto de TODO, aceite incluido.
+   */
+  const resize = recipe ? portionFor(recipe, portionFactor) : 1;
   const scale = servings / batchServings;
 
   if (!recipe) {
@@ -174,7 +192,7 @@ export default function CocinaScreen() {
         </Pressable>
         {ingredientsOpen && recipe.ingredients.map((ing) => {
           const isWeight = ['g', 'ml', ''].includes((ing.unit || '').toLowerCase());
-          const qty = ing.quantity * scale;
+          const qty = scaleIngredientQuantity(ing, resize) * scale;
           const qtyLabel = isWeight
             ? `${Math.round(qty)} ${ing.unit || 'g'}`
             : `${Number(qty.toFixed(1))} ${pluralizeUnit(ing.unit, qty)}`;

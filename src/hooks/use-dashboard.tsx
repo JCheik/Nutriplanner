@@ -15,7 +15,7 @@ import { autocompleteWeek } from '@/ai/flows/autocomplete-flow';
 import { autocompleteToast, type UnfilledSlot } from '@/lib/autocomplete-summary';
 import { getAiErrorMessage } from '@/lib/ai-error';
 import { useAiQuota } from '@/hooks/use-ai-quota';
-import { mealCalorieRatio, suggestedServings } from '@/lib/serving-utils';
+import { effectiveMacros, placementFor, portionFor } from '@/lib/serving-utils';
 import type { AutocompletePreferences } from '@/components/nutri-planner/autocomplete-preferences-dialog';
 
 export function useDashboard() {
@@ -54,12 +54,15 @@ export function useDashboard() {
     handleUpdateMealTypes,
     handleAddMeal,
     handleDeleteMeal,
-    handleUpdateServingsEaten,
+    handleUpdatePlates,
   } = weekPlanState;
 
   const {
     currentCalorieResult,
     activeGoalMacros,
+    portionFactor,
+    isPortionFactorManual,
+    handlePortionFactorChange,
     currentShoppingList,
     currentDietPreference,
     nutriInterview,
@@ -107,11 +110,11 @@ export function useDashboard() {
 
     const { day, mealId } = activeDropTarget;
     const meal = currentWeekPlan.find(d => d.day === day)?.meals.find(m => m.id === mealId);
-    // Mismas raciones que por el diálogo: la porción cubre la parte del objetivo
-    // que le toca a esa comida. Antes este camino metía siempre 1 ración, así que
-    // la misma receta entraba distinta según por dónde la añadieras.
-    const target = activeGoalMacros ? activeGoalMacros.calories * mealCalorieRatio(meal?.mealTypes ?? []) : null;
-    handleDrop(day, mealId, recipe, suggestedServings(recipe, target));
+    // Mismo cálculo que por el diálogo y que en la app: `placementFor` es el
+    // único sitio donde se decide cuánto entra, así que la misma receta entra
+    // igual venga por donde venga.
+    const { plates, portion } = placementFor(recipe, meal?.mealTypes, activeGoalMacros, portionFactor);
+    handleDrop(day, mealId, recipe, plates, portion);
 
     // La casilla SIGUE elegida: lo normal es meter dos o tres cosas seguidas en
     // la misma comida, y deseleccionar obligaba a volver al cuadrante entre una
@@ -170,12 +173,10 @@ export function useDashboard() {
 
   const handleRecipeSelectionSave = (selectedRecipes: Recipe[]) => {
     if (!selectedMealForAddition || !activeDropTarget) return;
-    const target = activeGoalMacros
-      ? activeGoalMacros.calories * mealCalorieRatio(selectedMealForAddition.mealTypes ?? [])
-      : null;
-    selectedRecipes.forEach(recipe =>
-      handleDrop(activeDropTarget.day, selectedMealForAddition.id, recipe, suggestedServings(recipe, target))
-    );
+    selectedRecipes.forEach(recipe => {
+      const { plates, portion } = placementFor(recipe, selectedMealForAddition.mealTypes, activeGoalMacros, portionFactor);
+      handleDrop(activeDropTarget.day, selectedMealForAddition.id, recipe, plates, portion);
+    });
     setIsRecipeSelectorOpen(false);
     setSelectedMealForAddition(null);
   };
@@ -257,6 +258,7 @@ export function useDashboard() {
         weekPlan: opts?.planOverride ?? currentWeekPlan,
         availableRecipes,
         activeGoal: activeGoalMacros || null,
+        portionFactor,
         preferences: {
           ...flowPreferences,
           diet: currentDietPreference,
@@ -277,7 +279,9 @@ export function useDashboard() {
       });
       placements.forEach(p => {
         const recipe = availableRecipes.find(r => r.id === p.recipeId);
-        if (recipe) handleDrop(p.day, p.mealId, recipe, p.servings);
+        // El flujo ya ha ajustado los platos contra el tamaño de este usuario,
+        // así que el tamaño que se guarda es el mismo con el que decidió.
+        if (recipe) handleDrop(p.day, p.mealId, recipe, p.plates, portionFor(recipe, portionFactor));
       });
       setUnfilledSlots(unfilled);
       const resultToast = autocompleteToast(placements.length, unfilled);
@@ -336,11 +340,11 @@ export function useDashboard() {
       if (Array.isArray(dayPlan.meals)) {
         dayPlan.meals.forEach(meal =>
           meal.recipes.forEach(recipe => {
-            const scale = (recipe.servingsEaten ?? 1) / (recipe.servings ?? 1);
-            totals.calories += recipe.calories * scale;
-            totals.protein += recipe.protein * scale;
-            totals.carbs += recipe.carbs * scale;
-            totals.fat += recipe.fat * scale;
+            const m = effectiveMacros(recipe);
+            totals.calories += m.calories;
+            totals.protein += m.protein;
+            totals.carbs += m.carbs;
+            totals.fat += m.fat;
           })
         );
       }
@@ -355,11 +359,12 @@ export function useDashboard() {
     // Week plan state
     currentWeekPlan, dailyTotals,
     handleDrop, handleClearMeal, handleClearDay, handleClearWeek, handleRestoreWeek, handleRemoveRecipeFromMeal,
-    handleUpdateMealTitle, handleUpdateMealTypes, handleAddMeal, handleDeleteMeal, handleUpdateServingsEaten,
+    handleUpdateMealTitle, handleUpdateMealTypes, handleAddMeal, handleDeleteMeal, handleUpdatePlates,
     // Week history
     weekHistory,
     // User profile state
     currentCalorieResult, activeGoalMacros, currentShoppingList, currentDietPreference, nutriInterview, activeGoal,
+    portionFactor, isPortionFactorManual, handlePortionFactorChange,
     handleCalorieResultSave, handleActiveGoalChange, handleSaveCustomGoal, handleShoppingListUpdate, handleDietPreferenceChange, handleNutriInterviewSave,
     // UI state
     dialogState, activePanel, activeDropTarget, setActiveDropTarget,

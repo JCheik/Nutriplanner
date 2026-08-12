@@ -5,6 +5,7 @@ import { firestore } from '@/firebase';
 import { useAuthUser } from '@/firebase/auth-context';
 import { useCollection, useDoc } from '@/firebase/firestore-hooks';
 import { DAY_ORDER, INITIAL_WEEK_PLAN } from '@/lib/data';
+import { portionFactorFor } from '@/lib/serving-utils';
 import { readCache, writeCache } from '@/lib/offline-cache';
 import type { DayPlan, GoalMacros, Recipe, UserProfile, WeekPlan } from '@/lib/types';
 
@@ -71,9 +72,18 @@ export function useRecipes() {
   const mine = useCached<Recipe[]>('userRecipes', user?.uid, userRecipes);
   const global = useCached<Recipe[]>('globalRecipes', user?.uid, globalRecipes);
 
+  // El catálogo se marca con su procedencia al leerlo, igual que en la web: es
+  // lo único que distingue una receta de Nutrilp de una del usuario, y hace
+  // falta para redimensionarla al tamaño de quien la mira. Se marca DESPUÉS de
+  // la caché, así que también vale para lo que ya estuviera guardado en disco.
+  const globalTagged = useMemo(
+    () => (global.value ?? []).map((r) => ({ ...r, origin: 'nutrilp' as const })),
+    [global.value]
+  );
+
   return {
     userRecipes: mine.value ?? [],
-    globalRecipes: global.value ?? [],
+    globalRecipes: globalTagged,
     loading: (userLoading || globalLoading) && !mine.fromCache && !global.fromCache,
     fromCache: mine.fromCache || global.fromCache,
   };
@@ -93,5 +103,11 @@ export function useProfile() {
     return result[pref] ?? result.maintenance ?? null;
   }, [profile]);
 
-  return { profile, activeGoalMacros, loading: loading && !fromCache, fromCache };
+  /**
+   * Tamaño de plato del usuario: lo que adapta el recetario de Nutrilp a quien
+   * lo mira. Del ajuste manual si lo hay, y si no del objetivo.
+   */
+  const portionFactor = useMemo(() => portionFactorFor(profile, activeGoalMacros), [profile, activeGoalMacros]);
+
+  return { profile, activeGoalMacros, portionFactor, loading: loading && !fromCache, fromCache };
 }

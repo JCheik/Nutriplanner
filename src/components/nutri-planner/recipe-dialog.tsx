@@ -29,6 +29,9 @@ import Image from 'next/image';
 import { Switch } from '../ui/switch';
 import { normalizeText, ingredientKey, pluralizeUnit, cn } from '@/lib/utils';
 import { findSimilarIngredient } from '@/lib/ingredient-similarity';
+import { computeFixedMacros, scaleBatchMacros, scaleIngredientQuantity } from '@/lib/portion-scaling';
+import { batchServings, formatPortionFactor, plateMacros, portionFor } from '@/lib/serving-utils';
+import { usePortionFactor } from '@/hooks/use-portion-factor';
 import { useToast } from '@/hooks/use-toast';
 import { CookingModeDialog } from './cooking-mode-dialog';
 import { ChefHat } from 'lucide-react';
@@ -382,7 +385,11 @@ function RecipeForm({ recipe: initialRecipe, isInitiallyGlobal = false, aiIngred
       imageUrl,
       // Only persist a valid URL; empty string would fail the schema's .url() check.
       ...(sourceUrl.trim() ? { sourceUrl: sourceUrl.trim() } : {}),
-      ...macros
+      ...macros,
+      // Parte de los macros que NO escala al redimensionar el plato (aceite,
+      // sal, especias). Se calcula aquí, una vez, para no tener que resolver el
+      // catálogo de ingredientes en cada pantalla que enseñe un número.
+      fixedMacros: computeFixedMacros(ingredients, ingredientDB),
     };
 
     onSave(recipeData as Omit<Recipe, 'id'>, imageFile, saveAsGlobal, initialRecipe?.id);
@@ -950,6 +957,15 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe, is
   
   const ingredientDBMap = useMemo(() => buildIngredientDBMap(ingredientDB), [ingredientDB]);
 
+  /**
+   * Al VER una receta se enseña al tamaño del usuario, cantidades incluidas: si
+   * la ficha dijera 200 g de pollo y el cuadrante contara los de un plato más
+   * grande, los dos números se contradirían. Editar es otra cosa y no pasa por
+   * aquí — el formulario siempre trabaja con la receta tal cual está guardada.
+   */
+  const viewPortionFactor = usePortionFactor();
+  const isViewResized = recipe.origin === 'nutrilp' && viewPortionFactor !== 1;
+
   const canEdit = isAdmin || !isNutriPlannerRecipe;
 
   const categoryBadges = (recipe.category ?? []).map((cat) => (
@@ -970,9 +986,15 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe, is
       <div>
         <h3 className="font-semibold mb-2">Ingredientes</h3>
         <ul className="list-disc list-inside space-y-1 text-sm">
-          {recipe.ingredients.map(ing => {
+          {recipe.ingredients.map(rawIng => {
             // Always look up the ingredient in the DB map to get live macros
-            const baseIng = lookupBaseIngredient(ingredientDBMap, ing.name, ing.brand);
+            const baseIng = lookupBaseIngredient(ingredientDBMap, rawIng.name, rawIng.brand);
+            // Cantidad al tamaño del usuario. Los condimentos se quedan como
+            // están: cocinar para uno más no lleva más pimienta.
+            const ing = {
+              ...rawIng,
+              quantity: scaleIngredientQuantity(rawIng, portionFor(recipe, viewPortionFactor), baseIng),
+            };
             const grams = ingredientGrams(ing, baseIng);
             const scale = baseIng ? grams / 100 : 0;
             const calories = baseIng ? (baseIng.calories || 0) * scale : 0;
@@ -1064,29 +1086,35 @@ function RecipeView({ recipe, onEdit, onDelete, onCopy, isNutriPlannerRecipe, is
                 </div>
             )}
           </div>
-          {/* Per-serving values lead: they're what actually lands on a plate and
-              what the plan counts. The whole-batch total is the secondary note. */}
+          {/* Manda el plato, que es lo que se come y lo que cuenta el plan; el
+              lote entero queda como nota. Y el plato va al tamaño del usuario:
+              si aquí se enseñara la ración de referencia, el número no cuadraría
+              con el del cuadrante. */}
           {(() => {
-            const servings = recipe.servings && recipe.servings > 0 ? recipe.servings : 1;
+            const servings = batchServings(recipe);
+            const plate = plateMacros(recipe, viewPortionFactor);
+            const batch = scaleBatchMacros(recipe, portionFor(recipe, viewPortionFactor));
             return (
               <>
-                {servings > 1 && (
+                {(servings > 1 || isViewResized) && (
                   <p className="text-xs text-muted-foreground text-center mb-1">
-                    Valores por ración · la receta rinde {servings} raciones
+                    Valores por plato
+                    {isViewResized && <> · ajustado a tu tamaño ({formatPortionFactor(viewPortionFactor)})</>}
+                    {servings > 1 && <> · la receta rinde {servings} raciones</>}
                   </p>
                 )}
                 <div className="grid grid-cols-4 gap-2 text-center">
-                  <MacroDisplay label="Calorías" value={recipe.calories / servings} unit="kcal" icon={Flame} />
-                  <MacroDisplay label="Proteína" value={recipe.protein / servings} unit="g" icon={EggFried} />
-                  <MacroDisplay label="Carbs" value={recipe.carbs / servings} unit="g" icon={Wheat} />
-                  <MacroDisplay label="Grasa" value={recipe.fat / servings} unit="g" icon={Droplets} />
+                  <MacroDisplay label="Calorías" value={plate.calories} unit="kcal" icon={Flame} />
+                  <MacroDisplay label="Proteína" value={plate.protein} unit="g" icon={EggFried} />
+                  <MacroDisplay label="Carbs" value={plate.carbs} unit="g" icon={Wheat} />
+                  <MacroDisplay label="Grasa" value={plate.fat} unit="g" icon={Droplets} />
                 </div>
                 {servings > 1 && (
                   <div className="mt-2 p-2 rounded-lg bg-primary/5 border border-primary/10 text-center">
                     <p className="text-xs text-muted-foreground">
-                      Receta completa ({servings} raciones): {Math.round(recipe.calories)} kcal ·{' '}
-                      {Math.round(recipe.protein)}g prot · {Math.round(recipe.carbs)}g carbs ·{' '}
-                      {Math.round(recipe.fat)}g grasa
+                      Receta completa ({servings} raciones): {Math.round(batch.calories)} kcal ·{' '}
+                      {Math.round(batch.protein)}g prot · {Math.round(batch.carbs)}g carbs ·{' '}
+                      {Math.round(batch.fat)}g grasa
                     </p>
                   </div>
                 )}

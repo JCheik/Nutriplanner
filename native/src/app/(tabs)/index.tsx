@@ -27,26 +27,15 @@ import { useProfile, useWeekPlan } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
 import { setPlanClipboard, usePlanClipboard } from '@/lib/plan-clipboard';
 import { describeEmptySlots, findEmptySlots } from '@/lib/plan-search';
-import { formatServings } from '@/lib/serving-utils';
+import { effectiveMacros, instancePlates } from '@/lib/serving-utils';
 import { shareWeekPdf } from '@/lib/week-pdf';
 import type { DayPlan, GoalMacros, Macros, RecipeInstance, WeekHistoryEntry } from '@/lib/types';
-
-/** Macros a RecipeInstance contributes to the day: batch totals × raciones/lote. */
-function instanceMacros(r: RecipeInstance) {
-  const scale = (r.servingsEaten ?? 1) / (r.servings && r.servings > 0 ? r.servings : 1);
-  return {
-    calories: (r.calories || 0) * scale,
-    protein: (r.protein || 0) * scale,
-    carbs: (r.carbs || 0) * scale,
-    fat: (r.fat || 0) * scale,
-  };
-}
 
 function dayTotals(day: DayPlan): Macros {
   const total = { calories: 0, protein: 0, carbs: 0, fat: 0 };
   day.meals.forEach((m) =>
     m.recipes.forEach((r) => {
-      const mac = instanceMacros(r);
+      const mac = effectiveMacros(r);
       total.calories += mac.calories;
       total.protein += mac.protein;
       total.carbs += mac.carbs;
@@ -391,7 +380,7 @@ function HoyView({
             ) : null}
           </View>
           {meal.recipes.map((r) => {
-            const mac = instanceMacros(r);
+            const mac = effectiveMacros(r);
             const batch = r.servings && r.servings > 1 ? r.servings : 0;
             return (
               <View
@@ -422,7 +411,7 @@ function HoyView({
                       {r.name}
                     </Text>
                     <Text style={{ fontSize: 11.5, color: c.inkSoft, fontFamily: Fonts.sans }}>
-                      {formatServings(r.servingsEaten ?? 1)} rac · {Math.round(mac.calories)} kcal ·{' '}
+                      {instancePlates(r) > 1 ? `×${instancePlates(r)} · ` : ''}{Math.round(mac.calories)} kcal ·{' '}
                       {Math.round(mac.protein)} P
                       {batch ? ` · lote de ${batch}` : ''}
                     </Text>

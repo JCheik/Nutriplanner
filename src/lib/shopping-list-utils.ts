@@ -1,3 +1,5 @@
+import { scaleIngredientQuantity } from './portion-scaling';
+import { batchServings, instancePlates, instancePortion } from './serving-utils';
 import type { DayPlan, ShoppingListItem } from './types';
 import { ingredientKey, normalizeText, pluralizeUnit } from './utils';
 
@@ -5,9 +7,13 @@ import { ingredientKey, normalizeText, pluralizeUnit } from './utils';
  * Builds the shopping list from the week plan. Single implementation shared by
  * the web sheet and the mobile page (they used to have divergent copies).
  *
- * - Quantities are scaled by the servings planned in each placement
- *   (`servingsEaten / recipe.servings`): planning 1 serving of a 4-serving
- *   batch adds 1/4 of each ingredient, not the whole batch.
+ * - Las cantidades se escalan por lo planificado en cada colocación: el lote se
+ *   lleva al tamaño de plato del usuario (`portion`), y de ahí sale la parte que
+ *   se come (`plates / servings`). Planificar 1 plato de un lote de 4 pone 1/4
+ *   de cada ingrediente en la lista, no el lote entero.
+ * - **Los condimentos no escalan.** Cocinar para uno más no lleva más pimienta,
+ *   así que el aceite, la sal y las especias se quedan como están (la regla vive
+ *   en `portion-scaling.ts`, y es la misma que usan los macros).
  * - Aggregation key is accent-insensitive and brand-aware (ingredientKey), so
  *   "limón" and "limon" merge but two brands of the same product don't.
  */
@@ -18,13 +24,13 @@ export function generateShoppingListFromPlan(weekPlan: DayPlan[] | null | undefi
   weekPlan.forEach(dayPlan => {
     (dayPlan.meals || []).forEach(meal => {
       (meal.recipes || []).forEach(recipe => {
-        const batchServings = recipe.servings && recipe.servings > 0 ? recipe.servings : 1;
-        const scale = (recipe.servingsEaten ?? 1) / batchServings;
+        const eatenShare = instancePlates(recipe) / batchServings(recipe);
+        const portion = instancePortion(recipe);
         (recipe.ingredients || []).forEach(ingredient => {
           const unit = ingredient.unit || 'g';
           const key = `${ingredientKey(ingredient.name, ingredient.brand)}|${normalizeText(unit)}`;
           const existing = aggregated.get(key);
-          const qty = ingredient.quantity * scale;
+          const qty = scaleIngredientQuantity(ingredient, portion) * eatenShare;
           if (existing) {
             existing.quantity += qty;
           } else {

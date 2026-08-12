@@ -3,9 +3,10 @@
 import { ai, GEMINI_MODEL_BULK } from '@/ai/genkit';
 import { z } from 'zod';
 import { DIET_TAG_ENUM, type WeekPlan, type GoalMacros, type Recipe, type MealCategory, type DietTag } from '@/lib/types';
-import { suggestedServings, mealCalorieRatio } from '@/lib/serving-utils';
+import { clampPlates, mealCalorieRatio, plateMacros, portionFactorFromGoal } from '@/lib/serving-utils';
 import { NutriInterviewPromptSchema, type InterviewForPrompt } from '@/ai/prompt-fragments';
 import { expandAllergens, recipeHasAllergen } from '@/lib/allergens';
+import { MAX_PLATES_PER_SLOT } from '@/lib/constants';
 
 const AutocompletePreferencesSchema = z.object({
   // 'max_twice' is the legacy value (fixed limit of 2); 'max_n' uses the
@@ -36,6 +37,12 @@ const AutocompleteInputSchema = z.object({
   availableRecipes: z.any(),
   activeGoal: z.any().nullable(),
   preferences: AutocompletePreferencesSchema,
+  /**
+   * Tamaño de plato del usuario. Opcional para no romper a los clientes que
+   * aún no lo mandan (PWA en caché, app sin actualizar): si falta se deduce del
+   * objetivo, que es lo mismo salvo que lo haya fijado a mano.
+   */
+  portionFactor: z.number().optional(),
 });
 
 // What the LLM returns (just the assignment).
@@ -54,7 +61,7 @@ const AutocompleteOutputSchema = z.object({
     day: z.string(),
     mealId: z.string(),
     recipeId: z.string(),
-    servings: z.number(),
+    plates: z.number(),
   })),
   unfilled: z.array(z.object({
     day: z.string(),
@@ -101,9 +108,9 @@ function inferTypeFromTitle(mealTitle: string): MealCategory {
   return 'otro';
 }
 
-// A meal slot is at most this many servings of ONE recipe — beyond that, no
-// realistic whole-serving amount of a single dish should be suggested.
-const MAX_SERVINGS_PER_SLOT = 3;
+// El tope de platos por hueco vive en constants.ts: lo comparten el
+// autocompletado, el chip del plan y la app, y antes solo lo aplicaba una de
+// las dos ramas de aquí abajo — con prioridad 'variedad' se colaban «×12».
 
 // Search every eligible recipe at every realistic whole-serving count (1..max)
 // for one that lands the slot's calories within ±marginPercent of the target.
@@ -172,7 +179,11 @@ const autocompleteWeekFlow = ai.defineFlow(
     inputSchema: AutocompleteInputSchema,
     outputSchema: AutocompleteOutputSchema,
   },
-  async ({ weekPlan, availableRecipes, activeGoal, preferences }) => {
+  async ({ weekPlan, availableRecipes, activeGoal, preferences, portionFactor }) => {
+
+    // Tamaño de plato del usuario. Del llamante si lo manda (puede haberlo
+    // fijado a mano); si no, del objetivo, que es de donde sale por defecto.
+    const userFactor = portionFactor ?? portionFactorFromGoal(activeGoal?.calories);
 
     // Use per-serving macros so the AI can reason about real intake.
     // Shuffled: with a stable ordering the model kept gravitating to the same
@@ -216,8 +227,11 @@ const autocompleteWeekFlow = ai.defineFlow(
       name: r.name,
       category: r.category ?? [],
       dietTags: r.dietTags ?? [],
-      caloriesPerServing: Math.round(r.calories / (r.servings ?? 1)),
-      proteinPerServing: Math.round(r.protein / (r.servings ?? 1)),
+      // Un PLATO ya al tamaño de este usuario, no la ración de referencia:
+      // así el modelo y el ajuste de abajo razonan en la misma unidad en la que
+      // se va a colocar, y el resultado no se sale del margen al pintarlo.
+      caloriesPerServing: Math.round(plateMacros(r, userFactor).calories),
+      proteinPerServing: Math.round(plateMacros(r, userFactor).protein),
       servings: r.servings ?? 1,
     }));
     for (let i = simplifiedRecipes.length - 1; i > 0; i--) {
@@ -460,7 +474,21 @@ Return ONLY a JSON array. Each element: { "day": string, "mealId": string, "reci
     // fractional serving. Either a whole-serving amount of an eligible recipe hits
     // the margin, or the slot is deliberately left empty for the user to fix (wider
     // margin, or a recipe closer to that slot's calorie target).
-    const placements: { day: string; mealId: string; recipeId: string; servings: number }[] = [];
+    const placements: { day: string; mealId: string; recipeId: string; plates: number }[] = [];
+
+    /** Calorías de un plato de esa receta, ya al tamaño del usuario. */
+    const candidateCalories = (recipeId: string): number =>
+      simplifiedById.get(recipeId)?.caloriesPerServing ?? 0;
+
+    /**
+     * Platos que cubren el objetivo del hueco, CON TOPE. Este era el agujero:
+     * el tope solo se aplicaba en la rama del margen, así que con prioridad
+     * distinta de 'objetivo' se colaban doce yogures en un almuerzo.
+     */
+    const platesForSlot = (perPlateCalories: number, targetCalories: number | null): number => {
+      if (!targetCalories || perPlateCalories <= 0) return 1;
+      return clampPlates(targetCalories / perPlateCalories);
+    };
 
     /**
      * Tope de repeticiones, IMPUESTO aquí y no solo pedido en el prompt.
@@ -511,8 +539,8 @@ Return ONLY a JSON array. Each element: { "day": string, "mealId": string, "reci
           if (spreadOnly && daysUsed.has(slot.day)) continue;
           if (!slot.eligibleRecipeIds.includes(fav.recipeId)) continue;
           const recipe = recipeById.get(fav.recipeId);
-          const servings = recipe ? suggestedServings(recipe, slot.targetCalories) : 1;
-          placements.push({ day: slot.day, mealId: slot.mealId, recipeId: fav.recipeId, servings });
+          const plates = platesForSlot(candidateCalories(fav.recipeId), slot.targetCalories);
+          placements.push({ day: slot.day, mealId: slot.mealId, recipeId: fav.recipeId, plates });
           takenSlots.add(key);
           daysUsed.add(slot.day);
           countUse(fav.recipeId);
@@ -566,9 +594,9 @@ Return ONLY a JSON array. Each element: { "day": string, "mealId": string, "reci
 
       if (useGoalMargin && slot.targetCalories != null) {
         const preferUnder = (interview?.freeMealsPerWeek ?? 0) > 0;
-        const fit = bestFitWithinMargin(available, simplifiedById, slot.targetCalories, margin, candidateId, MAX_SERVINGS_PER_SLOT, preferUnder, id => usage.get(id) ?? 0);
+        const fit = bestFitWithinMargin(available, simplifiedById, slot.targetCalories, margin, candidateId, MAX_PLATES_PER_SLOT, preferUnder, id => usage.get(id) ?? 0);
         if (fit) {
-          placements.push({ day: slot.day, mealId: slot.mealId, recipeId: fit.recipeId, servings: fit.servings });
+          placements.push({ day: slot.day, mealId: slot.mealId, recipeId: fit.recipeId, plates: fit.servings });
           countUse(fit.recipeId);
         } else {
           // Hay recetas disponibles; lo que no hay es un número entero de
@@ -578,8 +606,8 @@ Return ONLY a JSON array. Each element: { "day": string, "mealId": string, "reci
         }
       } else {
         const recipe = recipeById.get(candidateId);
-        const servings = recipe ? suggestedServings(recipe, slot.targetCalories) : 1;
-        placements.push({ day: slot.day, mealId: slot.mealId, recipeId: candidateId, servings });
+        const plates = platesForSlot(candidateCalories(candidateId), slot.targetCalories);
+        placements.push({ day: slot.day, mealId: slot.mealId, recipeId: candidateId, plates });
         countUse(candidateId);
       }
     }
@@ -604,6 +632,8 @@ export async function autocompleteWeek(input: {
   weekPlan: unknown;
   availableRecipes: unknown;
   activeGoal: unknown;
+  /** Tamaño de plato del usuario; si falta, se deduce del objetivo. */
+  portionFactor?: number;
   preferences: {
     allowRepetition: 'no_repeat' | 'max_n' | 'max_twice' | 'free';
     maxRepetitions?: number;

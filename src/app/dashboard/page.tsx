@@ -20,7 +20,7 @@ export default function DashboardPage() {
     // Week plan state
     currentWeekPlan, dailyTotals,
     handleDrop, handleClearMeal, handleClearDay, handleClearWeek, handleRestoreWeek, handleRemoveRecipeFromMeal,
-    handleUpdateMealTitle, handleUpdateMealTypes, handleAddMeal, handleDeleteMeal, handleUpdateServingsEaten,
+    handleUpdateMealTitle, handleUpdateMealTypes, handleAddMeal, handleDeleteMeal, handleUpdatePlates, portionFactor,
     // Week history
     weekHistory,
     // User profile state (goals editing now lives in /dashboard/perfil)
@@ -63,7 +63,7 @@ export default function DashboardPage() {
             onAutocomplete={handleAutocompleteWeek}
             isAutocompleting={isAutocompleting}
             unfilledSlots={unfilledSlots}
-            onUpdateServingsEaten={handleUpdateServingsEaten}
+            onUpdatePlates={handleUpdatePlates}
           />
         </div>
         {/* Entre el cuadrante y la biblioteca: el cuadrante enseña los totales
@@ -112,6 +112,7 @@ export default function DashboardPage() {
         userRecipes={currentUserRecipes}
         nutriplannerRecipes={nutriplannerRecipes}
         activeGoalMacros={activeGoalMacros || null}
+        portionFactor={portionFactor}
         dietPreference={currentDietPreference}
         nutriInterview={nutriInterview}
         onDrop={handleDrop}

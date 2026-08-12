@@ -2,8 +2,9 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useUser, useDoc, useFirebase, useMemoFirebase } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { deleteField, doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { clampPortionFactor, portionFactorFor } from '@/lib/serving-utils';
 import type { UserProfile, CalculationResult, GoalType, ShoppingListItem, DietTag, NutriInterview } from '@/lib/types';
 
 export function useUserProfileState() {
@@ -35,6 +36,16 @@ export function useUserProfileState() {
     if (!currentCalorieResult) return null;
     return currentCalorieResult[activeGoal] ?? currentCalorieResult.maintenance ?? null;
   }, [currentCalorieResult, activeGoal]);
+  /**
+   * Tamaño de plato del usuario. El recetario de Nutrilp está escrito para una
+   * persona de referencia; esto es lo que lo adapta a quien lo está mirando, sin
+   * tener que escribir cada receta dos veces. Sale del objetivo salvo que el
+   * usuario lo haya fijado a mano.
+   */
+  const portionFactor = useMemo(
+    () => portionFactorFor(userProfile, activeGoalMacros),
+    [userProfile, activeGoalMacros]
+  );
   const currentShoppingList = useMemo(() => userProfile?.shoppingList || [], [userProfile]);
   const currentDietPreference = useMemo(() => userProfile?.dietPreference || [], [userProfile]);
   const nutriInterview = useMemo(() => userProfile?.nutriInterview ?? null, [userProfile]);
@@ -104,6 +115,25 @@ export function useUserProfileState() {
     }
   }, [userProfileRef, toast]);
 
+  /**
+   * Fija el tamaño de plato a mano. `null` lo devuelve a automático borrando el
+   * campo, para que vuelva a seguir al objetivo: dejarlo guardado con el valor
+   * calculado lo congelaría, y al cambiar de objetivo mentiría en silencio.
+   */
+  const handlePortionFactorChange = useCallback(async (factor: number | null) => {
+    if (!userProfileRef) return;
+    try {
+      await setDoc(
+        userProfileRef,
+        { portionFactor: factor === null ? deleteField() : clampPortionFactor(factor) },
+        { merge: true }
+      );
+    } catch (e) {
+      console.error('Error saving portion factor', e);
+      toast({ variant: 'destructive', title: 'No se pudo guardar el tamaño de ración', description: 'Revisa tu conexión e inténtalo de nuevo.' });
+    }
+  }, [userProfileRef, toast]);
+
   const handleDietPreferenceChange = useCallback(async (diets: DietTag[]) => {
     if (userProfileRef) {
       try {
@@ -118,6 +148,9 @@ export function useUserProfileState() {
   return {
     currentCalorieResult,
     activeGoalMacros,
+    portionFactor,
+    isPortionFactorManual: userProfile?.portionFactor != null,
+    handlePortionFactorChange,
     currentShoppingList,
     currentDietPreference,
     nutriInterview,

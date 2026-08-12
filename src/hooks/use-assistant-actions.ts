@@ -4,7 +4,7 @@ import { useCallback } from 'react';
 import type { WeekPlan, Recipe, GoalMacros, GoalType, Meal, DayPlan } from '@/lib/types';
 import { DAY_ORDER } from '@/lib/data';
 import { normalizeText } from '@/lib/utils';
-import { mealCalorieRatio, suggestedServings } from '@/lib/serving-utils';
+import { placementFor } from '@/lib/serving-utils';
 import { ASSISTANT_ACTIONS, type AssistantActionName } from '@/lib/assistant-actions';
 
 export interface AssistantExecResult {
@@ -20,7 +20,9 @@ interface AssistantContext {
   userRecipes: Recipe[];
   nutriplannerRecipes: Recipe[];
   activeGoalMacros: GoalMacros | null;
-  onDrop: (day: string, mealId: string, recipe: Recipe, servings?: number) => void;
+  /** Tamaño de plato del usuario, para colocar como en el resto de caminos. */
+  portionFactor: number;
+  onDrop: (day: string, mealId: string, recipe: Recipe, plates?: number, portion?: number) => void;
   onClearMeal: (day: string, mealId: string) => void;
   onClearDay: (day: string) => void;
   onClearWeek: () => void;
@@ -91,10 +93,8 @@ export function useAssistantActions(ctx: AssistantContext) {
         if (!meal) return { ok: false, message: `No encuentro "${args.meal}" en ${dayPlan.day}. ¿Cómo se llama esa comida?` };
         const recipe = resolveRecipe(args.recipe);
         if (!recipe) return { ok: false, message: `No tengo ninguna receta que se llame "${args.recipe}". ¿Quieres que te la cree?` };
-        const target = ctx.activeGoalMacros
-          ? ctx.activeGoalMacros.calories * mealCalorieRatio(meal.mealTypes ?? [])
-          : null;
-        ctx.onDrop(dayPlan.day, meal.id, recipe, suggestedServings(recipe, target));
+        const { plates, portion } = placementFor(recipe, meal.mealTypes, ctx.activeGoalMacros, ctx.portionFactor);
+        ctx.onDrop(dayPlan.day, meal.id, recipe, plates, portion);
         return { ok: true, message: `¡Hecho! ${recipe.name} para ${meal.title} del ${dayPlan.day}.` };
       }
       case 'clear_meal': {

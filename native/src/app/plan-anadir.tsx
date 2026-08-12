@@ -7,13 +7,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChefieMascot } from '@/components/chefie-mascot';
 import { PaperTexture } from '@/components/paper-texture';
 import { ScreenTitle } from '@/components/screen-scaffold';
-import { ServingsInput } from '@/components/servings-input';
+import { PlatesStepper } from '@/components/plates-stepper';
 import { Fonts, Radii, Shadows } from '@/constants/theme';
 import { useAuthUser } from '@/firebase/auth-context';
 import { addRecipeToMeal } from '@/firebase/plan-operations';
-import { useRecipes, useWeekPlan } from '@/hooks/use-nutrilp-data';
+import { useProfile, useRecipes, useWeekPlan } from '@/hooks/use-nutrilp-data';
 import { useTheme } from '@/hooks/use-theme';
-import { clampServings, perServingMacros, servingsLabel } from '@/lib/serving-utils';
+import { placementFor, plateMacros, platesLabel, portionFor } from '@/lib/serving-utils';
 
 const DAY_LETTERS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
@@ -38,10 +38,17 @@ export default function PlanAnadirScreen() {
   const { recipeId, global: isGlobal } = useLocalSearchParams<{ recipeId?: string; global?: string }>();
   const { userRecipes, globalRecipes } = useRecipes();
   const { weekPlan } = useWeekPlan();
+  const { activeGoalMacros, portionFactor } = useProfile();
 
   const [dayIndex, setDayIndex] = useState(todayIndex());
   const [mealId, setMealId] = useState<string | null>(null);
-  const [servings, setServings] = useState(1);
+  /**
+   * Platos propuestos. `null` = todavía no lo ha tocado el usuario, y entonces
+   * manda `placementFor` —el mismo cálculo que la web—, que además cambia si
+   * eliges otra franja: un desayuno no pide lo mismo que un almuerzo. En cuanto
+   * lo ajusta a mano, su número gana y deja de recalcularse solo.
+   */
+  const [platesOverride, setPlatesOverride] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ day: string; meal: string } | null>(null);
@@ -55,14 +62,19 @@ export default function PlanAnadirScreen() {
   const meals = day?.meals ?? [];
   // Si aún no se ha tocado nada, se propone la franja según la hora que sea.
   const selectedMealId = mealId ?? meals[suggestedMealIndex(meals.length)]?.id ?? null;
-  const per = recipe ? perServingMacros(recipe) : null;
+  const per = recipe ? plateMacros(recipe, portionFactor) : null;
+  const suggestedPlates = recipe
+    ? placementFor(recipe, meals.find((m) => m.id === selectedMealId)?.mealTypes, activeGoalMacros, portionFactor).plates
+    : 1;
+  const plates = platesOverride ?? suggestedPlates;
+  const setPlates = setPlatesOverride;
 
   const handleAdd = async () => {
     if (!user || !recipe || !selectedMealId || !day || busy) return;
     setBusy(true);
     setError(null);
     try {
-      await addRecipeToMeal(user.uid, day.day, selectedMealId, recipe, servings);
+      await addRecipeToMeal(user.uid, day.day, selectedMealId, recipe, plates, portionFor(recipe, portionFactor));
       setDone({ day: day.day, meal: meals.find((m) => m.id === selectedMealId)?.title ?? '' });
     } catch {
       setError('No se pudo añadir al plan. Revisa tu conexión e inténtalo de nuevo.');
@@ -94,7 +106,7 @@ export default function PlanAnadirScreen() {
           </Text>
           <Text style={{ fontSize: 13.5, color: c.inkSoft, fontFamily: Fonts.sans, textAlign: 'center', lineHeight: 20 }}>
             {recipe.name} · {done.day}, {done.meal.toLowerCase()}
-            {servings !== 1 ? ` · ${servingsLabel(servings)}` : ''}
+            {plates !== 1 ? ` · ${platesLabel(plates)}` : ''}
           </Text>
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
             <Pressable
@@ -205,38 +217,18 @@ export default function PlanAnadirScreen() {
           })}
         </View>
 
-        <Text style={[styles.miniLabel, { color: c.inkSoft, fontFamily: Fonts.sans }]}>CUÁNTAS RACIONES</Text>
+        <Text style={[styles.miniLabel, { color: c.inkSoft, fontFamily: Fonts.sans }]}>CUÁNTOS PLATOS</Text>
         <View style={[styles.servingsRow, { borderColor: c.line, backgroundColor: c.surface }]}>
-          <Pressable
-            onPress={() => setServings((s) => clampServings(s - 1))}
-            style={[styles.stepBtn, { borderColor: c.line }]}
-            accessibilityRole="button"
-            accessibilityLabel="Una ración menos"
-          >
-            <Ionicons name="remove" size={16} color={c.inkSoft} />
-          </Pressable>
-          <View style={{ flex: 1, alignItems: 'center' }}>
-            {/* Escribible: media ración o ración y media son casos normales. */}
-            <ServingsInput
-              value={servings}
-              onCommit={setServings}
-              style={{ fontSize: 19, fontWeight: '400' }}
-              label="Cuántas raciones"
-            />
+          {/* El tamaño de cada plato ya lo pone el factor de ración del perfil;
+              aquí solo se cuentan. El stepper trae sus propios ± con el tope. */}
+          <View style={{ flex: 1, alignItems: 'center', gap: 4 }}>
+            <PlatesStepper value={plates} onChange={setPlates} label="platos" />
             {per ? (
               <Text style={{ fontSize: 11, color: c.inkSoft, fontFamily: Fonts.sans }}>
-                {Math.round(per.calories * servings)} kcal · {Math.round(per.protein * servings)} P
+                {Math.round(per.calories * plates)} kcal · {Math.round(per.protein * plates)} P
               </Text>
             ) : null}
           </View>
-          <Pressable
-            onPress={() => setServings((s) => clampServings(s + 1))}
-            style={[styles.stepBtn, { borderColor: c.line }]}
-            accessibilityRole="button"
-            accessibilityLabel="Una ración más"
-          >
-            <Ionicons name="add" size={16} color={c.inkSoft} />
-          </Pressable>
         </View>
 
         {error ? <Text style={{ fontSize: 12.5, color: c.terra, fontFamily: Fonts.sans }}>{error}</Text> : null}

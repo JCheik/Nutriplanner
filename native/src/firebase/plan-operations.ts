@@ -2,6 +2,7 @@ import { collection, deleteDoc, doc, runTransaction, setDoc } from 'firebase/fir
 
 import { firestore } from '@/firebase';
 import { DAY_ORDER, INITIAL_WEEK_PLAN } from '@/lib/data';
+import { clampPlates, instancePortion } from '@/lib/serving-utils';
 import type { DayPlan, Meal, Recipe, RecipeInstance, ShoppingListItem, WeekHistoryEntry } from '@/lib/types';
 
 /** Hermes no garantiza crypto.randomUUID — id corto suficiente para instancias. */
@@ -35,8 +36,21 @@ export async function updateDayPlan(
   });
 }
 
-export function addRecipeToMeal(userId: string, day: string, mealId: string, recipe: Recipe, servings = 1) {
-  const instance: RecipeInstance = { ...recipe, instanceId: newInstanceId(), servingsEaten: servings };
+/**
+ * Coloca una receta en un hueco. `plates` es lo que el usuario ve y toca;
+ * `portion` es el tamaño de plato con el que se colocó, y se guarda en la
+ * instancia para que cambiar de objetivo no reescriba lo ya planificado.
+ * Los dos salen de `placementFor`, igual que en la web.
+ */
+export function addRecipeToMeal(
+  userId: string,
+  day: string,
+  mealId: string,
+  recipe: Recipe,
+  plates = 1,
+  portion = 1
+) {
+  const instance: RecipeInstance = { ...recipe, instanceId: newInstanceId(), plates, portion };
   return updateDayPlan(userId, day, (plan) => ({
     ...plan,
     meals: plan.meals.map((m) => (m.id === mealId ? { ...m, recipes: [...m.recipes, instance] } : m)),
@@ -52,12 +66,24 @@ export function removeRecipeFromMeal(userId: string, day: string, mealId: string
   }));
 }
 
-export function updateServings(userId: string, day: string, mealId: string, instanceId: string, servings: number) {
+/**
+ * Cambia cuántos platos hay en un hueco. Al escribir se fija también el
+ * `portion` heredado y se borra el `servingsEaten` viejo: la instancia queda ya
+ * en el modelo nuevo sin cambiar de calorías por el camino.
+ */
+export function updatePlates(userId: string, day: string, mealId: string, instanceId: string, plates: number) {
   return updateDayPlan(userId, day, (plan) => ({
     ...plan,
     meals: plan.meals.map((m) =>
       m.id === mealId
-        ? { ...m, recipes: m.recipes.map((r) => (r.instanceId === instanceId ? { ...r, servingsEaten: servings } : r)) }
+        ? {
+            ...m,
+            recipes: m.recipes.map((r) => {
+              if (r.instanceId !== instanceId) return r;
+              const { servingsEaten: _legacy, ...rest } = r;
+              return { ...rest, plates: clampPlates(plates), portion: instancePortion(r) };
+            }),
+          }
         : m
     ),
   }));

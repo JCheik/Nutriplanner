@@ -19,6 +19,34 @@ export const SUPERUSER_EMAIL = 'jonicheik@gmail.com';
 export const FEEDBACK_EMAIL = 'jonicheik@gmail.com';
 
 /**
+ * Tamaño de persona para el que está escrito el recetario de Nutrilp.
+ *
+ * Las recetas del catálogo se escriben UNA vez, con cantidades absolutas, pero
+ * las comen personas muy distintas: con la fórmula de la calculadora, un hombre
+ * de 90 kg/1,80 mantiene con ~2900 kcal y una mujer de 55 kg/1,58 con ~1900 —
+ * un factor de 1,5 entre los dos. Declarando aquí para quién están escritas, la
+ * app puede servirlas al tamaño de quien las mira (ver `portionFactorFromGoal`).
+ *
+ * 2000 kcal/día es la referencia del etiquetado nutricional europeo. Se eligió
+ * por eso: es un número estándar y no obliga a re-medir el catálogo.
+ */
+export const REFERENCE_DAILY_KCAL = 2000;
+
+/**
+ * Topes del factor de ración. Fuera de esta horquilla es mejor que el plan
+ * añada (o quite) un acompañamiento que inflar o encoger un plato hasta lo
+ * absurdo: nadie sirve el triple de una lasaña en el mismo plato.
+ */
+export const PORTION_FACTOR_MIN = 0.6;
+export const PORTION_FACTOR_MAX = 1.8;
+
+/**
+ * Platos como mucho de UN mismo sitio en un hueco. Más que esto no es una
+ * comida, es un reto. El ajuste fino lo hace el factor de ración, no repetir.
+ */
+export const MAX_PLATES_PER_SLOT = 3;
+
+/**
  * Meal categories used to tag recipes and meal-plan slots. They act as a GUIDE
  * for the AI autocomplete (it only assigns recipes whose category matches the
  * slot's mealType, or category-less "comodín" recipes). Manual assignment by the

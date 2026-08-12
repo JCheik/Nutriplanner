@@ -109,8 +109,13 @@ export async function copyRecipeToUser(
   const newDocRef = doc(collection(firestore, 'users', userId, 'recipes'));
   const id = newDocRef.id;
 
+  // La copia pierde el sello de Nutrilp: a partir de aquí es una receta del
+  // usuario, y las suyas se muestran tal cual las tenga, sin redimensionar al
+  // tamaño de referencia del catálogo.
+  const { origin: _fromCatalog, ...ownRecipe } = recipeData;
+
   await setDoc(newDocRef, {
-    ...recipeData,
+    ...ownRecipe,
     id,
   });
 
