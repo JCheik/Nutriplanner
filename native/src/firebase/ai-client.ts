@@ -178,6 +178,67 @@ export function importRecipeFromUrl(input: {
   }>('import-recipe', input);
 }
 
+/**
+ * Importar la receta **del vídeo en sí**: el usuario guarda o graba el reel y lo
+ * comparte con Nutrilp, y aquí se manda el fichero.
+ *
+ * Es la única forma de traerse las recetas de Instagram y TikTok: la receta se
+ * cuenta hablando y se ve en pantalla, y del enlace no se puede sacar nada
+ * porque ninguna de las dos sirve el contenido sin sesión iniciada.
+ *
+ * Va por `multipart/form-data`, no por JSON: un vídeo de 20 MB en base64 son
+ * ~27 MB de texto que habría que montar enteros en memoria antes de enviarlos.
+ * Con FormData, React Native lo transmite en streaming desde el fichero.
+ */
+export async function importRecipeFromVideo(input: {
+  /** URI local del vídeo compartido. */
+  videoUri: string;
+  mimeType?: string;
+  /** Texto que acompañaba al vídeo, si lo hubiera. Solo de apoyo. */
+  caption?: string;
+  existingIngredients?: string[];
+  jobId?: string;
+}): Promise<{ recipe: GeneratedRecipe | null; source?: string; saved?: { recipeId: string; recipeName: string } }> {
+  const user = auth.currentUser;
+  if (!user) throw new AiError('Inicia sesión para usar la IA.');
+  const token = await user.getIdToken();
+
+  const form = new FormData();
+  // El shape `{ uri, name, type }` es como React Native adjunta un fichero local
+  // a un FormData; no es un File del navegador.
+  form.append('video', {
+    uri: input.videoUri,
+    name: 'reel.mp4',
+    type: input.mimeType || 'video/mp4',
+  } as unknown as Blob);
+  if (input.caption) form.append('caption', input.caption);
+  if (input.jobId) form.append('jobId', input.jobId);
+  if (input.existingIngredients?.length) {
+    form.append('existingIngredients', JSON.stringify(input.existingIngredients));
+  }
+
+  let res: Response;
+  try {
+    // Sin 'Content-Type' a mano: lo pone el runtime con el boundary correcto.
+    res = await fetch(`${BASE}/api/ai/import-video`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: form,
+    });
+  } catch {
+    throw new AiError('Sin conexión con el servidor. Revisa tu internet.');
+  }
+
+  let json: { result?: { recipe: GeneratedRecipe | null; source?: string; saved?: { recipeId: string; recipeName: string } }; error?: string };
+  try {
+    json = await res.json();
+  } catch {
+    throw new AiError('Respuesta inesperada del servidor.');
+  }
+  if (!res.ok) throw new AiError(json.error ?? 'No se pudo sacar la receta de ese vídeo.');
+  return json.result!;
+}
+
 export function generateRecipe(input: {
   description: string;
   nutritionalGoal?: GoalMacros | null;

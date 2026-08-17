@@ -24,14 +24,20 @@ export function ShareIntentHandler() {
     // del texto suelto, así que se rescata de ahí como respaldo.
     const url = shareIntent.webUrl ?? shareIntent.text?.match(/https?:\/\/\S+/)?.[0] ?? null;
     const image = shareIntent.files?.find((f) => f.mimeType?.startsWith('image/'))?.path ?? null;
+    const video = shareIntent.files?.find((f) => f.mimeType?.startsWith('video/'))?.path ?? null;
     const text = shareIntent.text ?? null;
 
     resetShareIntent();
 
-    // Prioridad: enlace > imagen > texto suelto. Una foto compartida va al
+    // Prioridad: VÍDEO > enlace > imagen > texto suelto. El vídeo va primero
+    // porque es la mejor fuente que existe: en un reel la receta se cuenta
+    // hablando y se ve en pantalla, mientras que el enlace de Instagram no da
+    // absolutamente nada y el pie de foto suele ser marketing. Una foto compartida va al
     // análisis de nevera, que es lo que sabemos hacer con una imagen de comida;
     // un texto sin enlace se intenta importar como receta pegada.
-    if (url) {
+    if (video) {
+      router.push({ pathname: '/importar', params: { video } });
+    } else if (url) {
       router.push({ pathname: '/importar', params: { url } });
     } else if (image) {
       // Antes iba directa al analizador de NEVERA. Pero la captura de un reel es

@@ -27,7 +27,7 @@ export default function ImportarScreen() {
   const c = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { url, text, image } = useLocalSearchParams<{ url?: string; text?: string; image?: string }>();
+  const { url, text, image, video } = useLocalSearchParams<{ url?: string; text?: string; image?: string; video?: string }>();
 
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -50,12 +50,20 @@ export default function ImportarScreen() {
   // Llegada desde "Compartir": arranca solo y desaparece de en medio.
   useEffect(() => {
     if (startedRef.current) return;
-    const shared: ImportInput | null = image ? { imageUri: image } : url ? { url } : text ? { text } : null;
+    const shared: ImportInput | null = video
+      ? { videoUri: video }
+      : image
+        ? { imageUri: image }
+        : url
+          ? { url }
+          : text
+            ? { text }
+            : null;
     if (!shared) return;
     startedRef.current = true;
     launch(shared);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, text, image]);
+  }, [url, text, image, video]);
 
   const submit = () => {
     const parsed = parseImportInput(draft);

@@ -3,7 +3,7 @@
     "name": "Nutrilp",
     "slug": "nutrilp",
     "owner": "cheik26",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "nutrilp",
@@ -24,7 +24,7 @@
     },
     "android": {
       "package": "com.nutrilp.app",
-      "versionCode": 5,
+      "versionCode": 6,
       "adaptiveIcon": {
         "backgroundColor": "#D9531F",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
@@ -62,7 +62,8 @@
         {
           "androidIntentFilters": [
             "text/*",
-            "image/*"
+            "image/*",
+            "video/*"
           ]
         }
       ],

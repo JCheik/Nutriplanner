@@ -2,7 +2,7 @@ import type { Href } from 'expo-router/build/typed-routes/types';
 import { collection, getDocs } from 'firebase/firestore';
 
 import { firestore } from '@/firebase';
-import { importRecipeFromUrl } from '@/firebase/ai-client';
+import { importRecipeFromUrl, importRecipeFromVideo } from '@/firebase/ai-client';
 import { failJob, finishJob, startJob } from '@/lib/background-job';
 import { setPendingRecipe } from '@/lib/generated-recipe-store';
 import { imageToDataUrl } from '@/lib/image-to-data-url';
@@ -29,6 +29,8 @@ export type ImportInput = {
   text?: string;
   /** URI local de una captura compartida; se convierte a data URL al lanzar. */
   imageUri?: string;
+  /** URI local de un vídeo compartido. La MEJOR fuente: la receta está ahí. */
+  videoUri?: string;
 };
 
 /**
@@ -76,7 +78,13 @@ function destino(recipeId?: string): Href {
 export async function runImportJob(input: ImportInput): Promise<void> {
   const jobId = newJobId();
   startJob(
-    input.imageUri ? 'Leyendo la captura…' : input.url ? `Leyendo ${sourceName(input.url)}…` : 'Leyendo la receta…'
+    input.videoUri
+      ? 'Viendo el vídeo…'
+      : input.imageUri
+        ? 'Leyendo la captura…'
+        : input.url
+          ? `Leyendo ${sourceName(input.url)}…`
+          : 'Leyendo la receta…'
   );
   await rememberJob(jobId);
 
@@ -104,6 +112,30 @@ export async function runImportJob(input: ImportInput): Promise<void> {
     } catch {
       // Sin catálogo la IA puede duplicar algún alimento, pero la importación
       // sigue siendo útil. No es motivo para abortar.
+    }
+
+    // ── VÍDEO: la mejor fuente, y la única que sirve en Instagram/TikTok ──
+    // Va por su propio endpoint (multipart) porque el fichero no cabe
+    // cómodamente en un JSON.
+    if (input.videoUri) {
+      const res = await importRecipeFromVideo({
+        videoUri: input.videoUri,
+        caption: input.text,
+        existingIngredients,
+        jobId,
+      });
+      stop();
+      await forgetJob();
+      if (res?.saved) {
+        finishJob(`Guardada como "${res.saved.recipeName}"`, 'Toca para abrirla.', destino(res.saved.recipeId));
+      } else if (res?.recipe) {
+        // Servidor sin guardado (versión anterior): al camino de revisar a mano.
+        setPendingRecipe(res.recipe);
+        finishJob(`"${res.recipe.name}" lista`, 'Toca para revisarla y guardarla.', { pathname: '/receta-nueva' });
+      } else {
+        failJob('No ha podido ser', 'No he conseguido sacar una receta de ese vídeo.');
+      }
+      return;
     }
 
     // La captura se convierte aquí, no en la pantalla: al llegar desde

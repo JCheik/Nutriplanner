@@ -214,10 +214,27 @@ export async function analyzeVideoFromUrl(videoUrl: string, caption: string, exi
   const descargado = await fetchVideoBytes(videoUrl);
   if (!descargado) throw new Error('No se pudo descargar el vídeo de la publicación.');
 
-  const subido = await uploadVideo(descargado.bytes, descargado.contentType);
+  return analyzeVideoBytes(descargado.bytes, descargado.contentType, caption, existingIngredients);
+}
+
+/**
+ * Analiza un vídeo del que ya tenemos los BYTES.
+ *
+ * Es el camino de Instagram y TikTok: como no se puede llegar al vídeo desde el
+ * enlace, lo manda la app —el usuario guarda o graba el reel y lo comparte— y
+ * aquí se sube a la Files API y se analiza. El fichero se borra siempre, haya
+ * ido bien o mal; si el borrado fallara, la Files API los caduca a las 48 h.
+ */
+export async function analyzeVideoBytes(
+  bytes: Buffer,
+  mimeType: string,
+  caption: string,
+  existingIngredients?: string[]
+) {
+  const subido = await uploadVideo(bytes, mimeType);
   try {
     return await callGemini(
-      [{ file_data: { mime_type: descargado.contentType, file_uri: subido.uri } }],
+      [{ file_data: { mime_type: mimeType, file_uri: subido.uri } }],
       caption,
       existingIngredients
     );
