@@ -5,6 +5,7 @@ import { firestore } from '@/firebase';
 import { importRecipeFromUrl } from '@/firebase/ai-client';
 import { failJob, finishJob, startJob } from '@/lib/background-job';
 import { setPendingRecipe } from '@/lib/generated-recipe-store';
+import { imageToDataUrl } from '@/lib/image-to-data-url';
 import { forgetJob, newJobId, readJob, rememberJob, watchJob } from '@/lib/import-watch';
 import type { BaseIngredient } from '@/lib/types';
 
@@ -23,7 +24,12 @@ export function sourceName(url: string): string {
   }
 }
 
-export type ImportInput = { url?: string; text?: string };
+export type ImportInput = {
+  url?: string;
+  text?: string;
+  /** URI local de una captura compartida; se convierte a data URL al lanzar. */
+  imageUri?: string;
+};
 
 /**
  * Convierte lo que haya escrito el usuario en algo que el endpoint entienda.
@@ -69,7 +75,9 @@ function destino(recipeId?: string): Href {
 
 export async function runImportJob(input: ImportInput): Promise<void> {
   const jobId = newJobId();
-  startJob(input.url ? `Leyendo ${sourceName(input.url)}…` : 'Leyendo la receta…');
+  startJob(
+    input.imageUri ? 'Leyendo la captura…' : input.url ? `Leyendo ${sourceName(input.url)}…` : 'Leyendo la receta…'
+  );
   await rememberJob(jobId);
 
   // Si el servidor termina mientras la app sigue viva, esto se entera antes que
@@ -98,9 +106,40 @@ export async function runImportJob(input: ImportInput): Promise<void> {
       // sigue siendo útil. No es motivo para abortar.
     }
 
-    const result = await importRecipeFromUrl({ ...input, existingIngredients, jobId });
+    // La captura se convierte aquí, no en la pantalla: al llegar desde
+    // "Compartir" esa pantalla se cierra enseguida y se llevaría el trabajo.
+    let imageBase64: string | undefined;
+    if (input.imageUri) {
+      try {
+        imageBase64 = await imageToDataUrl(input.imageUri);
+      } catch {
+        stop();
+        await forgetJob();
+        failJob('No pude abrir esa imagen', 'Prueba a compartirla otra vez, o pega el texto de la receta.');
+        return;
+      }
+    }
+
+    const result = await importRecipeFromUrl({
+      url: input.url,
+      text: input.text,
+      imageBase64,
+      existingIngredients,
+      jobId,
+    });
     stop();
     await forgetJob();
+
+    // La IA decidió que la foto era comida, no una receta: se manda al
+    // analizador de nevera, que es lo que sabemos hacer con eso.
+    if (result?.kind === 'nevera' && input.imageUri) {
+      finishJob(
+        'Eso parece tu nevera',
+        'Toca y te propongo recetas con lo que hay.',
+        { pathname: '/nevera', params: { shared: input.imageUri } }
+      );
+      return;
+    }
 
     if (!result?.recipe) {
       failJob('No ha podido ser', 'No he conseguido sacar una receta de ahí.');

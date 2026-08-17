@@ -1,4 +1,5 @@
 import { importRecipe } from '@/ai/flows/import-recipe-flow';
+import { parseSharedImage } from '@/ai/flows/parse-shared-image-flow';
 import { fetchSocialMetadata, SocialUrlError } from '@/lib/social-url';
 import { analyzeVideoFromUrl } from '@/lib/video-recipe';
 
@@ -16,6 +17,15 @@ interface ImportInput {
   url?: string;
   /** Texto suelto compartido (una receta pegada, sin enlace). */
   text?: string;
+  /**
+   * Captura de pantalla compartida, como data URL.
+   *
+   * Es el ÚNICO camino que funciona con Instagram: el enlace no sirve de nada
+   * porque Instagram no da el contenido a quien no tiene sesión (devuelve
+   * literalmente "Instagram"). En la captura, en cambio, está el pie con la
+   * receta.
+   */
+  imageBase64?: string;
   /** Nombres del catálogo, para que la IA reutilice alimentos en vez de duplicarlos. */
   existingIngredients?: string[];
   /**
@@ -75,7 +85,24 @@ function assertIsRecipe(
  *
  * Solo se rechaza cuando NINGUNA de las fuentes disponibles trae una receta.
  */
-async function doImport({ url, text, existingIngredients }: ImportInput) {
+async function doImport({ url, text, imageBase64, existingIngredients }: ImportInput) {
+  // ── Imagen compartida ─────────────────────────────────────────────
+  // Va la PRIMERA: si hay captura, es la fuente buena, mejor que cualquier
+  // enlace que la acompañe.
+  if (imageBase64) {
+    const visto = await parseSharedImage({ imageBase64, existingIngredients });
+    if (visto.kind === 'nevera') {
+      // No es un error: es la otra función de la app. El llamador decide.
+      return { kind: 'nevera' as const, recipe: null, imageUrl: null, source: 'imagen' };
+    }
+    if (visto.kind !== 'receta' || !visto.recipe) {
+      throw new AiEndpointError(
+        `En esa imagen no veo una receta${visto.motivo ? `: ${visto.motivo}` : ''}. Prueba con una captura donde se lea el texto de la receta.`
+      );
+    }
+    return { recipe: visto.recipe, imageUrl: null, source: 'imagen' };
+  }
+
   // ── Texto pegado, sin enlace ──────────────────────────────────────
   if (!url) {
     const caption = (text ?? '').trim();
@@ -139,14 +166,36 @@ async function doImport({ url, text, existingIngredients }: ImportInput) {
     }
   }
 
-  if (!caption) {
+  // La red no ha dado nada: ni vídeo, ni receta estructurada, ni pie de foto de
+  // verdad. Decirlo tal cual y explicar la salida, que existe y es fácil.
+  if (!caption || noDaNada(caption)) {
     throw new AiEndpointError(
-      'Ese enlace no trae texto que leer. Si la publicación es privada, copia la receta y compártela como texto.'
+      'Instagram y TikTok no dejan leer sus publicaciones desde fuera, así que del enlace no puedo sacar nada. ' +
+        'Haz una captura de pantalla donde se vea el texto de la receta y compártela con Nutrilp: de ahí sí la saco.'
     );
   }
 
   const recipe = assertIsRecipe(await importRecipe({ url, caption, existingIngredients }), videoDescartado);
   return { recipe, imageUrl: meta.imageUrl, source: videoDescartado ? 'texto (el vídeo no era receta)' : 'texto' };
+}
+
+/**
+ * Lo que devuelven las redes cuando NO dan el contenido.
+ *
+ * Instagram responde 200 con una página de 600 KB y cero metadatos: el parser
+ * saca literalmente "Instagram", nueve caracteres. TikTok, "TikTok - Make Your
+ * Day". Medido con reels reales, y con todas las cabeceras de previsualización
+ * (Facebook, Twitter, WhatsApp, Telegram, Discord): ninguna sirve.
+ *
+ * Sin esto, esos nueve caracteres iban a la IA, que respondía —con toda la
+ * razón— que eso no es una receta. El usuario leía "no parece una receta" de un
+ * post que evidentemente lo era, y no había forma de adivinar qué hacer.
+ */
+const SIN_CONTENIDO = [/^instagram$/i, /^tiktok/i, /^facebook$/i, /^threads/i, /^x \(formerly twitter\)$/i];
+
+function noDaNada(caption: string): boolean {
+  const limpio = caption.trim();
+  return limpio.length < 40 && SIN_CONTENIDO.some((re) => re.test(limpio));
 }
 
 /** "Leyendo Instagram…", para que la app no tenga que deducirlo del enlace. */

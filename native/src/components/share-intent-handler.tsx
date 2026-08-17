@@ -34,7 +34,12 @@ export function ShareIntentHandler() {
     if (url) {
       router.push({ pathname: '/importar', params: { url } });
     } else if (image) {
-      router.push({ pathname: '/nevera', params: { shared: image } });
+      // Antes iba directa al analizador de NEVERA. Pero la captura de un reel es
+      // la única forma de importar de Instagram (el enlace no da nada), y esa es
+      // la razón principal por la que se comparte una imagen con Nutrilp. Ahora
+      // va a importar, y si la IA ve que era comida suelta y no una receta, el
+      // propio trabajo la reencamina a la nevera.
+      router.push({ pathname: '/importar', params: { image } });
     } else if (text && text.trim().length >= 20) {
       router.push({ pathname: '/importar', params: { text } });
     }

@@ -150,6 +150,11 @@ export function importRecipeFromUrl(input: {
   url?: string;
   /** Texto pegado, cuando lo compartido no era un enlace. */
   text?: string;
+  /**
+   * Captura de pantalla, como data URL. Es el único camino que funciona con
+   * Instagram: al enlace no se le puede sacar nada sin sesión iniciada.
+   */
+  imageBase64?: string;
   existingIngredients?: string[];
   /**
    * Con `jobId`, el servidor GUARDA la receta y deja constancia en
@@ -160,9 +165,14 @@ export function importRecipeFromUrl(input: {
   jobId?: string;
 }) {
   return postAi<{
-    recipe: GeneratedRecipe;
+    recipe: GeneratedRecipe | null;
     imageUrl: string | null;
     source?: string;
+    /**
+     * `'nevera'` cuando la imagen compartida era comida sin receta. No es un
+     * error: es la otra función de la app, y la decide la IA al mirar la foto.
+     */
+    kind?: 'nevera';
     /** Presente solo si se mandó `jobId`: la receta ya está guardada. */
     saved?: { recipeId: string; recipeName: string };
   }>('import-recipe', input);
