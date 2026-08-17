@@ -65,12 +65,17 @@ ${contextLines || 'Analiza el contenido multimedia adjunto.'}
 ${existingIngredientsInstruction(existingIngredients)}
 
 INSTRUCCIONES:
-0. ANTES DE NADA: decide si este texto describe un plato y cómo prepararlo. Pon
-   esReceta=false si no lo hace — una noticia, un texto de humor, una rutina de
-   gimnasio, una descripción de un sitio, o comida solo mencionada de pasada sin
-   ingredientes ni preparación. Rellena motivoNoReceta con una frase corta de
-   qué es y DEJA EL RESTO VACÍO: no inventes ingredientes ni pasos. Ante la
-   duda, false.
+0. ANTES DE NADA: decide si aquí hay una receta que extraer.
+   · esReceta=false SOLO si el contenido no va de cocinar un plato: una rutina de
+     gimnasio, una noticia, humor, un viaje, una reseña de un sitio, o comida
+     mencionada de pasada sin un solo ingrediente identificable. Rellena
+     motivoNoReceta con una frase corta de qué es y DEJA EL RESTO VACÍO.
+   · Si hay un plato identificable y puedes deducir sus ingredientes, ES RECETA
+     — **aunque no vengan los pasos**. Los pies de Instagram y TikTok casi nunca
+     traen la preparación escrita: son una lista de ingredientes y poco más. Ahí
+     escribe tú unos pasos razonables para ese plato; NO lo rechaces por eso.
+   · Ante la duda entre extraerla o rechazarla, EXTRÁELA. Una receta con algún
+     dato flojo el usuario la corrige en dos toques; la que rechazas, la pierde.
 1. Usa ÚNICAMENTE los ingredientes mencionados. NO añadas ingredientes que no estén en el texto.
 2. Si las cantidades no están especificadas, usa estimaciones razonables para ese plato.
 3. Para cada ingrediente, estima sus valores nutricionales POR 100g/100ml (no por la cantidad usada en la receta).
@@ -110,12 +115,13 @@ Devuelve:
 - ingredients: array. Cada uno:
   · id: "ing-1", "ing-2"...
   · name: en español, siguiendo la REGLA DE NOMBRES DE INGREDIENTES de arriba
-- esReceta: false si esto no era una receta, y entonces motivoNoReceta con el porqué
   · quantity: cantidad en la receta en gramos/ml (ya corregida si era errónea)
   · ${UNIT_RULE}
   · calories, protein, carbs, fat, fiber: POR 100g
   · corrected: true si corregiste algo, false si estaba bien
-  · note: explicación breve si corrected=true, omitir si false`;
+  · note: explicación breve si corrected=true, omitir si false
+- esReceta: false SOLO si esto no era una receta (ver instrucción 0), y entonces
+  motivoNoReceta con el porqué`;
 
 const importRecipeFlow = ai.defineFlow(
   {

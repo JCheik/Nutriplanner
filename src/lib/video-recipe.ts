@@ -1,8 +1,9 @@
 import { existingIngredientsInstruction, UNIT_RULE } from '@/ai/prompt-fragments';
+import { fetchVideoBytes } from '@/lib/social-url';
 
 /**
  * Extracción de una receta a partir de un VÍDEO, hablando con Gemini a pelo
- * (no vía Genkit, porque hace falta la File API para subir ficheros grandes).
+ * (no vía Genkit, porque hace falta la Files API para subir el fichero).
  *
  * Vivía dentro de `/api/analyze-video/route.ts`, que es donde lo usa la web.
  * Se saca aquí porque `/api/ai/import-recipe` —el camino de la app nativa—
@@ -75,13 +76,15 @@ const PROMPT = (caption: string, existingIngredients?: string[]) => `Eres un che
 ${caption ? `Texto adicional del post:\n${caption}\n\n` : ''}${existingIngredientsInstruction(existingIngredients)}
 
 INSTRUCCIONES:
-0. ANTES DE NADA: decide si esto es cocina. Pon esReceta=false si el contenido
-   no enseña ni describe cómo preparar un plato — un vídeo de humor, de viajes,
-   de gimnasio, un baile, una noticia, alguien comiendo sin explicar la receta,
-   o comida que solo sale de fondo. En ese caso rellena motivoNoReceta con una
-   frase corta de qué es (ej: "es un vídeo de gimnasio") y DEJA EL RESTO VACÍO:
-   no inventes ingredientes ni pasos. Solo pon esReceta=true si de verdad puedes
-   sacar los ingredientes y la preparación. Ante la duda, false.
+0. ANTES DE NADA: decide si aquí hay una receta que extraer.
+   · esReceta=false SOLO si el contenido no va de cocinar — humor, viajes,
+     gimnasio, un baile, una noticia, o comida que solo sale de fondo. Rellena
+     motivoNoReceta con una frase corta de qué es (ej: "es un vídeo de gimnasio")
+     y DEJA EL RESTO VACÍO.
+   · Si se ve o se nombra un plato y puedes deducir sus ingredientes, ES RECETA
+     — aunque no se expliquen los pasos. Escribe tú unos pasos razonables.
+   · Ante la duda entre extraerla o rechazarla, EXTRÁELA: una receta floja el
+     usuario la corrige; la que rechazas, la pierde.
 1. Prioriza lo que ves y oyes en el vídeo. Usa el texto solo como complemento.
 2. Extrae TODOS los ingredientes mencionados o mostrados, con cantidades exactas si se indican.
 3. Para cada ingrediente, estima sus valores nutricionales POR 100g/100ml.
@@ -137,14 +140,90 @@ export function isYouTube(url: string) {
 }
 
 /**
- * Analiza un vídeo que ya está publicado en una URL. YouTube lo entiende Gemini
- * de forma nativa; para el resto de CDNs se declara `video/mp4` y hay que
- * confiar en que la URL sea públicamente accesible (las de Instagram y TikTok
- * caducan, así que esto falla a menudo — el llamador debe tener respaldo).
+ * Sube un vídeo a la Files API de Gemini y espera a que esté listo para usarse.
+ *
+ * Subida reanudable en dos pasos, que es la que documenta Google: primero se
+ * anuncia el tamaño y el tipo y se recibe una URL, y luego se mandan los bytes.
+ * Después hay que ESPERAR: un vídeo entra en `PROCESSING` y no se puede
+ * referenciar hasta que pasa a `ACTIVE`.
+ */
+async function uploadVideo(bytes: Buffer, mimeType: string): Promise<{ uri: string; name: string }> {
+  const start = await fetch(`${GEMINI_BASE}/upload/v1beta/files?key=${API_KEY}`, {
+    method: 'POST',
+    headers: {
+      'X-Goog-Upload-Protocol': 'resumable',
+      'X-Goog-Upload-Command': 'start',
+      'X-Goog-Upload-Header-Content-Length': String(bytes.length),
+      'X-Goog-Upload-Header-Content-Type': mimeType,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ file: { display_name: 'nutrilp-import' } }),
+  });
+  const uploadUrl = start.headers.get('x-goog-upload-url');
+  if (!uploadUrl) throw new Error(`Files API no dio URL de subida (${start.status})`);
+
+  const up = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: {
+      'X-Goog-Upload-Offset': '0',
+      'X-Goog-Upload-Command': 'upload, finalize',
+      'Content-Length': String(bytes.length),
+    },
+    body: new Uint8Array(bytes),
+  });
+  if (!up.ok) throw new Error(`Files API rechazó la subida (${up.status})`);
+  const file = (await up.json()).file as { uri: string; name: string; state: string };
+
+  // Espera acotada: un reel tarda un par de segundos. Si a los 30 sigue sin
+  // estar, se abandona y el llamador tira del pie de foto.
+  let state = file.state;
+  for (let i = 0; state === 'PROCESSING' && i < 15; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const res = await fetch(`${GEMINI_BASE}/v1beta/${file.name}?key=${API_KEY}`);
+    state = ((await res.json()) as { state: string }).state;
+  }
+  if (state !== 'ACTIVE') throw new Error(`El vídeo no llegó a estar listo (${state})`);
+
+  return { uri: file.uri, name: file.name };
+}
+
+/** Borra el vídeo del servidor de Gemini. Best-effort: si falla, caduca solo. */
+async function deleteUploaded(name: string): Promise<void> {
+  try {
+    await fetch(`${GEMINI_BASE}/v1beta/${name}?key=${API_KEY}`, { method: 'DELETE' });
+  } catch {
+    /* los ficheros de la Files API caducan a las 48 h por su cuenta */
+  }
+}
+
+/**
+ * Analiza el vídeo de una publicación.
+ *
+ * **YouTube** lo entiende Gemini a partir de la URL, sin más. **Todo lo demás
+ * hay que subirlo**: a una URL de vídeo cualquiera responde `400 Unsupported
+ * url`. Antes se le pasaba el enlace del CDN tal cual, así que en Instagram y
+ * TikTok el análisis fallaba SIEMPRE y la importación caía al pie de foto sin
+ * decir nada — de ahí que las recetas que solo se cuentan hablando en el vídeo
+ * no se importaran nunca.
  */
 export async function analyzeVideoFromUrl(videoUrl: string, caption: string, existingIngredients?: string[]) {
-  const fileData = isYouTube(videoUrl) ? { file_uri: videoUrl } : { mime_type: 'video/mp4', file_uri: videoUrl };
-  return callGemini([{ file_data: fileData }], caption, existingIngredients);
+  if (isYouTube(videoUrl)) {
+    return callGemini([{ file_data: { file_uri: videoUrl } }], caption, existingIngredients);
+  }
+
+  const descargado = await fetchVideoBytes(videoUrl);
+  if (!descargado) throw new Error('No se pudo descargar el vídeo de la publicación.');
+
+  const subido = await uploadVideo(descargado.bytes, descargado.contentType);
+  try {
+    return await callGemini(
+      [{ file_data: { mime_type: descargado.contentType, file_uri: subido.uri } }],
+      caption,
+      existingIngredients
+    );
+  } finally {
+    void deleteUploaded(subido.name);
+  }
 }
 
 /** Parsea el array opcional de nombres de ingredientes del catálogo. */

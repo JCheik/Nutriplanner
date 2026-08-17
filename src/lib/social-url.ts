@@ -186,6 +186,49 @@ export async function fetchImageAsDataUrl(rawUrl: string): Promise<string | null
   }
 }
 
+/**
+ * Tope del vídeo que se descarga para analizarlo. Un reel o un TikTok típico no
+ * pasa de 10–15 MB; por encima de esto casi seguro es otra cosa, y bajarlo
+ * entero se comería el tiempo de la petición.
+ */
+const MAX_VIDEO_BYTES = 25 * 1024 * 1024;
+
+/**
+ * Descarga el vídeo del post en el servidor.
+ *
+ * Hace falta porque **Gemini NO acepta una URL de vídeo cualquiera**: responde
+ * `400 Unsupported url` a todo lo que no sea YouTube. Comprobado. Durante meses
+ * el importador se la pasaba tal cual y el análisis fallaba SIEMPRE en Instagram
+ * y TikTok, cayendo mudamente al pie de foto — por eso las recetas que solo se
+ * cuentan en el vídeo nunca se importaban. El vídeo hay que subirlo a la Files
+ * API, y para subirlo primero hay que tenerlo.
+ *
+ * Pasa por `safeFetch` como todo lo demás: la URL sale del HTML de un tercero.
+ */
+export async function fetchVideoBytes(
+  rawUrl: string
+): Promise<{ bytes: Buffer; contentType: string } | null> {
+  try {
+    const res = await safeFetch(rawUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'video/*' },
+      timeoutMs: 20000,
+    });
+    if (!res.ok) return null;
+
+    const contentType = (res.headers.get('content-type') || 'video/mp4').split(';')[0];
+    if (!contentType.startsWith('video/')) return null;
+
+    const bytes = await readCapped(res, MAX_VIDEO_BYTES);
+    // `readCapped` corta al llegar al tope, así que un vídeo más grande llegaría
+    // truncado y sin cabecera de cierre. Mejor descartarlo que analizar basura.
+    if (bytes.length === 0 || bytes.length >= MAX_VIDEO_BYTES) return null;
+
+    return { bytes, contentType };
+  } catch {
+    return null;
+  }
+}
+
 export interface SocialMetadata {
   title: string | null;
   description: string | null;
