@@ -24,13 +24,13 @@ export const FEEDBACK_EMAIL = 'jonicheik@gmail.com';
  *
  * ⚠️ **Cada compilación nueva cambia esta URL** — el artefacto lleva un hash.
  * Si se compila y no se actualiza aquí, la web sigue repartiendo la versión
- * vieja (pasó con la 0.3.0). Versión actual: **0.5.0**.
+ * vieja (pasó con la 0.3.0). Versión actual: **0.6.0**.
  *
  * ⚠️ Es una página pública: cualquiera que llegue a nutrilp.com desde un móvil
  * puede descargarlo. Asumido mientras el registro también sea abierto.
  */
 export const APK_DOWNLOAD_URL =
-  'https://expo.dev/artifacts/eas/bQZHJNwpn1oqr9OQ4s-6N3gRJqUnNkMtUs561nTDo6Q.apk';
+  'https://expo.dev/artifacts/eas/f0mWZOxQ-2jGQApYRW33nwo0OrX3xYp88yzkN26tCbQ.apk';
 
 /**
  * Tamaño de persona para el que está escrito el recetario de Nutrilp.
