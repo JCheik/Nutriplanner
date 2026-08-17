@@ -140,8 +140,11 @@ export async function recoverInterruptedJob(): Promise<void> {
         job = {
           status: 'done',
           title: `Guardada como «${remoto.recipeName}»`,
-          cta: 'Toca para verla en tus recetas.',
-          target: { pathname: '/recetas' },
+          cta: 'Toca para abrirla.',
+          // A la receta, no a la lista: ver el comentario de `destino` en import-job.
+          target: remoto.recipeId
+            ? { pathname: '/receta/[id]', params: { id: remoto.recipeId, global: '0' } }
+            : { pathname: '/recetas' },
         };
         emit();
         return;

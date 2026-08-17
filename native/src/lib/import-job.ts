@@ -1,3 +1,4 @@
+import type { Href } from 'expo-router/build/typed-routes/types';
 import { collection, getDocs } from 'firebase/firestore';
 
 import { firestore } from '@/firebase';
@@ -54,6 +55,18 @@ export function parseImportInput(raw: string): ImportInput | null {
  * parámetro: al llegar desde "Compartir", la pantalla se cierra enseguida y su
  * suscripción puede no haber traído nada todavía.
  */
+/**
+ * A dónde lleva el aviso al terminar: **a la receta**, no a la biblioteca.
+ *
+ * Llevaba a `/recetas`, que abre en "Mis recetas" ordenadas por NOMBRE — así que
+ * lo recién importado caía en mitad del alfabeto y había que buscarlo. Justo en
+ * el momento en que sabes menos de la receta (ni su nombre, que lo eligió la IA)
+ * es cuando la lista menos ayuda. Con el id se abre directamente.
+ */
+function destino(recipeId?: string): Href {
+  return recipeId ? { pathname: '/receta/[id]', params: { id: recipeId, global: '0' } } : { pathname: '/recetas' };
+}
+
 export async function runImportJob(input: ImportInput): Promise<void> {
   const jobId = newJobId();
   startJob(input.url ? `Leyendo ${sourceName(input.url)}…` : 'Leyendo la receta…');
@@ -65,7 +78,7 @@ export async function runImportJob(input: ImportInput): Promise<void> {
     if (job.status === 'done' && job.recipeName) {
       stop();
       void forgetJob();
-      finishJob(`Guardada como "${job.recipeName}"`, 'Toca para verla en tus recetas.', { pathname: '/recetas' });
+      finishJob(`Guardada como "${job.recipeName}"`, 'Toca para abrirla.', destino(job.recipeId));
     } else if (job.status === 'error') {
       stop();
       void forgetJob();
@@ -107,7 +120,7 @@ export async function runImportJob(input: ImportInput): Promise<void> {
       return;
     }
 
-    finishJob(`Guardada como "${result.saved.recipeName}"`, 'Toca para verla en tus recetas.', { pathname: '/recetas' });
+    finishJob(`Guardada como "${result.saved.recipeName}"`, 'Toca para abrirla.', destino(result.saved.recipeId));
   } catch (e) {
     /**
      * Que la PETICIÓN falle ya no significa que la importación haya fallado: el
@@ -119,7 +132,7 @@ export async function runImportJob(input: ImportInput): Promise<void> {
     stop();
     if (job?.status === 'done' && job.recipeName) {
       await forgetJob();
-      finishJob(`Guardada como "${job.recipeName}"`, 'Toca para verla en tus recetas.', { pathname: '/recetas' });
+      finishJob(`Guardada como "${job.recipeName}"`, 'Toca para abrirla.', destino(job.recipeId));
       return;
     }
     if (job?.status === 'working') {

@@ -1,6 +1,6 @@
 import { initializeFirebase } from '@/firebase/server-init';
-import type { BaseIngredient, Recipe } from '@/lib/types';
-import { normalizeText } from '@/lib/utils';
+import { aiRecipeToRecipe, newBaseIngredients, type AiRecipe } from '@/lib/ai-recipe';
+import type { BaseIngredient } from '@/lib/types';
 
 /**
  * Persistencia de la importación EN EL SERVIDOR.
@@ -73,35 +73,25 @@ export async function failImportJob(uid: string, jobId: string, message: string)
 
 /**
  * Da de alta en el catálogo compartido los alimentos que la IA inventó y no
- * existían. Réplica de lo que hacía la pantalla de revisión: sin ellos, esas
- * líneas de la receta suman 0 kcal al escalarla.
+ * existían. Sin ellos, esas líneas de la receta suman 0 kcal al redimensionarla.
  *
- * Se compara por nombre normalizado, el mismo criterio que usaba la app.
+ * Qué falta lo decide `newBaseIngredients`, que es el mismo criterio que usa la
+ * pantalla de revisión de la app — tenerlo en dos sitios era pedir que
+ * divergieran.
  */
-async function createMissingIngredients(uid: string, recipe: Recipe): Promise<number> {
+async function createMissingIngredients(uid: string, ai: AiRecipe): Promise<number> {
   const { firestore } = initializeFirebase();
   const snap = await firestore.collection('ingredients').get();
-  const known = new Set(
-    snap.docs.map((d) => normalizeText((d.data() as BaseIngredient).name ?? ''))
-  );
+  const conocidos = snap.docs
+    .map((d) => (d.data() as BaseIngredient).name)
+    .filter((n): n is string => !!n);
 
-  const nuevos = (recipe.ingredients ?? []).filter((i) => !known.has(normalizeText(i.name)));
+  const nuevos = newBaseIngredients(ai, conocidos);
   if (nuevos.length === 0) return 0;
 
   const batch = firestore.batch();
-  for (const i of nuevos) {
-    // Los macros por 100 g los trae el propio resultado de la IA; el esquema de
-    // receta no los lleva, así que se leen del objeto suelto que devuelve.
-    const raw = i as unknown as Record<string, number | undefined>;
-    batch.set(firestore.collection('ingredients').doc(), {
-      name: i.name,
-      calories: raw.calories ?? 0,
-      protein: raw.protein ?? 0,
-      carbs: raw.carbs ?? 0,
-      fat: raw.fat ?? 0,
-      fiber: raw.fiber ?? 0,
-      createdBy: uid,
-    });
+  for (const ing of nuevos) {
+    batch.set(firestore.collection('ingredients').doc(), { ...ing, createdBy: uid });
   }
   await batch.commit();
   return nuevos.length;
@@ -110,48 +100,46 @@ async function createMissingIngredients(uid: string, recipe: Recipe): Promise<nu
 /**
  * Guarda la receta en `users/{uid}/recipes` y cierra el trabajo.
  *
- * Se guarda tal cual la devolvió la IA, sin pasar por revisión: es lo que pidió
- * el usuario ("guardada como <nombre>"), y una receta guardada se edita o se
- * borra como cualquier otra. El cartel "NUEVA" y el aviso con el nombre son los
- * que la hacen encontrable.
+ * Se guarda sin pasar por revisión: es lo que pidió el usuario ("guardada como
+ * <nombre>"), y una receta guardada se edita o se borra como cualquier otra.
+ *
+ * Lo que se escribe sale de `aiRecipeToRecipe`, que recorta y **valida contra
+ * `RecipeSchema`**. Antes aquí se hacía `{ ...recetaDeLaIA }` y se colaban a
+ * Firestore campos que el resto de la app no espera (`esReceta`, y los macros
+ * por 100 g dentro de cada ingrediente, que solo deben vivir en el catálogo).
  */
 export async function finishImportJob(
   uid: string,
   jobId: string,
-  recipe: Recipe,
-  imageUrl?: string | null
+  ai: AiRecipe,
+  extra: { imageUrl?: string | null; sourceUrl?: string } = {}
 ): Promise<{ recipeId: string; recipeName: string }> {
   const { firestore } = initializeFirebase();
 
-  // Los alimentos primero: si falla, la receta se guarda igual (mismo criterio
-  // que tenía la pantalla de revisión).
+  // Se convierte ANTES de tocar nada: si la IA devolvió algo que no da para una
+  // receta, mejor fallar aquí que dejar el catálogo con alimentos huérfanos.
+  const receta = aiRecipeToRecipe(ai, extra);
+
+  // Los alimentos después, y sin bloquear: si falla, la receta se guarda igual
+  // (mismo criterio que tenía la pantalla de revisión).
   try {
-    await createMissingIngredients(uid, recipe);
+    await createMissingIngredients(uid, ai);
   } catch (e) {
     console.warn('[import-persist] no se pudieron crear alimentos nuevos:', e);
   }
 
   const ref = firestore.collection(`users/${uid}/recipes`).doc();
-  const toSave = {
-    ...recipe,
-    id: ref.id,
-    ...(imageUrl ? { imageUrl } : {}),
-    createdAt: new Date().toISOString(),
-  };
-  // El Admin SDK rechaza `undefined`; se quitan antes de escribir.
-  const limpio = Object.fromEntries(Object.entries(toSave).filter(([, v]) => v !== undefined));
-
-  await ref.set(limpio);
+  await ref.set({ ...receta, id: ref.id });
 
   await jobRef(uid, jobId).set(
     {
       status: 'done',
       recipeId: ref.id,
-      recipeName: recipe.name,
+      recipeName: receta.name,
       finishedAt: new Date().toISOString(),
     },
     { merge: true }
   );
 
-  return { recipeId: ref.id, recipeName: recipe.name };
+  return { recipeId: ref.id, recipeName: receta.name };
 }

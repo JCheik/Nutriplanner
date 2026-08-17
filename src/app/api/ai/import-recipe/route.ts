@@ -3,7 +3,6 @@ import { fetchSocialMetadata, SocialUrlError } from '@/lib/social-url';
 import { analyzeVideoFromUrl } from '@/lib/video-recipe';
 
 import { failImportJob, finishImportJob, startImportJob } from '@/lib/import-persist';
-import type { Recipe } from '@/lib/types';
 
 import { AiEndpointError, corsPreflight, runAiEndpoint } from '../_shared';
 
@@ -179,7 +178,11 @@ export function POST(req: Request) {
         // Guardar y cerrar el trabajo ocurre AQUÍ, dentro de la petición: en
         // Cloud Run la CPU solo está garantizada mientras la petición sigue en
         // vuelo, así que "responder y seguir trabajando" no sería fiable.
-        const saved = await finishImportJob(uid, jobId, out.recipe as Recipe, out.imageUrl);
+        const saved = await finishImportJob(uid, jobId, out.recipe, {
+          imageUrl: out.imageUrl,
+          // El enlace del post: la ficha de receta lo enseña para volver al original.
+          ...(body.url ? { sourceUrl: body.url } : {}),
+        });
         return { ...out, saved };
       } catch (e) {
         await failImportJob(

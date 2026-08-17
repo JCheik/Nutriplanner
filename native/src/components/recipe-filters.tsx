@@ -39,7 +39,14 @@ export interface RecipeFilterState {
   sort: SortKey;
 }
 
-export const EMPTY_FILTERS: RecipeFilterState = { categories: [], diets: [], sort: 'nombre' };
+/**
+ * Por defecto, **lo más nuevo primero**. Estaba en 'nombre', y por eso una receta
+ * recién importada caía en mitad del alfabeto y había que buscarla justo cuando
+ * menos sabes de ella. Las que no tienen fecha (todo lo anterior al campo, y el
+ * recetario de Nutrilp entero) quedan detrás, ordenadas por nombre entre ellas
+ * — así que para esa lista no cambia nada.
+ */
+export const EMPTY_FILTERS: RecipeFilterState = { categories: [], diets: [], sort: 'nuevas' };
 
 export function activeFilterCount(f: RecipeFilterState): number {
   return f.categories.length + f.diets.length;
