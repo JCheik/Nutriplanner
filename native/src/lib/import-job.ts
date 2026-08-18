@@ -75,6 +75,14 @@ function destino(recipeId?: string): Href {
   return recipeId ? { pathname: '/receta/[id]', params: { id: recipeId, global: '0' } } : { pathname: '/recetas' };
 }
 
+/**
+ * Todos los fallos de importar llevan al capítulo del Librito que explica cómo
+ * hacerlo. Un "no ha podido ser" a secas deja al usuario donde estaba: sabiendo
+ * que no funcionó y sin idea de qué hacer distinto. Y con Instagram el "qué
+ * hacer distinto" no es evidente ni adivinable.
+ */
+const AYUDA = { cta: 'Ver cómo se importa de Instagram y TikTok →', target: { pathname: '/librito' } as Href };
+
 export async function runImportJob(input: ImportInput): Promise<void> {
   const jobId = newJobId();
   startJob(
@@ -98,7 +106,7 @@ export async function runImportJob(input: ImportInput): Promise<void> {
     } else if (job.status === 'error') {
       stop();
       void forgetJob();
-      failJob('No ha podido ser', job.message ?? 'No se pudo importar la receta.');
+      failJob('No ha podido ser', job.message ?? 'No se pudo importar la receta.', AYUDA);
     }
   });
 
@@ -133,7 +141,7 @@ export async function runImportJob(input: ImportInput): Promise<void> {
         setPendingRecipe(res.recipe);
         finishJob(`"${res.recipe.name}" lista`, 'Toca para revisarla y guardarla.', { pathname: '/receta-nueva' });
       } else {
-        failJob('No ha podido ser', 'No he conseguido sacar una receta de ese vídeo.');
+        failJob('No ha podido ser', 'No he conseguido sacar una receta de ese vídeo.', AYUDA);
       }
       return;
     }
@@ -147,7 +155,7 @@ export async function runImportJob(input: ImportInput): Promise<void> {
       } catch {
         stop();
         await forgetJob();
-        failJob('No pude abrir esa imagen', 'Prueba a compartirla otra vez, o pega el texto de la receta.');
+        failJob('No pude abrir esa imagen', 'Prueba a compartirla otra vez, o pega el texto de la receta.', AYUDA);
         return;
       }
     }
@@ -174,7 +182,7 @@ export async function runImportJob(input: ImportInput): Promise<void> {
     }
 
     if (!result?.recipe) {
-      failJob('No ha podido ser', 'No he conseguido sacar una receta de ahí.');
+      failJob('No ha podido ser', 'No he conseguido sacar una receta de ahí.', AYUDA);
       return;
     }
 
@@ -213,6 +221,6 @@ export async function runImportJob(input: ImportInput): Promise<void> {
       return;
     }
     await forgetJob();
-    failJob('No ha podido ser', e instanceof Error ? e.message : 'No se pudo importar la receta.');
+    failJob('No ha podido ser', e instanceof Error ? e.message : 'No se pudo importar la receta.', AYUDA);
   }
 }

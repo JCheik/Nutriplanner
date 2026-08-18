@@ -46,7 +46,21 @@ export type JobTarget = Href;
 export type BackgroundJob =
   | { status: 'working'; title: string }
   | { status: 'done'; title: string; cta: string; target: JobTarget }
-  | { status: 'error'; title: string; message: string };
+  | {
+      status: 'error';
+      title: string;
+      message: string;
+      /**
+       * A dónde mandar al usuario para que sepa qué hacer, si es que hay un
+       * sitio. Lo usa el fallo de importar un enlace de Instagram/TikTok: el
+       * mensaje explica el problema, y esto lleva al capítulo del Librito con
+       * los pasos. Un error que solo dice "no ha podido ser" deja al usuario en
+       * el mismo sitio que no decir nada.
+       */
+      target?: JobTarget;
+      /** Texto del enlace del error. Solo tiene sentido junto a `target`. */
+      cta?: string;
+    };
 
 let job: BackgroundJob | null = null;
 const listeners = new Set<() => void>();
@@ -99,8 +113,8 @@ export function finishJob(title: string, cta: string, target: JobTarget) {
   emit();
 }
 
-export function failJob(title: string, message: string) {
-  job = { status: 'error', title, message };
+export function failJob(title: string, message: string, ayuda?: { cta: string; target: JobTarget }) {
+  job = { status: 'error', title, message, ...(ayuda ?? {}) };
   releaseGuards();
   // También cuando falla: enterarse de que NO hay receta importa tanto como lo
   // contrario, y si no se avisa el usuario la da por guardada.

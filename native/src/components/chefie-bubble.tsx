@@ -29,6 +29,12 @@ export function ChefieBubble() {
 
   const onPress = () => {
     if (working) return; // trabajando: la burbuja no hace nada
+    if (job.status === 'error' && job.target) {
+      const target = job.target;
+      clearJob();
+      router.push(target);
+      return;
+    }
     if (job.status === 'done') {
       const target = job.target;
       clearJob();
@@ -71,6 +77,10 @@ export function ChefieBubble() {
           </Text>
           <Text numberOfLines={2} style={{ fontSize: 11, color: c.inkSoft, fontFamily: Fonts.sans, lineHeight: 15 }}>
             {working ? 'Te aviso en cuanto esté.' : done ? job.cta : job.message}
+            {job.status === 'error' && job.cta ? (
+              <Text style={{ color: c.terra, fontWeight: '700' }}>{`
+${job.cta}`}</Text>
+            ) : null}
           </Text>
         </View>
         {working ? (

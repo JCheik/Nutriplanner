@@ -29,41 +29,49 @@ export const LIBRITO_CHAPTERS: LibritoChapter[] = [
   {
     id: 'redes',
     title: 'Importar recetas de una web, Instagram, TikTok o YouTube',
-    subtitle: 'Cómo funciona y qué revisar siempre',
+    subtitle: 'Cada sitio va distinto — aquí el porqué',
     intro:
-      'Saco nombre, ingredientes y pasos de cualquier enlace. Si es una web de recetas suele traerla ya estructurada y sale clavada; si es un vídeo, me lo miro entero. Hay dos formas de pasármelo:',
+      'Saco nombre, ingredientes y pasos de lo que me pases. Pero no todos los sitios dejan lo mismo, y conviene saber cuál es cuál para no pelearse con ello:',
     bullets: [
       {
-        lead: 'Desde el móvil, sin salir de donde estés: compartir.',
-        text: 'Es la cómoda, y la que casi nadie descubre sola. Estás viendo la receta en Instagram, TikTok, YouTube o el navegador, le das al botón de compartir de ESA app, buscas Nutrilp en la lista de «Compartir en» y la tocas. No hace falta ni abrir Nutrilp. Si no la ves en la lista, desliza hasta el final y toca «Más».',
+        lead: 'Webs de recetas y YouTube: comparte el enlace y ya está.',
+        text: 'Le das a compartir en esa app o en el navegador, buscas Nutrilp en la lista y la tocas. No hace falta ni abrir Nutrilp: me pongo con ella y te aviso. Las webs de recetas suelen traerla ya estructurada y sale clavada; de YouTube me veo el vídeo entero.',
       },
       {
-        lead: 'O pegando el enlace.',
-        text: 'En Nueva receta → «De un enlace o compartida». Copias la dirección, la pegas ahí y listo. Vale también si tienes la receta copiada como texto en vez de como enlace.',
+        lead: 'Instagram y TikTok: comparte el VÍDEO, no el enlace.',
+        text: 'Estas dos no dejan leer sus publicaciones desde fuera: del enlace lo único que recibo es la palabra «Instagram». No es un fallo de Nutrilp, es una decisión suya, y no hay forma de saltársela. Lo que sí funciona es pasarme el vídeo: ahí escucho lo que dicen y leo lo que sale en pantalla, que es donde está la receta.',
       },
       {
-        lead: 'Venga como venga, la revisas tú.',
-        text: 'Nunca se guarda nada sin que lo confirmes: al terminar se enseña la receta montada y decides. Cuatro cosas que conviene mirar antes de darle a guardar:',
+        lead: 'Cómo pasarme el vídeo, paso a paso.',
+        text: 'En TikTok: Compartir → «Guardar vídeo», y luego lo compartes conmigo desde la galería. En Instagram: si el reel es de una cuenta pública, prueba los tres puntos (⋯) → «Descargar»; si esa opción no aparece, graba la pantalla mientras se reproduce y compárteme la grabación. Vale igual.',
+      },
+      {
+        lead: 'Si la receta está ESCRITA en el pie, hay un atajo.',
+        text: 'Cuando el post trae los ingredientes escritos debajo, no hace falta el vídeo: hazle una captura de pantalla donde se lea el texto y compártemela. La leo igual de bien y es más rápido que descargar nada.',
+      },
+      {
+        lead: 'La guardo yo, pero revísala tú.',
+        text: 'Cuando termino, la receta entra directa en Mis recetas con el cartel NUEVA, y el aviso te la abre de un toque. Lo hago así para que no se pierda si cierras la app a medias. Pero repásala antes de fiarte de sus números:',
       },
       {
         lead: 'Las raciones, lo primero.',
-        text: 'Si la receta era para ocho y se guarda como una, todos los macros salen ocho veces más altos. Compruébalo antes de guardar.',
+        text: 'Si la receta era para ocho y se guarda como una, todos los macros salen ocho veces más altos. Se corrige desde la propia receta, con el botón de editar.',
       },
       {
         lead: 'Cantidades ambiguas.',
-        text: 'Si dicen «verdura al gusto» o «un chorrito», la IA tiene que adivinar una cantidad — no existe en ninguna base de datos. Ajusta a lo que tú vayas a poner de verdad.',
+        text: 'Si dicen “verdura al gusto” o “un chorrito”, he tenido que adivinar una cantidad. Ajusta a lo que tú vayas a poner de verdad.',
       },
       {
         lead: 'Ingredientes que varían mucho.',
-        text: 'Una «salsa casera» o un «aliño especial» puede tener macros muy distintos según quién lo haga. Si te importa la precisión, sustitúyelo por algo del catálogo que se le parezca.',
+        text: 'Una “salsa casera” puede tener macros muy distintos según quién la haga. Si te importa la precisión, sustitúyela por algo del catálogo que se le parezca.',
       },
       {
         lead: 'Marcas y productos concretos.',
-        text: 'Si usan un producto de marca, búscalo por su nombre en el buscador de productos (o teclea ahí el número de su código de barras): esos datos salen de la etiqueta y son más fiables que la estimación de la IA.',
+        text: 'Si usan un producto de marca, búscalo en “Producto del súper”: esos datos salen de la etiqueta y son más fiables que mi estimación.',
       },
     ],
     outro:
-      'La importación te ahorra el tecleo, pero la revisión final la haces tú. Es tu receta, no la del vídeo.',
+      'Resumiendo: enlace para webs y YouTube, vídeo para Instagram y TikTok, captura si la receta está escrita. Y la revisión final la haces tú — es tu receta, no la del vídeo.',
   },
   {
     id: 'macros',
